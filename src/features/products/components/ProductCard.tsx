@@ -1,0 +1,278 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
+import { slugify, getImageUrl } from "@/shared/utils/helpers";
+import { resolveHex } from "@/shared/utils/colorHelpers";
+import "./ProductCard.css";
+
+interface Props {
+  product: any;
+  onQuickShop: (id: number) => void;
+  onRemove?: () => void;
+  showColors?: boolean;
+  showDiscountTag?: boolean;
+}
+
+export default function ProductCard({
+  product,
+  onQuickShop,
+  onRemove,
+  showColors = true,
+  showDiscountTag = true,
+}: Props) {
+  const navigate = useNavigate();
+  const [selectedVariant, setSelectedVariant] = useState(product);
+
+  useEffect(() => {
+    setSelectedVariant(product);
+  }, [product.productId]);
+
+  const {
+    inWishlist,
+    toggle: toggleWishlist,
+    isPending,
+  } = useWishlistToggle(selectedVariant.productVariantId);
+
+  const handleColorChange = (variantId: number) => {
+    const variant = product.allVariants?.find(
+      (v: any) => v.productVariantId === variantId,
+    );
+    if (!variant) return;
+    setSelectedVariant({
+      ...variant,
+      price: variant.price ?? variant.finalPrice,
+      oldPrice: variant.oldPrice ?? variant.mrpPrice,
+    });
+  };
+
+  const handleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist({
+      productId: selectedVariant.productId || product.productId,
+      productVariantId: selectedVariant.productVariantId,
+      productVariantDetailId:
+        selectedVariant.productVariantDetailId ||
+        product.productVariantDetailId,
+      name: selectedVariant.name || selectedVariant.productName || product.name,
+      price: selectedVariant.price || selectedVariant.finalPrice,
+      oldPrice: selectedVariant.oldPrice || selectedVariant.mrpPrice,
+      image:
+        selectedVariant.image ||
+        selectedVariant.imageURL ||
+        selectedVariant.imageUrl ||
+        selectedVariant.selectedImage ||
+        "",
+      color: selectedVariant.colorName || selectedVariant.color || "",
+    });
+  };
+
+  const shareProduct = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/user-products/product-detail/${selectedVariant.productVariantId}/${slugify(selectedVariant.name || "")}`;
+    try {
+      if (navigator.share)
+        await navigator.share({ title: selectedVariant.name, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied!");
+      }
+    } catch {}
+  };
+
+  const goToDetail = () =>
+    navigate(
+      `/user-products/product-detail/${selectedVariant.productVariantId}/${slugify(
+        selectedVariant.name || selectedVariant.productName || "",
+      )}`,
+    );
+
+  const price = selectedVariant.price ?? selectedVariant.finalPrice ?? 0;
+  const oldPrice = selectedVariant.oldPrice ?? selectedVariant.mrpPrice ?? 0;
+  const imgSrc = getImageUrl(
+    selectedVariant.image ||
+      selectedVariant.imageURL ||
+      selectedVariant.imageUrl ||
+      selectedVariant.selectedImage ||
+      "",
+  );
+  const hasDiscount = Boolean(oldPrice && oldPrice > price);
+  const discountPct = hasDiscount
+    ? Math.round(((oldPrice - price) / oldPrice) * 100)
+    : 0;
+  const reviewCount = product.reviewCount || product.totalReviews || 0;
+  const rating = Number(product.rating || 0);
+
+  const colorVariants: { id: number; colorName: string; colorHex: string }[] =
+    product.allVariants?.length > 1
+      ? product.allVariants.map((v: any) => ({
+          id: v.productVariantId,
+          colorName: v.colorName ?? v.color ?? "",
+          colorHex: resolveHex(v.colorHex ?? v.color),
+        }))
+      : product.colorName || product.color
+        ? [
+            {
+              id: product.productVariantId,
+              colorName: product.colorName ?? product.color,
+              colorHex: resolveHex(product.colorHex ?? product.color),
+            },
+          ]
+        : [];
+
+  return (
+    <div className="pc-wrap">
+      <div className="pc-card" onClick={goToDetail}>
+        {/* ── LAYER 1: BACK RING ── */}
+        {/* Rendered lowest in the stack, so it goes behind the solid background */}
+        {showDiscountTag && discountPct > 0 && <div className="dt-ring-back" />}
+
+        {/* ── LAYER 2: SOLID CARD BACKGROUND ── */}
+        {/* This explicitly hides the right half of the back ring */}
+        <div className="pc-card-solid-bg" />
+
+        {/* ── LAYER 3: PRODUCT CONTENT ── */}
+        <div className="pc-content-wrapper">
+          <div className="pc-image-wrap">
+            <img
+              src={imgSrc}
+              alt={selectedVariant.name || product.name}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/assets/category-bg.png";
+              }}
+            />
+
+            <div className="pc-actions">
+              <button
+                className={`pc-action-btn${inWishlist ? " active" : ""}`}
+                onClick={handleWishlist}
+                disabled={isPending}
+                title={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+              >
+                <i
+                  className={`bi ${inWishlist ? "bi-heart-fill" : "bi-heart"}`}
+                />
+              </button>
+              <button
+                className="pc-action-btn"
+                onClick={shareProduct}
+                title="Share"
+              >
+                <i className="bi bi-share" />
+              </button>
+            </div>
+          </div>
+
+          <div className="pc-body">
+            {showColors && colorVariants.length > 0 && (
+              <div className="pc-swatches" onClick={(e) => e.stopPropagation()}>
+                {colorVariants.slice(0, 6).map((v) => (
+                  <span
+                    key={v.id}
+                    className={`pc-swatch-dot${selectedVariant.productVariantId === v.id ? " selected" : ""}`}
+                    title={v.colorName}
+                    style={{ background: v.colorHex }}
+                    onClick={() => handleColorChange(v.id)}
+                  />
+                ))}
+                {colorVariants.length > 6 && (
+                  <span className="pc-swatch-more">
+                    +{colorVariants.length - 6}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="pc-row-brand">
+              <span className="pc-brand">{product.brandName || "\u00A0"}</span>
+              {hasDiscount && (
+                <span className="pc-mrp">
+                  ₹{Number(oldPrice).toLocaleString("en-IN")}
+                </span>
+              )}
+            </div>
+
+            <div className="pc-row-name">
+              <h4
+                className="pc-name"
+                title={selectedVariant.name || product.name}
+              >
+                {selectedVariant.name || product.name}
+              </h4>
+              <span
+                className={`pc-price${!hasDiscount ? " pc-price--full" : ""}`}
+              >
+                ₹
+                {Number(hasDiscount ? price : oldPrice || price).toLocaleString(
+                  "en-IN",
+                )}
+              </span>
+            </div>
+
+            <div className="pc-row-bottom">
+              <div className="pc-rating">
+                <span className="pc-rating-star">★</span>
+                <span className="pc-rating-score">{rating.toFixed(1)}</span>
+                {reviewCount > 0 && (
+                  <span className="pc-rating-count">
+                    (
+                    {reviewCount >= 1000
+                      ? `${(reviewCount / 1000).toFixed(1)}k`
+                      : reviewCount}
+                    )
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  className="pc-quick-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onQuickShop(selectedVariant.productVariantId);
+                  }}
+                >
+                  <i className="bi bi-cart3 pc-cart-icon" />
+                  QUICK ADD
+                </button>
+                {onRemove && (
+                  <button
+                    className="pc-remove-btn"
+                    title="Remove from wishlist"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove();
+                    }}
+                  >
+                    <i className="bi bi-trash3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── LAYER 4: FRONT KEYCHAIN SYSTEM ── */}
+        {showDiscountTag && discountPct > 0 && (
+          <div className="dt-front-container">
+            <div className="dt-eyelet" />
+            <div className="dt-ring-front" />
+
+            <div className="dt-tag-wrapper">
+              <div className="dt-conn-back" />
+              <div className="dt-tag">
+                <div className="dt-tag-hole" />
+                <div className="dt-text">
+                  <span className="dt-pct">{discountPct}%</span>
+                  <span className="dt-off">OFF</span>
+                </div>
+              </div>
+              <div className="dt-conn-front" />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

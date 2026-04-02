@@ -1,0 +1,119 @@
+import { Outlet, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/features/auth/store/authStore';
+
+// Role label map — Record<number,string> avoids ts(7053) implicit-any index error
+const ROLE_LABELS: Record<number, string> = {
+  1: 'Super Admin',
+  3: 'Inventory Manager',
+  4: 'Product Manager',
+  5: 'Order Manager',
+  6: 'Customer Support',
+};
+
+// Full nav pool — each item carries the roles allowed to see it
+const ALL_NAV = [
+  { path: '/admin/admin-dashboard', icon: 'bi-speedometer2',    label: 'Dashboard',        roles: [1,3,4,5,6] },
+  { path: '/admin/orders',          icon: 'bi-bag-check',        label: 'Orders',           roles: [1,5,6] },
+  { path: '/admin/products',        icon: 'bi-box-seam',         label: 'Products',         roles: [1,3,4] },
+  { path: '/admin/categories',      icon: 'bi-folder',           label: 'Categories',       roles: [1,4] },
+  { path: '/admin/brands',          icon: 'bi-bookmark-star',    label: 'Brands',           roles: [1,4] },
+  { path: '/admin/sizes',           icon: 'bi-rulers',           label: 'Sizes',            roles: [1,3] },
+  { path: '/admin/inventory',       icon: 'bi-clipboard-data',   label: 'Inventory',        roles: [1,3] },
+  { path: '/admin/coupons',         icon: 'bi-ticket-perforated',label: 'Coupons',          roles: [1,5] },
+  { path: '/admin/support',         icon: 'bi-headset',          label: 'Support Requests', roles: [1,6] },
+  { path: '/admin/users',           icon: 'bi-people',           label: 'Users',            roles: [1] },
+  { path: '/admin/blog',            icon: 'bi-newspaper',        label: 'Blog',             roles: [1] },
+  { path: '/admin/reports',         icon: 'bi-bar-chart-line',   label: 'Reports',          roles: [1,5] },
+  { path: '/admin/api-tester',      icon: 'bi-bug',              label: 'API Tester',       roles: [1] },
+];
+
+export default function AdminLayout() {
+  const { isAuthenticated, isAdmin, getUserName, logout, user } = useAuthStore();
+  const navigate = useNavigate();
+  const roleId: number = (user as any)?.roleId ?? 0;
+
+  // Redirect if not authenticated or not a staff role
+  if (!isAuthenticated || !isAdmin) return <Navigate to="/login" replace />;
+
+  // Filter nav items to only those the current role can see
+  const NAV = ALL_NAV.filter(item => item.roles.includes(roleId));
+  const roleLabel = ROLE_LABELS[roleId] ?? 'Admin';
+
+  const goToStore = () => {
+    sessionStorage.setItem('adminViewingStore', 'true');
+    navigate('/');
+  };
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f5f6fa' }}>
+
+      {/* ── Sidebar ── */}
+      <aside style={{ width: 240, background: '#111', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+
+        {/* Logo */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
+          <img src="/assets/Twam-Logo-Black.png" alt="TWAM"
+            style={{ height: 36, filter: 'brightness(0) invert(1)' }}
+            onError={e => {
+              const t = e.target as HTMLImageElement;
+              t.style.display = 'none';
+              const span = document.createElement('span');
+              span.textContent = 'TWAM Admin';
+              span.style.cssText = 'color:#fff;font-weight:800;font-size:16px;letter-spacing:2px';
+              t.parentNode?.insertBefore(span, t);
+            }} />
+          <p style={{ color: '#888', fontSize: 11, margin: '4px 0 0', textTransform: 'uppercase', letterSpacing: 1 }}>
+            {roleLabel}
+          </p>
+        </div>
+
+        {/* Role-filtered navigation */}
+        <nav style={{ flex: 1, padding: '12px 0' }}>
+          {NAV.map(item => (
+            <NavLink key={item.path} to={item.path}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '11px 20px', textDecoration: 'none',
+                color: isActive ? '#fff' : '#aaa',
+                background: isActive ? 'rgba(106,1,42,.6)' : 'transparent',
+                borderLeft: isActive ? '3px solid #6A012A' : '3px solid transparent',
+                fontSize: 13, transition: 'all .15s',
+              })}>
+              <i className={`bi ${item.icon}`} style={{ width: 18, textAlign: 'center', flexShrink: 0 }} />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* User footer */}
+        <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,.1)' }}>
+          <p style={{ color: '#888', fontSize: 12, margin: '0 0 2px' }}>Signed in as</p>
+          <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: '0 0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {getUserName()}
+          </p>
+          <button onClick={goToStore}
+            style={{ width: '100%', background: 'rgba(255,255,255,.07)', color: '#ccc', border: '1px solid rgba(255,255,255,.12)', padding: '7px', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 8, fontFamily: 'inherit' }}>
+            <i className="bi bi-shop" /> View Store
+          </button>
+          <button onClick={() => { logout(); navigate('/login'); }}
+            style={{ width: '100%', background: 'rgba(229,57,53,.15)', color: '#ef9a9a', border: '1px solid rgba(229,57,53,.3)', padding: '7px', borderRadius: 6, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', fontFamily: 'inherit' }}>
+            <i className="bi bi-box-arrow-right" /> Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <main style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ background: '#fff', padding: '14px 24px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111' }}>TWAM Admin</h1>
+          <span style={{ fontSize: 12, background: '#f5f5f5', padding: '4px 12px', borderRadius: 20, color: '#555' }}>
+            {roleLabel}
+          </span>
+        </div>
+        <div style={{ padding: 24 }}>
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  );
+}
