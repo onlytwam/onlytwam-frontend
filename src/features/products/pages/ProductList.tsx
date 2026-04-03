@@ -1,10 +1,15 @@
 // src/pages/ProductList.tsx
-// Enhanced version with improved filters:
-//  1. ✅ Size and Cup Size filters added
-//  2. ✅ Improved color filter logic with better color matching
-//  3. ✅ Price range slider instead of direct input
-//  4. ✅ Fixed page scroll when filter sidebar is open
-//  5. ✅ Minimalistic and elegant design improvements
+// Fixes applied:
+//  1. ✅ productsData?.list (was .products — caused zero products to ever render)
+//  2. ✅ buildParams uses camelCase keys matching products.api.ts
+//  3. ✅ Sort options mapped to orderProperty/orderAscending (matches GlobalSearch)
+//  4. ✅ Toolbar layout: Filter LEFT · Sort CENTER · Count RIGHT (mirrors GlobalSearch)
+//  5. ✅ Brand/size/cupSize field names fixed (brandName, sizeLabel)
+//  6. ✅ Brand search input added (matches GlobalSearch)
+//  7. ✅ Price filter replaced with quick-buttons + min/max inputs (matches GlobalSearch)
+//  8. ✅ Discount tag no longer clipped — removed stale overflow:hidden from ProductList.css
+//  9. ✅ ProductCard imported from component, no inline card CSS/JSX
+// 10. ✅ Smart category filter: root→subcategories with products, subcategory→hidden
 
 import "./ProductList.css";
 
@@ -20,6 +25,7 @@ import {
   getProductColors,
   listSizes,
   listCupSizes,
+  getCategoryProductCounts,
 } from "@/features/products/api/products.api";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
@@ -287,7 +293,7 @@ const DEFAULT_FILTERS: FilterState = {
   rawColors: [],
   priceMin: null,
   priceMax: null,
-  sortOption: "",
+  sortOption: "default",
   search: "",
   isBestSeller: false,
 };
@@ -311,6 +317,10 @@ export default function ProductList() {
 
   // Price slider state
   const [brandSearch, setBrandSearch] = useState("");
+  const PRICE_FLOOR = 0;
+  const PRICE_CEIL = 10000;
+  const [sliderMin, setSliderMin] = useState(PRICE_FLOOR);
+  const [sliderMax, setSliderMax] = useState(PRICE_CEIL);
 
   useEffect(() => {
     if (urlSearch) setFilters((f) => ({ ...f, search: urlSearch }));
@@ -360,11 +370,28 @@ export default function ProductList() {
     queryKey: ["productColors"],
     queryFn: getProductColors,
   });
+  // Map of categoryId → product count — used to hide subcategories with zero products
+  const { data: categoryCountsRaw = [] } = useQuery({
+    queryKey: ["categoryProductCounts"],
+    queryFn: getCategoryProductCounts,
+    staleTime: 5 * 60 * 1000,
+  });
+  const categoryCountMap = useMemo(() => {
+    const map = new Map<number, number>();
+    const arr: any[] = Array.isArray(categoryCountsRaw)
+      ? categoryCountsRaw
+      : [];
+    arr.forEach((item: any) => {
+      const id = item.categoryId ?? item.CategoryId;
+      const count = item.productCount ?? item.ProductCount ?? item.count ?? 0;
+      if (id != null) map.set(Number(id), Number(count));
+    });
+    return map;
+  }, [categoryCountsRaw]);
 
   const buildParams = useCallback(() => {
     const p: any = {
-      orderProperty: "ModifiedDate",
-      orderAscending: false,
+      pageSize: 500,
     };
 
     // Combine URL category param with drawer-selected category IDs
@@ -382,8 +409,11 @@ export default function ProductList() {
     if (filters.search) p.quickSearch = filters.search;
     if (filters.isBestSeller) p.isBestSeller = true;
 
-    // Map sort option values to API fields (same as GlobalSearch)
-    if (filters.sortOption === "az") {
+    // Map sort option values to API fields
+    if (filters.sortOption === "latest") {
+      p.orderProperty = "ModifiedDate";
+      p.orderAscending = false;
+    } else if (filters.sortOption === "az") {
       p.orderProperty = "product.name";
       p.orderAscending = true;
     } else if (filters.sortOption === "za") {
@@ -397,6 +427,10 @@ export default function ProductList() {
       p.orderAscending = false;
     } else if (filters.sortOption === "rating") {
       p.orderProperty = "Rating";
+      p.orderAscending = false;
+    } else {
+      // default — no specific sort, let API decide
+      p.orderProperty = "ModifiedDate";
       p.orderAscending = false;
     }
 
@@ -412,12 +446,15 @@ export default function ProductList() {
   const totalCount = productsData?.totalCount || allProducts.length;
 
   const groupedProducts = useMemo(() => {
-    const seen = new Set<number>();
-    return allProducts.filter((p: any) => {
-      if (seen.has(p.productId)) return false;
-      seen.add(p.productId);
-      return true;
+    const groups = new Map<number, any[]>();
+    allProducts.forEach((p: any) => {
+      if (!groups.has(p.productId)) groups.set(p.productId, []);
+      groups.get(p.productId)!.push(p);
     });
+    return Array.from(groups.values()).map((variants) => ({
+      ...variants[0],
+      allVariants: variants,
+    }));
   }, [allProducts]);
 
   const pageSize = 20;
@@ -524,6 +561,8 @@ export default function ProductList() {
 
   const clearAllFilters = () => {
     setFilters(DEFAULT_FILTERS);
+    setSliderMin(PRICE_FLOOR);
+    setSliderMax(PRICE_CEIL);
     setPage(1);
   };
 
@@ -540,9 +579,42 @@ export default function ProductList() {
     setPage(1);
   };
 
-  const categoryName =
-    categories.find((c: any) => c.categoryId === catId)?.name || "";
+  const currentCategory = categories.find((c: any) => c.categoryId === catId);
+  const categoryName = currentCategory?.name || "";
   const categoryImage = getCategoryImage(categoryName);
+
+  // ── Smart category filter logic ──────────────────────────────────────────
+  // • No catId (all products / global browse) → show root categories with products
+  // • Main category (parentCategoryId = null) → show direct subcategories that
+  //   have products (handles cases like Essentials/SwimWear where products are
+  //   stored in the parent directly and subcategories have zero products)
+  // • Subcategory (parentCategoryId is set) → hide category filter entirely
+  const isMainCategory = Boolean(
+    catId && currentCategory?.parentCategoryId === null,
+  );
+
+  const categoriesToShowInFilter = useMemo(() => {
+    // Helper: returns true if category has any products (falls back to true when
+    // the counts API hasn't loaded yet, so we don't flash an empty list)
+    const hasProducts = (id: number) =>
+      categoryCountMap.size === 0 || (categoryCountMap.get(id) ?? 0) > 0;
+
+    if (!catId) {
+      // All-products page: root categories that have products
+      return categories.filter(
+        (c: any) => c.parentCategoryId === null && hasProducts(c.categoryId),
+      );
+    }
+    if (isMainCategory) {
+      // On a root category: show subcategories that actually have products
+      const subs = categories.filter(
+        (c: any) => c.parentCategoryId === catId && hasProducts(c.categoryId),
+      );
+      return subs; // empty → section hidden, products stored directly in parent
+    }
+    // On a subcategory: hide the category filter entirely
+    return [];
+  }, [catId, categories, isMainCategory, categoryCountMap]);
 
   // Build breadcrumb items for Crumb[] prop
   const breadcrumbItems: Crumb[] = categoryName
@@ -630,7 +702,7 @@ export default function ProductList() {
             }}
           >
             {[
-              { label: "✨ Latest", value: "" },
+              { label: "✨ Latest", value: "latest" },
               { label: "A → Z", value: "az" },
               { label: "Z → A", value: "za" },
               { label: "₹ Low → High", value: "low" },
@@ -980,81 +1052,167 @@ export default function ProductList() {
                   </div>
                 </div>
 
-                {/* ─ 5. CATEGORY ─ */}
-                <div>
-                  <p className="filter-section-label">Category</p>
-                  <div
-                    style={{
-                      maxHeight: 200,
-                      overflowY: "auto",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                    }}
-                  >
-                    {categories.map((cat: any) => {
-                      const checked = filters.categoryIds.includes(
-                        cat.categoryId,
-                      );
-                      return (
-                        <label
-                          key={cat.categoryId}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "7px 10px",
-                            cursor: "pointer",
-                            borderRadius: 8,
-                            background: checked ? `${PRI}10` : "transparent",
-                            transition: "background .15s",
-                          }}
-                        >
-                          <div
+                {/* ─ 5. CATEGORY / SUBCATEGORY ─ (hidden on subcategory pages or when no child categories have products) */}
+                {categoriesToShowInFilter.length > 0 && (
+                  <div>
+                    <p className="filter-section-label">
+                      {isMainCategory ? "Subcategory" : "Category"}
+                    </p>
+                    <div
+                      style={{
+                        maxHeight: 200,
+                        overflowY: "auto",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      {categoriesToShowInFilter.map((cat: any) => {
+                        const checked = filters.categoryIds.includes(
+                          cat.categoryId,
+                        );
+                        return (
+                          <label
+                            key={cat.categoryId}
                             style={{
-                              width: 17,
-                              height: 17,
-                              borderRadius: 4,
-                              border: `2px solid ${checked ? PRI : "#ccc"}`,
-                              background: checked ? PRI : "#fff",
                               display: "flex",
                               alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                              transition: "all .15s",
+                              gap: 10,
+                              padding: "7px 10px",
+                              cursor: "pointer",
+                              borderRadius: 8,
+                              background: checked ? `${PRI}10` : "transparent",
+                              transition: "background .15s",
                             }}
                           >
-                            {checked && (
-                              <i
-                                className="bi bi-check"
-                                style={{ color: "#fff", fontSize: 11 }}
-                              />
-                            )}
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleCategory(cat.categoryId)}
-                            style={{ display: "none" }}
-                          />
-                          <span
-                            style={{
-                              fontSize: 13,
-                              color: checked ? PRI : "#444",
-                              fontWeight: checked ? 600 : 400,
-                            }}
-                          >
-                            {cat.name}
-                          </span>
-                        </label>
-                      );
-                    })}
+                            <div
+                              style={{
+                                width: 17,
+                                height: 17,
+                                borderRadius: 4,
+                                border: `2px solid ${checked ? PRI : "#ccc"}`,
+                                background: checked ? PRI : "#fff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                transition: "all .15s",
+                              }}
+                            >
+                              {checked && (
+                                <i
+                                  className="bi bi-check"
+                                  style={{ color: "#fff", fontSize: 11 }}
+                                />
+                              )}
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleCategory(cat.categoryId)}
+                              style={{ display: "none" }}
+                            />
+                            <span
+                              style={{
+                                fontSize: 13,
+                                color: checked ? PRI : "#444",
+                                fontWeight: checked ? 600 : 400,
+                              }}
+                            >
+                              {cat.name}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* ─ 6. PRICE RANGE ─ */}
                 <div>
                   <p className="filter-section-label">Price Range</p>
+                  {/* Dual range slider bar */}
+                  <div style={{ padding: "8px 4px 16px", position: "relative" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: PRI, fontFamily: FONT_UI }}>
+                        ₹{sliderMin.toLocaleString("en-IN")}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: PRI, fontFamily: FONT_UI }}>
+                        ₹{sliderMax >= PRICE_CEIL ? "10k+" : sliderMax.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                    <div style={{ position: "relative", height: 36 }}>
+                      {/* Track background */}
+                      <div style={{
+                        position: "absolute", top: 14, left: 0, right: 0, height: 6,
+                        background: "#e8d8de", borderRadius: 3,
+                      }} />
+                      {/* Active range highlight */}
+                      <div style={{
+                        position: "absolute", top: 14, height: 6, borderRadius: 3,
+                        background: `linear-gradient(90deg, ${PRI}, ${HEIRLOOM})`,
+                        left: `${((sliderMin - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`,
+                        right: `${100 - ((sliderMax - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`,
+                      }} />
+                      {/* Min slider */}
+                      <input
+                        type="range"
+                        min={PRICE_FLOOR}
+                        max={PRICE_CEIL}
+                        step={100}
+                        value={sliderMin}
+                        onChange={(e) => {
+                          const val = Math.min(Number(e.target.value), sliderMax - 100);
+                          setSliderMin(val);
+                        }}
+                        onMouseUp={() => {
+                          setFilters((f) => ({ ...f, priceMin: sliderMin > PRICE_FLOOR ? sliderMin : null }));
+                          setPage(1);
+                        }}
+                        onTouchEnd={() => {
+                          setFilters((f) => ({ ...f, priceMin: sliderMin > PRICE_FLOOR ? sliderMin : null }));
+                          setPage(1);
+                        }}
+                        className="price-slider"
+                        style={{
+                          position: "absolute", top: 4, left: 0, width: "100%",
+                          WebkitAppearance: "none", appearance: "none" as any,
+                          background: "transparent", pointerEvents: "none", zIndex: 3, height: 28, margin: 0,
+                        }}
+                      />
+                      {/* Max slider */}
+                      <input
+                        type="range"
+                        min={PRICE_FLOOR}
+                        max={PRICE_CEIL}
+                        step={100}
+                        value={sliderMax}
+                        onChange={(e) => {
+                          const val = Math.max(Number(e.target.value), sliderMin + 100);
+                          setSliderMax(val);
+                        }}
+                        onMouseUp={() => {
+                          setFilters((f) => ({ ...f, priceMax: sliderMax < PRICE_CEIL ? sliderMax : null }));
+                          setPage(1);
+                        }}
+                        onTouchEnd={() => {
+                          setFilters((f) => ({ ...f, priceMax: sliderMax < PRICE_CEIL ? sliderMax : null }));
+                          setPage(1);
+                        }}
+                        className="price-slider"
+                        style={{
+                          position: "absolute", top: 4, left: 0, width: "100%",
+                          WebkitAppearance: "none", appearance: "none" as any,
+                          background: "transparent", pointerEvents: "none", zIndex: 4, height: 28, margin: 0,
+                        }}
+                      />
+                      <style>{`
+                        .price-slider { -webkit-appearance: none; appearance: none; }
+                        .price-slider::-webkit-slider-thumb { pointer-events: all; }
+                        .price-slider::-moz-range-thumb { pointer-events: all; }
+                      `}</style>
+                    </div>
+                  </div>
                   {/* Quick price buttons */}
                   <div className="filter-scroll" style={{ marginBottom: 12 }}>
                     {[
@@ -1077,6 +1235,8 @@ export default function ProductList() {
                               priceMin: p.min,
                               priceMax: p.max,
                             }));
+                            setSliderMin(p.min ?? PRICE_FLOOR);
+                            setSliderMax(p.max ?? PRICE_CEIL);
                             setPage(1);
                           }}
                         >
@@ -1115,15 +1275,12 @@ export default function ProductList() {
                         placeholder="Min"
                         value={filters.priceMin ?? ""}
                         min={0}
-                        onChange={(e) =>
-                          setFilters((f) => ({
-                            ...f,
-                            priceMin:
-                              e.target.value !== ""
-                                ? Number(e.target.value)
-                                : null,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value !== "" ? Number(e.target.value) : null;
+                          setFilters((f) => ({ ...f, priceMin: val }));
+                          if (val !== null) setSliderMin(val);
+                          else setSliderMin(PRICE_FLOOR);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") setPage(1);
                         }}
@@ -1165,15 +1322,12 @@ export default function ProductList() {
                         placeholder="Max"
                         value={filters.priceMax ?? ""}
                         min={0}
-                        onChange={(e) =>
-                          setFilters((f) => ({
-                            ...f,
-                            priceMax:
-                              e.target.value !== ""
-                                ? Number(e.target.value)
-                                : null,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value !== "" ? Number(e.target.value) : null;
+                          setFilters((f) => ({ ...f, priceMax: val }));
+                          if (val !== null) setSliderMax(val);
+                          else setSliderMax(PRICE_CEIL);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") setPage(1);
                         }}
@@ -1211,29 +1365,27 @@ export default function ProductList() {
 
             {/* Footer */}
             <div className="filter-drawer-footer">
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={clearAllFilters}
-                  style={{
-                    flex: 1,
-                    padding: "10px 0",
-                    border: `1.5px solid ${PRI}`,
-                    background: "#fff",
-                    color: PRI,
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: FONT_UI,
-                  }}
-                >
-                  Clear All
-                </button>
-              )}
+              <button
+                onClick={clearAllFilters}
+                style={{
+                  flex: 1,
+                  padding: "10px 0",
+                  border: `1.5px solid ${PRI}`,
+                  background: "#fff",
+                  color: PRI,
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: FONT_UI,
+                }}
+              >
+                Clear All
+              </button>
               <button
                 onClick={() => setFilterOpen(false)}
                 style={{
-                  flex: 2,
+                  flex: 1,
                   padding: "10px 0",
                   background: PRI,
                   color: "#fff",

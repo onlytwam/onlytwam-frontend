@@ -1,12 +1,12 @@
 /* ── ProductCard.css ─────────────────────────────────────────────────────── */
 
 :root {
-  --pc-pri:      #6B0F2A;
-  --pc-heir:     #9E6070;
-  --pc-blush:    #A84C6B;
-  --pc-ivory:    #F5F0E6;
-  --pc-font:     "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --pc-font-ui:  "Trebuchet MS", "Gill Sans", Arial, sans-serif;
+  --pc-pri: #6b0f2a;
+  --pc-heir: #9e6070;
+  --pc-blush: #a84c6b;
+  --pc-ivory: #f5f0e6;
+  --pc-font: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --pc-font-ui: "Trebuchet MS", "Gill Sans", Arial, sans-serif;
 }
 
 /* Wrapper — full height so sliders can equalise rows */
@@ -24,16 +24,18 @@
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.35s ease;
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.35s ease;
   box-shadow: 0 3px 14px rgba(158, 96, 112, 0.08);
   font-family: var(--pc-font);
 }
 
 .pc-card:hover {
   transform: translateY(-6px) scale(1.015);
-  box-shadow: 0 18px 40px rgba(107, 15, 42, 0.16),
-              0 6px 16px rgba(158, 96, 112, 0.10);
+  box-shadow:
+    0 18px 40px rgba(107, 15, 42, 0.16),
+    0 6px 16px rgba(158, 96, 112, 0.1);
 }
 
 /* ── Image area ─────────────────────────────────────────────────────────── */
@@ -48,7 +50,7 @@
 
 .pc-image-wrap img {
   width: 100%;
-  height: 100%;
+  height: 90%;
   object-fit: cover;
   object-position: center top;
   display: block;
@@ -70,7 +72,9 @@
   z-index: 5;
   opacity: 0;
   transform: translateX(10px);
-  transition: opacity 0.25s, transform 0.25s;
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
 }
 
 .pc-card:hover .pc-actions {
@@ -91,7 +95,10 @@
   font-size: 12px;
   color: var(--pc-pri);
   box-shadow: 0 2px 8px rgba(107, 15, 42, 0.14);
-  transition: background 0.2s, color 0.2s, transform 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.2s;
 }
 
 .pc-action-btn:hover,
@@ -130,9 +137,11 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1.5px solid rgba(107, 15, 42, 0.20);
+  border: 1.5px solid rgba(107, 15, 42, 0.2);
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
   display: inline-block;
   flex-shrink: 0;
 }
@@ -258,7 +267,9 @@
   letter-spacing: 0.4px;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.2s, transform 0.2s;
+  transition:
+    background 0.2s,
+    transform 0.2s;
   flex-shrink: 0;
 }
 
@@ -269,7 +280,14 @@
 
 /* ── Responsive tweaks ──────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .pc-price  { font-size: 14px; }
-  .pc-name   { font-size: 12px; }
-  .pc-cart-btn { padding: 5px 10px; font-size: 10px; }
+  .pc-price {
+    font-size: 14px;
+  }
+  .pc-name {
+    font-size: 12px;
+  }
+  .pc-cart-btn {
+    padding: 5px 10px;
+    font-size: 10px;
+  }
 }

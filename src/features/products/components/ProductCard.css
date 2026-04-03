@@ -12,7 +12,6 @@
 .pc-card {
   position: relative;
   z-index: 1;
-  /* Background color is moved to .pc-card-solid-bg for precise layering */
   border-radius: 12px;
   cursor: pointer;
   height: 100%;
@@ -22,20 +21,27 @@
     "Trebuchet MS", "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans",
     Tahoma, sans-serif;
 
-  /* 3D Elevated Shadow Effect */
+  /* ── PALETTE BORDER — Heirloom Rose at 35% keeps it warm but never loud ── */
+  border: 1.5px solid rgba(158, 96, 112, 0.35);
+
+  /* ── ELEVATED Shadow ── */
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.06);
+    0 12px 32px rgba(0, 0, 0, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    0 1px 3px rgba(107, 15, 42, 0.08);
   transition:
     transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.4s ease;
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
 }
 
 .pc-card:hover {
   transform: translateY(-8px) scale(1.02);
+  border-color: rgba(107, 15, 42, 0.55);
   box-shadow:
-    0 24px 48px rgba(107, 15, 42, 0.15),
-    0 10px 20px rgba(0, 0, 0, 0.08);
+    0 32px 64px rgba(107, 15, 42, 0.22),
+    0 14px 28px rgba(0, 0, 0, 0.14),
+    0 4px 8px rgba(107, 15, 42, 0.1);
 }
 
 /* ── LAYERS ── */
@@ -44,20 +50,20 @@
   inset: 0;
   background: #ffffff;
   border-radius: 12px;
-  z-index: 2; /* Physically covers the back ring */
+  z-index: 2;
 }
 
 .pc-content-wrapper {
   position: relative;
-  z-index: 3; /* Content sits above the solid background */
+  z-index: 3;
   display: flex;
   flex-direction: column;
   height: 100%;
   border-radius: 12px;
-  overflow: hidden; /* Keeps image corners rounded */
+  overflow: hidden;
 }
 
-/* ── IMAGE & BODY ── */
+/* ── IMAGE WRAP ── */
 .pc-image-wrap {
   position: relative;
   width: 100%;
@@ -66,17 +72,48 @@
   flex-shrink: 0;
   overflow: hidden;
 }
+
+/* ── ALL images: shared base — zoom always fires ── */
 .pc-image-wrap img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center top;
   display: block;
-  transition: transform 0.5s ease;
+  transition:
+    transform 0.5s ease,
+    opacity 0.5s ease;
 }
-.pc-card:hover .pc-image-wrap img {
+
+/* ── PRIMARY image ── */
+.pc-img-primary {
+  opacity: 1;
+  z-index: 1;
+}
+
+/* Zoom always applies on hover, regardless of whether a 2nd image exists */
+.pc-card:hover .pc-img-primary {
   transform: scale(1.08);
 }
+
+/* Fade-out ONLY when the wrapper signals a hover image is present */
+.pc-card:hover .pc-image-wrap--has-hover .pc-img-primary {
+  opacity: 0;
+}
+
+/* ── HOVER image — hidden by default, fades in only when present ── */
+.pc-img-hover {
+  opacity: 0;
+  z-index: 2;
+}
+.pc-card:hover .pc-image-wrap--has-hover .pc-img-hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
 .pc-actions {
   position: absolute;
   top: 10px;
@@ -99,7 +136,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: none;
+  border: 1.5px solid rgba(107, 15, 42, 0.25);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -116,7 +153,8 @@
 .pc-action-btn.active {
   background: #fff;
   color: #6b0f2a;
-  border: 1.5px solid #6b0f2a;
+  border: 2px solid #6b0f2a;
+  box-shadow: 0 2px 12px rgba(107, 15, 42, 0.3);
 }
 .pc-swatches {
   display: flex;
@@ -152,7 +190,7 @@
 .pc-swatch-more {
   font-size: 9px;
   color: #6b0f2a;
-  background: #f5e9ec;
+  background: #f5f0e6;
   border-radius: 8px;
   padding: 1px 6px;
   line-height: 1.6;
@@ -164,7 +202,7 @@
   flex-direction: column;
   gap: 5px;
   flex: 1;
-  background: transparent;
+  background: #f5f0e6;
 }
 .pc-row-brand {
   display: flex;
@@ -220,17 +258,27 @@
 .pc-price--full {
   font-size: 17px;
 }
+
+/* ── BOTTOM ROW ── */
 .pc-row-bottom {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: auto;
 }
+
+/* ── RATING PILL ── */
 .pc-rating {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  flex-grow: 0;
+  background: #ffffff;
+  border: 1.5px solid rgba(107, 15, 42, 0.18);
+  border-radius: 20px;
+  padding: 2px 7px 2px 5px;
+  box-shadow: 0 1px 4px rgba(107, 15, 42, 0.1);
 }
 .pc-rating-star {
   font-size: 13px;
@@ -246,6 +294,16 @@
   font-size: 11px;
   color: #666;
 }
+
+/* ── BUTTON GROUP ── */
+.pc-btn-group {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ── QUICK ADD BUTTON ── */
 .pc-quick-btn {
   background: #6b0f2a;
   color: #fff;
@@ -258,21 +316,39 @@
   letter-spacing: 0.3px;
   white-space: nowrap;
   font-family: inherit;
-  transition: opacity 0.2s;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  box-shadow:
+    0 4px 0 #3d0718,
+    0 6px 10px rgba(107, 15, 42, 0.38);
+  transform: translateY(0);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease;
 }
 .pc-quick-btn:hover {
-  opacity: 0.82;
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 #3d0718,
+    0 2px 6px rgba(107, 15, 42, 0.45),
+    0 0 0 2.5px rgba(107, 15, 42, 0.28);
+}
+.pc-quick-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 0px 0 #3d0718,
+    0 1px 4px rgba(107, 15, 42, 0.5),
+    0 0 0 2.5px rgba(107, 15, 42, 0.38);
 }
 .pc-quick-btn .pc-cart-icon {
   font-size: 13px;
   line-height: 1;
   color: #fff;
 }
+
 .pc-remove-btn {
   background: #fff0f4;
   color: #e53935;
@@ -308,7 +384,6 @@
   }
 }
 
-/* ── Layer 1: Back Ring ── */
 .dt-ring-back {
   position: absolute;
   top: 6px;
@@ -319,11 +394,8 @@
   border: 3px double #999;
   box-sizing: border-box;
   z-index: 1;
-  /* Because the .pc-card-solid-bg (z-index: 2) draws over it, 
-     the right half naturally disappears. No clip-path needed! */
 }
 
-/* ── Layer 4: Front Container ── */
 .dt-front-container {
   position: absolute;
   top: 0;
@@ -331,10 +403,9 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 4; /* Floats over the entire card content */
+  z-index: 4;
 }
 
-/* The Punched Hole */
 .dt-eyelet {
   position: absolute;
   top: 14px;
@@ -342,7 +413,6 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #e8e8e8, #999 70%, #666);
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.3),
     inset 0 2px 4px rgba(0, 0, 0, 0.6);
@@ -356,11 +426,10 @@
   right: 3.5px;
   bottom: 3.5px;
   border-radius: 50%;
-  background: #ffffff; /* Requested white background inside hole */
+  background: #ffffff;
   box-shadow: inset 0 2px 1px rgba(0, 0, 0, 0.8);
 }
 
-/* Front Ring */
 .dt-ring-front {
   position: absolute;
   top: 6px;
@@ -370,12 +439,10 @@
   border-radius: 50%;
   border: 3px double #d8d8d8;
   box-sizing: border-box;
-  /* Only show the bottom half looping over the card */
   clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%);
   filter: drop-shadow(1px 3px 2px rgba(0, 0, 0, 0.4));
 }
 
-/* ── Layer 4.x: Hanging Tag & Connector System ── */
 .dt-tag-wrapper {
   position: absolute;
   top: 34px;
@@ -385,7 +452,6 @@
   filter: drop-shadow(2px 5px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* Connector Behind the Tag */
 .dt-conn-back {
   position: absolute;
   top: -4px;
@@ -395,15 +461,14 @@
   border-radius: 50%;
   border: 2.5px solid #888;
   box-sizing: border-box;
-  z-index: 1; /* Behind tag */
+  z-index: 1;
 }
 
-/* The Leather Tag */
 .dt-tag {
   position: relative;
-  width: 32px;
-  height: 70px;
-  background: #8b5d3b;
+  width: 26px;
+  height: 50px;
+  background: #6b0f2a;
   background-image: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.15),
@@ -416,10 +481,9 @@
   align-items: center;
   justify-content: flex-end;
   padding-bottom: 8px;
-  z-index: 2; /* Middle layer */
+  z-index: 2;
 }
 
-/* Connector In Front of the Tag */
 .dt-conn-front {
   position: absolute;
   top: -4px;
@@ -429,12 +493,10 @@
   border-radius: 50%;
   border: 2.5px solid #d8d8d8;
   box-sizing: border-box;
-  z-index: 3; /* Front layer */
-  /* Only show top half so it ducks through the leather hole */
+  z-index: 3;
   clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
 }
 
-/* Hole in the leather tag */
 .dt-tag-hole {
   position: absolute;
   top: 3px;
@@ -449,7 +511,6 @@
     0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-/* ── Typography ── */
 .dt-text {
   display: flex;
   flex-direction: column;
@@ -459,9 +520,9 @@
 }
 
 .dt-pct {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: #ead7c5;
+  color: #ffffff;
   text-shadow:
     -0.5px -0.5px 0px rgba(0, 0, 0, 0.6),
     0.5px 0.5px 0px rgba(255, 255, 255, 0.15);
@@ -470,14 +531,13 @@
 
 .dt-off {
   font-size: 9px;
-  font-weight: 500;
-  color: #ead7c5;
+  font-weight: 600;
+  color: #ffffff;
   text-shadow:
     -0.5px -0.5px 0px rgba(0, 0, 0, 0.6),
     0.5px 0.5px 0px rgba(255, 255, 255, 0.15);
 }
 
-/* ── Mobile Scale ── */
 @media (max-width: 480px) {
   .dt-eyelet {
     top: 12px;

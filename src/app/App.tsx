@@ -4,6 +4,7 @@ import Navbar from '@/shared/components/Navbar';
 import Footer from '@/shared/components/Footer';
 import ProtectedRoute from '@/shared/components/ProtectedRoute';
 import AdminBar from '@/features/admin/components/AdminBar';
+import Breadcrumb from '@/shared/components/Breadcrumb';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -93,10 +94,62 @@ const AdminSupportRequests   = lazy(() => import('@/features/admin/pages/AdminSu
 const AdminBlog              = lazy(() => import('@/features/admin/pages/AdminBlog'));
 
 // ── Layouts ───────────────────────────────────────────────────────────────────
+
+// Pages that already render their own <Breadcrumb /> — skip auto-breadcrumb for these
+const SELF_BREADCRUMB_ROUTES = [
+  '/', '/home',
+  '/user-products/product-list', '/user-products/product-detail',
+  '/user-products/cart', '/cart', '/wishlist', '/global-search',
+  '/account',
+];
+
+function AutoBreadcrumb() {
+  const { pathname } = useLocation();
+  // Skip pages that manage their own breadcrumbs, plus Home
+  const skip = SELF_BREADCRUMB_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'));
+  if (skip) return null;
+
+  const ROUTE_LABELS: Record<string, string> = {
+    '/about': 'About Us',
+    '/contact-us': 'Contact Us',
+    '/our-stores': 'Our Stores',
+    '/our-blog': 'Our Blog',
+    '/help-center': 'Help Center',
+    '/privacy-policy': 'Privacy Policy',
+    '/terms-conditions': 'Terms & Conditions',
+    '/shipping-info': 'Shipping Info',
+    '/returns-exchanges': 'Returns & Exchanges',
+    '/delivery-shipping-policy': 'Delivery & Shipping Policy',
+    '/return-refund-policy': 'Return & Refund Policy',
+    '/news-privacy-policy': 'Newsletter Privacy',
+    '/only-twam': 'Only TWAM',
+    '/shop-by-size': 'Shop by Size',
+    '/size-guide': 'Size Guide',
+    '/twam-brands': 'TWAM Brands',
+    '/your-fit-founder': 'Your Fit Finder',
+    '/take-quiz': 'Take Quiz',
+    '/order-details': 'Order Details',
+    '/unsubscribe': 'Unsubscribe',
+  };
+
+  // Try exact match first, then prefix match for parameterized routes
+  let label = ROUTE_LABELS[pathname];
+  if (!label) {
+    for (const [route, lbl] of Object.entries(ROUTE_LABELS)) {
+      if (pathname.startsWith(route)) { label = lbl; break; }
+    }
+  }
+  if (!label) return null;
+
+  const items = [{ label: 'Home', path: '/' }, { label }];
+  return <Breadcrumb items={items} />;
+}
+
 const MainLayout = () => (
   <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
     <AdminBar />
     <Navbar />
+    <AutoBreadcrumb />
     <main style={{ flex: 1 }}><Outlet /></main>
     <Footer />
   </div>

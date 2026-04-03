@@ -1,9 +1,14 @@
 /**
  * ProductDetail.tsx
- * Layout: Left = sticky image gallery (thumbnails left, main image right)
+ * Layout: Left = sticky image gallery (thumbnails left scrollable, main image right)
  *         Right = scrollable info panel
  * Below: Tabs → Similar Products (same category, ProductList card + grouping) →
  *        Shipping Bar → Footer (common)
+ *
+ * Changes:
+ *  - Thumbnail column is now independently scrollable (hidden scrollbar)
+ *  - Main image auto-advances every 6 s
+ *  - Manual thumb click / arrow click resets the 6 s countdown
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -213,10 +218,9 @@ function ScrollableProductRow({
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(true);
 
-  /* ── measure card width from wrapper ── */
   const measure = useCallback(() => {
     if (!wrapRef.current) return;
-    const wrapWidth = wrapRef.current.clientWidth - 112; // 56px padding each side for arrows
+    const wrapWidth = wrapRef.current.clientWidth - 112;
     const c = Math.floor(
       (wrapWidth - ROW_GAP * (ROW_VISIBLE - 1)) / ROW_VISIBLE,
     );
@@ -230,7 +234,6 @@ function ScrollableProductRow({
     return () => ro.disconnect();
   }, [measure]);
 
-  /* ── update arrow states on scroll ── */
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -238,12 +241,10 @@ function ScrollableProductRow({
     setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
   }, []);
 
-  /* initialise arrow states once products/cw are ready */
   useEffect(() => {
     onScroll();
   }, [cw, products, onScroll]);
 
-  /* ── arrow buttons scroll 2 cards at a time, smoothly ── */
   const scrollByCards = (dir: 1 | -1) => {
     if (!scrollRef.current || !cw) return;
     scrollRef.current.scrollTo({
@@ -252,7 +253,6 @@ function ScrollableProductRow({
     });
   };
 
-  /* ── trackpad: let native horizontal scroll flow directly into the container ── */
   const handleWheel = (e: React.WheelEvent) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -262,7 +262,6 @@ function ScrollableProductRow({
     }
   };
 
-  /* ── touch swipe (mobile) ── */
   const touchStartX = useRef(0);
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -315,7 +314,6 @@ function ScrollableProductRow({
         <i className="bi bi-chevron-left" />
       </button>
 
-      {/* Real scrollable flex container — scrollbar hidden, smooth native scroll */}
       <div
         ref={scrollRef}
         onScroll={onScroll}
@@ -324,7 +322,7 @@ function ScrollableProductRow({
           gap: ROW_GAP,
           overflowX: "auto",
           WebkitOverflowScrolling: "touch" as any,
-          scrollBehavior: "auto", // arrows use scrollTo({behavior:'smooth'})
+          scrollBehavior: "auto",
           msOverflowStyle: "none",
           scrollbarWidth: "none",
           padding: "8px 0 20px",
@@ -387,8 +385,10 @@ export default function ProductDetail() {
   const [currentVId, setCurrentVId] = useState(Number(id) || 0);
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
   const [pageNotif, setPageNotif] = useState<PageNotif | null>(null);
-  /* ── FIX: missing state ── */
   const [showStockTip, setShowStockTip] = useState(false);
+
+  /* ── Auto-scroll ref: holds the setInterval handle ── */
+  const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { inWishlist, toggle: toggleWishlist } = useWishlistToggle(currentVId);
 
@@ -400,7 +400,6 @@ export default function ProductDetail() {
       setSelCupId(null);
       setSelectedPVDId(null);
       setActiveImg(0);
-      // If coming from a testimonial click, skip scroll-to-top — reviews effect handles it
       if (searchParams.get("tab") !== "reviews") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -504,6 +503,39 @@ export default function ProductDetail() {
   );
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
+
+  /* ── Auto-scroll: start/restart the 6-second interval ── */
+  const startAutoScroll = useCallback((imgCount: number) => {
+    if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+    if (imgCount <= 1) return;
+    autoScrollRef.current = setInterval(() => {
+      setActiveImg((i) => (i + 1) % imgCount);
+    }, 6000);
+  }, []);
+
+  /* Start auto-scroll whenever the images list changes (new product loaded) */
+  useEffect(() => {
+    startAutoScroll(images.length);
+    return () => {
+      if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+    };
+  }, [images.length, startAutoScroll]);
+
+  /* Manual thumbnail click — show that thumb, then resume countdown */
+  const handleThumbClick = (i: number) => {
+    setActiveImg(i);
+    startAutoScroll(images.length);
+  };
+
+  /* Manual prev/next arrow click — change image, then resume countdown */
+  const handlePrev = () => {
+    setActiveImg((i) => (i - 1 + images.length) % images.length);
+    startAutoScroll(images.length);
+  };
+  const handleNext = () => {
+    setActiveImg((i) => (i + 1) % images.length);
+    startAutoScroll(images.length);
+  };
 
   const avgRating = reviews.length
     ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
@@ -658,7 +690,7 @@ export default function ProductDetail() {
       setPhotoFile(null);
       setPhotoPreview(null);
       qc.invalidateQueries({ queryKey: ["reviews", currentVId] });
-      qc.invalidateQueries({ queryKey: ["reviews-home"] }); // refresh home testimonials
+      qc.invalidateQueries({ queryKey: ["reviews-home"] });
     },
   });
 
@@ -788,7 +820,30 @@ export default function ProductDetail() {
       <style>{`
         @keyframes pd-notif-in  { from{ opacity:0; transform:scale(.85) translateY(10px) } to{ opacity:1; transform:scale(1) translateY(0) } }
         @keyframes pd-notif-bg  { from{ opacity:0 } to{ opacity:1 } }
+
+        /* Hide scrollbar on thumbnail column — all browsers */
+        .pd-thumb-col::-webkit-scrollbar { display: none; }
+        .pd-thumb-col { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .pd-right-col::-webkit-scrollbar { display: none; }
+        .pd-right-col { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Thumbnail column: scroll only thumbnails, not the rest */
+        .pd-thumb-col {
+          position: relative;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+
+        @media(max-width:767px){
+          .pd-left-col { position: relative !important; top: 0 !important; }
+          .pd-right-col { max-height: none !important; overflow-y: visible !important; }
+          .pd-thumb-col { max-height: 300px !important; flex-direction: row !important; overflow-x: auto !important; overflow-y: hidden !important; }
+          .pd-thumb-col img { width: 60px !important; height: 72px !important; }
+          .pd-gallery-row { flex-direction: column !important; }
+        }
       `}</style>
+
       {pageNotif && (
         <PageNotification notif={pageNotif} onDone={() => setPageNotif(null)} />
       )}
@@ -807,29 +862,27 @@ export default function ProductDetail() {
             marginBottom: 48,
           }}
         >
-          <style>{`
-            .pd-right-col::-webkit-scrollbar { display: none; }
-            .pd-right-col { -ms-overflow-style: none; scrollbar-width: none; }
-            @media(max-width:767px){
-              .pd-left-col { position: relative !important; top: 0 !important; }
-              .pd-right-col { max-height: none !important; overflow-y: visible !important; }
-            }
-          `}</style>
-
           {/* LEFT: sticky image gallery */}
           <div
             className="pd-left-col"
-            style={{ position: "sticky", top: 180, alignSelf: "start" }}
+            style={{ position: "sticky", top: 100, alignSelf: "start" }}
           >
-            <div style={{ display: "flex", gap: 10 }}>
+            <div className="pd-gallery-row" style={{ display: "flex", gap: 10 }}>
+              {/* ── Thumbnail column — independently scrollable, height matches main image ── */}
               {images.length > 1 && (
                 <div
+                  className="pd-thumb-col"
                   style={{
                     display: "flex",
                     flexDirection: "column",
                     gap: 8,
                     flexShrink: 0,
-                    paddingTop: 16,
+                    /* Match main image height: main image has aspect-ratio 3/4.
+                       Use the same aspect-ratio constraint so thumbs scroll only within that space */
+                    maxHeight: "min(70vh, 600px)",
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                    paddingRight: 4,
                   }}
                 >
                   {images.map((img, i) => (
@@ -837,7 +890,7 @@ export default function ProductDetail() {
                       key={i}
                       src={img}
                       alt=""
-                      onClick={() => setActiveImg(i)}
+                      onClick={() => handleThumbClick(i)}
                       style={{
                         width: 72,
                         height: 88,
@@ -856,6 +909,8 @@ export default function ProductDetail() {
                   ))}
                 </div>
               )}
+
+              {/* ── Main image ── */}
               <div
                 style={{
                   flex: 1,
@@ -874,6 +929,7 @@ export default function ProductDetail() {
                       aspectRatio: "3/4",
                       objectFit: "cover",
                       display: "block",
+                      transition: "opacity .35s ease",
                     }}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
@@ -894,14 +950,12 @@ export default function ProductDetail() {
                     <i className="bi bi-image" style={{ fontSize: 80 }} />
                   </div>
                 )}
+
+                {/* Prev / Next arrows — now wired to handlePrev / handleNext */}
                 {images.length > 1 && (
                   <>
                     <button
-                      onClick={() =>
-                        setActiveImg(
-                          (i) => (i - 1 + images.length) % images.length,
-                        )
-                      }
+                      onClick={handlePrev}
                       style={{
                         position: "absolute",
                         left: 8,
@@ -923,9 +977,7 @@ export default function ProductDetail() {
                       ‹
                     </button>
                     <button
-                      onClick={() =>
-                        setActiveImg((i) => (i + 1) % images.length)
-                      }
+                      onClick={handleNext}
                       style={{
                         position: "absolute",
                         right: 8,
@@ -946,6 +998,36 @@ export default function ProductDetail() {
                     >
                       ›
                     </button>
+
+                    {/* ── Dot indicators showing current image & progress ── */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 10,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        display: "flex",
+                        gap: 6,
+                      }}
+                    >
+                      {images.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleThumbClick(i)}
+                          style={{
+                            width: activeImg === i ? 20 : 8,
+                            height: 8,
+                            borderRadius: 4,
+                            background:
+                              activeImg === i ? PRI : "rgba(255,255,255,0.7)",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: 0,
+                            transition: "width .3s ease, background .3s ease",
+                          }}
+                        />
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
@@ -2304,7 +2386,6 @@ export default function ProductDetail() {
                         gap: 12,
                       }}
                     >
-                      {/* User photo or fallback icon */}
                       <div style={{ flexShrink: 0 }}>
                         {r.photo ? (
                           <img

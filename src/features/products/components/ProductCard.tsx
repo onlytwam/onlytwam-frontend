@@ -91,13 +91,41 @@ export default function ProductCard({
 
   const price = selectedVariant.price ?? selectedVariant.finalPrice ?? 0;
   const oldPrice = selectedVariant.oldPrice ?? selectedVariant.mrpPrice ?? 0;
-  const imgSrc = getImageUrl(
-    selectedVariant.image ||
-      selectedVariant.imageURL ||
-      selectedVariant.imageUrl ||
-      selectedVariant.selectedImage ||
-      "",
-  );
+
+  /*
+   * ── Image resolution — mirrors ProductDetail exactly ──────────────────────
+   *
+   * ProductDetail does:
+   *   const images = (product?.images?.length
+   *     ? product.images
+   *     : product?.image ? [product.image] : []
+   *   ).map(getImageUrl);
+   *
+   * So the API returns an `images` string[] on the variant.
+   * images[0] → primary   images[1] → hover / second image
+   */
+  const resolvedImages: string[] = (
+    selectedVariant?.images?.length
+      ? selectedVariant.images
+      : selectedVariant?.image
+        ? [selectedVariant.image]
+        : product?.images?.length
+          ? product.images
+          : product?.image
+            ? [product.image]
+            : []
+  ).map(getImageUrl);
+
+  const imgSrc = resolvedImages[0] || "";
+  const hoverImgSrc = resolvedImages[1] || ""; // empty string when no 2nd image
+
+  /*
+   * The CSS class `pc-image-wrap--has-hover` GATES the crossfade.
+   * Without it the primary image never fades — so no blank white on
+   * products that only have one image.
+   */
+  const imageWrapClass = `pc-image-wrap${hoverImgSrc ? " pc-image-wrap--has-hover" : ""}`;
+
   const hasDiscount = Boolean(oldPrice && oldPrice > price);
   const discountPct = hasDiscount
     ? Math.round(((oldPrice - price) / oldPrice) * 100)
@@ -126,23 +154,40 @@ export default function ProductCard({
     <div className="pc-wrap">
       <div className="pc-card" onClick={goToDetail}>
         {/* ── LAYER 1: BACK RING ── */}
-        {/* Rendered lowest in the stack, so it goes behind the solid background */}
         {showDiscountTag && discountPct > 0 && <div className="dt-ring-back" />}
 
         {/* ── LAYER 2: SOLID CARD BACKGROUND ── */}
-        {/* This explicitly hides the right half of the back ring */}
         <div className="pc-card-solid-bg" />
 
         {/* ── LAYER 3: PRODUCT CONTENT ── */}
         <div className="pc-content-wrapper">
-          <div className="pc-image-wrap">
+          {/*
+           * pc-image-wrap--has-hover added only when images[1] exists.
+           * Prevents primary image fading to white on single-image products.
+           */}
+          <div className={imageWrapClass}>
+            {/* Primary — images[0] — always visible; zooms on hover */}
             <img
+              className="pc-img-primary"
               src={imgSrc}
               alt={selectedVariant.name || product.name}
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "/assets/category-bg.png";
               }}
             />
+
+            {/* Hover — images[1] — rendered only when a 2nd image exists */}
+            {hoverImgSrc && (
+              <img
+                className="pc-img-hover"
+                src={hoverImgSrc}
+                alt=""
+                aria-hidden="true"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            )}
 
             <div className="pc-actions">
               <button
@@ -225,7 +270,8 @@ export default function ProductCard({
                   </span>
                 )}
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
+
+              <div className="pc-btn-group">
                 <button
                   className="pc-quick-btn"
                   onClick={(e) => {
@@ -258,7 +304,6 @@ export default function ProductCard({
           <div className="dt-front-container">
             <div className="dt-eyelet" />
             <div className="dt-ring-front" />
-
             <div className="dt-tag-wrapper">
               <div className="dt-conn-back" />
               <div className="dt-tag">

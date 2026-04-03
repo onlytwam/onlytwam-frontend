@@ -1,5 +1,7 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import Breadcrumb from '@/shared/components/Breadcrumb';
+import type { Crumb } from '@/shared/components/Breadcrumb';
 
 const PRI = '#6B0F2A';
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
@@ -32,11 +34,31 @@ function ProfileAvatar({ name, size = 48 }: { name: string; size?: number }) {
 export default function ProfileLayout() {
   const { getUserName, logout, user } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const name  = getUserName();
   const email = (user as any)?.email || (user as any)?.emailId || '';
 
+  // Build breadcrumbs from current path
+  const pageLabelMap: Record<string, string> = {
+    '/account/dashboard': 'Dashboard',
+    '/account/update-profile': 'My Profile',
+    '/account/change-password': 'Change Password',
+    '/account/orders-list': 'My Orders',
+    '/account/address-list': 'Addresses',
+    '/account/address-form': 'Add Address',
+    '/account/coupons-list': 'Coupons',
+    '/account/notifications': 'Notifications',
+  };
+  const currentLabel = pageLabelMap[location.pathname] || 'Account';
+  const accountCrumbs: Crumb[] = [
+    { label: 'Home', path: '/' },
+    { label: 'My Account', path: '/account/dashboard' },
+    ...(location.pathname !== '/account/dashboard' ? [{ label: currentLabel }] : []),
+  ];
+
   return (
     <>
+      <Breadcrumb items={accountCrumbs} />
       <style>{`
         .pl-nav a { display:flex; align-items:center; gap:10px; padding:11px 18px; text-decoration:none; font-size:13.5px; color:#444; border-left:3px solid transparent; transition:background .15s,color .15s; font-family:inherit; }
         .pl-nav a.active { color:${PRI} !important; background:#fff5f7 !important; border-left-color:${PRI} !important; font-weight:700 !important; }
