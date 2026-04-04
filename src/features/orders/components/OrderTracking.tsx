@@ -17,56 +17,56 @@ export default function OrderTracking({ orderId, onClose }: Props) {
   const steps: any[] = data?.steps ?? [];
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    <div className="s-ordertrackin-308df5"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div className="s-ordertrackin-afecf3">
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #f0f0f0' }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Order Tracking</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#555' }}>×</button>
+        <div className="s-ordertrackin-96a869">
+          <h3 className="s-adminproduct-53697f">Order Tracking</h3>
+          <button onClick={onClose} className="s-ordertrackin-47a107">×</button>
         </div>
 
         {/* Body */}
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+        <div className="s-ordertrackin-85fdca">
           {isLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <div style={{ width: 36, height: 36, border: '3px solid #eee', borderTopColor: '#111', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+            <div className="s-quickcart-9164c7">
+              <div className="s-blog1-da8e4b" />
             </div>
           ) : steps.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#aaa' }}>
-              <i className="bi bi-geo-alt" style={{ fontSize: 40, display: 'block', marginBottom: 12 }} />
+            <div className="s-ordertrackin-08936b">
+              <i className="bi bi-geo-alt s-adminproduct-8eb3fc" />
               <p>No tracking information available yet.</p>
             </div>
           ) : (
-            <div style={{ position: 'relative' }}>
+            <div className="s-updateprofil-1d5e50">
               {steps.map((step: any, i: number) => {
                 const isDone = step.status === 'completed' || step.status === 'done';
                 const isActive = step.status === 'active' || step.status === 'current';
-                const color = isDone ? '#2e7d32' : isActive ? '#6A012A' : '#ccc';
+                const color = isDone ? 'var(--brand)' : isActive ? 'var(--brand)' : 'var(--ivory)';
                 return (
-                  <div key={i} style={{ display: 'flex', gap: 16, paddingBottom: i < steps.length - 1 ? 24 : 0, position: 'relative' }}>
+                  <div key={i} className="s-ordertrackin-b2a7c8" style={ {paddingBottom: i < steps.length - 1 ? 24 : 0} }>
                     {/* Line */}
                     {i < steps.length - 1 && (
-                      <div style={{ position: 'absolute', left: 13, top: 28, width: 2, height: 'calc(100% - 4px)', background: isDone ? '#2e7d32' : '#eee' }} />
+                      <div className="s-ordertrackin-2a75ac" style={ {background: isDone ? 'var(--brand)' : 'var(--ivory)'} } />
                     )}
                     {/* Circle */}
-                    <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: '50%', background: isDone ? '#2e7d32' : isActive ? '#6A012A' : '#fff', border: `2px solid ${color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+                    <div className="s-ordertrackin-fa1352" style={{ background: isDone ? 'var(--brand)' : isActive ? 'var(--brand)' : '#fff', border: `2px solid ${color}` }}>
                       {isDone
-                        ? <i className="bi bi-check" style={{ color: '#fff', fontSize: 14 }} />
-                        : <div style={{ width: 8, height: 8, borderRadius: '50%', background: isActive ? '#fff' : '#eee' }} />
+                        ? <i className="bi bi-check s-ordertrackin-916252" />
+                        : <div className="s-ordertrackin-890630" style={ {background: isActive ? '#fff' : 'var(--ivory)'} } />
                       }
                     </div>
                     {/* Content */}
-                    <div style={{ flex: 1, paddingTop: 2 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: isDone || isActive ? '#111' : '#aaa' }}>{step.title}</h4>
-                        {step.date && <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                    <div className="s-ordertrackin-27fb35">
+                      <div className="s-ordertrackin-4f2d7d">
+                        <h4 className="s-ordertrackin-388537" style={ {color: isDone || isActive ? '#000000' : 'var(--heirloom)'} }>{step.title}</h4>
+                        {step.date && <span className="s-ordertrackin-c429f0">
                           {new Date(step.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>}
                       </div>
                       {step.description && (
-                        <p style={{ margin: 0, fontSize: 13, color: '#666' }}
+                        <p className="s-userdashboar-bc8be4"
                           dangerouslySetInnerHTML={{ __html: step.description }} />
                       )}
                     </div>
@@ -77,7 +77,6 @@ export default function OrderTracking({ orderId, onClose }: Props) {
           )}
         </div>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+      </div>
   );
 }

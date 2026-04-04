@@ -4,13 +4,15 @@
 // Validate required env vars at startup — throws in dev if .env is missing
 import '@/lib/env';
 
+// Global styles (consolidated from index.css + component CSS files)
+import './twam.css';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import App from './app/App';
-import './index.css';
 import { Toaster, ToastBar, toast } from 'react-hot-toast';
 
 const queryClient = new QueryClient({
@@ -109,9 +111,9 @@ bootstrap().finally(() => {
             toastOptions={{
               duration: 1600,
               style: {
-                fontFamily: '"Palatino Linotype", Palatino, Georgia, serif',
-                background: '#F5F0E6',
-                color: '#6B0F2A',
+                fontFamily: 'var(--font-heading)',
+                background: 'var(--ivory)',
+                color: 'var(--brand)',
                 border: '1.5px solid #9E6070',
                 borderRadius: '12px',
                 padding: '13px 20px',
@@ -122,19 +124,19 @@ bootstrap().finally(() => {
               },
               success: {
                 style: {
-                  background: '#6B0F2A',
-                  color: '#F5F0E6',
+                  background: 'var(--brand)',
+                  color: 'var(--ivory)',
                   border: '1.5px solid #9E6070',
                 },
-                iconTheme: { primary: '#F5F0E6', secondary: '#6B0F2A' },
+                iconTheme: { primary: 'var(--ivory)', secondary: 'var(--brand)' },
               },
               error: {
                 style: {
-                  background: '#A84C6B',
+                  background: 'var(--blush)',
                   color: '#fff',
                   border: '1.5px solid #6B0F2A',
                 },
-                iconTheme: { primary: '#fff', secondary: '#A84C6B' },
+                iconTheme: { primary: '#fff', secondary: 'var(--blush)' },
               },
             }}
           >
@@ -148,25 +150,7 @@ bootstrap().finally(() => {
                       <button
                         onClick={() => toast.dismiss(t.id)}
                         aria-label="Close"
-                        style={{
-                          marginLeft: '8px',
-                          width: 26,
-                          height: 26,
-                          borderRadius: '50%',
-                          background: 'radial-gradient(circle at 35% 35%, #ffffff, #F5F0E6 55%, #ddd4c8)',
-                          border: '1.5px solid rgba(255,255,255,0.6)',
-                          boxShadow: '0 3px 8px rgba(0,0,0,0.30), inset 0 1px 2px rgba(255,255,255,0.9), inset 0 -1px 2px rgba(0,0,0,0.15)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          color: '#6B0F2A',
-                          padding: 0,
-                          transition: 'transform .1s',
-                        }}
+                        className="s-main-935245"
                         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)'; }}
                         onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                       >

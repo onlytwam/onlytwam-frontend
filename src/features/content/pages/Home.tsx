@@ -18,13 +18,8 @@ import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 
 import ProductCard from "@/features/products/components/ProductCard";
 
-const PRI = "#6B0F2A"; // Burgundy
-const HEIRLOOM = "#9E6070"; // Heirloom Rose
-const BLUSH = "#A84C6B"; // Blush Pink
-const IVORY = "#F5F0E6"; // Warm Ivory
 const GAP = 12;
 
-// ─── Public brand images (moved outside component to avoid stale closure) ────
 const publicBrandImages = [
   "/assets/brands/amante.webp",
   "/assets/brands/blossom.png",
@@ -155,7 +150,6 @@ function ProductSlider({
 
   const scrollBy = (dir: 1 | -1) => {
     if (!scrollRef.current || !cw) return;
-    // Move 2 products at a time
     scrollRef.current.scrollTo({
       left: scrollRef.current.scrollLeft + dir * 2 * (cw + GAP),
       behavior: "smooth",
@@ -175,12 +169,7 @@ function ProductSlider({
   if (!products.length)
     return (
       <p
-        style={{
-          textAlign: "center",
-          color: PRI,
-          padding: "20px 0",
-          fontFamily: '"Palatino Linotype", "Trebuchet MS", serif',
-        }}
+        className="s-home-eb8359"
       >
         No products yet
       </p>
@@ -189,31 +178,14 @@ function ProductSlider({
   return (
     <div
       ref={wrapRef}
-      style={{ position: "relative", width: "100%" }}
+      className="s-home-1e81b6"
       onMouseEnter={pause}
       onMouseLeave={resume}
     >
       {viewAllPath && (
         <button
           onClick={() => navigate(viewAllPath)}
-          style={{
-            position: "absolute",
-            top: -30,
-            right: showArrows ? 52 : 0,
-            zIndex: 30,
-            background: "rgba(245,240,230,0.88)",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
-            border: `1.5px solid ${PRI}`,
-            color: PRI,
-            padding: "4px 18px",
-            borderRadius: 40,
-            cursor: "pointer",
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: '"Palatino Linotype", "Trebuchet MS", serif',
-            boxShadow: "0 2px 16px rgba(107,15,42,0.10)",
-          }}
+          className="s-home-54af6d" style={ {right: showArrows ? 52 : 0} }
         >
           View All →
         </button>
@@ -223,49 +195,13 @@ function ProductSlider({
         <>
           <button
             onClick={() => scrollBy(-1)}
-            style={{
-              position: "absolute",
-              left: 0,
-              top: "42%",
-              transform: "translateY(-50%)",
-              zIndex: 10,
-              background: "#fff",
-              border: `1.5px solid ${HEIRLOOM}`,
-              borderRadius: "50%",
-              width: 40,
-              height: 40,
-              fontSize: 24,
-              cursor: "pointer",
-              boxShadow: "0 2px 12px rgba(107,15,42,.1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: PRI,
-            }}
+            className="s-home-edfe26"
           >
             ‹
           </button>
           <button
             onClick={() => scrollBy(1)}
-            style={{
-              position: "absolute",
-              right: 0,
-              top: "42%",
-              transform: "translateY(-50%)",
-              zIndex: 10,
-              background: "#fff",
-              border: `1.5px solid ${HEIRLOOM}`,
-              borderRadius: "50%",
-              width: 40,
-              height: 40,
-              fontSize: 24,
-              cursor: "pointer",
-              boxShadow: "0 2px 12px rgba(107,15,42,.1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: PRI,
-            }}
+            className="s-home-fe2d0f"
           >
             ›
           </button>
@@ -275,21 +211,12 @@ function ProductSlider({
       <div
         ref={scrollRef}
         onScroll={onScrollHandler}
-        style={{
-          display: "flex",
-          gap: GAP,
-          overflowX: shouldScroll ? "auto" : "hidden",
-          WebkitOverflowScrolling: "touch",
-          padding: "8px 0 20px",
-          ...(showArrows ? { marginLeft: 44, marginRight: 44 } : {}),
-          msOverflowStyle: "none",
-          scrollbarWidth: "none",
-        }}
+        className="s-home-4ec7f1" style={ {gap: GAP, overflowX: shouldScroll ? "auto" : "hidden", ...(showArrows ? { marginLeft: 44, marginRight: 44 } : {})} }
       >
         {tripled.map((p, i) => (
           <div
             key={`${p.productVariantId}-${i}`}
-            style={{ flex: `0 0 ${safeCw}px`, width: safeCw, minWidth: safeCw }}
+            className="s-home-685bdd" style={{ flex: `0 0 ${safeCw}px`, width: safeCw, minWidth: safeCw }}
           >
             <ProductCard
               product={p}
@@ -303,25 +230,13 @@ function ProductSlider({
 
       {showArrows && products.length > 0 && (
         <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 6,
-            marginTop: 4,
-          }}
+          className="s-home-78e566"
         >
           {products.map((_, i) => (
             <span
               key={i}
               onClick={() => scrollToCard(i)}
-              style={{
-                width: activeIndex === i ? 20 : 7,
-                height: 7,
-                borderRadius: 4,
-                background: activeIndex === i ? PRI : HEIRLOOM,
-                transition: "width .3s, background .3s",
-                cursor: "pointer",
-              }}
+              className="s-home-9bff23" style={ {width: activeIndex === i ? 20 : 7, background: activeIndex === i ? 'var(--brand)' : 'var(--heirloom)'} }
             />
           ))}
         </div>
@@ -340,22 +255,11 @@ function SectionTitle({
 }) {
   return (
     <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px 0 10px",
-        fontFamily: '"Palatino Linotype", "Trebuchet MS", serif',
-      }}
+      className="s-home-1428f7"
     >
       <h2
-        className="section-title"
+        className="section-title s-home-58ca8b"
         style={{
-          margin: 0,
-          fontSize: 28,
-          fontWeight: 600,
-          color: PRI,
-          letterSpacing: "-0.5px",
           ...(highlight
             ? {
                 background: "rgba(245,240,230,0.88)",
@@ -377,8 +281,7 @@ function SectionTitle({
 function ShippingBar() {
   return (
     <section
-      className="shipping_section"
-      style={{ fontFamily: '"Palatino Linotype", "Trebuchet MS", serif' }}
+      className="shipping_section s-home-bcf04f"
     >
       <div className="container">
         <div className="shipping_inner">
@@ -405,8 +308,8 @@ function ShippingBar() {
                 <i className={`${f.icon} icons`} />
               </div>
               <div className="shipping_text">
-                <h3 style={{ color: PRI }}>{f.title}</h3>
-                <p style={{ color: HEIRLOOM }}>{f.sub}</p>
+                <h3 className="s-home-2574d7">{f.title}</h3>
+                <p className="s-home-3ab850">{f.sub}</p>
               </div>
             </div>
           ))}
@@ -418,77 +321,48 @@ function ShippingBar() {
 
 // ─── Brands Marquee ───────────────────────────────────────────────────────────
 function BrandsSection({ logos: _logos }: { logos: any[] }) {
-  const baseBrands = publicBrandImages; // using module-level constant — no useMemo needed
-
-  const itemWidth = 250;
-  const itemHeight = 140;
-  const gap = 40;
-  const durationSeconds = 34;
+  const baseBrands = publicBrandImages;
+  const itemWidth = 250,
+    itemHeight = 140,
+    gap = 40,
+    durationSeconds = 34;
   const setWidth = Math.max(
     0,
     baseBrands.length * itemWidth + Math.max(0, baseBrands.length - 1) * gap,
   );
-
   const logoSlideScale = 1.22;
   const getImgScale = (src: string) =>
     src.includes("/assets/brands/logo-slide-") ? logoSlideScale : 1;
 
   return (
     <section
-      style={{
-        margin: 0,
-        background: `linear-gradient(135deg, ${IVORY} 0%, rgba(245,240,230,0.5) 100%)`,
-        padding: "30px 0",
-        overflow: "hidden",
-        position: "relative",
-        transformStyle: "preserve-3d",
-      }}
+      className="s-home-be6933"
     >
       <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 1,
-          background:
-            "radial-gradient(circle at 20% 50%, rgba(107,15,42,0.05) 0%, transparent 50%)",
-          pointerEvents: "none",
-        }}
+        className="s-home-b9d256"
       />
-      <div className="container" style={{ position: "relative", zIndex: 2 }}>
+      <div className="container s-home-59ddea">
         <SectionTitle title="Brands" />
         <div
-          className="brand-marquee"
-          style={{
-            padding: "18px 0 32px",
-            ["--brand-gap" as any]: `${gap}px`,
-            ["--brand-duration" as any]: `${durationSeconds}s`,
-            ["--brand-set-width" as any]: `${setWidth}px`,
-          }}
+          className="brand-marquee s-home-68cb82" style={ {["--brand-gap" as any]: `${gap}px`, ["--brand-duration" as any]: `${durationSeconds}s`, ["--brand-set-width" as any]: `${setWidth}px`} }
         >
           <div className="brand-marquee-track">
             {[...baseBrands, ...baseBrands].map((img, i) => (
               <div
                 key={`${img}-${i}`}
                 className="brand-marquee-item"
-                style={{
+                style={ {
                   width: itemWidth,
                   minWidth: itemWidth,
                   height: itemHeight,
                   marginRight:
                     i % baseBrands.length === baseBrands.length - 1 ? 0 : gap,
-                }}
+                } }
               >
                 <img
                   src={img}
                   alt={`Brand ${i}`}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    display: "block",
-                    transform: `scale(${getImgScale(img)})`,
-                    transformOrigin: "center",
-                  }}
+                  className="s-home-783e28" style={ {transform: `scale(${getImgScale(img)})`} }
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -502,9 +376,182 @@ function BrandsSection({ logos: _logos }: { logos: any[] }) {
   );
 }
 
+// ─── Hero Banner with 360° Orbit ─────────────────────────────────────────────
+function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
+  const navigate = useNavigate();
+  const ORBIT_R = 300;
+  const ORBIT_DUR = 22;
+  const orbitItems = orbitProducts.slice(0, 8);
+  const count = Math.max(orbitItems.length, 1);
+
+  const stars = useMemo(
+    () =>
+      Array.from({ length: 65 }, (_, k) => ({
+        id: k,
+        size: Math.random() * 2.5 + 0.5,
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        dur: 2 + Math.random() * 4,
+        delay: Math.random() * 5,
+      })),
+    [],
+  );
+
+  return (
+    <div
+      className="s-home-7a0874"
+    >
+      {/* Deep space background */}
+      <div
+        className="s-home-122982"
+      />
+
+      {/* Grain texture */}
+      <div
+        className="s-home-489f94"
+      />
+
+      {/* Stars */}
+      {stars.map((s) => (
+        <div
+          key={s.id}
+          className="s-home-98dae8 s-home-62280e" style={{ width: s.size, height: s.size, left: `${s.left}%`, top: `${s.top}%`, animation: `star-blink ${s.dur}s ease-in-out infinite`, animationDelay: `${s.delay}s`, pointerEvents: "none" }}
+        />
+      ))}
+
+      {/* Decorative spinning rings */}
+      {[
+        { d: 640, dur: 60, rev: false, dash: "8 18" },
+        { d: 490, dur: 45, rev: true, dash: "4 12" },
+        { d: 340, dur: 30, rev: false, dash: "2 8" },
+      ].map(({ d, dur, rev, dash }, k) => (
+        <div
+          key={d}
+          className="s-home-1925fd" style={ { width: d, height: d } }
+        >
+          <svg
+            width={d}
+            height={d}
+            className="s-home-8a6320" style={ {animation: `${rev ? "ring-spin-rev" : "ring-spin"} ${dur}s linear infinite`} }
+          >
+            <circle
+              cx={d / 2}
+              cy={d / 2}
+              r={d / 2 - 1}
+              fill="none"
+              stroke={`rgba(158,96,112,${0.3 - k * 0.07})`}
+              strokeWidth="1"
+              strokeDasharray={dash}
+            />
+          </svg>
+        </div>
+      ))}
+
+      {/* TWAM FEATURED headline */}
+      <div
+        className="s-home-f8908f"
+      >
+        <div
+          className="s-home-ff1b89"
+        >
+          ✦&thinsp; TWAM FEATURED &thinsp;✦
+        </div>
+        <p
+          className="s-home-98096a"
+        >
+          Comfort &nbsp;·&nbsp; Elegance &nbsp;·&nbsp; Style
+        </p>
+      </div>
+
+      {/* Ambient glow */}
+      <div
+        className="s-home-7f0e6f"
+      />
+
+      {/* Model image — elevated & floating */}
+      <img
+        src="/assets/.png"
+        alt="TWAM Featured"
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+        className="s-home-c76b11"
+      />
+
+      {/* Orbiting product cards */}
+      {orbitItems.length > 0 && (
+        <div
+          className="s-home-6baa2b"
+        >
+          {orbitItems.map((p, i) => {
+            const delayS = -((i / count) * ORBIT_DUR);
+            const imgSrc = getImageUrl(
+              p.imageUrl ??
+                p.image ??
+                p.productImage ??
+                p.thumbnail ??
+                p.variantImage ??
+                "",
+              "",
+            );
+            return (
+              <div
+                key={`ob-${p.productVariantId ?? i}-${i}`}
+                className="s-home-db0758 s-home-d35c85" style={{ animation: `orbit-go ${ORBIT_DUR}s linear infinite`, animationDelay: `${delayS}s` }}
+              >
+                <div
+                  className="s-home-517646 s-home-c6ae21" style={{ animation: `face-go ${ORBIT_DUR}s linear infinite`, animationDelay: `${delayS}s` }}
+                  onClick={() =>
+                    navigate(
+                      `/user-products/product-detail/${p.productVariantId}/${slugify(p.productName ?? "product")}`,
+                    )
+                  }
+                >
+                  <div
+                    className="twam-orbit-card s-home-b20fd0"
+                  >
+                    <div
+                      className="s-home-fbcd5b"
+                    >
+                      <img
+                        src={imgSrc}
+                        alt={p.productName ?? "Product"}
+                        className="s-home-5a5ce8"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                    <div
+                      className="s-home-3c1e54"
+                    >
+                      <p
+                        className="s-home-720656"
+                      >
+                        {p.productName ?? "Product"}
+                      </p>
+                      {(p.sellingPrice ?? p.price) != null && (
+                        <p
+                          className="s-home-e27872"
+                        >
+                          ₹{p.sellingPrice ?? p.price}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Home Component ─────────────────────────────────────────────────────
 export default function Home() {
-  const navigate = useNavigate(); // ✅ FIX: was missing, caused crash in testimonials
+  const navigate = useNavigate();
   const { getUserId } = useAuthStore();
   const { menus, setMenus } = useMenuStore();
   const [selectedCategoryId, setSelectedCategoryId] = useState(0);
@@ -542,7 +589,6 @@ export default function Home() {
       "(prefers-reduced-motion: reduce)",
     )?.matches;
     if (prefersReducedMotion) return;
-
     let rafId = 0;
     const update = () => {
       rafId = 0;
@@ -583,6 +629,7 @@ export default function Home() {
     queryKey: ["dashboard", getUserId()],
     queryFn: () => getUserDashboard({ userProfileId: getUserId() }),
   });
+
   const { data: brandsData } = useQuery({
     queryKey: ["brands-home"],
     queryFn: () =>
@@ -592,6 +639,45 @@ export default function Home() {
         "Order.Ascending": false,
       }),
   });
+
+  // ── Find TWAM brand ID from the brands list ──────────────────────────────
+  const twamBrandId = useMemo(() => {
+    const list: any[] = brandsData?.list ?? [];
+    const found = list.find(
+      (b) =>
+        b.brandName?.toLowerCase().includes("twam") ||
+        b.name?.toLowerCase().includes("twam"),
+    );
+    return found?.brandId ?? found?.id ?? null;
+  }, [brandsData]);
+
+  // ── Fetch TWAM brand products for the orbit ──────────────────────────────
+  const { data: twamProductsData } = useQuery({
+    queryKey: ["twam-orbit-products", twamBrandId],
+    enabled: twamBrandId != null,
+    queryFn: () =>
+      api
+        .get("/ProductVariantDetail/UserProductVariantDetail", {
+          params: {
+            "filters[0].property": "Product.BrandId",
+            "filters[0].comparison": "eq",
+            "filters[0].value": String(twamBrandId),
+            "order.property": "ModifiedDate",
+            "order.ascending": false,
+            "page.size": 8,
+          },
+        })
+        .then((r) => r.data?.list ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fallback: if brand not found or returns empty, use bestSellers
+  const orbitProducts: any[] = useMemo(() => {
+    if (twamProductsData && twamProductsData.length > 0)
+      return twamProductsData;
+    return dashboard?.bestSellers?.slice(0, 8) ?? [];
+  }, [twamProductsData, dashboard]);
+
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],
     queryFn: () =>
@@ -601,7 +687,7 @@ export default function Home() {
         ]),
         "Order.Property": "createdDate",
         "Order.Ascending": false,
-        "Page.Size": 12, // fetch more so we can filter down to 4 valid ones
+        "Page.Size": 12,
       }),
     select: (d: any) =>
       (d?.list ?? []).filter((r: any) => !!r.productVariantId),
@@ -609,7 +695,6 @@ export default function Home() {
     refetchOnMount: true,
   });
 
-  // Validate that each review's product still exists — filter out deleted products
   const { data: reviewsData } = useQuery({
     queryKey: [
       "reviews-home-validated",
@@ -678,27 +763,13 @@ export default function Home() {
   };
 
   return (
-    <div style={{ fontFamily: '"Palatino Linotype", "Trebuchet MS", serif' }}>
-      <div className="home-bannner">
-        <img
-          src="/assets/twam-banner.png"
-          className="img-fluid"
-          alt="TWAM Banner"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/assets/about-banner-2.jpg";
-          }}
-        />
-      </div>
+    <div className="s-home-bcf04f">
+      {/* ── Hero Banner — replaces old static image ── */}
+      <HeroBanner orbitProducts={orbitProducts} />
       <div className="section-gap" />
 
       <section
-        className="best-sellers best-sellers-bg best-sellers-bg-1"
-        style={{
-          backgroundImage: "url(/assets/home/best-sellers1.jpg)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
+        className="best-sellers best-sellers-bg best-sellers-bg-1 s-home-42eb71"
       >
         <div className="container">
           <SectionTitle title="Best Sellers" highlight />
@@ -724,13 +795,7 @@ export default function Home() {
       <div className="section-gap" />
 
       <section
-        className="best-sellers"
-        style={{
-          backgroundImage: "url(/assets/home/new-arrival.jpg)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
+        className="best-sellers s-home-51e4ca"
       >
         <div className="container">
           <SectionTitle title="New Arrivals" highlight />
@@ -744,25 +809,16 @@ export default function Home() {
       <div className="section-gap" />
 
       <section
-        style={{
-          padding: "0 0 30px",
-          backgroundImage: "url(/assets/home/category-model1.jpg)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
+        className="s-home-7af910"
       >
         <div className="container">
           <SectionTitle title="Shop by Category" highlight />
-          <div className="category-buttons" style={{ marginBottom: 18 }}>
+          <div className="category-buttons s-home-5e0218">
             {menus.map((cat: CategoryMenu) => (
               <button
                 key={cat.categoryId}
                 onClick={() => handleCategorySelect(cat)}
-                className={
-                  selectedCategoryId === cat.categoryId ? "active" : ""
-                }
-                style={{ color: PRI }}
+                className={`${selectedCategoryId === cat.categoryId ? "active" : ""} s-home-2574d7`}
               >
                 {cat.name}
               </button>
@@ -770,24 +826,12 @@ export default function Home() {
           </div>
           {categoryProducts === null ? (
             <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                padding: "40px 0",
-              }}
+              className="s-home-0b4322"
             >
               <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  border: `3px solid ${IVORY}`,
-                  borderTopColor: PRI,
-                  borderRadius: "50%",
-                  animation: "spin .8s linear infinite",
-                }}
+                className="s-home-0349cd"
               />
-              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-            </div>
+              </div>
           ) : categoryProducts.length > 0 ? (
             <ProductSlider
               products={categoryProducts}
@@ -795,12 +839,7 @@ export default function Home() {
             />
           ) : (
             <p
-              style={{
-                textAlign: "center",
-                color: HEIRLOOM,
-                padding: "32px 0",
-                fontSize: 15,
-              }}
+              className="s-home-374f3d"
             >
               No products in this category yet.
             </p>
@@ -808,7 +847,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Testimonials moved here - below Shop by Category */}
       {reviews.length > 0 && (
         <>
           <div className="section-gap" />
@@ -816,24 +854,16 @@ export default function Home() {
             <div className="container">
               <SectionTitle title="Testimonials" />
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                  gap: 20,
-                  paddingBottom: 16,
-                  maxWidth: "100%",
-                }}
+                className="s-home-2448b9"
               >
                 {reviews.map((r: any, i: number) => {
                   const canNav = !!r.productVariantId;
                   const handleTestimonialClick = () => {
                     if (!canNav) return;
-                    // Navigate to product detail and auto-open reviews tab
                     navigate(
                       `/user-products/product-detail/${r.productVariantId}/${slugify(r.productName || r.name || "product")}?tab=reviews`,
                     );
                   };
-                  // Only show photo if the user explicitly uploaded one (r.photo only, not product image)
                   const hasUserPhoto = !!r.photo;
                   const photoSrc = hasUserPhoto
                     ? getImageUrl(r.photo, "")
@@ -841,12 +871,8 @@ export default function Home() {
                   return (
                     <div
                       key={i}
-                      className="testimonial-card"
-                      onClick={handleTestimonialClick}
-                      style={{
-                        cursor: canNav ? "pointer" : "default",
-                        transition: "transform .2s, box-shadow .2s",
-                      }}
+                      className="testimonial-card s-home-dce984"
+                      onClick={handleTestimonialClick} style={ {cursor: canNav ? "pointer" : "default"} }
                       onMouseEnter={(e) => {
                         if (canNav) {
                           (e.currentTarget as HTMLDivElement).style.transform =
@@ -862,28 +888,15 @@ export default function Home() {
                           "";
                       }}
                     >
-                      {/* ── Top row: review image (left) + quote (right) ── */}
                       <div
-                        style={{
-                          display: "flex",
-                          gap: 16,
-                          alignItems: "flex-start",
-                          marginBottom: 16,
-                        }}
+                        className="s-home-ba3c41"
                       >
-                        {/* Left: show photo only if user uploaded one */}
                         {hasUserPhoto && (
-                          <div style={{ flexShrink: 0 }}>
+                          <div className="s-addresslist-f8b697">
                             <img
                               src={photoSrc!}
                               alt={r.name || "reviewer"}
-                              style={{
-                                width: 80,
-                                height: 80,
-                                borderRadius: 10,
-                                objectFit: "cover",
-                                border: "2px solid var(--border-color)",
-                              }}
+                              className="s-home-f49f79"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display =
                                   "none";
@@ -891,75 +904,41 @@ export default function Home() {
                             />
                           </div>
                         )}
-                        {/* Right: quote */}
                         <p
-                          className="quote"
-                          style={{ color: PRI, margin: 0, flex: 1 }}
+                          className="quote s-home-2242ed"
                         >
                           "{r.comment}"
                         </p>
                       </div>
-
-                      {/* ── Bottom row: profile icon (circle) + name + stars ── */}
                       <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          borderTop: "1px solid var(--border-color)",
-                          paddingTop: 12,
-                        }}
+                        className="s-home-6ebbb3"
                       >
-                        {/* Circle avatar — always a person icon, never the product image */}
                         <div
-                          style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: "50%",
-                            background: "var(--ivory)",
-                            border: "2px solid var(--border-color)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
+                          className="s-home-8c7d4e"
                         >
                           <i
-                            className="bi bi-person-fill"
-                            style={{ color: "#6B0F2A", fontSize: 20 }}
+                            className="bi bi-person-fill s-home-0820cb"
                           />
                         </div>
                         <div>
-                          <h4 style={{ color: PRI, margin: "0 0 3px" }}>
+                          <h4 className="s-home-918042">
                             {r.name || r.displayName}
                           </h4>
                           <div
-                            className="stars"
-                            style={{ display: "flex", gap: 2 }}
+                            className="stars s-home-5c2fcc"
                           >
                             {Array.from({ length: 5 }).map((_, j) => (
                               <i
                                 key={j}
-                                className={
-                                  j < r.rating
+                                className={`${j < r.rating
                                     ? "bi bi-star-fill"
-                                    : "bi bi-star"
-                                }
-                                style={{
-                                  color: j < r.rating ? BLUSH : "#ddd",
-                                  fontSize: 12,
-                                }}
+                                    : "bi bi-star"} s-home-b3de66`} style={ {color: j < r.rating ? 'var(--blush)' : "var(--ivory)"} }
                               />
                             ))}
                           </div>
                           {canNav && r.productName && (
                             <p
-                              style={{
-                                margin: "3px 0 0",
-                                fontSize: 11,
-                                color: "#9E6070",
-                                fontStyle: "italic",
-                              }}
+                              className="s-home-398bbc"
                             >
                               {r.productName}
                             </p>
@@ -975,10 +954,8 @@ export default function Home() {
         </>
       )}
 
-      {/* Brands moved here - above ShippingBar */}
       <div className="section-gap" />
       <BrandsSection logos={logos} />
-
       <div className="section-gap" />
       <ShippingBar />
 

@@ -3,7 +3,6 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import Breadcrumb from '@/shared/components/Breadcrumb';
 import type { Crumb } from '@/shared/components/Breadcrumb';
 
-const PRI = '#6B0F2A';
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 
 const navItems = [
@@ -20,12 +19,7 @@ const navItems = [
 function ProfileAvatar({ name, size = 48 }: { name: string; size?: number }) {
   const initials = (name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%',
-      background: 'rgba(255,255,255,0.25)', border: '2.5px solid rgba(255,255,255,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontSize: size * 0.34, fontWeight: 700, fontFamily: FONTS, flexShrink: 0,
-    }}>
+    <div className="s-profilelayou-8aef68" style={ {width: size, height: size, fontFamily: FONTS} }>
       {initials}
     </div>
   );
@@ -59,61 +53,55 @@ export default function ProfileLayout() {
   return (
     <>
       <Breadcrumb items={accountCrumbs} />
-      <style>{`
-        .pl-nav a { display:flex; align-items:center; gap:10px; padding:11px 18px; text-decoration:none; font-size:13.5px; color:#444; border-left:3px solid transparent; transition:background .15s,color .15s; font-family:inherit; }
-        .pl-nav a.active { color:${PRI} !important; background:#fff5f7 !important; border-left-color:${PRI} !important; font-weight:700 !important; }
-        .pl-nav a:hover:not(.active) { background:#fafafa; color:#111; }
-        @media(max-width:768px){ .pl-wrap{ flex-direction:column !important; } .pl-sidebar{ position:static !important; width:100% !important; flex:unset !important; } }
-      `}</style>
-      <div className="container pl-wrap" style={{ padding:'32px 16px', display:'flex', gap:24, alignItems:'flex-start' }}>
+      <div className="container pl-wrap s-profilelayou-8cf73f">
 
         {/* ── Sidebar ── */}
-        <aside className="pl-sidebar" style={{ flex:'0 0 230px', minWidth:230, position:'sticky', top:80 }}>
-          <div style={{ background:'#fff', border:'1px solid #f0f0f0', borderRadius:16, overflow:'hidden', boxShadow:'0 4px 20px rgba(107,15,42,.06)' }}>
+        <aside className="pl-sidebar s-profilelayou-a63021">
+          <div className="s-profilelayou-7033d5">
 
             {/* Header */}
-            <div style={{ background:`linear-gradient(135deg,${PRI},#A84C6B)`, padding:'22px 16px', position:'relative', overflow:'hidden' }}>
-              <div style={{ position:'absolute', top:-20, right:-20, width:80, height:80, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }} />
-              <div style={{ display:'flex', alignItems:'center', gap:12, position:'relative' }}>
+            <div className="s-profilelayou-84a313">
+              <div className="s-profilelayou-e33b62" />
+              <div className="s-profilelayou-92f3ba">
                 <ProfileAvatar name={name} size={48} />
-                <div style={{ minWidth:0 }}>
-                  <p style={{ margin:0, fontWeight:700, color:'#fff', fontSize:14, fontFamily:FONTS, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{name}</p>
-                  {email && <p style={{ margin:'2px 0 0', fontSize:11, color:'rgba(255,255,255,0.75)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{email}</p>}
+                <div className="s-profilelayou-e10263">
+                  <p className="s-profilelayou-6b87f8 s-profilelayou-ff6baedf">{name}</p>
+                  {email && <p className="s-profilelayou-a4e138">{email}</p>}
                 </div>
               </div>
             </div>
 
             {/* Nav */}
-            <nav className="pl-nav" style={{ padding:'8px 0' }}>
+            <nav className="pl-nav s-profilelayou-4eec79">
               {navItems.map(item => (
                 <NavLink key={item.path} to={item.path}
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'11px 18px', textDecoration:'none', fontSize:'13.5px', color: isActive ? PRI : '#444', background: isActive ? '#fff5f7' : 'transparent', borderLeft: isActive ? `3px solid ${PRI}` : '3px solid transparent', fontWeight: isActive ? 700 : 400, fontFamily:'inherit', transition:'background .15s,color .15s' })}>
-                  <i className={`bi ${item.icon}`} style={{ width:18, textAlign:'center', fontSize:15 }} />
+                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'11px 18px', textDecoration:'none', fontSize:'13.5px', color: isActive ? 'var(--brand)' : 'var(--heirloom)', background: isActive ? 'var(--ivory)' : 'transparent', borderLeft: isActive ? `3px solid var(--brand)` : '3px solid transparent', fontWeight: isActive ? 700 : 400, fontFamily: 'var(--font-body)', transition:'background .15s,color .15s' })}>
+                  <i className={`bi ${item.icon} s-profilelayou-40fc0e`} />
                   {item.label}
                 </NavLink>
               ))}
-              <div style={{ height:1, background:'#f0f0f0', margin:'6px 0' }} />
+              <div className="s-profilelayou-a78377" />
               <button onClick={() => { logout(); navigate('/'); }}
-                style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 18px', background:'none', border:'none', cursor:'pointer', fontSize:'13.5px', color:'#e53935', borderLeft:'3px solid transparent', fontFamily:'inherit' }}
-                onMouseEnter={e=>(e.currentTarget.style.background='#fff5f5')} onMouseLeave={e=>(e.currentTarget.style.background='none')}>
-                <i className="bi bi-box-arrow-right" style={{ width:18, textAlign:'center', fontSize:15 }} /> Sign Out
+                className="s-profilelayou-d3b202"
+                onMouseEnter={e=>(e.currentTarget.style.background='var(--ivory)')} onMouseLeave={e=>(e.currentTarget.style.background='none')}>
+                <i className="bi bi-box-arrow-right s-profilelayou-40fc0e" /> Sign Out
               </button>
             </nav>
           </div>
 
           {/* Help card */}
-          <div style={{ marginTop:14, background:'#fff', border:'1px solid #f0f0f0', borderRadius:12, padding:'14px 16px', boxShadow:'0 2px 8px rgba(0,0,0,.04)' }}>
-            <p style={{ margin:'0 0 4px', fontSize:13, fontWeight:600, color:'#222', fontFamily:FONTS }}>Need help?</p>
-            <p style={{ margin:'0 0 10px', fontSize:12, color:'#888' }}>Our support team is ready to help.</p>
+          <div className="s-profilelayou-e6f435">
+            <p className="s-profilelayou-9e4e02 s-profilelayou-ff6baedf">Need help?</p>
+            <p className="s-profilelayou-331eb0">Our support team is ready to help.</p>
             <button onClick={() => navigate('/contact-us')}
-              style={{ width:'100%', background:PRI, color:'#fff', border:'none', padding:'8px 0', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit' }}>
+              className="s-profilelayou-a17955">
               Contact Support
             </button>
           </div>
         </aside>
 
         {/* ── Content ── */}
-        <main style={{ flex:1, minWidth:0 }}>
+        <main className="s-userdashboar-7aa8c4">
           <Outlet />
         </main>
       </div>

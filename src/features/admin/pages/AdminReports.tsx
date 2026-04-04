@@ -9,15 +9,15 @@ import { formatPrice } from '@/shared/utils/helpers';
 
 function ReportCard({ title, value, icon, color, sub }: any) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 10, padding: '20px 24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+    <div className="s-adminreports-ae3483">
+      <div className="s-adminreports-b3de5e">
         <div>
-          <p style={{ margin: '0 0 4px', fontSize: 13, color: '#888' }}>{title}</p>
-          <h3 style={{ margin: 0, fontWeight: 800, fontSize: 28, color: '#111' }}>{value}</h3>
-          {sub && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#aaa' }}>{sub}</p>}
+          <p className="s-adminreports-dd9dc5">{title}</p>
+          <h3 className="s-admininvento-99662a">{value}</h3>
+          {sub && <p className="s-adminreports-4663ee">{sub}</p>}
         </div>
-        <div style={{ width: 48, height: 48, borderRadius: 12, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <i className={`bi ${icon}`} style={{ fontSize: 22, color }} />
+        <div className="s-adminreports-0e6d5e s-adminreports-15c150">
+          <i className={`bi ${icon} s-adminreports-e79899`} />
         </div>
       </div>
     </div>
@@ -58,45 +58,45 @@ export default function AdminReports() {
   }, {});
 
   const STATUS_COLORS: Record<string, string> = {
-    Delivered: '#2e7d32', Pending: '#e65100', Processing: '#1565c0',
-    Shipped: '#6a1b9a',  Cancelled: '#c62828', Refunded: '#0277bd',
-    'Return Initiated': '#f57f17', Returned: '#558b2f', Confirmed: '#1b5e20',
+    Delivered: 'var(--brand)', Pending: 'var(--brand)', Processing: 'var(--brand)',
+    Shipped: 'var(--brand)',  Cancelled: 'var(--brand)', Refunded: 'var(--brand)',
+    'Return Initiated': 'var(--brand)', Returned: 'var(--brand)', Confirmed: 'var(--brand)',
   };
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Reports & Analytics</h2>
-        <p style={{ margin: 0, color: '#888', fontSize: 13 }}>Business performance overview</p>
+      <div className="s-adminblog-19fd7a">
+        <h2 className="s-adminblog-91c675">Reports & Analytics</h2>
+        <p className="s-adminblog-1c2c10">Business performance overview</p>
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-        <ReportCard title="Total Revenue"   value={formatPrice(totalRevenue)} icon="bi-currency-rupee" color="#2e7d32" sub="All orders" />
-        <ReportCard title="Total Orders"    value={ordersData?.count || 0}    icon="bi-bag-check"      color="#1565c0" sub="All time" />
-        <ReportCard title="Avg Order Value" value={formatPrice(avgOrderValue)} icon="bi-graph-up"      color="#6a1b9a" sub="Per order" />
-        <ReportCard title="Delivered"       value={deliveredOrders}           icon="bi-check-circle"   color="#2e7d32" sub="Successfully fulfilled" />
-        <ReportCard title="Pending"         value={pendingOrders}             icon="bi-clock"          color="#e65100" sub="Need attention" />
-        <ReportCard title="Cancelled"       value={cancelledOrders}           icon="bi-x-circle"       color="#c62828" sub="Lost revenue" />
-        <ReportCard title="Returns"         value={returnedOrders}            icon="bi-arrow-return-left" color="#f57f17" sub="Return initiated/completed" />
-        <ReportCard title="Total Products"  value={productsData?.count || 0}  icon="bi-box-seam"       color="#8b5cf6" sub="In catalogue" />
+      <div className="s-adminreports-e38261">
+        <ReportCard title="Total Revenue"   value={formatPrice(totalRevenue)} icon="bi-currency-rupee" color="var(--brand)" sub="All orders" />
+        <ReportCard title="Total Orders"    value={ordersData?.count || 0}    icon="bi-bag-check"      color="var(--brand)" sub="All time" />
+        <ReportCard title="Avg Order Value" value={formatPrice(avgOrderValue)} icon="bi-graph-up"      color="var(--brand)" sub="Per order" />
+        <ReportCard title="Delivered"       value={deliveredOrders}           icon="bi-check-circle"   color="var(--brand)" sub="Successfully fulfilled" />
+        <ReportCard title="Pending"         value={pendingOrders}             icon="bi-clock"          color="var(--brand)" sub="Need attention" />
+        <ReportCard title="Cancelled"       value={cancelledOrders}           icon="bi-x-circle"       color="var(--brand)" sub="Lost revenue" />
+        <ReportCard title="Returns"         value={returnedOrders}            icon="bi-arrow-return-left" color="var(--brand)" sub="Return initiated/completed" />
+        <ReportCard title="Total Products"  value={productsData?.count || 0}  icon="bi-box-seam"       color="var(--brand)" sub="In catalogue" />
       </div>
 
       {/* Status breakdown chart */}
       {orders.length > 0 && (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 24 }}>
-          <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>Orders by Status</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="s-adminreports-7f40c7">
+          <h3 className="s-adminreports-e49d2d">Orders by Status</h3>
+          <div className="s-adminblog-b43398">
             {Object.entries(statusGroups)
               .sort(([, a], [, b]) => (b as number) - (a as number))
               .map(([status, count]) => (
-                <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ width: 140, fontSize: 13, color: '#555', flexShrink: 0 }}>{status}</span>
-                  <div style={{ flex: 1, height: 20, background: '#f5f5f5', borderRadius: 10, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', background: STATUS_COLORS[status] || '#9ca3af', width: `${((count as number) / orders.length) * 100}%`, borderRadius: 10, transition: 'width .5s' }} />
+                <div key={status} className="s-adminreports-25c771">
+                  <span className="s-adminreports-00b957">{status}</span>
+                  <div className="s-adminreports-860ce5">
+                    <div className="s-adminreports-31c600" style={{ width: `${((count as number) / orders.length) * 100}%`, background: STATUS_COLORS[status] || 'var(--heirloom)' }} />
                   </div>
-                  <span style={{ width: 40, fontSize: 13, fontWeight: 600, color: '#111', textAlign: 'right', flexShrink: 0 }}>{count as number}</span>
-                  <span style={{ width: 40, fontSize: 12, color: '#aaa', flexShrink: 0 }}>({Math.round(((count as number) / orders.length) * 100)}%)</span>
+                  <span className="s-adminreports-0d29c7">{count as number}</span>
+                  <span className="s-adminreports-242df6">({Math.round(((count as number) / orders.length) * 100)}%)</span>
                 </div>
               ))}
           </div>
@@ -105,30 +105,30 @@ export default function AdminReports() {
 
       {/* Revenue table of recent orders */}
       {orders.length > 0 && (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0' }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Recent Orders Summary</h3>
+        <div className="s-adminreports-bc1d99">
+          <div className="s-adminreports-544a5c">
+            <h3 className="s-adminblog-ffb607">Recent Orders Summary</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div className="s-admindashboa-ce7380">
+            <table className="s-adminbrands-de3642">
               <thead>
-                <tr style={{ background: '#fafafa' }}>
+                <tr className="s-adminbrands-1ba202">
                   {['Order #', 'Amount', 'Status', 'Date'].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#666', fontWeight: 600, fontSize: 12, textTransform: 'uppercase' }}>{h}</th>
+                    <th key={h} className="s-adminbrands-84e069">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {orders.slice(0, 20).map((o: any) => (
-                  <tr key={o.orderId} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                    <td style={{ padding: '10px 16px', fontWeight: 600, color: '#6A012A' }}>#{o.orderNumber || o.orderId}</td>
-                    <td style={{ padding: '10px 16px', fontWeight: 600 }}>{formatPrice(o.totalAmount || 0)}</td>
-                    <td style={{ padding: '10px 16px' }}>
-                      <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: (STATUS_COLORS[o.state] || '#888') + '20', color: STATUS_COLORS[o.state] || '#888' }}>
+                  <tr key={o.orderId} className="s-adminbrands-59d787">
+                    <td className="s-adminreports-552526">#{o.orderNumber || o.orderId}</td>
+                    <td className="s-adminbrands-c25a6e">{formatPrice(o.totalAmount || 0)}</td>
+                    <td className="s-adminbrands-7dcd2c">
+                      <span className="s-adminreports-b87ad1" style={{ background: (STATUS_COLORS[o.state] || 'var(--heirloom)') + '20', color: STATUS_COLORS[o.state] || 'var(--heirloom)' }}>
                         {o.state || 'Pending'}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 16px', color: '#888', fontSize: 12 }}>
+                    <td className="s-adminreports-15b77f">
                       {o.orderDate ? new Date(o.orderDate).toLocaleDateString('en-IN') : '—'}
                     </td>
                   </tr>

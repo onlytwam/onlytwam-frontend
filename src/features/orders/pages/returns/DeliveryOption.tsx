@@ -18,30 +18,30 @@ export default function DeliveryOption() {
   };
 
   return (
-    <div className="container" style={{ padding: '32px 16px', maxWidth: 520 }}>
+    <div className="container s-deliveryopti-562975">
       <button onClick={() => navigate('/user-products/return-reason')}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+        className="s-deliveryopti-01d82d">
         <i className="bi bi-arrow-left" /> Back
       </button>
-      <h4 style={{ marginBottom: 6 }}>Delivery Option</h4>
-      <p style={{ color: '#888', marginBottom: 24, fontSize: 14 }}>How would you like to send back the item?</p>
+      <h4 className="s-deliveryopti-186182">Delivery Option</h4>
+      <p className="s-deliveryopti-78aac5">How would you like to send back the item?</p>
 
       {DELIVERY_OPTIONS.map(opt => (
         <div key={opt.id} onClick={() => setSelected(opt.id)}
-          style={{ display: 'flex', alignItems: 'center', gap: 16, border: `2px solid ${selected === opt.id ? '#111' : '#eee'}`, borderRadius: 8, padding: 16, marginBottom: 12, cursor: 'pointer', background: selected === opt.id ? '#f9f9f9' : '#fff' }}>
-          <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${selected === opt.id ? '#111' : '#ccc'}`, background: selected === opt.id ? '#111' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {selected === opt.id && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+          className="s-deliveryopti-132106" style={ {border: `2px solid ${selected === opt.id ? '#000000' : 'var(--ivory)'}`, background: selected === opt.id ? 'var(--ivory)' : '#fff'} }>
+          <div className="s-deliveryopti-f08f4d" style={ {border: `2px solid ${selected === opt.id ? '#000000' : 'var(--ivory)'}`, background: selected === opt.id ? '#000000' : '#fff'} }>
+            {selected === opt.id && <div className="s-payment-108f10" />}
           </div>
-          <i className={`bi ${opt.icon}`} style={{ fontSize: 24, color: '#555' }} />
+          <i className={`bi ${opt.icon} s-deliveryopti-55d2da`} />
           <div>
-            <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{opt.label}</p>
-            <p style={{ margin: 0, fontSize: 13, color: '#888' }}>{opt.desc}</p>
+            <p className="s-shippingopti-b1d3de">{opt.label}</p>
+            <p className="s-userdashboar-bc8be4">{opt.desc}</p>
           </div>
         </div>
       ))}
 
       <button onClick={handleNext} disabled={!selected}
-        style={{ marginTop: 16, width: '100%', background: '#111', color: '#fff', border: 'none', padding: '12px', borderRadius: 4, cursor: selected ? 'pointer' : 'not-allowed', opacity: selected ? 1 : 0.5, fontWeight: 600 }}>
+        className="s-deliveryopti-69a55f" style={ {cursor: selected ? 'pointer' : 'not-allowed', opacity: selected ? 1 : 0.5} }>
         Continue <i className="bi bi-arrow-right ms-1" />
       </button>
     </div>

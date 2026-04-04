@@ -37,10 +37,6 @@ import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
 
-const PRI = "#6B0F2A";
-const HEIRLOOM = "#9E6070";
-const BLUSH = "#A84C6B";
-const IVORY = "#F5F0E6";
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 
@@ -73,10 +69,10 @@ function PageNotification({
   }, [notif]);
   const bg =
     notif.type === "error"
-      ? "#A84C6B"
+      ? "var(--blush)"
       : notif.type === "warn"
-        ? "#9E6070"
-        : "#6B0F2A";
+        ? "var(--heirloom)"
+        : "var(--brand)";
   const icon =
     notif.type === "error"
       ? "bi-exclamation-circle-fill"
@@ -85,36 +81,12 @@ function PageNotification({
         : "bi-info-circle-fill";
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,.35)",
-        animation: "pd-notif-bg .15s ease",
-      }}
+      className="s-productdetai-5ab3e3"
     >
       <div
-        style={{
-          background: bg,
-          color: "#fff",
-          padding: "18px 28px",
-          borderRadius: 12,
-          fontSize: 14,
-          fontWeight: 700,
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          boxShadow: "0 12px 36px rgba(0,0,0,.35)",
-          maxWidth: 300,
-          textAlign: "center",
-          animation: "pd-notif-in .18s ease",
-          lineHeight: 1.4,
-        }}
+        className="s-productdetai-bb046e" style={ {background: bg} }
       >
-        <i className={`bi ${icon}`} style={{ fontSize: 20, flexShrink: 0 }} />
+        <i className={`bi ${icon} s-quickshopmod-42031d`} />
         <span>{notif.message}</span>
       </div>
     </div>
@@ -135,7 +107,7 @@ function Stars({
 }) {
   const [hover, setHover] = useState(0);
   return (
-    <span style={{ display: "inline-flex", gap: 2 }}>
+    <span className="s-productdetai-63bf95">
       {[1, 2, 3, 4, 5].map((i) => {
         const on = interactive
           ? (hover || rating) >= i
@@ -146,11 +118,11 @@ function Stars({
           <i
             key={i}
             className={`bi ${on ? "bi-star-fill" : half ? "bi-star-half" : "bi-star"}`}
-            style={{
+            style={ {
               fontSize: size,
-              color: on || half ? "#6B0F2A" : "#ddd",
+              color: on || half ? "var(--brand)" : "var(--ivory)",
               cursor: interactive ? "pointer" : "default",
-            }}
+            } }
             onMouseEnter={() => interactive && setHover(i)}
             onMouseLeave={() => interactive && setHover(0)}
             onClick={() => interactive && onRate?.(i)}
@@ -164,7 +136,7 @@ function Stars({
 /* ── Shipping Bar (same as Home) ─────────────────────────────────────────── */
 function ShippingBar() {
   return (
-    <section className="shipping_section" style={{ fontFamily: FONTS }}>
+    <section className="shipping_section s-productdetai-ff85a0a9">
       <div className="container">
         <div className="shipping_inner">
           {[
@@ -190,8 +162,8 @@ function ShippingBar() {
                 <i className={`${f.icon} icons`} />
               </div>
               <div className="shipping_text">
-                <h3 style={{ color: PRI }}>{f.title}</h3>
-                <p style={{ color: HEIRLOOM }}>{f.sub}</p>
+                <h3 className="s-productdetai-b87156">{f.title}</h3>
+                <p className="s-productdetai-f51e9c">{f.sub}</p>
               </div>
             </div>
           ))}
@@ -282,7 +254,7 @@ function ScrollableProductRow({
     width: 42,
     height: 42,
     borderRadius: "50%",
-    background: enabled ? PRI : "#ede6da",
+    background: enabled ? 'var(--brand)' : "var(--ivory)",
     border: "none",
     cursor: enabled ? "pointer" : "default",
     display: "flex",
@@ -301,7 +273,7 @@ function ScrollableProductRow({
   return (
     <div
       ref={wrapRef}
-      style={{ position: "relative", padding: "0 56px" }}
+      className="s-productdetai-227ead"
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -317,20 +289,12 @@ function ScrollableProductRow({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        style={{
-          display: "flex",
-          gap: ROW_GAP,
-          overflowX: "auto",
-          WebkitOverflowScrolling: "touch" as any,
-          scrollBehavior: "auto",
-          msOverflowStyle: "none",
-          scrollbarWidth: "none",
-          padding: "8px 0 20px",
-        }}
+        className="s-productdetai-3283d7 s-productdetai-e7ff84" style={ {gap: ROW_GAP} }
       >
         {products.map((p: any) => (
           <div
             key={p.productVariantId}
+            className="s-productdetai-88ed30 s-productdetai-cb6468"
             style={{
               flex: `0 0 ${safeCw}${typeof safeCw === "number" ? "px" : ""}`,
               width: typeof safeCw === "number" ? safeCw : undefined,
@@ -640,7 +604,7 @@ export default function ProductDetail() {
     if (entirelyOOS) {
       toast("Out of stock — we'll restock soon! 🛍️", {
         icon: "⏳",
-        style: { background: "#6B0F2A", color: "#fff", fontWeight: 600 },
+        style: { background: "var(--brand)", color: "#fff", fontWeight: 600 },
       });
       return false;
     }
@@ -767,7 +731,7 @@ export default function ProductDetail() {
   });
 
   const btnStyle: React.CSSProperties = {
-    background: PRI,
+    background: 'var(--brand)',
     color: "#fff",
     border: "none",
     borderRadius: 8,
@@ -782,34 +746,20 @@ export default function ProductDetail() {
 
   if (isLoading)
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+      <div className="s-blog1-3b196e">
         <div
-          style={{
-            width: 40,
-            height: 40,
-            border: `4px solid ${IVORY}`,
-            borderTopColor: PRI,
-            borderRadius: "50%",
-            animation: "spin .8s linear infinite",
-          }}
+          className="s-productdetai-fa17e1"
         />
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
+        </div>
     );
   if (!product)
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
+      <div className="s-productdetai-490f26">
         <i
-          className="bi bi-box-seam"
-          style={{
-            fontSize: 48,
-            color: "#ddd",
-            display: "block",
-            marginBottom: 12,
-          }}
+          className="bi bi-box-seam s-orderslist-94e3bd"
         />
-        <h4 style={{ color: "#555" }}>Product not found</h4>
-        <Link to="/user-products/product-list" style={{ color: PRI }}>
+        <h4 className="s-adminbrands-95b451">Product not found</h4>
+        <Link to="/user-products/product-list" className="s-productdetai-b87156">
           Browse Products
         </Link>
       </div>
@@ -817,73 +767,27 @@ export default function ProductDetail() {
 
   return (
     <>
-      <style>{`
-        @keyframes pd-notif-in  { from{ opacity:0; transform:scale(.85) translateY(10px) } to{ opacity:1; transform:scale(1) translateY(0) } }
-        @keyframes pd-notif-bg  { from{ opacity:0 } to{ opacity:1 } }
-
-        /* Hide scrollbar on thumbnail column — all browsers */
-        .pd-thumb-col::-webkit-scrollbar { display: none; }
-        .pd-thumb-col { -ms-overflow-style: none; scrollbar-width: none; }
-
-        .pd-right-col::-webkit-scrollbar { display: none; }
-        .pd-right-col { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Thumbnail column: scroll only thumbnails, not the rest */
-        .pd-thumb-col {
-          position: relative;
-          overflow-y: auto;
-          overflow-x: hidden;
-        }
-
-        @media(max-width:767px){
-          .pd-left-col { position: relative !important; top: 0 !important; }
-          .pd-right-col { max-height: none !important; overflow-y: visible !important; }
-          .pd-thumb-col { max-height: 300px !important; flex-direction: row !important; overflow-x: auto !important; overflow-y: hidden !important; }
-          .pd-thumb-col img { width: 60px !important; height: 72px !important; }
-          .pd-gallery-row { flex-direction: column !important; }
-        }
-      `}</style>
-
       {pageNotif && (
         <PageNotification notif={pageNotif} onDone={() => setPageNotif(null)} />
       )}
       <Breadcrumb items={detailCrumbs} />
 
       <div
-        className="container"
-        style={{ paddingTop: 52, paddingBottom: 0, fontFamily: FONT_UI }}
+        className="container s-productdetai-312006 s-productdetai-ffe77190"
       >
         {/* ── Two-column layout ── */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "44% 56%",
-            gap: 32,
-            marginBottom: 48,
-          }}
+          className="s-productdetai-3bf9d0"
         >
           {/* LEFT: sticky image gallery */}
           <div
-            className="pd-left-col"
-            style={{ position: "sticky", top: 100, alignSelf: "start" }}
+            className="pd-left-col s-productdetai-993ff1"
           >
-            <div className="pd-gallery-row" style={{ display: "flex", gap: 10 }}>
+            <div className="pd-gallery-row s-adminbrands-bccf37">
               {/* ── Thumbnail column — independently scrollable, height matches main image ── */}
               {images.length > 1 && (
                 <div
-                  className="pd-thumb-col"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    flexShrink: 0,
-                    /* Match main image height: main image has aspect-ratio 3/4.
-                       Use the same aspect-ratio constraint so thumbs scroll only within that space */
-                    maxHeight: "min(70vh, 600px)",
-                    overflowY: "auto",
-                    overflowX: "hidden",
-                    paddingRight: 4,
-                  }}
+                  className="pd-thumb-col s-productdetai-f26fa6"
                 >
                   {images.map((img, i) => (
                     <img
@@ -891,17 +795,7 @@ export default function ProductDetail() {
                       src={img}
                       alt=""
                       onClick={() => handleThumbClick(i)}
-                      style={{
-                        width: 72,
-                        height: 88,
-                        objectFit: "cover",
-                        borderRadius: 8,
-                        cursor: "pointer",
-                        border: `2px solid ${activeImg === i ? PRI : "#eee"}`,
-                        opacity: activeImg === i ? 1 : 0.65,
-                        transition: "all .2s",
-                        flexShrink: 0,
-                      }}
+                      className="s-productdetai-81ffd3" style={ {border: `2px solid ${activeImg === i ? 'var(--brand)' : "var(--ivory)"}`, opacity: activeImg === i ? 1 : 0.65} }
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
@@ -912,25 +806,13 @@ export default function ProductDetail() {
 
               {/* ── Main image ── */}
               <div
-                style={{
-                  flex: 1,
-                  position: "relative",
-                  background: "#f7f7f7",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                }}
+                className="s-productdetai-c12f49"
               >
                 {images.length > 0 ? (
                   <img
                     src={images[activeImg]}
                     alt={product.name}
-                    style={{
-                      width: "100%",
-                      aspectRatio: "3/4",
-                      objectFit: "cover",
-                      display: "block",
-                      transition: "opacity .35s ease",
-                    }}
+                    className="s-productdetai-20b6f1"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
                         "/assets/category-bg.png";
@@ -938,16 +820,9 @@ export default function ProductDetail() {
                   />
                 ) : (
                   <div
-                    style={{
-                      width: "100%",
-                      aspectRatio: "3/4",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#ccc",
-                    }}
+                    className="s-productdetai-cc055a"
                   >
-                    <i className="bi bi-image" style={{ fontSize: 80 }} />
+                    <i className="bi bi-image s-productdetai-f49855" />
                   </div>
                 )}
 
@@ -956,75 +831,26 @@ export default function ProductDetail() {
                   <>
                     <button
                       onClick={handlePrev}
-                      style={{
-                        position: "absolute",
-                        left: 8,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "rgba(255,255,255,.9)",
-                        border: "1px solid #eee",
-                        borderRadius: "50%",
-                        width: 36,
-                        height: 36,
-                        cursor: "pointer",
-                        fontSize: 18,
-                        color: PRI,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      className="s-productdetai-40460d"
                     >
                       ‹
                     </button>
                     <button
                       onClick={handleNext}
-                      style={{
-                        position: "absolute",
-                        right: 8,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "rgba(255,255,255,.9)",
-                        border: "1px solid #eee",
-                        borderRadius: "50%",
-                        width: 36,
-                        height: 36,
-                        cursor: "pointer",
-                        fontSize: 18,
-                        color: PRI,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      className="s-productdetai-1e0af4"
                     >
                       ›
                     </button>
 
                     {/* ── Dot indicators showing current image & progress ── */}
                     <div
-                      style={{
-                        position: "absolute",
-                        bottom: 10,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        display: "flex",
-                        gap: 6,
-                      }}
+                      className="s-productdetai-20eb94"
                     >
                       {images.map((_, i) => (
                         <button
                           key={i}
                           onClick={() => handleThumbClick(i)}
-                          style={{
-                            width: activeImg === i ? 20 : 8,
-                            height: 8,
-                            borderRadius: 4,
-                            background:
-                              activeImg === i ? PRI : "rgba(255,255,255,0.7)",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: 0,
-                            transition: "width .3s ease, background .3s ease",
-                          }}
+                          className="s-productdetai-ae8395" style={ {width: activeImg === i ? 20 : 8, background: activeImg === i ? 'var(--brand)' : "rgba(255,255,255,0.7)"} }
                         />
                       ))}
                     </div>
@@ -1037,77 +863,35 @@ export default function ProductDetail() {
           {/* RIGHT: scrollable info */}
           <div>
             <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 6,
-              }}
+              className="s-productdetai-a5163d"
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="s-userdashboar-7aa8c4">
                 {product.brandName && (
                   <p
-                    style={{
-                      margin: "0 0 2px",
-                      fontSize: 12,
-                      color: PRI,
-                      textTransform: "uppercase",
-                      letterSpacing: 1.5,
-                      fontWeight: 700,
-                      fontFamily: FONTS,
-                    }}
+                    className="s-productdetai-a025fe s-productdetai-ff85a0a9"
                   >
                     {product.brandName}
                   </p>
                 )}
                 <h1
-                  style={{
-                    fontSize: 22,
-                    fontWeight: 700,
-                    margin: 0,
-                    color: "#111",
-                    lineHeight: 1.3,
-                    fontFamily: FONTS,
-                  }}
+                  className="s-productdetai-2d0f51 s-productdetai-ff85a0a9"
                 >
                   {product.name}
                 </h1>
               </div>
 
               <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  gap: 6,
-                  flexShrink: 0,
-                }}
+                className="s-productdetai-121533"
               >
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="s-adminproduct-6209be">
                   <button
                     onClick={handleWishlist}
                     title={
                       inWishlist ? "Remove from wishlist" : "Save to wishlist"
                     }
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: "50%",
-                      cursor: "pointer",
-                      background: inWishlist
+                    className="s-productdetai-2405c9" style={ {background: inWishlist
                         ? "linear-gradient(135deg, rgba(107,15,42,0.12) 0%, rgba(168,76,107,0.08) 100%)"
-                        : "linear-gradient(135deg, #fff 0%, #f8f4f5 100%)",
-                      border: `1.5px solid ${inWishlist ? PRI : "rgba(158,96,112,0.3)"}`,
-                      color: inWishlist ? PRI : HEIRLOOM,
-                      fontSize: 14,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow:
-                        "0 4px 12px rgba(107,15,42,0.10), 0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
-                      transition: "all .2s ease",
-                    }}
+                        : "linear-gradient(135deg, #fff 0%, #f5f0e6 100%)", border: `1.5px solid ${inWishlist ? 'var(--brand)' : "rgba(158,96,112,0.3)"}`, color: inWishlist ? 'var(--brand)' : 'var(--heirloom)'} }
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-2px)";
                     }}
@@ -1122,23 +906,7 @@ export default function ProductDetail() {
                   <button
                     onClick={handleShare}
                     title="Share"
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: "50%",
-                      cursor: "pointer",
-                      background:
-                        "linear-gradient(135deg, #fff 0%, #f8f4f5 100%)",
-                      border: "1.5px solid rgba(158,96,112,0.3)",
-                      color: HEIRLOOM,
-                      fontSize: 14,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow:
-                        "0 4px 12px rgba(107,15,42,0.10), 0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
-                      transition: "all .2s ease",
-                    }}
+                    className="s-productdetai-614403"
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-2px)";
                     }}
@@ -1150,19 +918,7 @@ export default function ProductDetail() {
                   </button>
                 </div>
                 <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background:
-                      "linear-gradient(135deg, #fff 0%, var(--ivory) 100%)",
-                    border: "1px solid rgba(107,15,42,0.12)",
-                    borderRadius: 20,
-                    padding: "4px 10px",
-                    cursor: "pointer",
-                    boxShadow:
-                      "0 2px 8px rgba(107,15,42,0.10), 0 1px 2px rgba(107,15,42,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
-                  }}
+                  className="s-productdetai-088cf9"
                   onClick={() => {
                     setActiveTab("reviews");
                     document
@@ -1173,31 +929,16 @@ export default function ProductDetail() {
                   <Stars rating={avgRating} size={13} />
                   {avgRating > 0 && (
                     <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 800,
-                        color: PRI,
-                        fontFamily: FONT_UI,
-                      }}
+                      className="s-productdetai-cf3f7f s-productdetai-ffe77190"
                     >
                       {avgRating.toFixed(1)}
                     </span>
                   )}
                   <span
-                    style={{
-                      width: 1,
-                      height: 10,
-                      background: "rgba(107,15,42,0.15)",
-                      display: "inline-block",
-                    }}
+                    className="s-productdetai-465cd0"
                   />
                   <span
-                    style={{
-                      fontSize: 11,
-                      color: HEIRLOOM,
-                      fontFamily: FONT_UI,
-                      fontWeight: 600,
-                    }}
+                    className="s-productdetai-4ed7ad s-productdetai-ffe77190"
                   >
                     {totalReviews > 0
                       ? `${totalReviews} Review${totalReviews !== 1 ? "s" : ""}`
@@ -1209,59 +950,29 @@ export default function ProductDetail() {
 
             {product.productCode && (
               <p
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: 12,
-                  color: "#888",
-                  letterSpacing: 0.5,
-                  fontFamily: FONT_UI,
-                }}
+                className="s-productdetai-264680 s-productdetai-ffe77190"
               >
                 SKU: {product.productCode}
               </p>
             )}
 
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 14,
-              }}
+              className="s-productdetai-404819"
             >
               <span
-                style={{
-                  fontSize: 26,
-                  fontWeight: 800,
-                  color: "#111",
-                  fontFamily: FONTS,
-                }}
+                className="s-productdetai-4a68f9 s-productdetai-ff85a0a9"
               >
                 {formatPrice(product.price || 0)}
               </span>
               {(product.originalPrice || 0) > (product.price || 0) && (
                 <>
                   <span
-                    style={{
-                      fontSize: 15,
-                      textDecoration: "line-through",
-                      color: "#bbb",
-                      fontFamily: FONT_UI,
-                    }}
+                    className="s-productdetai-b1cd3b s-productdetai-ffe77190"
                   >
                     {formatPrice(product.originalPrice)}
                   </span>
                   <span
-                    style={{
-                      background: "rgba(107,15,42,0.1)",
-                      color: "#6B0F2A",
-                      border: "1px solid #9E6070",
-                      padding: "3px 10px",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      fontFamily: FONT_UI,
-                    }}
+                    className="s-productdetai-d3ead5 s-productdetai-ffe77190"
                   >
                     {discount}% OFF
                   </span>
@@ -1272,37 +983,21 @@ export default function ProductDetail() {
             {product.description && (
               <div
                 dangerouslySetInnerHTML={{ __html: product.description }}
-                style={{
-                  fontSize: 13,
-                  color: "#555",
-                  lineHeight: 1.8,
-                  marginBottom: 16,
-                  fontFamily: FONT_UI,
-                  display: "-webkit-box",
-                  WebkitLineClamp: 4,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
+                className="s-productdetai-59e718 s-productdetai-ffe77190"
               />
             )}
 
             <div
-              style={{ borderTop: "1px solid #f0f0f0", margin: "4px 0 16px" }}
+              className="s-productdetai-239f8e"
             />
 
             {colors.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
+              <div className="s-adminblog-19fd7a">
                 <p
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: "#333",
-                    fontFamily: FONTS,
-                  }}
+                  className="s-productdetai-06262c s-productdetai-ff85a0a9"
                 >
                   Color:{" "}
-                  <span style={{ fontWeight: 400, color: "#666" }}>
+                  <span className="s-productdetai-6ed0de">
                     {colors.find((c: any) => c.productVariantId === currentVId)
                       ?.colorName ??
                       colors.find((c: any) => c.productVariantId === currentVId)
@@ -1310,7 +1005,7 @@ export default function ProductDetail() {
                       ""}
                   </span>
                 </p>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className="s-adminproduct-47622e">
                   {colors.map((c: any) => (
                     <button
                       key={c.productVariantId}
@@ -1323,26 +1018,12 @@ export default function ProductDetail() {
                         }
                       }}
                       title={c.colorName ?? c.color ?? ""}
-                      style={{
-                        padding: 2,
-                        border: `2.5px solid ${c.productVariantId === currentVId ? PRI : "transparent"}`,
-                        borderRadius: 8,
-                        cursor: "pointer",
-                        background: "none",
-                        outline: "none",
-                        transition: "border-color .2s",
-                      }}
+                      className="s-productdetai-e37fda" style={ {border: `2.5px solid ${c.productVariantId === currentVId ? 'var(--brand)' : "transparent"}`} }
                     >
                       <img
                         src={getImageUrl(c.image)}
                         alt={c.colorName ?? c.color ?? "color"}
-                        style={{
-                          width: 64,
-                          height: 78,
-                          objectFit: "cover",
-                          borderRadius: 6,
-                          display: "block",
-                        }}
+                        className="s-productdetai-f2b35e"
                         onError={(e) => {
                           const img = e.target as HTMLImageElement;
                           img.style.display = "none";
@@ -1358,39 +1039,23 @@ export default function ProductDetail() {
             )}
 
             {allSizes.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
+              <div className="s-updateprofil-246fef">
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 8,
-                  }}
+                  className="s-productdetai-858448"
                 >
                   <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "#333",
-                      fontFamily: FONTS,
-                    }}
+                    className="s-productdetai-8d5dc6 s-productdetai-ff85a0a9"
                   >
                     {hasCupSize ? "Band Size" : "Size"}
                     {selLabel && (
                       <span
-                        style={{ fontWeight: 400, color: PRI, marginLeft: 8 }}
+                        className="s-productdetai-84f726"
                       >
                         {selLabel}
                         {cupLabel ? ` / ${cupLabel}` : ""}
                         {selStock !== null && !isOOS && (
                           <span
-                            style={{
-                              marginLeft: 8,
-                              fontSize: 11,
-                              color: selStock <= 3 ? "#e65100" : "#2e7d32",
-                              fontWeight: 600,
-                            }}
+                            className="s-productdetai-cd29bb" style={ {color: selStock <= 3 ? "var(--brand)" : "var(--brand)"} }
                           >
                             {selStock <= 3
                               ? `(${selStock} left)`
@@ -1399,12 +1064,7 @@ export default function ProductDetail() {
                         )}
                         {isOOS && (
                           <span
-                            style={{
-                              marginLeft: 8,
-                              fontSize: 11,
-                              color: "#c62828",
-                              fontWeight: 600,
-                            }}
+                            className="s-paymentaddre-b0868f"
                           >
                             Out of stock
                           </span>
@@ -1414,17 +1074,12 @@ export default function ProductDetail() {
                   </p>
                   <Link
                     to="/size-guide"
-                    style={{
-                      fontSize: 12,
-                      color: PRI,
-                      textDecoration: "underline",
-                      fontFamily: FONT_UI,
-                    }}
+                    className="s-productdetai-fea0e7 s-productdetai-ffe77190"
                   >
                     Size Guide
                   </Link>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <div className="s-adminorders-2af484">
                   {allSizes.map((s: any) => {
                     const sel = selBandId === s.sizeId;
                     if (!s.inVariant)
@@ -1432,21 +1087,7 @@ export default function ProductDetail() {
                         <span
                           key={s.sizeId}
                           title="Not available"
-                          style={{
-                            minWidth: 48,
-                            height: 44,
-                            padding: "0 10px",
-                            borderRadius: 8,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: "1.5px dashed #d0d0d0",
-                            color: "#ccc",
-                            fontSize: 13,
-                            fontFamily: FONT_UI,
-                            userSelect: "none",
-                            cursor: "not-allowed",
-                          }}
+                          className="s-productdetai-0ae4b7 s-productdetai-ffe77190"
                         >
                           {s.sizeLabel}
                         </span>
@@ -1456,23 +1097,7 @@ export default function ProductDetail() {
                         <span
                           key={s.sizeId}
                           title="Out of stock"
-                          style={{
-                            minWidth: 48,
-                            height: 44,
-                            padding: "0 10px",
-                            borderRadius: 8,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: `1.5px solid ${PRI}`,
-                            color: PRI,
-                            opacity: 0.4,
-                            fontSize: 13,
-                            fontFamily: FONT_UI,
-                            textDecoration: "line-through",
-                            userSelect: "none",
-                            cursor: "not-allowed",
-                          }}
+                          className="s-productdetai-01b966 s-productdetai-ffe77190"
                         >
                           {s.sizeLabel}
                         </span>
@@ -1481,38 +1106,12 @@ export default function ProductDetail() {
                       <button
                         key={s.sizeId}
                         onClick={() => onBand(s)}
-                        style={{
-                          minWidth: 48,
-                          height: 44,
-                          padding: "0 10px",
-                          borderRadius: 8,
-                          border: `2px solid ${sel ? PRI : "#444"}`,
-                          background: sel ? PRI : "#fff",
-                          color: sel ? "#fff" : "#111",
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontFamily: FONT_UI,
-                          fontWeight: sel ? 700 : 500,
-                          transition: "all .15s",
-                          position: "relative",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
+                        className="s-productdetai-a9a160" style={ {border: `2px solid ${sel ? 'var(--brand)' : "var(--heirloom)"}`, background: sel ? 'var(--brand)' : "#fff", color: sel ? "#fff" : "#000000", fontFamily: FONT_UI, fontWeight: sel ? 700 : 500} }
                       >
                         {s.sizeLabel}
                         {s.stock > 0 && s.stock <= 3 && (
                           <span
-                            style={{
-                              position: "absolute",
-                              top: -4,
-                              right: -4,
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              background: "#e53935",
-                              border: "1px solid #fff",
-                            }}
+                            className="s-productdetai-0707db"
                           />
                         )}
                       </button>
@@ -1523,22 +1122,16 @@ export default function ProductDetail() {
             )}
 
             {hasCupSize && allCupSizes.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
+              <div className="s-updateprofil-246fef">
                 <p
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: "#333",
-                    fontFamily: FONTS,
-                  }}
+                  className="s-productdetai-06262c s-productdetai-ff85a0a9"
                 >
                   Cup Size:{" "}
-                  <span style={{ fontWeight: 400, color: "#666" }}>
+                  <span className="s-productdetai-6ed0de">
                     {cupLabel}
                   </span>
                 </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <div className="s-adminorders-2af484">
                   {allCupSizes.map((cs: any) => {
                     const av = cupAvail(cs.cupSizeId);
                     const sel = selCupId === cs.cupSizeId;
@@ -1547,21 +1140,7 @@ export default function ProductDetail() {
                         <span
                           key={cs.cupSizeId}
                           title="Not available"
-                          style={{
-                            minWidth: 44,
-                            height: 44,
-                            padding: "0 10px",
-                            borderRadius: 8,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: "1.5px dashed #d0d0d0",
-                            color: "#ccc",
-                            fontSize: 13,
-                            fontFamily: FONT_UI,
-                            userSelect: "none",
-                            cursor: "not-allowed",
-                          }}
+                          className="s-productdetai-0faa78 s-productdetai-ffe77190"
                         >
                           {cs.sizeLabel}
                         </span>
@@ -1571,23 +1150,7 @@ export default function ProductDetail() {
                         <span
                           key={cs.cupSizeId}
                           title="Out of stock"
-                          style={{
-                            minWidth: 44,
-                            height: 44,
-                            padding: "0 10px",
-                            borderRadius: 8,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: `1.5px solid ${PRI}`,
-                            color: PRI,
-                            opacity: 0.4,
-                            fontSize: 13,
-                            fontFamily: FONT_UI,
-                            textDecoration: "line-through",
-                            userSelect: "none",
-                            cursor: "not-allowed",
-                          }}
+                          className="s-productdetai-63c23a s-productdetai-ffe77190"
                         >
                           {cs.sizeLabel}
                         </span>
@@ -1596,23 +1159,7 @@ export default function ProductDetail() {
                       <button
                         key={cs.cupSizeId}
                         onClick={() => onCup(cs.cupSizeId)}
-                        style={{
-                          minWidth: 44,
-                          height: 44,
-                          padding: "0 10px",
-                          borderRadius: 8,
-                          border: `2px solid ${sel ? PRI : "#444"}`,
-                          background: sel ? PRI : "#fff",
-                          color: sel ? "#fff" : "#111",
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontFamily: FONT_UI,
-                          transition: "all .15s",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: sel ? 700 : 500,
-                        }}
+                        className="s-productdetai-83f876" style={ {border: `2px solid ${sel ? 'var(--brand)' : "var(--heirloom)"}`, background: sel ? 'var(--brand)' : "#fff", color: sel ? "#fff" : "#000000", fontFamily: FONT_UI, fontWeight: sel ? 700 : 500} }
                       >
                         {cs.sizeLabel}
                       </button>
@@ -1632,39 +1179,19 @@ export default function ProductDetail() {
               if (entirelyOOS)
                 return (
                   <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      marginBottom: 16,
-                      background: "#fff5f5",
-                      border: "1.5px solid #f5c6cb",
-                      borderRadius: 8,
-                      padding: "10px 14px",
-                    }}
+                    className="s-productdetai-7cf585"
                   >
                     <i
-                      className="bi bi-slash-circle"
-                      style={{ fontSize: 22, color: "#c62828", flexShrink: 0 }}
+                      className="bi bi-slash-circle s-productdetai-db68d0"
                     />
                     <div>
                       <p
-                        style={{
-                          margin: 0,
-                          fontSize: 14,
-                          fontWeight: 700,
-                          color: "#c62828",
-                          fontFamily: FONT_UI,
-                        }}
+                        className="s-productdetai-d617ad s-productdetai-ffe77190"
                       >
                         Out of Stock
                       </p>
                       <p
-                        style={{
-                          margin: "2px 0 0",
-                          fontSize: 12,
-                          color: "#e57373",
-                        }}
+                        className="s-productdetai-d67440"
                       >
                         We'll be back soon — check again later!
                       </p>
@@ -1676,51 +1203,23 @@ export default function ProductDetail() {
               const qtyLocked = hasSizes && selectedPVDId === null;
               return (
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 20,
-                    marginBottom: 16,
-                    flexWrap: "wrap",
-                  }}
+                  className="s-productdetai-c9ee63"
                 >
-                  <div style={{ position: "relative" }}>
+                  <div className="s-updateprofil-1d5e50">
                     <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        border: `1.5px solid ${qtyLocked ? "#eee" : "#ddd"}`,
-                        borderRadius: 8,
-                        background: qtyLocked ? "#fafafa" : "#fff",
-                      }}
+                      className="s-productdetai-dbae90" style={ {border: `1.5px solid ${qtyLocked ? "var(--ivory)" : "var(--ivory)"}`, background: qtyLocked ? "var(--ivory)" : "#fff"} }
                     >
                       <button
                         disabled={qtyLocked || quantity <= 1}
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                        style={{
-                          width: 40,
-                          height: 44,
-                          border: "none",
-                          background: "transparent",
-                          cursor:
-                            qtyLocked || quantity <= 1
+                        className="s-productdetai-631941" style={ {cursor: qtyLocked || quantity <= 1
                               ? "not-allowed"
-                              : "pointer",
-                          fontSize: 20,
-                          color: qtyLocked || quantity <= 1 ? "#ccc" : "#333",
-                        }}
+                              : "pointer", color: qtyLocked || quantity <= 1 ? "var(--ivory)" : "#000000"} }
                       >
                         −
                       </button>
                       <span
-                        style={{
-                          width: 44,
-                          textAlign: "center",
-                          fontSize: 15,
-                          fontWeight: 600,
-                          fontFamily: FONTS,
-                          color: qtyLocked ? "#bbb" : "#111",
-                        }}
+                        className="s-productdetai-3e73a5" style={ {fontFamily: FONTS, color: qtyLocked ? "var(--heirloom)" : "#000000"} }
                       >
                         {quantity}
                       </span>
@@ -1734,22 +1233,10 @@ export default function ProductDetail() {
                           }
                           setQuantity((q) => q + 1);
                         }}
+                        className="s-productdetai-5c049f"
                         style={{
-                          width: 40,
-                          height: 44,
-                          border: "none",
-                          background: "transparent",
-                          cursor:
-                            qtyLocked ||
-                            (selStock !== null && quantity >= selStock)
-                              ? "not-allowed"
-                              : "pointer",
-                          fontSize: 20,
-                          color:
-                            qtyLocked ||
-                            (selStock !== null && quantity >= selStock)
-                              ? "#ccc"
-                              : "#333",
+                          cursor: qtyLocked || (selStock !== null && quantity >= selStock) ? "not-allowed" : "pointer",
+                          color: qtyLocked || (selStock !== null && quantity >= selStock) ? "var(--ivory)" : "var(--brand)"
                         }}
                       >
                         +
@@ -1757,35 +1244,14 @@ export default function ProductDetail() {
                     </div>
                     {showStockTip && selStock !== null && (
                       <div
-                        style={{
-                          position: "absolute",
-                          top: "110%",
-                          left: 0,
-                          zIndex: 50,
-                          background: "#fff",
-                          border: `1.5px solid ${PRI}`,
-                          borderRadius: 8,
-                          padding: "7px 14px",
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: PRI,
-                          boxShadow: "0 4px 16px rgba(107,15,42,.18)",
-                          whiteSpace: "nowrap",
-                          pointerEvents: "none",
-                          animation: "pd-notif-in .18s ease",
-                        }}
+                        className="s-productdetai-0f3955"
                       >
                         {selStock} available
                       </div>
                     )}
                     {qtyLocked && (
                       <p
-                        style={{
-                          margin: "5px 0 0",
-                          fontSize: 11,
-                          color: "#e65100",
-                          fontWeight: 600,
-                        }}
+                        className="s-productdetai-41432e"
                       >
                         ↑ Select a size first
                       </p>
@@ -1794,18 +1260,11 @@ export default function ProductDetail() {
 
                   {!qtyLocked && selStock !== null && (
                     <p
-                      style={{
-                        margin: 0,
-                        paddingTop: 12,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        fontFamily: FONT_UI,
-                        color: isOOS
-                          ? "#c62828"
+                      className="s-productdetai-eeb06b" style={ {fontFamily: FONT_UI, color: isOOS
+                          ? "var(--brand)"
                           : selStock <= 3
-                            ? "#e65100"
-                            : "#2e7d32",
-                      }}
+                            ? "var(--brand)"
+                            : "var(--brand)"} }
                     >
                       {isOOS
                         ? "🚫 Out of stock"
@@ -1831,63 +1290,33 @@ export default function ProductDetail() {
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="s-resetpasswor-6e6177">
                 {cartMutation.isPending ? (
                   <span className="spinner-border spinner-border-sm" />
                 ) : (
-                  <i className="bi bi-cart3" style={{ fontSize: 17 }} />
+                  <i className="bi bi-cart3 s-productdetai-92056c" />
                 )}
                 Add to Cart
               </span>
-              <span style={{ fontSize: 16, fontWeight: 800 }}>
+              <span className="s-productdetai-248a0d">
                 {formatPrice(dispPrice || product?.price || 0)}
               </span>
             </button>
 
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <div className="s-productdetai-684078">
               <button
                 onClick={handleWishlist}
-                style={{
-                  flex: 1,
-                  padding: "11px",
-                  background: "#fff",
-                  color: PRI,
-                  border: `1.5px solid ${PRI}`,
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontFamily: FONTS,
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                }}
+                className="s-productdetai-c98011 s-productdetai-ff85a0a9"
               >
                 <i
                   className={`bi ${inWishlist ? "bi-heart-fill" : "bi-heart"}`}
-                  style={{ color: inWishlist ? "#e53935" : PRI }}
+                  style={ { color: inWishlist ? "var(--brand)" : 'var(--brand)' } }
                 />
                 {inWishlist ? "Wishlisted" : "Wishlist"}
               </button>
               <button
                 onClick={handleShare}
-                style={{
-                  flex: 1,
-                  padding: "11px",
-                  background: "#fff",
-                  color: "#555",
-                  border: "1.5px solid #ddd",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontFamily: FONTS,
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                }}
+                className="s-productdetai-68c9a4 s-productdetai-ff85a0a9"
               >
                 <i className="bi bi-share" /> Share
               </button>
@@ -1895,29 +1324,20 @@ export default function ProductDetail() {
 
             {product.isReturnAvailable && (
               <p
-                style={{
-                  fontSize: 12,
-                  color: "#22c55e",
-                  marginTop: 4,
-                  fontFamily: FONT_UI,
-                }}
+                className="s-productdetai-ecd15c s-productdetai-ffe77190"
               >
                 <i className="bi bi-arrow-return-left me-1" />
                 Easy returns available within 15 days
               </p>
             )}
-            <div style={{ height: 140, flexShrink: 0 }} aria-hidden="true" />
+            <div className="s-productdetai-0ad54d" aria-hidden="true" />
           </div>
         </div>
 
         {/* ── Tabs ── */}
-        <div id="pd-tabs" style={{ marginBottom: 56 }}>
+        <div id="pd-tabs" className="s-productdetai-478f1c">
           <div
-            style={{
-              display: "flex",
-              borderBottom: "2px solid #eee",
-              marginBottom: 28,
-            }}
+            className="s-productdetai-3d764b"
           >
             {(["description", "additional", "reviews"] as const).map(
               (tab, i) => {
@@ -1930,20 +1350,7 @@ export default function ProductDetail() {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    style={{
-                      padding: "13px 22px",
-                      border: "none",
-                      background: "none",
-                      cursor: "pointer",
-                      fontSize: 14,
-                      fontWeight: activeTab === tab ? 700 : 400,
-                      color: activeTab === tab ? "#111" : "#888",
-                      borderBottom: `3px solid ${activeTab === tab ? PRI : "transparent"}`,
-                      marginBottom: -2,
-                      fontFamily: FONTS,
-                      whiteSpace: "nowrap",
-                      transition: "all .2s",
-                    }}
+                    className="s-productdetai-227547" style={ {fontWeight: activeTab === tab ? 700 : 400, color: activeTab === tab ? "#000000" : "var(--heirloom)", borderBottom: `3px solid ${activeTab === tab ? 'var(--brand)' : "transparent"}`, fontFamily: FONTS} }
                   >
                     {label}
                   </button>
@@ -1954,23 +1361,17 @@ export default function ProductDetail() {
 
           {activeTab === "description" && (
             <div
-              style={{
-                maxWidth: 760,
-                color: "#555",
-                lineHeight: 1.9,
-                fontSize: 15,
-                fontFamily: FONT_UI,
-              }}
+              className="s-productdetai-ec3045 s-productdetai-ffe77190"
             >
               {product.description ? (
                 <div
                   dangerouslySetInnerHTML={{ __html: product.description }}
                 />
               ) : (
-                <p style={{ color: "#aaa" }}>No description available.</p>
+                <p className="s-adminbrands-95b451">No description available.</p>
               )}
               {product.tag && (
-                <p style={{ marginTop: 16, fontSize: 13, color: "#888" }}>
+                <p className="s-productdetai-cdd3f3">
                   <strong>Tags:</strong> {product.tag}
                 </p>
               )}
@@ -1979,12 +1380,7 @@ export default function ProductDetail() {
 
           {activeTab === "additional" && (
             <table
-              style={{
-                fontSize: 14,
-                color: "#555",
-                borderCollapse: "collapse",
-                fontFamily: FONT_UI,
-              }}
+              className="s-productdetai-17e9ae s-productdetai-ffe77190"
             >
               <tbody>
                 {[
@@ -2005,15 +1401,11 @@ export default function ProductDetail() {
                   .map(([label, value]: any) => (
                     <tr key={label}>
                       <td
-                        style={{
-                          padding: "8px 24px 8px 0",
-                          color: "#999",
-                          width: 160,
-                        }}
+                        className="s-productdetai-03ad4f"
                       >
                         {label}
                       </td>
-                      <td style={{ padding: 8 }}>{value}</td>
+                      <td className="s-productdetai-3e4e20">{value}</td>
                     </tr>
                   ))}
               </tbody>
@@ -2024,84 +1416,41 @@ export default function ProductDetail() {
             <div id="reviews">
               {totalReviews > 0 && (
                 <div
-                  style={{
-                    display: "flex",
-                    gap: 32,
-                    alignItems: "center",
-                    marginBottom: 28,
-                    flexWrap: "wrap",
-                  }}
+                  className="s-productdetai-07a510"
                 >
-                  <div style={{ textAlign: "center" }}>
+                  <div className="s-adminnewslet-e2e1e0">
                     <div
-                      style={{
-                        fontSize: 52,
-                        fontWeight: 800,
-                        lineHeight: 1,
-                        fontFamily: FONTS,
-                      }}
+                      className="s-productdetai-8ba13e s-productdetai-ff85a0a9"
                     >
                       {avgRating.toFixed(1)}
                     </div>
                     <Stars rating={avgRating} size={18} />
                     <p
-                      style={{
-                        margin: "6px 0 0",
-                        fontSize: 12,
-                        color: "#888",
-                        fontFamily: FONT_UI,
-                      }}
+                      className="s-productdetai-485fe5 s-productdetai-ffe77190"
                     >
                       {totalReviews} reviews
                     </p>
                   </div>
-                  <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className="s-userdashboar-6d7d28">
                     {breakdown.map(({ star, count }) => (
                       <div
                         key={star}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          marginBottom: 5,
-                        }}
+                        className="s-productdetai-9fc601"
                       >
                         <span
-                          style={{
-                            fontSize: 12,
-                            color: "#888",
-                            width: 24,
-                            textAlign: "right",
-                            fontFamily: FONT_UI,
-                          }}
+                          className="s-productdetai-dfdd5e s-productdetai-ffe77190"
                         >
                           {star}★
                         </span>
                         <div
-                          style={{
-                            flex: 1,
-                            height: 8,
-                            background: "#f0f0f0",
-                            borderRadius: 4,
-                            overflow: "hidden",
-                          }}
+                          className="s-productdetai-788842"
                         >
                           <div
-                            style={{
-                              height: "100%",
-                              background: "#6B0F2A",
-                              width: `${totalReviews ? (count / totalReviews) * 100 : 0}%`,
-                              transition: "width .4s",
-                            }}
+                            className="s-productdetai-1c4975" style={ {width: `${totalReviews ? (count / totalReviews) * 100 : 0}%`} }
                           />
                         </div>
                         <span
-                          style={{
-                            fontSize: 12,
-                            color: "#888",
-                            width: 20,
-                            fontFamily: FONT_UI,
-                          }}
+                          className="s-productdetai-701deb s-productdetai-ffe77190"
                         >
                           {count}
                         </span>
@@ -2138,21 +1487,13 @@ export default function ProductDetail() {
                 </button>
               ) : (
                 <div
-                  style={{
-                    marginBottom: 20,
-                    padding: "10px 16px",
-                    background: "#faf8f9",
-                    border: "1px solid var(--heirloom)",
-                    borderRadius: 8,
-                    fontSize: 13,
-                    color: "var(--heirloom)",
-                  }}
+                  className="s-productdetai-5e11d3"
                 >
-                  <i className="bi bi-lock" style={{ marginRight: 6 }} />
+                  <i className="bi bi-lock s-productdetai-39554d" />
                   Please{" "}
                   <a
                     href="/auth/login"
-                    style={{ color: "var(--brand)", fontWeight: 600 }}
+                    className="s-productdetai-4ffa2d"
                   >
                     sign in
                   </a>{" "}
@@ -2162,13 +1503,7 @@ export default function ProductDetail() {
 
               {showForm && (
                 <div
-                  style={{
-                    background: "#f9f9f9",
-                    padding: 24,
-                    borderRadius: 12,
-                    marginBottom: 24,
-                    border: `1px solid ${IVORY}`,
-                  }}
+                  className="s-productdetai-55950f"
                 >
                   <div className="row g-3">
                     {[
@@ -2177,12 +1512,7 @@ export default function ProductDetail() {
                     ].map(([k, l, t]) => (
                       <div key={k} className="col-md-6">
                         <label
-                          style={{
-                            fontSize: 13,
-                            display: "block",
-                            marginBottom: 4,
-                            fontFamily: FONT_UI,
-                          }}
+                          className="s-productdetai-149337 s-productdetai-ffe77190"
                         >
                           {l}
                         </label>
@@ -2198,12 +1528,7 @@ export default function ProductDetail() {
                     ))}
                     <div className="col-12">
                       <label
-                        style={{
-                          fontSize: 13,
-                          display: "block",
-                          marginBottom: 6,
-                          fontFamily: FONT_UI,
-                        }}
+                        className="s-productdetai-ce3a86 s-productdetai-ffe77190"
                       >
                         Rating
                       </label>
@@ -2217,12 +1542,7 @@ export default function ProductDetail() {
 
                     <div className="col-12">
                       <label
-                        style={{
-                          fontSize: 13,
-                          display: "block",
-                          marginBottom: 4,
-                          fontFamily: FONT_UI,
-                        }}
+                        className="s-productdetai-149337 s-productdetai-ffe77190"
                       >
                         Review
                       </label>
@@ -2237,48 +1557,28 @@ export default function ProductDetail() {
                     </div>
                     <div className="col-12">
                       <label
-                        style={{
-                          fontSize: 13,
-                          display: "block",
-                          marginBottom: 4,
-                          fontFamily: FONT_UI,
-                        }}
+                        className="s-productdetai-149337 s-productdetai-ffe77190"
                       >
                         Photo{" "}
-                        <span style={{ color: "#aaa", fontWeight: 400 }}>
+                        <span className="s-productdetai-0f512b">
                           (optional)
                         </span>
                       </label>
                       <label
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          cursor: "pointer",
-                          border: "1px dashed #ccc",
-                          borderRadius: 8,
-                          padding: "10px 14px",
-                          background: "#fafafa",
-                          width: "fit-content",
-                        }}
+                        className="s-productdetai-83019e"
                       >
                         <i
-                          className="bi bi-camera"
-                          style={{ fontSize: 18, color: "#6B0F2A" }}
+                          className="bi bi-camera s-productdetai-f407f6"
                         />
                         <span
-                          style={{
-                            fontSize: 13,
-                            color: "#555",
-                            fontFamily: FONT_UI,
-                          }}
+                          className="s-quickcart-08341f s-productdetai-ffe77190"
                         >
                           {photoFile ? photoFile.name : "Upload a photo"}
                         </span>
                         <input
                           type="file"
                           accept="image/*"
-                          style={{ display: "none" }}
+                          className="s-addressform-8251cb"
                           onChange={(e) => {
                             const f = e.target.files?.[0] ?? null;
                             setPhotoFile(f);
@@ -2288,44 +1588,19 @@ export default function ProductDetail() {
                       </label>
                       {photoPreview && (
                         <div
-                          style={{
-                            marginTop: 10,
-                            position: "relative",
-                            display: "inline-block",
-                          }}
+                          className="s-productdetai-ae794c"
                         >
                           <img
                             src={photoPreview}
                             alt="preview"
-                            style={{
-                              width: 80,
-                              height: 80,
-                              objectFit: "cover",
-                              borderRadius: 8,
-                              border: "1px solid #eee",
-                            }}
+                            className="s-productdetai-6e1f7a"
                           />
                           <button
                             onClick={() => {
                               setPhotoFile(null);
                               setPhotoPreview(null);
                             }}
-                            style={{
-                              position: "absolute",
-                              top: -6,
-                              right: -6,
-                              background: "#6B0F2A",
-                              border: "none",
-                              borderRadius: "50%",
-                              width: 20,
-                              height: 20,
-                              color: "#fff",
-                              fontSize: 11,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
+                            className="s-productdetai-60f07a"
                           >
                             ✕
                           </button>
@@ -2366,27 +1641,19 @@ export default function ProductDetail() {
               )}
 
               {reviews.length === 0 ? (
-                <p style={{ color: "#888", fontSize: 14, fontFamily: FONT_UI }}>
+                <p className="s-productdetai-2959a9 s-productdetai-ffe77190">
                   No reviews yet. Be the first!
                 </p>
               ) : (
                 reviews.map((r: any, i: number) => (
                   <div
                     key={i}
-                    style={{
-                      borderBottom: "1px solid #f0f0f0",
-                      paddingBottom: 16,
-                      marginBottom: 16,
-                    }}
+                    className="s-productdetai-e82d15"
                   >
                     <div
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 12,
-                      }}
+                      className="s-paymentaddre-9998cf"
                     >
-                      <div style={{ flexShrink: 0 }}>
+                      <div className="s-addresslist-f8b697">
                         {r.photo ? (
                           <img
                             src={
@@ -2395,13 +1662,7 @@ export default function ProductDetail() {
                                 : `${(import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${r.photo}`
                             }
                             alt="reviewer"
-                            style={{
-                              width: 52,
-                              height: 52,
-                              objectFit: "cover",
-                              borderRadius: 8,
-                              border: "1px solid #eee",
-                            }}
+                            className="s-productdetai-55b05c"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display =
                                 "none";
@@ -2409,36 +1670,22 @@ export default function ProductDetail() {
                           />
                         ) : (
                           <i
-                            className="bi bi-person-circle"
-                            style={{ fontSize: 44, color: "#ccc" }}
+                            className="bi bi-person-circle s-productdetai-c0ad13"
                           />
                         )}
                       </div>
-                      <div style={{ flex: 1 }}>
+                      <div className="s-app-52dcac">
                         <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            marginBottom: 4,
-                          }}
+                          className="s-adminblog-95277f"
                         >
                           <Stars rating={r.rating || 0} size={13} />
                           <span
-                            style={{
-                              fontWeight: 700,
-                              fontSize: 14,
-                              fontFamily: FONTS,
-                            }}
+                            className="s-productdetai-de8fb2 s-productdetai-ff85a0a9"
                           >
                             {r.name || r.displayName || "Anonymous"}
                           </span>
                           <span
-                            style={{
-                              fontSize: 12,
-                              color: "#aaa",
-                              fontFamily: FONT_UI,
-                            }}
+                            className="s-adminnewslet-f01220 s-productdetai-ffe77190"
                           >
                             {r.createdDate
                               ? new Date(r.createdDate).toLocaleDateString(
@@ -2449,23 +1696,13 @@ export default function ProductDetail() {
                         </div>
                         {(r.title || r.reviewTitle) && (
                           <p
-                            style={{
-                              margin: "0 0 4px",
-                              fontWeight: 600,
-                              fontSize: 13,
-                              fontFamily: FONTS,
-                            }}
+                            className="s-productdetai-c46b5b s-productdetai-ff85a0a9"
                           >
                             {r.title || r.reviewTitle}
                           </p>
                         )}
                         <p
-                          style={{
-                            margin: 0,
-                            color: "#555",
-                            fontSize: 14,
-                            fontFamily: FONT_UI,
-                          }}
+                          className="s-admindashboa-f39764 s-productdetai-ffe77190"
                         >
                           {r.comment}
                         </p>
@@ -2479,29 +1716,14 @@ export default function ProductDetail() {
         </div>
 
         {similarProducts.length > 0 && (
-          <div style={{ marginBottom: 56 }}>
+          <div className="s-productdetai-478f1c">
             <p
-              style={{
-                fontSize: 12,
-                color: "#888",
-                textAlign: "center",
-                letterSpacing: 2,
-                textTransform: "uppercase",
-                marginBottom: 4,
-                fontFamily: FONT_UI,
-              }}
+              className="s-productdetai-f3099c s-productdetai-ffe77190"
             >
               You May Also Like
             </p>
             <h2
-              style={{
-                fontSize: 24,
-                fontWeight: 700,
-                textAlign: "center",
-                marginBottom: 28,
-                fontFamily: FONTS,
-                color: PRI,
-              }}
+              className="s-productdetai-8ef3c3 s-productdetai-ff85a0a9"
             >
               Similar Products
             </h2>
@@ -2513,29 +1735,14 @@ export default function ProductDetail() {
         )}
 
         {exploreProducts.length > 0 && (
-          <div style={{ marginBottom: 56 }}>
+          <div className="s-productdetai-478f1c">
             <p
-              style={{
-                fontSize: 12,
-                color: "#888",
-                textAlign: "center",
-                letterSpacing: 2,
-                textTransform: "uppercase",
-                marginBottom: 4,
-                fontFamily: FONT_UI,
-              }}
+              className="s-productdetai-f3099c s-productdetai-ffe77190"
             >
               Discover More
             </p>
             <h2
-              style={{
-                fontSize: 24,
-                fontWeight: 700,
-                textAlign: "center",
-                marginBottom: 28,
-                fontFamily: FONTS,
-                color: PRI,
-              }}
+              className="s-productdetai-8ef3c3 s-productdetai-ff85a0a9"
             >
               Explore Our Products
             </h2>

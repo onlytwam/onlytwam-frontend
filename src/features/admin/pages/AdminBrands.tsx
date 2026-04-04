@@ -5,7 +5,6 @@ import { getImageUrl } from '@/shared/utils/helpers';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 20;
-const inp: React.CSSProperties = { padding: '9px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 14, outline: 'none', width: '100%', fontFamily: 'inherit', boxSizing: 'border-box' };
 
 export default function AdminBrands() {
   const qc = useQueryClient();
@@ -41,37 +40,37 @@ export default function AdminBrands() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div><h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Brands</h2><p style={{ margin: 0, color: '#888', fontSize: 13 }}>{total} total</p></div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search brands…" style={{ ...inp, width: 200 }} />
+      <div className="s-adminblog-fe4afb">
+        <div><h2 className="s-adminblog-91c675">Brands</h2><p className="s-adminblog-1c2c10">{total} total</p></div>
+        <div className="s-adminbrands-bccf37">
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search brands…" className="inp-field s-adminbrands-b9d1c5" />
           <button onClick={() => setModal({ name: '', description: '', websiteUrl: '', logo: '' })}
-            style={{ background: '#6A012A', color: '#fff', border: 'none', padding: '9px 18px', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
+            className="s-adminbrands-d3409f">
             + Add Brand
           </button>
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead><tr style={{ background: '#fafafa' }}>{['Logo','Name','Description','Website','Actions'].map(h => <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#888', fontWeight: 600, fontSize: 12, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+      <div className="s-adminbrands-a637bc">
+        <table className="s-adminbrands-de3642">
+          <thead><tr className="s-adminbrands-1ba202">{['Logo','Name','Description','Website','Actions'].map(h => <th key={h} className="s-adminbrands-84e069">{h}</th>)}</tr></thead>
           <tbody>
-            {isLoading ? <tr><td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', color: '#aaa' }}>Loading…</td></tr>
-            : brands.length === 0 ? <tr><td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', color: '#aaa' }}>No brands found.</td></tr>
+            {isLoading ? <tr><td colSpan={5} className="s-adminbrands-3e0634">Loading…</td></tr>
+            : brands.length === 0 ? <tr><td colSpan={5} className="s-adminbrands-3e0634">No brands found.</td></tr>
             : brands.map((b: any) => (
-              <tr key={b.brandId} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                <td style={{ padding: '10px 16px' }}>
+              <tr key={b.brandId} className="s-adminbrands-59d787">
+                <td className="s-adminbrands-7dcd2c">
                   {b.logo || b.brandImage
-                    ? <img src={getImageUrl(b.logo || b.brandImage)} alt={b.name} style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 4, background: '#f9f9f9' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    : <div style={{ width: 40, height: 40, background: '#f0f0f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="bi bi-image" style={{ color: '#bbb' }} /></div>}
+                    ? <img src={getImageUrl(b.logo || b.brandImage)} alt={b.name} className="s-adminbrands-0c5599" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    : <div className="s-adminbrands-6167ec"><i className="bi bi-image s-adminbrands-95b451" /></div>}
                 </td>
-                <td style={{ padding: '10px 16px', fontWeight: 600 }}>{b.brandName || b.name}</td>
-                <td style={{ padding: '10px 16px', color: '#666', maxWidth: 200 }}>{b.description || '—'}</td>
-                <td style={{ padding: '10px 16px' }}>{b.websiteUrl ? <a href={b.websiteUrl} target="_blank" rel="noreferrer" style={{ color: '#6A012A', fontSize: 12 }}>Visit</a> : '—'}</td>
-                <td style={{ padding: '10px 16px' }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => setModal(b)} style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '5px 12px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>Edit</button>
-                    <button onClick={() => setConfirm(b)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '5px 12px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>Delete</button>
+                <td className="s-adminbrands-c25a6e">{b.brandName || b.name}</td>
+                <td className="s-adminbrands-6d0b42">{b.description || '—'}</td>
+                <td className="s-adminbrands-7dcd2c">{b.websiteUrl ? <a href={b.websiteUrl} target="_blank" rel="noreferrer" className="s-adminbrands-6d27f5">Visit</a> : '—'}</td>
+                <td className="s-adminbrands-7dcd2c">
+                  <div className="s-adminbrands-ac734d">
+                    <button onClick={() => setModal(b)} className="s-adminbrands-6ea383">Edit</button>
+                    <button onClick={() => setConfirm(b)} className="s-adminbrands-6ea383">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -80,31 +79,31 @@ export default function AdminBrands() {
         </table>
       </div>
 
-      {pages > 1 && <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16 }}>{Array.from({ length: Math.min(pages,10) }, (_, i) => <button key={i} onClick={() => setPage(i+1)} style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid', borderColor: page===i+1?'#6A012A':'#ddd', background: page===i+1?'#6A012A':'#fff', color: page===i+1?'#fff':'#333', cursor: 'pointer', fontSize: 13 }}>{i+1}</button>)}</div>}
+      {pages > 1 && <div className="s-adminblog-213a15">{Array.from({ length: Math.min(pages,10) }, (_, i) => <button key={i} onClick={() => setPage(i+1)} className="s-adminbrands-93c0a2" style={ {borderColor: page===i+1?'var(--brand)':'var(--ivory)', background: page===i+1?'var(--brand)':'#fff', color: page===i+1?'#fff':'#000000'} }>{i+1}</button>)}</div>}
 
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 440, maxWidth: '90vw' }}>
-            <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>{modal.brandId ? 'Edit' : 'New'} Brand</h3>
+        <div className="s-adminbrands-942dbe">
+          <div className="s-adminbrands-cd5358">
+            <h3 className="s-adminblog-e6371f">{modal.brandId ? 'Edit' : 'New'} Brand</h3>
             {[['Brand Name *','name'],['Description','description'],['Website URL','websiteUrl']].map(([l,k]) => (
-              <div key={k} style={{ marginBottom: 14 }}><label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>{l}</label><input value={modal[k] || ''} onChange={e => setModal({ ...modal, [k]: e.target.value })} style={inp} /></div>
+              <div key={k} className="s-adminblog-22a617"><label className="s-addressform-f1fb64">{l}</label><input value={modal[k] || ''} onChange={e => setModal({ ...modal, [k]: e.target.value })} className="inp-field" /></div>
             ))}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button onClick={() => setModal(null)} style={{ padding: '9px 18px', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={() => saveMutation.mutate(modal)} disabled={!modal.name} style={{ padding: '9px 18px', background: '#6A012A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', opacity: !modal.name ? 0.5 : 1 }}>{saveMutation.isPending ? 'Saving…' : 'Save'}</button>
+            <div className="s-adminbrands-fcea5e">
+              <button onClick={() => setModal(null)} className="s-adminbrands-5a7ba1">Cancel</button>
+              <button onClick={() => saveMutation.mutate(modal)} disabled={!modal.name} className="s-adminbrands-d3409f" style={ {opacity: !modal.name ? 0.5 : 1} }>{saveMutation.isPending ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>
       )}
 
       {confirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 360 }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: 16 }}>Delete "{confirm.brandName || confirm.name}"?</h3>
-            <p style={{ color: '#666', fontSize: 13, marginBottom: 20 }}>Products using this brand may be affected.</p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirm(null)} style={{ padding: '9px 18px', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={() => deleteMutation.mutate(confirm.brandId)} style={{ padding: '9px 18px', background: '#c62828', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</button>
+        <div className="s-adminbrands-942dbe">
+          <div className="s-adminblog-69ab70">
+            <h3 className="s-adminblog-caf79d">Delete "{confirm.brandName || confirm.name}"?</h3>
+            <p className="s-adminbrands-93cf07">Products using this brand may be affected.</p>
+            <div className="s-adminblog-679e96">
+              <button onClick={() => setConfirm(null)} className="s-adminbrands-c554f0">Cancel</button>
+              <button onClick={() => deleteMutation.mutate(confirm.brandId)} className="s-adminbrands-ad5bf3">{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</button>
             </div>
           </div>
         </div>

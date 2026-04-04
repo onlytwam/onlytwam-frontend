@@ -20,9 +20,6 @@ import Breadcrumb from '@/shared/components/Breadcrumb';
 import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
 import QuickShopModal from '@/features/products/components/QuickShopModal';
 
-const PRI      = '#6B0F2A';
-const HEIRLOOM = '#9E6070';
-const IVORY    = '#F5F0E6';
 const FONTS    = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI  = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 
@@ -30,17 +27,17 @@ const FONT_UI  = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
    COLOR FAMILIES  (filter swatches — same as ProductList)
 ───────────────────────────────────────────────────────────────────────────── */
 const COLOR_FAMILIES: { label: string; swatch: string; keywords: string[] }[] = [
-  { label: 'Red',    swatch: '#c62828', keywords: ['red','crimson','scarlet','cherry','maroon','burgundy','wine','rose','brick'] },
+  { label: 'Red',    swatch: 'var(--brand)', keywords: ['red','crimson','scarlet','cherry','maroon','burgundy','wine','rose','brick'] },
   { label: 'Pink',   swatch: '#e91e8c', keywords: ['pink','blush','magenta','fuchsia','hot pink','baby pink','salmon'] },
-  { label: 'Purple', swatch: '#7b1fa2', keywords: ['purple','violet','lavender','mauve','lilac','plum','indigo'] },
-  { label: 'Blue',   swatch: '#1565c0', keywords: ['blue','navy','cobalt','sky','azure','teal','steel','powder blue','denim','royal'] },
-  { label: 'Green',  swatch: '#2e7d32', keywords: ['green','olive','mint','sage','forest','lime','khaki','army'] },
-  { label: 'Yellow', swatch: '#f9a825', keywords: ['yellow','gold','mustard','amber','lemon','corn'] },
-  { label: 'Orange', swatch: '#e65100', keywords: ['orange','peach','apricot','tangerine','coral','rust'] },
-  { label: 'Brown',  swatch: '#6d4c41', keywords: ['brown','tan','beige','caramel','chocolate','mocha','nude','khaki','sand'] },
-  { label: 'Grey',   swatch: '#616161', keywords: ['grey','gray','silver','charcoal','slate','ash'] },
-  { label: 'White',  swatch: '#f5f5f5', keywords: ['white','ivory','cream','snow','off-white','pearl'] },
-  { label: 'Black',  swatch: '#212121', keywords: ['black','ebony','onyx','jet'] },
+  { label: 'Purple', swatch: 'var(--brand)', keywords: ['purple','violet','lavender','mauve','lilac','plum','indigo'] },
+  { label: 'Blue',   swatch: 'var(--brand)', keywords: ['blue','navy','cobalt','sky','azure','teal','steel','powder blue','denim','royal'] },
+  { label: 'Green',  swatch: 'var(--brand)', keywords: ['green','olive','mint','sage','forest','lime','khaki','army'] },
+  { label: 'Yellow', swatch: 'var(--brand)', keywords: ['yellow','gold','mustard','amber','lemon','corn'] },
+  { label: 'Orange', swatch: 'var(--brand)', keywords: ['orange','peach','apricot','tangerine','coral','rust'] },
+  { label: 'Brown',  swatch: 'var(--brand)', keywords: ['brown','tan','beige','caramel','chocolate','mocha','nude','khaki','sand'] },
+  { label: 'Grey',   swatch: 'var(--heirloom)', keywords: ['grey','gray','silver','charcoal','slate','ash'] },
+  { label: 'White',  swatch: 'var(--ivory)', keywords: ['white','ivory','cream','snow','off-white','pearl'] },
+  { label: 'Black',  swatch: '#000000', keywords: ['black','ebony','onyx','jet'] },
 ];
 
 function colorToFamily(rawColor: string): string | null {
@@ -66,22 +63,22 @@ function groupColors(rawColors: string[]): Map<string, string[]> {
    COLOR DETECTION  (for search query — detects if the typed query is a color)
 ───────────────────────────────────────────────────────────────────────────── */
 const COLOR_HEX: Record<string, string> = {
-  black:'#000000', cloud:'#C1C3C7', desert_rose:'#C48B9F', grey:'#808080',
-  lavender:'#E6E6FA', maroon:'#800000', mist:'#C4C3D0', navy:'#000080',
-  nude:'#E3BC9A', orange:'#FF7F00', pink:'#FFC0CB', red:'#FF0000',
+  black:'#000000', cloud:'var(--heirloom)', desert_rose:'var(--heirloom)', grey:'var(--heirloom)',
+  lavender:'#E6E6FA', maroon:'var(--brand)', mist:'var(--heirloom)', navy:'#000080',
+  nude:'#E3BC9A', orange:'var(--brand)', pink:'#FFC0CB', red:'var(--brand)',
   rose:'#FF007F', skin:'#FFCBA4', teal:'#008080', white:'#FFFFFF',
-  wine:'#722F37',
-  gray:'#808080', silver:'#C0C0C0', charcoal:'#36454F', ash:'#B2BEB5',
-  ivory:'#FFFFF0', cream:'#FFFDD0', beige:'#F5F5DC', off_white:'#FAF9F6',
+  wine:'var(--brand)',
+  gray:'var(--heirloom)', silver:'var(--heirloom)', charcoal:'#36454F', ash:'#B2BEB5',
+  ivory:'#ffffff', cream:'var(--ivory)', beige:'var(--ivory)', off_white:'var(--ivory)',
   brown:'#964B00', tan:'#D2B48C', nude_beige:'#E3BC9A', caramel:'#C68642',
-  crimson:'#DC143C', scarlet:'#FF2400', burgundy:'#800020', maroon_red:'#800000',
+  crimson:'var(--brand)', scarlet:'#FF2400', burgundy:'var(--brand)', maroon_red:'var(--brand)',
   hot_pink:'#FF69B4', blush:'#DE5D83', salmon:'#FA8072', magenta:'#FF00FF',
-  coral:'#FF7F50', rust:'#B7410E', amber:'#FFBF00', gold:'#FFD700',
-  mustard:'#FFDB58', yellow:'#FFFF00', green:'#008000', olive:'#808000',
+  coral:'var(--brand)', rust:'#B7410E', amber:'var(--blush)', gold:'var(--blush)',
+  mustard:'var(--blush)', yellow:'#FFFF00', green:'var(--brand)', olive:'#808000',
   mint:'#98FF98', sage:'#8F9779', forest:'#228B22', emerald:'#50C878',
-  turquoise:'#40E0D0', aqua:'#00FFFF', blue:'#0000FF', cobalt:'#0047AB',
-  sky:'#87CEEB', denim:'#1560BD', royal:'#4169E1', purple:'#800080',
-  violet:'#8B00FF', lilac:'#C8A2C8', plum:'#DDA0DD', indigo:'#4B0082',
+  turquoise:'#40E0D0', aqua:'#00FFFF', blue:'#0000FF', cobalt:'var(--brand)',
+  sky:'#87CEEB', denim:'var(--brand)', royal:'#4169E1', purple:'var(--brand)',
+  violet:'#8B00FF', lilac:'#C8A2C8', plum:'#DDA0DD', indigo:'var(--brand)',
   grape:'#6F2DA8', orchid:'#DA70D6',
 };
 
@@ -340,65 +337,26 @@ export default function GlobalSearch() {
 
   const goToPage = (p: number) => { if (p < 1 || p > totalPages || p === page) return; setPage(p); };
 
-  /* ── Shared CSS ──────────────────────────────────────────────────────── */
-  const css = `
-    .gs-fsort-btn { background:none; border:1.5px solid ${HEIRLOOM}44; border-radius:8px; padding:7px 14px; font-size:13px; cursor:pointer; font-family:inherit; color:#444; transition:all .18s; display:flex; align-items:center; gap:6px; white-space:nowrap; }
-    .gs-fsort-btn.active,.gs-fsort-btn:hover { border-color:${PRI}; color:${PRI}; background:${PRI}08; }
-    .gs-price-quick { border:1.5px solid ${HEIRLOOM}44; border-radius:999px; padding:5px 12px; font-size:12px; cursor:pointer; font-family:inherit; color:${HEIRLOOM}; font-weight:600; background:none; transition:all .18s; }
-    .gs-price-quick.active { background:${PRI}; color:#fff; border-color:${PRI}; }
-    .gs-color-swatch { width:28px; height:28px; border-radius:50%; cursor:pointer; transition:transform .18s,box-shadow .18s; flex-shrink:0; position:relative; }
-    .gs-color-swatch:hover { transform:scale(1.15); }
-    .gs-color-swatch.active { box-shadow:0 0 0 2px #fff,0 0 0 4px ${PRI}; transform:scale(1.1); }
-    .gs-brand-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:999px; border:1.5px solid; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; background:none; transition:all .18s; }
-    .gs-brand-pill.active { background:${PRI}; color:#fff; border-color:${PRI}; }
-    .gs-brand-pill:not(.active) { color:#555; border-color:#ddd; }
-    .gs-brand-pill:hover:not(.active) { border-color:${PRI}; color:${PRI}; }
-    .gs-size-pill { display:inline-flex; align-items:center; justify-content:center; min-width:42px; padding:5px 10px; border-radius:8px; border:1.5px solid #ddd; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; background:none; transition:all .18s; color:#555; }
-    .gs-size-pill.active { background:${PRI}; color:#fff; border-color:${PRI}; }
-    .gs-size-pill:hover:not(.active) { border-color:${PRI}; color:${PRI}; }
-    .gs-active-chip { display:inline-flex; align-items:center; gap:5px; background:${PRI}12; border:1px solid ${PRI}40; color:${PRI}; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; font-family:inherit; }
-    .gs-scroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
-    .gs-scroll::-webkit-scrollbar { display:none; }
-    .gs-sec-label { font-size:11px; font-weight:700; color:${PRI}; text-transform:uppercase; letter-spacing:.6px; margin:0 0 10px; font-family:${FONTS}; }
-    .gs-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1200; animation:gsFbIn .2s ease; }
-    @keyframes gsFbIn { from{opacity:0} to{opacity:1} }
-    .gs-drawer { position:fixed; top:0; left:0; height:100%; width:340px; max-width:90vw; background:#fff; z-index:1201; display:flex; flex-direction:column; box-shadow:4px 0 32px rgba(107,15,42,.18); animation:gsFdIn .25s cubic-bezier(.4,0,.2,1); }
-    @keyframes gsFdIn { from{transform:translateX(-100%)} to{transform:translateX(0)} }
-    .gs-drawer-body { flex:1; overflow-y:auto; padding:20px 20px 16px; scrollbar-width:thin; scrollbar-color:${PRI}33 transparent; }
-    .gs-drawer-body::-webkit-scrollbar { width:4px; }
-    .gs-drawer-body::-webkit-scrollbar-thumb { background:${PRI}33; border-radius:4px; }
-    .gs-drawer-footer { padding:14px 20px; border-top:1px solid ${IVORY}; display:flex; gap:10px; background:#fff; flex-shrink:0; }
-    .gs-page-btn { min-width:36px; height:36px; border-radius:8px; border:1.5px solid ${HEIRLOOM}; background:#fff; color:${PRI}; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; padding:0 8px; transition:all .18s; }
-    .gs-page-btn.active { background:${PRI}; color:#fff; border-color:${PRI}; font-weight:700; }
-    .gs-page-arrow { min-width:36px; height:36px; border-radius:8px; border:1.5px solid ${HEIRLOOM}; background:#fff; color:${PRI}; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; transition:all .18s; }
-    .gs-page-arrow:disabled { opacity:.4; cursor:default; }
-    @keyframes gsSpin { to{transform:rotate(360deg)} }
-    @media(max-width:991px){.gs-grid{grid-template-columns:repeat(2,1fr)!important;}}
-    @media(max-width:575px){.gs-grid{grid-template-columns:repeat(1,1fr)!important;}}
-
-  `;
-
   return (
     <>
-      <style>{css}</style>
       <Breadcrumb items={breadcrumbs} />
 
       {/* ══ Sticky toolbar ══ */}
-      <div style={{ background: '#fff', borderBottom: `2px solid ${PRI}22`, position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(107,15,42,.06)' }}>
+      <div className="s-globalsearch-f4837a">
         <div className="container">
 
           {/* Row 1 — filter button LEFT · sort pills · count RIGHT */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', flexWrap: 'wrap' }}>
+          <div className="s-globalsearch-6b6f58">
 
             {/* ── Filter button — LEFT ── */}
             {q && (
               <button
                 onClick={() => setFilterOpen(o => !o)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: filterOpen ? PRI : '#fff', color: filterOpen ? '#fff' : PRI, border: `1.5px solid ${PRI}`, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: FONT_UI, transition: 'all .18s', flexShrink: 0 }}
+                className="s-globalsearch-fd1c89" style={ {background: filterOpen ? 'var(--brand)' : '#fff', color: filterOpen ? '#fff' : 'var(--brand)', fontFamily: FONT_UI} }
               >
                 <i className="bi bi-sliders" />
                 Filters {activeFilterCount > 0 && (
-                  <span style={{ background: filterOpen ? 'rgba(255,255,255,0.3)' : PRI, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>
+                  <span className="s-globalsearch-c9a470" style={ {background: filterOpen ? 'rgba(255,255,255,0.3)' : 'var(--brand)'} }>
                     {activeFilterCount}
                   </span>
                 )}
@@ -406,7 +364,7 @@ export default function GlobalSearch() {
             )}
 
             {/* ── Sort pills — centre ── */}
-            <div className="gs-scroll" style={{ flex: 1, gap: 6 }}>
+            <div className="gs-scroll s-globalsearch-a290ea">
               {SORT_OPTIONS.map(opt => (
                 <button
                   key={opt.val}
@@ -420,22 +378,22 @@ export default function GlobalSearch() {
 
             {/* ── Product count — RIGHT ── */}
             {q && !isLoading && totalCards > 0 && (
-              <span style={{ fontSize: 13, color: HEIRLOOM, fontFamily: FONT_UI, flexShrink: 0 }}>
-                <strong style={{ color: PRI }}>{totalCards}</strong> product{totalCards !== 1 ? 's' : ''} for <em>"{q}"</em>
+              <span className="s-globalsearch-599c0c s-globalsearch-ff9e69e4">
+                <strong className="s-globalsearch-b29d07">{totalCards}</strong> product{totalCards !== 1 ? 's' : ''} for <em>"{q}"</em>
               </span>
             )}
           </div>
 
           {/* Active filter chips */}
           {activeFilterCount > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 10, borderTop: `1px solid ${IVORY}`, paddingTop: 8 }}>
+            <div className="s-globalsearch-2b5321">
               {filters.colorFamilies.map(fam => {
                 const famData = COLOR_FAMILIES.find(f => f.label === fam);
                 return (
                   <span key={fam} className="gs-active-chip">
-                    {famData && <span style={{ width: 10, height: 10, borderRadius: '50%', background: famData.swatch, display: 'inline-block', border: '1px solid rgba(0,0,0,.15)' }} />}
+                    {famData && <span className="s-globalsearch-170863" />}
                     {fam}
-                    <i className="bi bi-x" style={{ cursor: 'pointer', fontSize: 13 }} onClick={() => toggleColorFamily(fam)} />
+                    <i className="bi bi-x s-globalsearch-7b6f74" onClick={() => toggleColorFamily(fam)} />
                   </span>
                 );
               })}
@@ -444,31 +402,31 @@ export default function GlobalSearch() {
                 return brand ? (
                   <span key={id} className="gs-active-chip">
                     {brand.brandName}
-                    <i className="bi bi-x" style={{ cursor: 'pointer', fontSize: 13 }} onClick={() => toggleBrand(id)} />
+                    <i className="bi bi-x s-globalsearch-7b6f74" onClick={() => toggleBrand(id)} />
                   </span>
                 ) : null;
               })}
               {(filters.priceMin != null || filters.priceMax != null) && (
                 <span className="gs-active-chip">
                   ₹{filters.priceMin ?? 0} – ₹{filters.priceMax ?? '∞'}
-                  <i className="bi bi-x" style={{ cursor: 'pointer', fontSize: 13 }} onClick={() => setFilters(f => ({ ...f, priceMin: null, priceMax: null }))} />
+                  <i className="bi bi-x s-globalsearch-7b6f74" onClick={() => setFilters(f => ({ ...f, priceMin: null, priceMax: null }))} />
                 </span>
               )}
               {filters.sizeIds.length > 0 && (
                 <span className="gs-active-chip">
                   {filters.sizeIds.length} size{filters.sizeIds.length > 1 ? 's' : ''}
-                  <i className="bi bi-x" style={{ cursor: 'pointer', fontSize: 13 }} onClick={() => setFilters(f => ({ ...f, sizeIds: [] }))} />
+                  <i className="bi bi-x s-globalsearch-7b6f74" onClick={() => setFilters(f => ({ ...f, sizeIds: [] }))} />
                 </span>
               )}
               {filters.cupSizeIds.length > 0 && (
                 <span className="gs-active-chip">
                   {filters.cupSizeIds.length} cup size{filters.cupSizeIds.length > 1 ? 's' : ''}
-                  <i className="bi bi-x" style={{ cursor: 'pointer', fontSize: 13 }} onClick={() => setFilters(f => ({ ...f, cupSizeIds: [] }))} />
+                  <i className="bi bi-x s-globalsearch-7b6f74" onClick={() => setFilters(f => ({ ...f, cupSizeIds: [] }))} />
                 </span>
               )}
               <button
                 onClick={clearAllFilters}
-                style={{ background: 'none', border: 'none', color: HEIRLOOM, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: FONT_UI, padding: '4px 6px' }}
+                className="s-globalsearch-9a4839 s-globalsearch-ff9e69e4"
               >
                 Clear all
               </button>
@@ -484,45 +442,44 @@ export default function GlobalSearch() {
           <div className="gs-drawer">
 
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px 14px', borderBottom: `2px solid ${PRI}18`, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <i className="bi bi-sliders" style={{ color: PRI, fontSize: 18 }} />
-                <span style={{ fontFamily: FONTS, fontWeight: 700, fontSize: 17, color: PRI }}>Filters</span>
+            <div className="s-globalsearch-ae6b9e">
+              <div className="s-resetpasswor-6e6177">
+                <i className="bi bi-sliders s-globalsearch-b69e24" />
+                <span className="s-globalsearch-b86140 s-globalsearch-ff62995b">Filters</span>
                 {activeFilterCount > 0 && (
-                  <span style={{ background: PRI, color: '#fff', borderRadius: '50%', width: 22, height: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>
+                  <span className="s-globalsearch-c0a778">
                     {activeFilterCount}
                   </span>
                 )}
               </div>
-              <button onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: PRI, fontSize: 22, lineHeight: 1, padding: 4 }}>
+              <button onClick={() => setFilterOpen(false)} className="s-globalsearch-a3af62">
                 <i className="bi bi-x-lg" />
               </button>
             </div>
 
             <div className="gs-drawer-body">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div className="s-productlist-4402fd">
 
                 {/* ─ 1. COLOR ─ */}
                 <div>
                   <p className="gs-sec-label">Color</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                  <div className="s-globalsearch-1372cd">
                     {COLOR_FAMILIES.map(fam => {
                       if (colorFamilyMap.size > 0 && !colorFamilyMap.has(fam.label)) return null;
                       const selected = filters.colorFamilies.includes(fam.label);
                       return (
-                        <div key={fam.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => toggleColorFamily(fam.label)}>
+                        <div key={fam.label} className="s-globalsearch-264bb7" onClick={() => toggleColorFamily(fam.label)}>
                           <div
-                            className={`gs-color-swatch${selected ? ' active' : ''}`}
-                            style={{ background: fam.swatch, border: selected ? `2.5px solid ${PRI}` : '2.5px solid rgba(0,0,0,.1)' }}
+                            className={`gs-color-swatch${selected ? ' active' : ''} s-globalsearch-2da4c6`} style={ {border: selected ? `2.5px solid var(--brand)` : '2.5px solid rgba(0,0,0,.1)'} }
                             title={fam.label}
                           >
                             {selected && (
-                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <i className="bi bi-check" style={{ color: ['White', 'Yellow'].includes(fam.label) ? '#333' : '#fff', fontSize: 13, fontWeight: 900 }} />
+                              <div className="s-globalsearch-0ec8e4">
+                                <i className="bi bi-check s-globalsearch-79d144" style={{ color: ['White', 'Yellow'].includes(fam.label) ? '#000' : '#fff' }} />
                               </div>
                             )}
                           </div>
-                          <span style={{ fontSize: 10, color: selected ? PRI : '#888', fontWeight: selected ? 700 : 400, fontFamily: FONT_UI }}>{fam.label}</span>
+                          <span className="s-globalsearch-deaf69" style={ {color: selected ? 'var(--brand)' : 'var(--heirloom)', fontWeight: selected ? 700 : 400, fontFamily: FONT_UI} }>{fam.label}</span>
                         </div>
                       );
                     })}
@@ -535,8 +492,8 @@ export default function GlobalSearch() {
                     <p className="gs-sec-label">Size</p>
                     {allSizes.length > 0 && (
                       <>
-                        <div style={{ fontSize: 11, color: HEIRLOOM, fontWeight: 600, marginBottom: 6 }}>Band / Alpha</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: allCupSizes.length > 0 ? 14 : 0 }}>
+                        <div className="s-globalsearch-2dc2e6">Band / Alpha</div>
+                        <div className="s-globalsearch-af9fea" style={ {marginBottom: allCupSizes.length > 0 ? 14 : 0} }>
                           {allSizes.map((s: any) => (
                             <button key={s.sizeId} className={`gs-size-pill${filters.sizeIds.includes(s.sizeId) ? ' active' : ''}`} onClick={() => toggleSize(s.sizeId)}>
                               {s.sizeLabel}
@@ -547,8 +504,8 @@ export default function GlobalSearch() {
                     )}
                     {allCupSizes.length > 0 && (
                       <>
-                        <div style={{ fontSize: 11, color: HEIRLOOM, fontWeight: 600, marginBottom: 6 }}>Cup Size</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        <div className="s-globalsearch-2dc2e6">Cup Size</div>
+                        <div className="s-quickshopmod-07988e">
                           {allCupSizes.map((s: any) => (
                             <button key={s.cupSizeId ?? s.sizeId} className={`gs-size-pill${filters.cupSizeIds.includes(s.cupSizeId ?? s.sizeId) ? ' active' : ''}`} onClick={() => toggleCupSize(s.cupSizeId ?? s.sizeId)}>
                               {s.sizeLabel}
@@ -566,14 +523,14 @@ export default function GlobalSearch() {
                   <input
                     type="text" placeholder="🔍 Search brands…" value={brandSearch}
                     onChange={e => setBrandSearch(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', border: `1.5px solid ${HEIRLOOM}55`, borderRadius: 8, marginBottom: 10, fontSize: 13, outline: 'none', fontFamily: FONT_UI, boxSizing: 'border-box', background: '#fafafa' }}
+                    className="s-globalsearch-30c0ee s-globalsearch-ff9e69e4"
                   />
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
+                  <div className="s-productlist-48e5f5">
                     {filteredBrands.map((brand: any) => {
                       const active = filters.brandIds.includes(brand.brandId);
                       return (
                         <button key={brand.brandId} className={`gs-brand-pill${active ? ' active' : ''}`} onClick={() => toggleBrand(brand.brandId)}>
-                          {active && <i className="bi bi-check" style={{ fontSize: 11 }} />}
+                          {active && <i className="bi bi-check s-addresslist-2c42ad" />}
                           {brand.brandName}
                         </button>
                       );
@@ -584,16 +541,16 @@ export default function GlobalSearch() {
                 {/* ─ 4. CATEGORY ─ */}
                 <div>
                   <p className="gs-sec-label">Category</p>
-                  <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div className="s-productlist-a8c057">
                     {categories.map((cat: any) => {
                       const checked = filters.categoryIds.includes(cat.categoryId);
                       return (
-                        <label key={cat.categoryId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', cursor: 'pointer', borderRadius: 8, background: checked ? `${PRI}10` : 'transparent', transition: 'background .15s' }}>
-                          <div style={{ width: 17, height: 17, borderRadius: 4, border: `2px solid ${checked ? PRI : '#ccc'}`, background: checked ? PRI : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
-                            {checked && <i className="bi bi-check" style={{ color: '#fff', fontSize: 11 }} />}
+                        <label key={cat.categoryId} className="s-globalsearch-6ab205" style={ {background: checked ? `var(--brand)10` : 'transparent'} }>
+                          <div className="s-globalsearch-455413" style={ {border: `2px solid ${checked ? 'var(--brand)' : 'var(--ivory)'}`, background: checked ? 'var(--brand)' : '#fff'} }>
+                            {checked && <i className="bi bi-check s-adminproduct-b5c012" />}
                           </div>
-                          <input type="checkbox" checked={checked} onChange={() => toggleCategory(cat.categoryId)} style={{ display: 'none' }} />
-                          <span style={{ fontSize: 13, color: checked ? PRI : '#444', fontWeight: checked ? 600 : 400 }}>{cat.name}</span>
+                          <input type="checkbox" checked={checked} onChange={() => toggleCategory(cat.categoryId)} className="s-addressform-8251cb" />
+                          <span className="s-globalsearch-080038" style={ {color: checked ? 'var(--brand)' : 'var(--heirloom)', fontWeight: checked ? 600 : 400} }>{cat.name}</span>
                         </label>
                       );
                     })}
@@ -603,7 +560,7 @@ export default function GlobalSearch() {
                 {/* ─ 5. PRICE RANGE ─ */}
                 <div>
                   <p className="gs-sec-label">Price Range</p>
-                  <div className="gs-scroll" style={{ marginBottom: 12 }}>
+                  <div className="gs-scroll s-adminproduct-02d219">
                     {[
                       { label: 'Under ₹500', min: null, max: 500  },
                       { label: '₹500–₹1k',   min: 500,  max: 1000 },
@@ -619,23 +576,23 @@ export default function GlobalSearch() {
                       );
                     })}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div style={{ flex: 1, border: `1.5px solid ${HEIRLOOM}55`, borderRadius: 8, display: 'flex', alignItems: 'center', overflow: 'hidden', background: '#fafafa' }}>
-                      <span style={{ padding: '0 8px', color: PRI, fontSize: 14, fontWeight: 600 }}>₹</span>
+                  <div className="s-adminproduct-04b6ac">
+                    <div className="s-globalsearch-303890">
+                      <span className="s-globalsearch-54d625">₹</span>
                       <input type="number" placeholder="Min" value={filters.priceMin ?? ''} min={0}
                         onChange={e => setFilters(f => ({ ...f, priceMin: e.target.value !== '' ? Number(e.target.value) : null }))}
                         onKeyDown={e => { if (e.key === 'Enter') setPage(1); }}
-                        style={{ flex: 1, border: 'none', outline: 'none', padding: '9px 6px', fontSize: 13, background: 'transparent', fontFamily: FONT_UI }} />
+                        className="s-productlist-4706fe s-globalsearch-ff9e69e4" />
                     </div>
-                    <span style={{ color: HEIRLOOM, fontWeight: 600 }}>—</span>
-                    <div style={{ flex: 1, border: `1.5px solid ${HEIRLOOM}55`, borderRadius: 8, display: 'flex', alignItems: 'center', overflow: 'hidden', background: '#fafafa' }}>
-                      <span style={{ padding: '0 8px', color: PRI, fontSize: 14, fontWeight: 600 }}>₹</span>
+                    <span className="s-globalsearch-db3041">—</span>
+                    <div className="s-globalsearch-303890">
+                      <span className="s-globalsearch-54d625">₹</span>
                       <input type="number" placeholder="Max" value={filters.priceMax ?? ''} min={0}
                         onChange={e => setFilters(f => ({ ...f, priceMax: e.target.value !== '' ? Number(e.target.value) : null }))}
                         onKeyDown={e => { if (e.key === 'Enter') setPage(1); }}
-                        style={{ flex: 1, border: 'none', outline: 'none', padding: '9px 6px', fontSize: 13, background: 'transparent', fontFamily: FONT_UI }} />
+                        className="s-productlist-4706fe s-globalsearch-ff9e69e4" />
                     </div>
-                    <button onClick={() => setPage(1)} style={{ background: PRI, color: '#fff', border: 'none', padding: '9px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: FONT_UI }}>
+                    <button onClick={() => setPage(1)} className="s-globalsearch-7f6192 s-globalsearch-ff9e69e4">
                       Go
                     </button>
                   </div>
@@ -647,11 +604,11 @@ export default function GlobalSearch() {
             {/* Footer */}
             <div className="gs-drawer-footer">
               {activeFilterCount > 0 && (
-                <button onClick={clearAllFilters} style={{ flex: 1, padding: '10px 0', border: `1.5px solid ${PRI}`, background: '#fff', color: PRI, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: FONT_UI }}>
+                <button onClick={clearAllFilters} className="s-globalsearch-36d424 s-globalsearch-ff9e69e4">
                   Clear All
                 </button>
               )}
-              <button onClick={() => setFilterOpen(false)} style={{ flex: 2, padding: '10px 0', background: PRI, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: FONT_UI }}>
+              <button onClick={() => setFilterOpen(false)} className="s-globalsearch-8a02af s-globalsearch-ff9e69e4">
                 Show {allGrouped.length} Products
               </button>
             </div>
@@ -660,13 +617,13 @@ export default function GlobalSearch() {
       )}
 
       {/* ══ Page body ══ */}
-      <div className="container" style={{ paddingTop: 24, paddingBottom: 64, fontFamily: FONT_UI, minHeight: '60vh' }}>
+      <div className="container s-globalsearch-58358e s-globalsearch-ff9e69e4">
 
         {/* Color search badge */}
         {q && colorQuery && anchorHex && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', background: anchorHex, display: 'inline-block', border: '2px solid rgba(0,0,0,.15)', flexShrink: 0 }} />
-            <span style={{ background: IVORY, color: PRI, padding: '4px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600, border: `1px solid ${HEIRLOOM}60` }}>
+          <div className="s-cart-1fdbde">
+            <span className="s-globalsearch-1ccf92" style={ {background: anchorHex} } />
+            <span className="s-globalsearch-d2dadc">
               Showing all {q.toLowerCase()} shades
             </span>
           </div>
@@ -674,22 +631,22 @@ export default function GlobalSearch() {
 
         {/* Loading spinner */}
         {isLoading && q && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-            <div style={{ width: 40, height: 40, border: `3px solid ${IVORY}`, borderTopColor: PRI, borderRadius: '50%', animation: 'gsSpin .8s linear infinite' }} />
+          <div className="s-wishlist-444f00">
+            <div className="s-globalsearch-650876" />
           </div>
         )}
 
         {/* Landing state — no query */}
         {!q && !isLoading && (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <i className="bi bi-search" style={{ fontSize: 64, color: HEIRLOOM, opacity: .35, display: 'block', marginBottom: 20 }} />
-            <h3 style={{ fontFamily: FONTS, fontWeight: 700, color: PRI, marginBottom: 16 }}>Search TWAM Collection</h3>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="s-ourblog-f6d3dd">
+            <i className="bi bi-search s-globalsearch-d99dd5" />
+            <h3 className="s-globalsearch-e2634d s-globalsearch-ff62995b">Search TWAM Collection</h3>
+            <div className="s-globalsearch-bfdb8f">
               {['Bras', 'Panties', 'Sports Bra', 'Leakproof', 'Black', 'Wine', 'Pink', 'Navy', 'Nude'].map(s => (
                 <button key={s} onClick={() => setSearchParams({ q: s })}
-                  style={{ background: IVORY, color: PRI, border: `1.5px solid ${PRI}40`, padding: '7px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontFamily: FONT_UI }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = PRI; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = IVORY; (e.currentTarget as HTMLElement).style.color = PRI; }}>
+                  className="s-globalsearch-66d96a s-globalsearch-ff9e69e4"
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--brand)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--ivory)'; (e.currentTarget as HTMLElement).style.color = 'var(--brand)'; }}>
                   {s}
                 </button>
               ))}
@@ -699,16 +656,16 @@ export default function GlobalSearch() {
 
         {/* No results */}
         {q && !isLoading && allGrouped.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <i className="bi bi-emoji-frown" style={{ fontSize: 56, color: HEIRLOOM, opacity: .4, display: 'block', marginBottom: 16 }} />
-            <h3 style={{ fontFamily: FONTS, color: PRI, marginBottom: 8 }}>No results for "{q}"</h3>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16 }}>
+          <div className="s-productdetai-490f26">
+            <i className="bi bi-emoji-frown s-globalsearch-a2eb79" />
+            <h3 className="s-globalsearch-e4d44f s-globalsearch-ff62995b">No results for "{q}"</h3>
+            <div className="s-globalsearch-739925">
               <button onClick={() => setSearchParams({})}
-                style={{ background: IVORY, color: PRI, border: `1.5px solid ${HEIRLOOM}`, padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontFamily: FONT_UI }}>
+                className="s-globalsearch-5edfcb s-globalsearch-ff9e69e4">
                 Clear
               </button>
               <button onClick={() => navigate('/user-products/product-list')}
-                style={{ background: PRI, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontFamily: FONT_UI, fontWeight: 600 }}>
+                className="s-globalsearch-fa3f7c s-globalsearch-ff9e69e4">
                 Browse All
               </button>
             </div>
@@ -718,7 +675,7 @@ export default function GlobalSearch() {
         {/* ── Product grid using shared ProductCard ── */}
         {!isLoading && displayed.length > 0 && (
           <>
-            <div className="gs-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
+            <div className="gs-grid s-globalsearch-fe6df2">
               {displayed.map((product: any) => (
                 <div key={`${product.productId}-${product.productVariantId}`}>
                   <ProductCard product={product} onQuickShop={setQuickShopId} showColors={true} />
@@ -728,13 +685,13 @@ export default function GlobalSearch() {
 
             {/* ── Pagination ── */}
             {totalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, padding: '32px 0 8px', flexWrap: 'wrap' }}>
+              <div className="s-productlist-a86882">
                 <button disabled={page === 1} onClick={() => goToPage(page - 1)} className="gs-page-arrow" aria-label="Previous page">
                   <i className="bi bi-chevron-left" />
                 </button>
                 {pagesArr.map((p, i) =>
                   p === '...'
-                    ? <span key={`el-${i}`} style={{ padding: '0 4px', color: HEIRLOOM, userSelect: 'none' }}>…</span>
+                    ? <span key={`el-${i}`} className="s-globalsearch-dcda95">…</span>
                     : (
                       <button key={p} onClick={() => goToPage(p as number)} className={`gs-page-btn${page === p ? ' active' : ''}`}>
                         {p}
@@ -744,7 +701,7 @@ export default function GlobalSearch() {
                 <button disabled={page === totalPages} onClick={() => goToPage(page + 1)} className="gs-page-arrow" aria-label="Next page">
                   <i className="bi bi-chevron-right" />
                 </button>
-                <span style={{ fontSize: 12, color: HEIRLOOM, marginLeft: 8, fontFamily: FONT_UI }}>
+                <span className="s-globalsearch-6883e7 s-globalsearch-ff9e69e4">
                   {displayed.length} shown · Page {page}/{totalPages}
                 </span>
               </div>

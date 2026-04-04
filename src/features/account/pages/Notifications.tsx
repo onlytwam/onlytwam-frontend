@@ -33,14 +33,14 @@ export default function Notifications() {
         <h5 className="mb-0">
           Notifications
           {unreadCount > 0 && (
-            <span className="badge bg-danger ms-2" style={{ fontSize: 12 }}>{unreadCount} new</span>
+            <span className="badge bg-danger ms-2 s-couponslist-030edf">{unreadCount} new</span>
           )}
         </h5>
       </div>
 
       {notifications.length === 0 ? (
         <div className="text-center py-5">
-          <i className="bi bi-bell" style={{ fontSize: 48, color: '#ddd' }} />
+          <i className="bi bi-bell s-addresslist-d71ded" />
           <p className="text-muted mt-3">No notifications yet.</p>
         </div>
       ) : (
@@ -48,28 +48,22 @@ export default function Notifications() {
           {notifications.map((notif: any, idx: number) => (
             <div
               key={notif.notificationId || idx}
-              className={`d-flex gap-3 p-3 mb-2 rounded border ${!notif.isRead ? 'border-primary' : ''}`}
-              style={{ background: notif.isRead ? '#fff' : '#f0f7ff', cursor: 'pointer' }}
+              className={`d-flex gap-3 p-3 mb-2 rounded border ${!notif.isRead ? 'border-primary' : ''} s-notification-6de659`} style={ {background: notif.isRead ? '#fff' : 'var(--ivory)'} }
             >
               <div
-                style={{
-                  width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                  background: notif.isRead ? '#f3f4f6' : '#dbeafe',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
+                className="s-notification-9088a7" style={ {background: notif.isRead ? 'var(--ivory)' : 'var(--ivory)'} }
               >
-                <i className={`bi ${notif.type === 'order' ? 'bi-bag' : notif.type === 'promo' ? 'bi-tag' : 'bi-bell'}`}
-                  style={{ color: notif.isRead ? '#9ca3af' : '#3b82f6', fontSize: 18 }} />
+                <i className={`bi ${notif.type === 'order' ? 'bi-bag' : notif.type === 'promo' ? 'bi-tag' : 'bi-bell'} s-notification-f4946d`} style={ {color: notif.isRead ? 'var(--heirloom)' : 'var(--brand)'} } />
               </div>
               <div className="flex-fill">
                 <div className="d-flex justify-content-between align-items-start">
-                  <p className="mb-1 fw-semibold" style={{ fontSize: 14 }}>{notif.title}</p>
-                  <span className="text-muted" style={{ fontSize: 11 }}>{formatDate(notif.createdAt)}</span>
+                  <p className="mb-1 fw-semibold s-addresslist-92985e">{notif.title}</p>
+                  <span className="text-muted s-addresslist-2c42ad">{formatDate(notif.createdAt)}</span>
                 </div>
-                <p className="mb-0 text-muted" style={{ fontSize: 13 }}>{notif.message}</p>
+                <p className="mb-0 text-muted s-addresslist-9eec06">{notif.message}</p>
               </div>
               {!notif.isRead && (
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', flexShrink: 0, marginTop: 6 }} />
+                <div className="s-notification-f487a5" />
               )}
             </div>
           ))}

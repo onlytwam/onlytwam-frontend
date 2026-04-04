@@ -140,33 +140,33 @@ export default function GuestSignup() {
   };
 
   const inp = (key: string): React.CSSProperties => ({
-    width: '100%', padding: '12px 14px', border: `1px solid ${errors[key] ? '#e53935' : '#e0d0d0'}`,
-    borderRadius: 4, fontSize: 14, outline: 'none', fontFamily: 'inherit',
-    background: '#faf5f5', boxSizing: 'border-box',
+    width: '100%', padding: '12px 14px', border: `1px solid ${errors[key] ? 'var(--brand)' : 'var(--ivory)'}`,
+    borderRadius: 4, fontSize: 14, outline: 'none', fontFamily: 'var(--font-body)',
+    background: 'var(--ivory)', boxSizing: 'border-box',
   });
-  const lbl: React.CSSProperties = { fontSize: 13, color: '#888', display: 'block', marginBottom: 0 };
+  const lbl: React.CSSProperties = { fontSize: 13, color: 'var(--heirloom)', display: 'block', marginBottom: 0 };
   const errEl = (key: string) => errors[key]
-    ? <span style={{ color: '#e53935', fontSize: 11, display: 'block', marginTop: 3 }}>{errors[key]}</span>
+    ? <span className="s-guestsignup-fcc3ca">{errors[key]}</span>
     : null;
 
   return (
-    <div className="container" style={{ padding: '32px 16px', maxWidth: 1100 }}>
+    <div className="container s-guestsignup-f06052">
       <div className="row g-4">
 
         {/* ── Left: Guest User Info form */}
         <div className="col-lg-8">
-          <h5 style={{ fontWeight: 600, marginBottom: 24, fontSize: 18 }}>Guest User Info</h5>
+          <h5 className="s-guestsignup-194917">Guest User Info</h5>
 
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 8, padding: 28 }}>
+          <div className="s-guestsignup-735701">
             {/* Name row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div className="s-guestsignup-c4282d">
               {[
                 { key: 'firstName',  ph: 'First Name*' },
                 { key: 'middleName', ph: 'Middle Name' },
                 { key: 'lastName',   ph: 'Last Name*' },
               ].map(({ key, ph }) => (
                 <div key={key}>
-                  <input placeholder={ph} style={inp(key)}
+                  <input placeholder={ph} className="inp-field" style={{ border: `1px solid ${errors[key] ? 'var(--brand)' : 'var(--ivory)'}` }}
                     value={(form as any)[key]}
                     onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} />
                   {errEl(key)}
@@ -175,26 +175,26 @@ export default function GuestSignup() {
             </div>
 
             {/* Email */}
-            <div style={{ marginBottom: 16 }}>
-              <input placeholder="Email*" type="email" style={inp('email')}
+            <div className="s-updateprofil-246fef">
+              <input placeholder="Email*" type="email" className="inp-field" style={{ border: `1px solid ${errors['email'] ? 'var(--brand)' : 'var(--ivory)'}` }}
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               {errEl('email')}
             </div>
 
             {/* Address */}
-            <div style={{ marginBottom: 16 }}>
+            <div className="s-updateprofil-246fef">
               <textarea placeholder="Address (House No, Building, Street, Area)*"
-                style={{ ...inp('addressLine'), height: 80, resize: 'vertical' }}
+                className="inp-field s-guestsignup-8ea872" style={{ border: `1px solid ${errors['addressLine'] ? 'var(--brand)' : 'var(--ivory)'}` }}
                 value={form.addressLine}
                 onChange={e => setForm(f => ({ ...f, addressLine: e.target.value }))} />
               {errEl('addressLine')}
             </div>
 
             {/* Country / State / Locality */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div className="s-guestsignup-c4282d">
               <div>
-                <select style={inp('countryId')}
+                <select className="inp-field" style={{ border: `1px solid ${errors['countryId'] ? 'var(--brand)' : 'var(--ivory)'}` }}
                   value={form.countryId}
                   onChange={e => setForm(f => ({ ...f, countryId: e.target.value, stateId: '' }))}>
                   <option value="">Country*</option>
@@ -205,7 +205,7 @@ export default function GuestSignup() {
                 {errEl('countryId')}
               </div>
               <div>
-                <select style={inp('stateId')}
+                <select className="inp-field" style={{ border: `1px solid ${errors['stateId'] ? 'var(--brand)' : 'var(--ivory)'}` }}
                   value={form.stateId}
                   onChange={e => setForm(f => ({ ...f, stateId: e.target.value }))}>
                   <option value="">State*</option>
@@ -216,28 +216,28 @@ export default function GuestSignup() {
                 {errEl('stateId')}
               </div>
               <div>
-                <input placeholder="Locality / Town*" style={inp('locality')}
+                <input placeholder="Locality / Town*" className="inp-field" style={{ border: `1px solid ${errors['locality'] ? 'var(--brand)' : 'var(--ivory)'}` }}
                   value={form.locality}
                   onChange={e => setForm(f => ({ ...f, locality: e.target.value }))} />
               </div>
             </div>
 
             {/* City / Pincode / Phone */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div className="s-guestsignup-0891e3">
               <div>
-                <input placeholder="City*" style={inp('city')}
+                <input placeholder="City*" className="inp-field" style={{ border: `1px solid ${errors['city'] ? 'var(--brand)' : 'var(--ivory)'}` }}
                   value={form.city}
                   onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
                 {errEl('city')}
               </div>
               <div>
-                <input placeholder="Pincode*" style={inp('pinCode')}
+                <input placeholder="Pincode*" className="inp-field" style={{ border: `1px solid ${errors['pinCode'] ? 'var(--brand)' : 'var(--ivory)'}` }}
                   value={form.pinCode}
                   onChange={e => setForm(f => ({ ...f, pinCode: e.target.value }))} />
                 {errEl('pinCode')}
               </div>
               <div>
-                <input placeholder="Phone Number*" type="tel" style={inp('phoneNumber')} maxLength={10}
+                <input placeholder="Phone Number*" type="tel" className="inp-field" style={{ border: `1px solid ${errors['phoneNumber'] ? 'var(--brand)' : 'var(--ivory)'}` }} maxLength={10}
                   value={form.phoneNumber}
                   onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))} />
                 {errEl('phoneNumber')}
@@ -248,33 +248,33 @@ export default function GuestSignup() {
 
         {/* ── Right: Order Summary */}
         <div className="col-lg-4">
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 8, padding: 24, position: 'sticky', top: 80 }}>
-            <h6 style={{ fontWeight: 700, marginBottom: 20, fontSize: 16 }}>Order Summary</h6>
+          <div className="s-guestsignup-7e0b46">
+            <h6 className="s-guestsignup-52aebe">Order Summary</h6>
 
             {[
               { label: `Price (${guestItems.length} items)`, value: `₹${subTotal.toLocaleString('en-IN')}` },
               { label: 'Discount',       value: '₹0', red: false },
               { label: 'Delivery Charges', value: `₹${delivery}` },
             ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: 14 }}>
-                <span style={{ color: '#888' }}>{label}</span>
-                <span style={{ fontWeight: 500 }}>{value}</span>
+              <div key={label} className="s-guestsignup-b9d6bf">
+                <span className="s-adminbrands-95b451">{label}</span>
+                <span className="s-adminorders-0728c5">{value}</span>
               </div>
             ))}
 
-            <hr style={{ margin: '12px 0 16px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 17, marginBottom: 20 }}>
+            <hr className="s-guestsignup-05c54b" />
+            <div className="s-guestsignup-6c45ad">
               <span>Total Amount</span>
               <span>₹{total.toLocaleString('en-IN')}</span>
             </div>
 
             <button onClick={handleSubmit} disabled={placeOrderMutation.isPending}
-              style={{ width: '100%', background: '#6A012A', color: '#fff', border: 'none', padding: '14px', borderRadius: 4, cursor: 'pointer', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', opacity: placeOrderMutation.isPending ? .7 : 1, marginBottom: 12 }}>
+              className="s-guestsignup-cca6e0" style={ {opacity: placeOrderMutation.isPending ? .7 : 1} }>
               {placeOrderMutation.isPending ? 'Placing Order…' : 'Place Order'}
             </button>
 
             <button onClick={() => navigate(-1)}
-              style={{ width: '100%', background: 'none', color: '#555', border: 'none', padding: '10px', borderRadius: 4, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
+              className="s-guestsignup-4b8e02">
               Cancel
             </button>
           </div>
@@ -283,21 +283,21 @@ export default function GuestSignup() {
 
       {/* ── WhatsApp popup — matches reference */}
       {showWhatsapp && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: '32px 28px', maxWidth: 420, width: '100%', textAlign: 'center' }}>
-            <h5 style={{ marginBottom: 12, fontWeight: 600 }}>
+        <div className="s-guestsignup-15a445">
+          <div className="s-guestsignup-b3ccb6">
+            <h5 className="s-guestsignup-9590c2">
               Would you like to receive order updates on WhatsApp?
             </h5>
-            <p style={{ fontSize: 14, color: '#888', marginBottom: 24 }}>
+            <p className="s-guestsignup-e9a4ea">
               We'll send you notifications about your order status, shipping updates, and delivery details directly to your WhatsApp
             </p>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div className="s-addressform-be0342">
               <button onClick={() => confirmOrder(false)}
-                style={{ flex: 1, background: '#fff', color: '#333', border: '1px solid #ddd', padding: '12px', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', fontWeight: 500 }}>
+                className="s-guestsignup-979ae0">
                 No Thanks
               </button>
               <button onClick={() => confirmOrder(true)}
-                style={{ flex: 1, background: '#25D366', color: '#fff', border: 'none', padding: '12px', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', fontWeight: 600 }}>
+                className="s-guestsignup-ddaad3">
                 <i className="bi bi-whatsapp me-2" />Yes
               </button>
             </div>

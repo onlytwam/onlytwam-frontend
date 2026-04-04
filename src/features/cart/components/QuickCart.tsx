@@ -125,45 +125,36 @@ export default function QuickCart({ onClose }: Props) {
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9998 }} onClick={onClose} />
+      <div className="s-quickcart-75c969" onClick={onClose} />
 
-      <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 400, maxWidth: '100vw',
-        background: '#fff', zIndex: 9999, display: 'flex', flexDirection: 'column',
-        boxShadow: '-4px 0 24px rgba(0,0,0,.15)', animation: 'slideIn .25s ease' }}>
+      <div className="s-quickcart-f483a8">
 
         {/* ── Header ── */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          background: 'var(--ivory)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <i className="bi bi-cart3" style={{ fontSize: 20, color: 'var(--brand)' }} />
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-heading)' }}>My Cart</h3>
+        <div className="s-quickcart-f272f0">
+          <div className="s-adminbar-877368">
+            <i className="bi bi-cart3 s-quickcart-efcb48" />
+            <h3 className="s-quickcart-fdb448">My Cart</h3>
             {items.length > 0 && (
-              <span style={{ background: 'var(--brand)', color: '#fff', borderRadius: '50%',
-                width: 22, height: 22, fontSize: 11, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontWeight: 700 }}>{items.length}</span>
+              <span className="s-quickcart-ea3ac8">{items.length}</span>
             )}
           </div>
           <button onClick={onClose}
-            style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#555', lineHeight: 1 }}>×</button>
+            className="s-adminsupport-40536d">×</button>
         </div>
 
         {/* ── Items list ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+        <div className="s-quickcart-1b9d23">
           {isLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <div style={{ width: 32, height: 32, border: '3px solid var(--ivory)',
-                borderTopColor: 'var(--brand)', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+            <div className="s-quickcart-9164c7">
+              <div className="s-quickcart-bc6b8b" />
             </div>
           ) : items.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#aaa' }}>
-              <i className="bi bi-cart-x" style={{ fontSize: 52, display: 'block', marginBottom: 16 }} />
-              <h4 style={{ color: '#555', marginBottom: 8 }}>Your cart is empty</h4>
-              <p style={{ fontSize: 14 }}>Add items to get started</p>
+            <div className="s-quickcart-1a1604">
+              <i className="bi bi-cart-x s-quickcart-78b615" />
+              <h4 className="s-quickcart-14d4fb">Your cart is empty</h4>
+              <p className="s-addresslist-92985e">Add items to get started</p>
               <button onClick={() => { navigate(prevPath); onClose(); }}
-                style={{ background: 'var(--brand)', color: '#fff', border: 'none',
-                  padding: '10px 24px', borderRadius: 6, cursor: 'pointer', marginTop: 16,
-                  fontSize: 14, fontFamily: 'inherit' }}>
+                className="s-quickcart-552d28">
                 Continue Shopping
               </button>
             </div>
@@ -182,53 +173,47 @@ export default function QuickCart({ onClose }: Props) {
             const atMax    = maxStock !== null && qty >= maxStock;
 
             return (
-              <div key={item.cartId || idx} style={{
-                display: 'flex', gap: 12, padding: '14px 0',
-                borderBottom: '1px solid #f5f5f5', alignItems: 'flex-start' }}>
+              <div key={item.cartId || idx} className="s-quickcart-49bd81">
 
                 {/* Image */}
-                <div style={{ flexShrink: 0, cursor: 'pointer' }}
+                <div className="s-quickcart-2c6bd4"
                   onClick={() => { navigate(`/user-products/product-detail/${item.productVariantId}/product`); onClose(); }}>
                   <img src={img} alt={name}
-                    style={{ width: 72, height: 86, objectFit: 'cover', borderRadius: 8,
-                      background: 'var(--ivory)', display: 'block' }}
+                    className="s-quickcart-2b92d4"
                     onError={e => { (e.target as HTMLImageElement).src = '/assets/category-bg.png'; }} />
                 </div>
 
                 {/* Details */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="s-userdashboar-7aa8c4">
 
                   {/* Name */}
-                  <h5 style={{ margin: '0 0 5px', fontSize: 13, fontWeight: 600, color: '#111',
-                    cursor: 'pointer', lineHeight: 1.3,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  <h5 className="s-quickcart-e5f653"
                     onClick={() => { navigate(`/user-products/product-detail/${item.productVariantId}/product`); onClose(); }}>
                     {name}
                     {(item.brandName || item.brand)
-                      ? <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--heirloom)', marginLeft: 5 }}>({item.brandName || item.brand})</span>
+                      ? <span className="s-quickcart-a94e44">({item.brandName || item.brand})</span>
                       : null}
                   </h5>
 
                   {/* Color + Band/Cup size */}
                   {(colorLabel || bandSize || cupSize) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <div className="s-quickcart-0419ed">
                       {colorLabel && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#555' }}>
-                          <span style={{ fontSize: 11, color: '#999' }}>Color:</span>
-                          <span style={{ width: 14, height: 14, borderRadius: '50%', background: colorHex,
-                            border: '1px solid rgba(0,0,0,.2)', display: 'inline-block', flexShrink: 0 }} />
+                        <span className="s-quickcart-b02946">
+                          <span className="s-adminsizes-b54cfc">Color:</span>
+                          <span className="s-quickcart-b68aaf" style={ {background: colorHex} } />
                           <span>{colorLabel}</span>
                         </span>
                       )}
                       {bandSize && (
-                        <span style={{ fontSize: 12, color: '#555' }}>
-                          <span style={{ fontSize: 11, color: '#999' }}>Band Size: </span>
+                        <span className="s-adminnewslet-f01220">
+                          <span className="s-adminsizes-b54cfc">Band Size: </span>
                           <strong>{bandSize}</strong>
                         </span>
                       )}
                       {cupSize && (
-                        <span style={{ fontSize: 12, color: '#555' }}>
-                          <span style={{ fontSize: 11, color: '#999' }}>Cup Size: </span>
+                        <span className="s-adminnewslet-f01220">
+                          <span className="s-adminsizes-b54cfc">Cup Size: </span>
                           <strong>{cupSize}</strong>
                         </span>
                       )}
@@ -237,49 +222,41 @@ export default function QuickCart({ onClose }: Props) {
 
                   {/* Stock warning badge */}
                   {maxStock !== null && maxStock <= 3 && maxStock > 0 && (
-                    <div style={{ fontSize: 11, color: '#e65100', fontWeight: 600, marginBottom: 6 }}>
+                    <div className="s-quickcart-382f33">
                       ⚠️ Only {maxStock} left in stock
                     </div>
                   )}
 
                   {/* Price + Qty + Delete row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div className="s-quickcart-addeec">
 
                     {/* Qty controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e0e0e0',
-                      borderRadius: 6, overflow: 'hidden' }}>
+                    <div className="s-quickcart-f7ab1b">
                       <button
                         onClick={() => handleDecrease(item)}
                         disabled={removeMut.isPending || updateMut.isPending}
-                        style={{ width: 28, height: 28, border: 'none', background: 'none',
-                          cursor: 'pointer', fontSize: 16, color: 'var(--brand)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          opacity: (removeMut.isPending || updateMut.isPending) ? 0.5 : 1 }}>
+                        className="s-quickcart-456b82" style={{ opacity: (removeMut.isPending || updateMut.isPending) ? 0.5 : 1 }}>
                         −
                       </button>
-                      <span style={{ width: 28, textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#111' }}>
+                      <span className="s-quickcart-b8376f">
                         {qty}
                       </span>
                       <button
                         onClick={() => handleIncrease(item)}
                         disabled={updateMut.isPending || atMax}
                         title={atMax ? `Max stock: ${maxStock}` : 'Increase quantity'}
-                        style={{ width: 28, height: 28, border: 'none', background: 'none',
-                          cursor: atMax ? 'not-allowed' : 'pointer', fontSize: 16,
-                          color: atMax ? '#ccc' : 'var(--brand)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          opacity: updateMut.isPending ? 0.5 : 1 }}>
+                        className="s-quickcart-65fdad" style={ {cursor: atMax ? 'not-allowed' : 'pointer', color: atMax ? 'var(--ivory)' : 'var(--brand)', opacity: updateMut.isPending ? 0.5 : 1} }>
                         +
                       </button>
                     </div>
 
                     {/* Price */}
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--brand)' }}>
+                    <div className="s-quickcart-f66ceb">
+                      <div className="s-quickcart-c3a94f">
                         ₹{(price * qty).toLocaleString('en-IN')}
                       </div>
                       {mrp > price && (
-                        <div style={{ fontSize: 11, color: '#aaa', textDecoration: 'line-through' }}>
+                        <div className="s-quickcart-b469ce">
                           ₹{(mrp * qty).toLocaleString('en-IN')}
                         </div>
                       )}
@@ -292,11 +269,8 @@ export default function QuickCart({ onClose }: Props) {
                         else removeGuest(item.productVariantId);
                       }}
                       disabled={removeMut.isPending}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer',
-                        color: '#e53935', padding: '4px', flexShrink: 0,
-                        display: 'flex', alignItems: 'center',
-                        opacity: removeMut.isPending ? 0.5 : 1 }}>
-                      <i className="bi bi-trash3" style={{ fontSize: 14 }} />
+                      className="s-quickcart-424294" style={ {opacity: removeMut.isPending ? 0.5 : 1} }>
+                      <i className="bi bi-trash3 s-addresslist-92985e" />
                     </button>
                   </div>
                 </div>
@@ -307,26 +281,24 @@ export default function QuickCart({ onClose }: Props) {
 
         {/* ── Footer ── */}
         {items.length > 0 && (
-          <div style={{ padding: '14px 20px', borderTop: '1px solid #f0f0f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 13, color: '#555' }}>
+          <div className="s-quickcart-6b5f6f">
+            <div className="s-quickcart-4b986c">
+              <span className="s-quickcart-08341f">
                 {items.length} item{items.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
                 {items.reduce((s: number, i: any) => s + (i.processedQuantity || i.quantity || 1), 0)} qty total
               </span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--brand)' }}>
+              <span className="s-quickcart-65e3d5">
                 ₹{total.toLocaleString('en-IN')}
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="s-adminblog-b43398">
               <button
                 onClick={() => { navigate('/user-products/cart', { state: { from: location.pathname + location.search } }); onClose(); }}
-                style={{ background: 'var(--brand)', color: '#fff', border: 'none', padding: '13px',
-                  borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 700, fontFamily: 'inherit' }}>
+                className="s-quickcart-febadd">
                 View Cart & Checkout
               </button>
               <button onClick={onClose}
-                style={{ background: '#fff', color: 'var(--brand)', border: '1.5px solid var(--brand)',
-                  padding: '11px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
+                className="s-quickcart-ec24cf">
                 Continue Shopping
               </button>
             </div>
@@ -334,10 +306,6 @@ export default function QuickCart({ onClose }: Props) {
         )}
       </div>
 
-      <style>{`
-        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        @keyframes spin    { to   { transform: rotate(360deg); } }
-      `}</style>
-    </>
+      </>
   );
 }

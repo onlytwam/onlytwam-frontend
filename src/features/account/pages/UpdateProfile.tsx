@@ -101,8 +101,8 @@ export default function UpdateProfile() {
     return Object.keys(e).length === 0;
   };
 
-  const s: React.CSSProperties = { width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' };
-  const err = (key: string, errors: Record<string, string>): React.CSSProperties => errors[key] ? { ...s, borderColor: '#e53935' } : s;
+  const s: React.CSSProperties = { width: '100%', padding: '10px 12px', border: '1px solid #f5f0e6', borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+  const err = (key: string, errors: Record<string, string>): React.CSSProperties => errors[key] ? { ...s, borderColor: 'var(--brand)' } : s;
 
   return (
     <>
@@ -111,19 +111,13 @@ export default function UpdateProfile() {
         { label: 'My Account', path: '/account/update-profile' },
         { label: isPasswordPage ? 'Change Password' : 'My Profile' }
       ]} />
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', padding: 28 }}>
-      <h5 style={{ margin: '0 0 20px', fontWeight: 700 }}>Account Settings</h5>
+      <div className="s-updateprofil-245770">
+      <h5 className="s-updateprofil-e41087">Account Settings</h5>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '2px solid #f0f0f0', marginBottom: 24 }}>
+      <div className="s-updateprofil-3898ca">
         {(['profile', 'password'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{
-            padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14,
-            fontWeight: activeTab === tab ? 700 : 400,
-            color: activeTab === tab ? '#111' : '#888',
-            borderBottom: `3px solid ${activeTab === tab ? '#111' : 'transparent'}`,
-            marginBottom: -2, fontFamily: 'inherit',
-          }}>
+          <button key={tab} onClick={() => setActiveTab(tab)} className="s-updateprofil-b9cc95" style={ {fontWeight: activeTab === tab ? 700 : 400, color: activeTab === tab ? '#000000' : 'var(--heirloom)', borderBottom: `3px solid ${activeTab === tab ? '#000000' : 'transparent'}`} }>
             {tab === 'profile' ? '👤 Personal Info' : '🔒 Change Password'}
           </button>
         ))}
@@ -131,42 +125,42 @@ export default function UpdateProfile() {
 
       {/* Profile Form */}
       {activeTab === 'profile' && (
-        <div style={{ maxWidth: 600 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0 16px' }}>
+        <div className="s-updateprofil-3d6779">
+          <div className="s-updateprofil-84866b">
             {[
               { key: 'firstName', label: 'First Name *' },
               { key: 'middleName', label: 'Middle Name' },
               { key: 'lastName', label: 'Last Name *' },
             ].map(({ key, label }) => (
-              <div key={key} style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>{label}</label>
+              <div key={key} className="s-updateprofil-246fef">
+                <label className="s-addressform-f1fb64">{label}</label>
                 <input
                   style={err(key, profileErrors)}
                   value={(profile as any)[key]}
                   onChange={e => setProfile(p => ({ ...p, [key]: e.target.value }))}
                 />
-                {profileErrors[key] && <p style={{ color: '#e53935', fontSize: 12, margin: '3px 0 0' }}>{profileErrors[key]}</p>}
+                {profileErrors[key] && <p className="s-updateprofil-ecc872">{profileErrors[key]}</p>}
               </div>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Email *</label>
+          <div className="s-updateprofil-900022">
+            <div className="s-updateprofil-246fef">
+              <label className="s-addressform-f1fb64">Email *</label>
               <input type="email" style={err('email', profileErrors)} value={profile.email}
                 onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
-              {profileErrors.email && <p style={{ color: '#e53935', fontSize: 12, margin: '3px 0 0' }}>{profileErrors.email}</p>}
+              {profileErrors.email && <p className="s-updateprofil-ecc872">{profileErrors.email}</p>}
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Phone Number *</label>
+            <div className="s-updateprofil-246fef">
+              <label className="s-addressform-f1fb64">Phone Number *</label>
               <input style={err('phoneNumber', profileErrors)} value={profile.phoneNumber} maxLength={10}
                 onChange={e => setProfile(p => ({ ...p, phoneNumber: e.target.value }))} />
-              {profileErrors.phoneNumber && <p style={{ color: '#e53935', fontSize: 12, margin: '3px 0 0' }}>{profileErrors.phoneNumber}</p>}
+              {profileErrors.phoneNumber && <p className="s-updateprofil-ecc872">{profileErrors.phoneNumber}</p>}
             </div>
           </div>
           <button
             onClick={() => validateProfile() && profileMutation.mutate()}
             disabled={profileMutation.isPending}
-            style={{ background: '#111', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }}>
+            className="s-updateprofil-7be3db">
             {profileMutation.isPending ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
@@ -174,15 +168,15 @@ export default function UpdateProfile() {
 
       {/* Password Form */}
       {activeTab === 'password' && (
-        <div style={{ maxWidth: 400 }}>
+        <div className="s-updateprofil-340e9f">
           {[
             { key: 'currentPassword', label: 'Current Password *', showToggle: true },
             { key: 'newPassword',     label: 'New Password * (min 6 chars)', showToggle: false },
             { key: 'confirmPassword', label: 'Confirm New Password *', showToggle: false },
           ].map(({ key, label, showToggle }) => (
-            <div key={key} style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>{label}</label>
-              <div style={{ position: 'relative' }}>
+            <div key={key} className="s-updateprofil-246fef">
+              <label className="s-addressform-f1fb64">{label}</label>
+              <div className="s-updateprofil-1d5e50">
                 <input
                   type={showToggle ? (showPw ? 'text' : 'password') : 'password'}
                   style={{ ...err(key, pwErrors), paddingRight: showToggle ? 42 : 12 }}
@@ -190,21 +184,18 @@ export default function UpdateProfile() {
                   onChange={e => setPwForm(p => ({ ...p, [key]: e.target.value }))}
                 />
                 {showToggle && (
-                  <button type="button" onClick={() => setShowPw(v => !v)} style={{
-                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: '#888',
-                  }}>
+                  <button type="button" onClick={() => setShowPw(v => !v)} className="s-updateprofil-24c8ba">
                     <i className={`bi ${showPw ? 'bi-eye-slash' : 'bi-eye'}`} />
                   </button>
                 )}
               </div>
-              {pwErrors[key] && <p style={{ color: '#e53935', fontSize: 12, margin: '3px 0 0' }}>{pwErrors[key]}</p>}
+              {pwErrors[key] && <p className="s-updateprofil-ecc872">{pwErrors[key]}</p>}
             </div>
           ))}
           <button
             onClick={() => validatePassword() && passwordMutation.mutate()}
             disabled={passwordMutation.isPending}
-            style={{ background: '#111', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }}>
+            className="s-updateprofil-7be3db">
             {passwordMutation.isPending ? 'Changing…' : 'Change Password'}
           </button>
         </div>

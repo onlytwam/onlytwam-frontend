@@ -33,20 +33,20 @@ export default function ReturnReason() {
 
   const radioStyle = (active: boolean) => ({
     width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-    border: `2px solid ${active ? '#111' : '#ccc'}`,
-    background: active ? '#111' : '#fff',
+    border: `2px solid ${active ? '#000000' : 'var(--ivory)'}`,
+    background: active ? '#000000' : '#fff',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   });
 
   return (
-    <div className="container" style={{ padding: '32px 16px', maxWidth: 560 }}>
+    <div className="container s-returnreason-2a3313">
       <button onClick={() => navigate('/user-products/return-order')}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+        className="s-deliveryopti-01d82d">
         <i className="bi bi-arrow-left" /> Back
       </button>
 
       {/* Step indicator */}
-      <div className="d-flex align-items-center gap-2 mb-4" style={{ fontSize: 12, color: '#888' }}>
+      <div className="d-flex align-items-center gap-2 mb-4 s-adminnewslet-f01220">
         <span>Select Order</span><i className="bi bi-chevron-right" />
         <span className="fw-bold text-dark">Reason</span><i className="bi bi-chevron-right" />
         <span>Delivery</span><i className="bi bi-chevron-right" />
@@ -54,21 +54,16 @@ export default function ReturnReason() {
         <span>Confirm</span>
       </div>
 
-      <h4 style={{ marginBottom: 6 }}>Reason for Return</h4>
-      <p style={{ color: '#888', marginBottom: 24, fontSize: 14 }}>Please tell us why you want to return this item.</p>
+      <h4 className="s-deliveryopti-186182">Reason for Return</h4>
+      <p className="s-deliveryopti-78aac5">Please tell us why you want to return this item.</p>
 
       {REASONS.map(r => (
         <div key={r.id} onClick={() => setSelectedId(r.id)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            border: `2px solid ${selectedId === r.id ? '#111' : '#eee'}`,
-            borderRadius: 8, padding: 14, marginBottom: 10, cursor: 'pointer',
-            background: selectedId === r.id ? '#f9f9f9' : '#fff',
-          }}>
+          className="s-returnreason-927a48" style={ {border: `2px solid ${selectedId === r.id ? '#000000' : 'var(--ivory)'}`, background: selectedId === r.id ? 'var(--ivory)' : '#fff'} }>
           <div style={radioStyle(selectedId === r.id)}>
-            {selectedId === r.id && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+            {selectedId === r.id && <div className="s-payment-108f10" />}
           </div>
-          <span style={{ fontSize: 14 }}>{r.name}</span>
+          <span className="s-addresslist-92985e">{r.name}</span>
         </div>
       ))}
 
@@ -78,11 +73,7 @@ export default function ReturnReason() {
       )}
 
       <button onClick={handleNext} disabled={!selectedId || (selectedId === 7 && !otherReason.trim())}
-        style={{
-          marginTop: 20, width: '100%', background: '#111', color: '#fff', border: 'none',
-          padding: '12px', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: 14,
-          opacity: (!selectedId || (selectedId === 7 && !otherReason.trim())) ? 0.5 : 1,
-        }}>
+        className="s-returnreason-1083c1" style={{ opacity: (!selectedId || (selectedId === 7 && !otherReason.trim())) ? 0.5 : 1 }}>
         Continue — Choose Delivery Method <i className="bi bi-arrow-right ms-1" />
       </button>
     </div>

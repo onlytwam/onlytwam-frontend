@@ -24,19 +24,19 @@ const ORDER_FILTERS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  Pending:          '#f59e0b', Confirmed:       '#3b82f6',
-  Processing:       '#8b5cf6', Shipped:         '#06b6d4',
-  Delivered:        '#10b981', Cancelled:       '#ef4444',
-  Refunded:         '#6b7280', Failed:          '#ef4444',
-  'Return Initiated':'#f97316', Returned:       '#6b7280',
+  Pending:          'var(--brand)', Confirmed:       'var(--brand)',
+  Processing:       'var(--brand)', Shipped:         '#06b6d4',
+  Delivered:        'var(--brand)', Cancelled:       'var(--brand)',
+  Refunded:         'var(--heirloom)', Failed:          'var(--brand)',
+  'Return Initiated':'var(--brand)', Returned:       'var(--heirloom)',
 };
 
 const TRACKING_STEPS = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered'];
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className="badge"
-      style={{ background: STATUS_COLORS[status] || '#6b7280', color: '#fff', fontWeight: 500, fontSize: 12 }}>
+    <span className="badge s-orderslist-6d2b17"
+      style={{ background: STATUS_COLORS[status] || 'var(--heirloom)' }}>
       {status || 'Pending'}
     </span>
   );
@@ -44,18 +44,11 @@ function StatusBadge({ status }: { status: string }) {
 
 function TrackingStep({ label, done, active }: { label: string; done: boolean; active: boolean }) {
   return (
-    <div className="d-flex flex-column align-items-center" style={{ flex: 1 }}>
-      <div style={{
-        width: 28, height: 28, borderRadius: '50%',
-        background: done || active ? '#111' : '#e5e7eb',
-        color:      done || active ? '#fff' : '#9ca3af',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 13, fontWeight: 700, zIndex: 1,
-      }}>
+    <div className="d-flex flex-column align-items-center s-app-52dcac">
+      <div className="s-orderslist-bc2f44" style={ {background: done || active ? '#000000' : 'var(--ivory)', color: done || active ? '#fff' : 'var(--heirloom)'} }>
         {done ? <i className="bi bi-check" /> : ''}
       </div>
-      <span style={{ fontSize: 11, marginTop: 4, textAlign: 'center',
-        color: active ? '#111' : '#9ca3af', fontWeight: active ? 600 : 400 }}>
+      <span className="s-orderslist-e909eb" style={ {color: active ? '#000000' : 'var(--heirloom)', fontWeight: active ? 600 : 400} }>
         {label}
       </span>
     </div>
@@ -114,15 +107,14 @@ export default function OrdersList() {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h5 className="mb-0">My Orders</h5>
-        <span className="text-muted" style={{ fontSize: 13 }}>{totalCount} orders</span>
+        <span className="text-muted s-addresslist-9eec06">{totalCount} orders</span>
       </div>
 
       {/* Filter chips */}
-      <div className="d-flex gap-2 overflow-auto pb-2 mb-4" style={{ scrollbarWidth: 'none' }}>
+      <div className="d-flex gap-2 overflow-auto pb-2 mb-4 s-orderslist-62a809">
         {ORDER_FILTERS.map(f => (
           <button key={f}
-            className={`btn btn-sm text-nowrap ${activeFilter === f ? 'btn-dark' : 'btn-outline-secondary'}`}
-            style={{ borderRadius: 20, fontSize: 13 }}
+            className={`btn btn-sm text-nowrap ${activeFilter === f ? 'btn-dark' : 'btn-outline-secondary'} s-orderslist-7f63b9`}
             onClick={() => { setActiveFilter(f); setPage(1); }}>
             {f}
           </button>
@@ -131,7 +123,7 @@ export default function OrdersList() {
 
       {orders.length === 0 ? (
         <div className="text-center py-5">
-          <i className="bi bi-bag-x" style={{ fontSize: 48, color: '#ddd', display: 'block', marginBottom: 12 }} />
+          <i className="bi bi-bag-x s-orderslist-94e3bd" />
           <p className="text-muted">No orders found.</p>
           <Link to="/user-products/product-list" className="btn btn-dark btn-sm">Start Shopping</Link>
         </div>
@@ -145,15 +137,14 @@ export default function OrdersList() {
           return (
             <div key={order.orderId} className="card border mb-3 shadow-sm">
               {/* Header */}
-              <div className="card-header d-flex align-items-center justify-content-between"
-                style={{ background: '#f9f9f9', cursor: 'pointer', padding: '12px 16px' }}
+              <div className="card-header d-flex align-items-center justify-content-between s-orderslist-f7c942"
                 onClick={() => setExpandedId(isExpanded ? null : order.orderId)}>
                 <div>
                   {/* FIX: orderId is a number — use String() before slice */}
-                  <span className="fw-semibold" style={{ fontSize: 14 }}>
+                  <span className="fw-semibold s-addresslist-92985e">
                     Order #{order.orderNumber || String(order.orderId).slice(-8)}
                   </span>
-                  <span className="text-muted ms-3" style={{ fontSize: 12 }}>
+                  <span className="text-muted ms-3 s-couponslist-030edf">
                     {fmt(order.orderDate)}
                   </span>
                 </div>
@@ -170,10 +161,7 @@ export default function OrdersList() {
                   {!['Cancelled', 'Failed', 'Refunded'].includes(state) && (
                     <div className="mb-4">
                       <div className="d-flex align-items-center position-relative">
-                        <div style={{
-                          position: 'absolute', top: 14, left: '10%', right: '10%',
-                          height: 2, background: stepIdx >= 1 ? '#111' : '#e5e7eb', zIndex: 0,
-                        }} />
+                        <div className="s-orderslist-2a0d32" style={ {background: stepIdx >= 1 ? '#000000' : 'var(--ivory)'} } />
                         {TRACKING_STEPS.map((step, i) => (
                           <TrackingStep key={step} label={step} done={i < stepIdx} active={i === stepIdx} />
                         ))}
@@ -187,22 +175,22 @@ export default function OrdersList() {
                       {/* FIX: item.productImage not item.image */}
                       <img src={getImageUrl(item.productImage || item.image)}
                         alt={item.productName}
-                        style={{ width: 70, height: 85, objectFit: 'cover', borderRadius: 6 }}
+                        className="s-orderslist-777a95"
                         onError={e => { (e.target as HTMLImageElement).src = '/assets/images/placeholder.jpg'; }} />
                       <div className="flex-fill">
-                        <p className="mb-1 fw-semibold" style={{ fontSize: 14 }}>{item.productName}</p>
+                        <p className="mb-1 fw-semibold s-addresslist-92985e">{item.productName}</p>
                         <div className="d-flex gap-1 flex-wrap mb-1">
-                          {item.size   && <span className="badge bg-light text-dark" style={{ fontSize: 11 }}>Size: {item.size}</span>}
-                          {item.cupSize && <span className="badge bg-light text-dark" style={{ fontSize: 11 }}>Cup: {item.cupSize}</span>}
-                          {item.color  && <span className="badge bg-light text-dark" style={{ fontSize: 11 }}>Color: {item.color}</span>}
+                          {item.size   && <span className="badge bg-light text-dark s-addresslist-2c42ad">Size: {item.size}</span>}
+                          {item.cupSize && <span className="badge bg-light text-dark s-addresslist-2c42ad">Cup: {item.cupSize}</span>}
+                          {item.color  && <span className="badge bg-light text-dark s-addresslist-2c42ad">Color: {item.color}</span>}
                         </div>
-                        <p className="mb-0 text-muted" style={{ fontSize: 13 }}>
+                        <p className="mb-0 text-muted s-addresslist-9eec06">
                           {price(item.price)} × {item.quantity}
                           = <strong>{price((item.price || 0) * (item.quantity || 1))}</strong>
                         </p>
                       </div>
                       {state === 'Delivered' && item.isReturnAvailable && (
-                        <button className="btn btn-sm btn-outline-secondary align-self-start" style={{ fontSize: 12 }}
+                        <button className="btn btn-sm btn-outline-secondary align-self-start s-couponslist-030edf"
                           onClick={() => {
                             sessionStorage.setItem('returnOrderId', String(order.orderId));
                             navigate('/user-products/return-order');
@@ -220,8 +208,8 @@ export default function OrdersList() {
                         {/* FIX: list view uses order.address not order.shippingAddress */}
                         {order.address && (
                           <div>
-                            <p className="mb-1 fw-semibold" style={{ fontSize: 13 }}>Delivery Address</p>
-                            <p className="text-muted mb-0" style={{ fontSize: 12 }}>
+                            <p className="mb-1 fw-semibold s-addresslist-9eec06">Delivery Address</p>
+                            <p className="text-muted mb-0 s-couponslist-030edf">
                               {order.address.name}<br />
                               {order.address.addressLine}, {order.address.city}<br />
                               {order.address.pinCode}
@@ -230,7 +218,7 @@ export default function OrdersList() {
                         )}
                       </div>
                       <div className="col-md-6 text-md-end mt-3 mt-md-0">
-                        <table className="ms-auto" style={{ fontSize: 13 }}>
+                        <table className="ms-auto s-addresslist-9eec06">
                           <tbody>
                             {/* FIX: use subTotal / deliveryCharge / couponAmount — not subtotalAmount / shippingAmount / discountAmount */}
                             <tr><td className="text-muted pe-4">Subtotal</td><td>{price(order.subTotal)}</td></tr>
@@ -300,7 +288,7 @@ export default function OrdersList() {
 
       {/* Cancel modal */}
       {cancelModal && (
-        <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,.4)' }}>
+        <div className="modal fade show s-orderslist-854786">
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">

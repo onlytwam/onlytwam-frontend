@@ -5,7 +5,6 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { resetPasswordWithToken } from '@/features/auth/api/auth.api';
 import toast from 'react-hot-toast';
 
-const errSt: React.CSSProperties = { color: '#e53935', fontSize: 12, margin: '4px 0 0' };
 
 interface PasswordStrength {
   score: number;   // 0–4
@@ -20,7 +19,7 @@ function getStrength(pw: string): PasswordStrength {
   if (/[0-9]/.test(pw))           score++;
   if (/[^A-Za-z0-9]/.test(pw))   score++;
   const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-  const colors = ['', '#e53935', '#fb8c00', '#43a047', '#1b5e20'];
+  const colors = ['', 'var(--brand)', 'var(--brand)', 'var(--brand)', 'var(--brand)'];
   return { score, label: labels[score] || '', color: colors[score] || '' };
 }
 
@@ -74,73 +73,52 @@ export default function ResetPassword() {
     }
   };
 
-  const inp: React.CSSProperties = {
-    width: '100%', padding: '12px 42px 12px 14px',
-    border: `1px solid ${errors.newPassword || errors.confirmPassword ? '#e53935' : '#ddd'}`,
-    borderRadius: 8, fontSize: 14, outline: 'none',
-    boxSizing: 'border-box', fontFamily: 'inherit',
-    transition: 'border-color 0.15s',
-  };
-
+  
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="s-login-2bb036">
       {/* Left — image */}
-      <div className="d-none d-md-flex" style={{ flex: '0 0 44%', overflow: 'hidden', position: 'relative' }}>
+      <div className="d-none d-md-flex s-login-2da0c0">
         <img
           src="/assets/images/forgot-bg.jpg"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          className="s-userdashboar-4ebae2"
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           alt=""
         />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(135deg, rgba(106,1,42,0.55) 0%, rgba(0,0,0,0.25) 100%)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-          padding: '48px 40px',
-        }}>
-          <p style={{ color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+        <div className="s-resetpasswor-095dc6">
+          <p className="s-resetpasswor-c867a1">
             Almost there — set a strong new password.
           </p>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+          <p className="s-resetpasswor-48d152">
             Only TWAM — Crafted with love.
           </p>
         </div>
       </div>
 
       {/* Right — form */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', background: '#fff' }}>
-        <div style={{ width: '100%', maxWidth: 420 }}>
+      <div className="s-login-5c2ebc">
+        <div className="s-resetpasswor-4c6092">
 
-          <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', textDecoration: 'none', marginBottom: 24 }}>
+          <Link to="/login" className="s-login-0aef96">
             <i className="bi bi-arrow-left" /> Back to Sign In
           </Link>
 
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" style={{ height: 46 }}
+          <div className="s-login-9aad3d">
+            <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" className="s-login-cd2062"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
 
           {/* Success state */}
           {success ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                width: 72, height: 72, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #43a047, #1b5e20)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 20px', boxShadow: '0 4px 16px rgba(67,160,71,0.3)',
-              }}>
-                <i className="bi bi-check-lg" style={{ fontSize: 36, color: '#fff' }} />
+            <div className="s-adminnewslet-e2e1e0">
+              <div className="s-resetpasswor-5b4961">
+                <i className="bi bi-check-lg s-resetpasswor-404657" />
               </div>
-              <h5 style={{ fontWeight: 700, marginBottom: 8 }}>Password Updated!</h5>
-              <p style={{ color: '#888', fontSize: 14, marginBottom: 28 }}>
+              <h5 className="s-resetpasswor-215432">Password Updated!</h5>
+              <p className="s-resetpasswor-cf8215">
                 Your password has been reset successfully. You can now sign in with your new password.
               </p>
               <Link to="/login"
-                style={{
-                  display: 'block', background: '#6A012A', color: '#fff',
-                  padding: '13px 24px', borderRadius: 8, textDecoration: 'none',
-                  fontSize: 15, fontWeight: 700, textAlign: 'center',
-                }}>
+                className="s-resetpasswor-de7839">
                 Sign In
               </Link>
             </div>
@@ -148,63 +126,59 @@ export default function ResetPassword() {
             <>
               {/* Invalid link */}
               {(!token || !email) ? (
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#ffebee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <i className="bi bi-exclamation-triangle" style={{ fontSize: 26, color: '#c62828' }} />
+                <div className="s-adminnewslet-e2e1e0">
+                  <div className="s-resetpasswor-036700">
+                    <i className="bi bi-exclamation-triangle s-resetpasswor-dfecbd" />
                   </div>
-                  <p style={{ color: '#c62828', fontSize: 14, marginBottom: 20 }}>
+                  <p className="s-resetpasswor-01d023">
                     This reset link is invalid or has expired. Please restart the forgot-password process.
                   </p>
                   <Link to="/login"
-                    style={{ background: '#6A012A', color: '#fff', padding: '11px 24px', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
+                    className="s-resetpasswor-bfc8a5">
                     Back to Login
                   </Link>
                 </div>
               ) : (
                 <>
                   {/* Heading */}
-                  <div style={{ marginBottom: 24 }}>
-                    <h5 style={{ fontWeight: 700, marginBottom: 6 }}>Set New Password</h5>
-                    <p style={{ color: '#888', fontSize: 14, margin: 0 }}>
-                      Creating password for <span style={{ color: '#6A012A', fontWeight: 600 }}>{email}</span>
+                  <div className="s-adminnewslet-70cb1d">
+                    <h5 className="s-login-b4f13d">Set New Password</h5>
+                    <p className="s-resetpasswor-4c0ccf">
+                      Creating password for <span className="s-register-51a817">{email}</span>
                     </p>
                   </div>
 
                   <form onSubmit={handleSubmit}>
                     {/* New password */}
-                    <div style={{ marginBottom: 16 }}>
-                      <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>
-                        New Password <span style={{ color: '#e53935' }}>*</span>
+                    <div className="s-updateprofil-246fef">
+                      <label className="s-addressform-f1fb64">
+                        New Password <span className="s-resetpasswor-ddc1b2">*</span>
                       </label>
-                      <div style={{ position: 'relative' }}>
+                      <div className="s-updateprofil-1d5e50">
                         <input
                           type={showNew ? 'text' : 'password'}
                           value={newPassword}
                           onChange={e => { setNewPassword(e.target.value); setErrors(er => ({ ...er, newPassword: '' })); }}
-                          style={{ ...inp, border: `1px solid ${errors.newPassword ? '#e53935' : '#ddd'}` }}
+                          className="inp-field" style={{ border: `1px solid ${errors.newPassword ? 'var(--brand)' : 'var(--ivory)'}` }}
                           placeholder="Minimum 6 characters"
                           autoFocus
                         />
                         <button type="button" onClick={() => setShowNew(v => !v)}
-                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>
+                          className="s-resetpasswor-2632a8">
                           <i className={`bi ${showNew ? 'bi-eye-slash' : 'bi-eye'}`} />
                         </button>
                       </div>
-                      {errors.newPassword && <p style={errSt}>{errors.newPassword}</p>}
+                      {errors.newPassword && <p className="auth-err-text">{errors.newPassword}</p>}
 
                       {/* Strength bar */}
                       {newPassword.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                        <div className="s-resetpasswor-15d9cd">
+                          <div className="s-resetpasswor-6f872d">
                             {[1,2,3,4].map(i => (
-                              <div key={i} style={{
-                                flex: 1, height: 4, borderRadius: 4,
-                                background: i <= strength.score ? strength.color : '#eee',
-                                transition: 'background 0.2s',
-                              }} />
+                              <div key={i} className="s-resetpasswor-6a5b5e" style={ {background: i <= strength.score ? strength.color : 'var(--ivory)'} } />
                             ))}
                           </div>
-                          <p style={{ fontSize: 11, color: strength.color, margin: 0, fontWeight: 600 }}>
+                          <p className="s-resetpasswor-dcdb14 s-resetpasswor-34edbd">
                             {strength.label}
                           </p>
                         </div>
@@ -212,41 +186,41 @@ export default function ResetPassword() {
                     </div>
 
                     {/* Confirm password */}
-                    <div style={{ marginBottom: 8 }}>
-                      <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>
-                        Confirm Password <span style={{ color: '#e53935' }}>*</span>
+                    <div className="s-login-e50f28">
+                      <label className="s-addressform-f1fb64">
+                        Confirm Password <span className="s-resetpasswor-ddc1b2">*</span>
                       </label>
-                      <div style={{ position: 'relative' }}>
+                      <div className="s-updateprofil-1d5e50">
                         <input
                           type={showConfirm ? 'text' : 'password'}
                           value={confirmPassword}
                           onChange={e => { setConfirmPassword(e.target.value); setErrors(er => ({ ...er, confirmPassword: '' })); }}
-                          style={{ ...inp, border: `1px solid ${errors.confirmPassword ? '#e53935' : '#ddd'}` }}
+                          className="inp-field" style={{ border: `1px solid ${errors.confirmPassword ? 'var(--brand)' : 'var(--ivory)'}` }}
                           placeholder="Repeat your password"
                         />
                         <button type="button" onClick={() => setShowConfirm(v => !v)}
-                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>
+                          className="s-resetpasswor-2632a8">
                           <i className={`bi ${showConfirm ? 'bi-eye-slash' : 'bi-eye'}`} />
                         </button>
                       </div>
-                      {errors.confirmPassword && <p style={errSt}>{errors.confirmPassword}</p>}
+                      {errors.confirmPassword && <p className="auth-err-text">{errors.confirmPassword}</p>}
                       {/* Match indicator */}
                       {confirmPassword && !errors.confirmPassword && newPassword === confirmPassword && (
-                        <p style={{ fontSize: 11, color: '#43a047', margin: '4px 0 0', fontWeight: 600 }}>
+                        <p className="s-resetpasswor-aed927">
                           <i className="bi bi-check-circle me-1" />Passwords match
                         </p>
                       )}
                     </div>
 
                     {/* Requirements hint */}
-                    <div style={{ background: '#f9f9f9', borderRadius: 8, padding: '10px 14px', marginBottom: 20, marginTop: 8 }}>
-                      <p style={{ fontSize: 12, color: '#888', margin: '0 0 4px', fontWeight: 600 }}>Password requirements:</p>
+                    <div className="s-resetpasswor-9fded5">
+                      <p className="s-resetpasswor-d5a599">Password requirements:</p>
                       {[
                         { label: 'At least 6 characters', met: newPassword.length >= 6 },
                         { label: 'At least one uppercase letter', met: /[A-Z]/.test(newPassword) },
                         { label: 'At least one number', met: /[0-9]/.test(newPassword) },
                       ].map(({ label, met }) => (
-                        <p key={label} style={{ fontSize: 12, margin: '2px 0', color: met ? '#43a047' : '#aaa' }}>
+                        <p key={label} className="s-resetpasswor-7b597a" style={ {color: met ? 'var(--brand)' : 'var(--heirloom)'} }>
                           <i className={`bi ${met ? 'bi-check-circle-fill' : 'bi-circle'} me-1`} />
                           {label}
                         </p>
@@ -255,12 +229,7 @@ export default function ResetPassword() {
 
                     {/* Submit */}
                     <button type="submit" disabled={loading}
-                      style={{
-                        width: '100%', padding: 13, background: '#6A012A', color: '#fff',
-                        border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700,
-                        cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                        opacity: loading ? 0.7 : 1,
-                      }}>
+                      className="s-resetpasswor-33ec0d" style={ {cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1} }>
                       {loading
                         ? <><span className="spinner-border spinner-border-sm me-2" />Resetting…</>
                         : 'Reset Password'
@@ -269,21 +238,16 @@ export default function ResetPassword() {
                   </form>
 
                   {/* Progress indicator */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginTop: 28 }}>
+                  <div className="s-resetpasswor-cb112e">
                     {['Enter Email', 'Verify OTP', 'New Password'].map((step, i) => (
-                      <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{
-                          width: 24, height: 24, borderRadius: '50%',
-                          background: i < 2 ? '#d4a0b0' : '#6A012A',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, color: '#fff', fontWeight: 600,
-                        }}>
-                          {i < 2 ? <i className="bi bi-check" style={{ fontSize: 13 }} /> : 3}
+                      <div key={step} className="s-resetpasswor-6e6177">
+                        <div className="s-resetpasswor-2b303d" style={ {background: i < 2 ? 'var(--heirloom)' : 'var(--brand)'} }>
+                          {i < 2 ? <i className="bi bi-check s-addresslist-9eec06" /> : 3}
                         </div>
-                        <span style={{ fontSize: 11, color: i === 2 ? '#6A012A' : '#aaa', fontWeight: i === 2 ? 600 : 400 }}>
+                        <span className="s-resetpasswor-22579e" style={ {color: i === 2 ? 'var(--brand)' : 'var(--heirloom)', fontWeight: i === 2 ? 600 : 400} }>
                           {step}
                         </span>
-                        {i < 2 && <div style={{ width: 24, height: 1, background: '#eee' }} />}
+                        {i < 2 && <div className="s-resetpasswor-8f54ef" />}
                       </div>
                     ))}
                   </div>

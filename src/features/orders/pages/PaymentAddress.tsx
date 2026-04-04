@@ -23,10 +23,7 @@ import { listAddress, createAddress, updateAddress } from '@/features/orders/api
 import api from '@/shared/api/axiosInstance';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
-const PRI      = '#6B0F2A';
-const HEIRLOOM = '#9E6070';
-const IVORY    = '#F5F0E6';
-const IVORY_DK = '#ede4d8';
+const IVORY_DK = 'var(--ivory)';
 const FONTS    = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI  = '"Trebuchet MS", Arial, sans-serif';
 
@@ -92,19 +89,19 @@ async function reverseGeocode(lat: number, lon: number): Promise<GeoData | null>
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const inpStyle = (err?: boolean, disabled?: boolean): React.CSSProperties => ({
   width: '100%', padding: '11px 14px', boxSizing: 'border-box',
-  border: `1.5px solid ${err ? '#e53935' : '#ddd'}`, borderRadius: 8,
+  border: `1.5px solid ${err ? 'var(--brand)' : 'var(--ivory)'}`, borderRadius: 8,
   fontSize: 14, fontFamily: FONT_UI, outline: 'none',
-  background: disabled ? '#f9f9f9' : '#fff', color: disabled ? '#888' : '#111',
+  background: disabled ? 'var(--ivory)' : '#fff', color: disabled ? 'var(--heirloom)' : '#000000',
   transition: 'border-color .2s',
 });
 
 const labelSt: React.CSSProperties = {
   fontSize: 12.5, fontWeight: 600, display: 'block',
-  marginBottom: 5, color: '#444', fontFamily: FONT_UI,
+  marginBottom: 5, color: 'var(--heirloom)', fontFamily: FONT_UI,
 };
 
 const errSt: React.CSSProperties = {
-  color: '#e53935', fontSize: 11.5, marginTop: 4,
+  color: 'var(--brand)', fontSize: 11.5, marginTop: 4,
   display: 'flex', alignItems: 'center', gap: 4, margin: '4px 0 0',
 };
 
@@ -113,27 +110,15 @@ function CheckoutSteps({ active }: { active: 'address' | 'shipping' | 'payment' 
   const steps = ['Address', 'Shipping', 'Payment'];
   const idx   = steps.findIndex(s => s.toLowerCase() === active);
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28, fontFamily: FONT_UI }}>
+    <div className="s-paymentaddre-b73835 s-paymentaddre-ffd8281d">
       {steps.map((s, i) => (
-        <span key={s} style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: i <= idx ? PRI : '#e8e0d8',
-            color: i <= idx ? '#fff' : '#aaa',
-            fontSize: 12, fontWeight: 700, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'background .2s',
-          }}>
+        <span key={s} className="s-paymentaddre-c5c4a3">
+          <span className="s-paymentaddre-fcf208" style={ {background: i <= idx ? 'var(--brand)' : 'var(--ivory)', color: i <= idx ? '#fff' : 'var(--heirloom)'} }>
             {i < idx ? '✓' : i + 1}
           </span>
-          <span style={{
-            marginLeft: 7, fontSize: 13,
-            fontWeight: i === idx ? 700 : 400,
-            color: i < idx ? HEIRLOOM : i === idx ? PRI : '#bbb',
-            marginRight: i < steps.length - 1 ? 8 : 0,
-          }}>{s}</span>
+          <span className="s-paymentaddre-52b54c" style={ {fontWeight: i === idx ? 700 : 400, color: i < idx ? 'var(--heirloom)' : i === idx ? 'var(--brand)' : 'var(--heirloom)', marginRight: i < steps.length - 1 ? 8 : 0} }>{s}</span>
           {i < steps.length - 1 && (
-            <span style={{ width: 28, height: 1, background: i < idx ? HEIRLOOM : '#e0d6cc', margin: '0 10px 0 10px' }} />
+            <span className="s-paymentaddre-e316ec" style={ {background: i < idx ? 'var(--heirloom)' : 'var(--ivory)'} } />
           )}
         </span>
       ))}
@@ -235,45 +220,32 @@ function AddressFormPanel({
     );
   };
 
-  const pinBorder = pinStatus === 'ok' ? '#2e7d32' : pinStatus === 'error' ? '#e53935' : '#ddd';
+  const pinBorder = pinStatus === 'ok' ? 'var(--brand)' : pinStatus === 'error' ? 'var(--brand)' : 'var(--ivory)';
 
   return (
     <div>
       {/* ── Geo-fill row ──────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexWrap: 'wrap', gap: 10, marginBottom: 20,
-        padding: '10px 14px', background: `${PRI}06`,
-        border: `1px solid ${PRI}20`, borderRadius: 8,
-      }}>
-        <span style={{ fontSize: 12.5, color: '#555', fontFamily: FONT_UI }}>
-          <i className="bi bi-geo-alt" style={{ color: HEIRLOOM, marginRight: 6 }} />
+      <div className="s-paymentaddre-12ca4c">
+        <span className="s-paymentaddre-786faa s-paymentaddre-ffd8281d">
+          <i className="bi bi-geo-alt s-paymentaddre-21c065" />
           Auto-fill your city, state &amp; area from your current location
         </span>
         <button
           type="button" onClick={handleGeoFill} disabled={geoLoading}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px', borderRadius: 20,
-            background: geoLoading ? IVORY : PRI,
-            border: `1.5px solid ${PRI}`,
-            color: geoLoading ? PRI : '#fff',
-            fontSize: 12.5, fontWeight: 600, fontFamily: FONT_UI,
-            cursor: geoLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap',
-          }}>
+          className="s-paymentaddre-8db409" style={ {background: geoLoading ? 'var(--ivory)' : 'var(--brand)', color: geoLoading ? 'var(--brand)' : '#fff', fontFamily: FONT_UI, cursor: geoLoading ? 'wait' : 'pointer'} }>
           {geoLoading
-            ? <><span style={{ width: 11, height: 11, border: '2px solid #ddd', borderTopColor: PRI, borderRadius: '50%', display: 'inline-block', animation: 'pa-spin .8s linear infinite' }} /> Detecting…</>
-            : <><i className="bi bi-geo-alt-fill" style={{ fontSize: 12 }} /> Use My Location</>
+            ? <><span className="s-paymentaddre-eb8efd" /> Detecting…</>
+            : <><i className="bi bi-geo-alt-fill s-couponslist-030edf" /> Use My Location</>
           }
         </button>
       </div>
 
       {/* ── Field grid ────────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
+      <div className="s-paymentaddre-50ded3">
 
         {/* Full Name */}
         <div>
-          <label style={labelSt}>Full Name <span style={{ color: '#e53935' }}>*</span></label>
+          <label style={labelSt}>Full Name <span className="s-resetpasswor-ddc1b2">*</span></label>
           <input
             value={form.name}
             onChange={e => { upd('name')(e.target.value); clearErr('name'); }}
@@ -285,14 +257,9 @@ function AddressFormPanel({
 
         {/* Phone */}
         <div>
-          <label style={labelSt}>Mobile Number <span style={{ color: '#e53935' }}>*</span></label>
-          <div style={{ display: 'flex' }}>
-            <span style={{
-              padding: '11px 12px',
-              background: IVORY, border: `1.5px solid ${errors.phone ? '#e53935' : '#ddd'}`,
-              borderRight: 'none', borderRadius: '8px 0 0 8px',
-              fontSize: 13, color: '#666', fontFamily: FONT_UI, whiteSpace: 'nowrap',
-            }}>+91</span>
+          <label style={labelSt}>Mobile Number <span className="s-resetpasswor-ddc1b2">*</span></label>
+          <div className="s-paymentaddre-f701c4">
+            <span className="s-paymentaddre-6d49e8" style={ {border: `1.5px solid ${errors.phone ? 'var(--brand)' : 'var(--ivory)'}`, fontFamily: FONT_UI} }>+91</span>
             <input
               value={form.phone}
               onChange={e => {
@@ -311,15 +278,15 @@ function AddressFormPanel({
         {/* Pincode — col 1 */}
         <div>
           <label style={labelSt}>
-            Pincode <span style={{ color: '#e53935' }}>*</span>
+            Pincode <span className="s-resetpasswor-ddc1b2">*</span>
             {pinStatus === 'loading' && (
-              <span style={{ marginLeft: 8, fontSize: 11, color: HEIRLOOM, fontWeight: 400 }}>
-                <span style={{ display: 'inline-block', width: 9, height: 9, border: '2px solid #ddd', borderTopColor: PRI, borderRadius: '50%', animation: 'pa-spin .8s linear infinite', marginRight: 4 }} />
+              <span className="s-paymentaddre-2afd25">
+                <span className="s-paymentaddre-981cc0" />
                 Verifying…
               </span>
             )}
             {pinStatus === 'ok' && (
-              <span style={{ marginLeft: 8, fontSize: 11, color: '#2e7d32', fontWeight: 600 }}>
+              <span className="s-paymentaddre-b0868f">
                 <i className="bi bi-check-circle-fill" /> Valid
               </span>
             )}
@@ -344,7 +311,7 @@ function AddressFormPanel({
 
         {/* House / Flat — col 2 */}
         <div>
-          <label style={labelSt}>House / Flat / Building <span style={{ color: '#e53935' }}>*</span></label>
+          <label style={labelSt}>House / Flat / Building <span className="s-resetpasswor-ddc1b2">*</span></label>
           <input
             value={form.houseNo}
             onChange={e => { upd('houseNo')(e.target.value); clearErr('houseNo'); }}
@@ -355,10 +322,10 @@ function AddressFormPanel({
         </div>
 
         {/* Street / Colony / Road — full width */}
-        <div style={{ gridColumn: '1 / -1' }}>
+        <div className="s-paymentaddre-97e59d">
           <label style={labelSt}>
-            Street / Colony / Road <span style={{ color: '#e53935' }}>*</span>
-            <span style={{ marginLeft: 8, fontSize: 11, color: HEIRLOOM, fontWeight: 400 }}>(auto-fills from location)</span>
+            Street / Colony / Road <span className="s-resetpasswor-ddc1b2">*</span>
+            <span className="s-paymentaddre-2afd25">(auto-fills from location)</span>
           </label>
           <input
             value={form.addressLine}
@@ -370,10 +337,10 @@ function AddressFormPanel({
         </div>
 
         {/* Locality — full width */}
-        <div style={{ gridColumn: '1 / -1' }}>
+        <div className="s-paymentaddre-97e59d">
           <label style={labelSt}>
             Area / Locality
-            <span style={{ marginLeft: 8, fontSize: 11, color: HEIRLOOM, fontWeight: 400 }}>(auto-fills from location)</span>
+            <span className="s-paymentaddre-2afd25">(auto-fills from location)</span>
           </label>
           <input
             value={form.locality}
@@ -386,8 +353,8 @@ function AddressFormPanel({
         {/* City */}
         <div>
           <label style={labelSt}>
-            City <span style={{ color: '#e53935' }}>*</span>
-            <span style={{ marginLeft: 6, fontSize: 11, color: HEIRLOOM, fontWeight: 400 }}>(auto-fills)</span>
+            City <span className="s-resetpasswor-ddc1b2">*</span>
+            <span className="s-paymentaddre-b366b5">(auto-fills)</span>
           </label>
           <input
             value={form.city}
@@ -401,8 +368,8 @@ function AddressFormPanel({
         {/* State */}
         <div>
           <label style={labelSt}>
-            State <span style={{ color: '#e53935' }}>*</span>
-            <span style={{ marginLeft: 6, fontSize: 11, color: HEIRLOOM, fontWeight: 400 }}>(auto-fills)</span>
+            State <span className="s-resetpasswor-ddc1b2">*</span>
+            <span className="s-paymentaddre-b366b5">(auto-fills)</span>
           </label>
           <input
             value={form.state}
@@ -417,7 +384,7 @@ function AddressFormPanel({
         <div>
           <label style={labelSt}>
             Country
-            <span style={{ marginLeft: 6, fontSize: 11, color: HEIRLOOM, fontWeight: 400 }}>(auto-fills)</span>
+            <span className="s-paymentaddre-b366b5">(auto-fills)</span>
           </label>
           <input
             value={form.country}
@@ -430,21 +397,13 @@ function AddressFormPanel({
         {/* Address Type */}
         <div>
           <label style={labelSt}>Address Type</label>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="s-adminbrands-bccf37">
             {(['Home', 'Work'] as const).map(t => (
               <button
                 key={t} type="button"
                 onClick={() => upd('addressType')(t)}
-                style={{
-                  flex: 1, padding: '10px 0', borderRadius: 8,
-                  border: `1.5px solid ${form.addressType === t ? PRI : '#ddd'}`,
-                  background: form.addressType === t ? `${PRI}10` : '#fff',
-                  color: form.addressType === t ? PRI : '#777',
-                  fontSize: 13, fontWeight: form.addressType === t ? 700 : 400,
-                  cursor: 'pointer', fontFamily: FONT_UI, transition: 'all .15s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}>
-                <i className={`bi bi-${t === 'Home' ? 'house' : 'briefcase'}`} style={{ fontSize: 13 }} />{t}
+                className="s-paymentaddre-dedd1d" style={ {border: `1.5px solid ${form.addressType === t ? 'var(--brand)' : 'var(--ivory)'}`, background: form.addressType === t ? `var(--brand)10` : '#fff', color: form.addressType === t ? 'var(--brand)' : 'var(--heirloom)', fontWeight: form.addressType === t ? 700 : 400, fontFamily: FONT_UI} }>
+                <i className={`bi bi-${t === 'Home' ? 'house' : 'briefcase'} s-addresslist-9eec06`} />{t}
               </button>
             ))}
           </div>
@@ -454,46 +413,32 @@ function AddressFormPanel({
 
       {/* Set as default */}
       {showDefault && (
-        <label style={{
-          display: 'flex', alignItems: 'center', gap: 8, marginTop: 16,
-          cursor: 'pointer', fontSize: 13, color: '#555', fontFamily: FONT_UI,
-        }}>
+        <label className="s-paymentaddre-132f98 s-paymentaddre-ffd8281d">
           <input
             type="checkbox"
             checked={form.isDefault}
             onChange={e => upd('isDefault')(e.target.checked)}
-            style={{ accentColor: PRI, width: 15, height: 15 }}
+            className="s-paymentaddre-b7cf92 s-paymentaddre-288743"
           />
           Set as default address
         </label>
       )}
 
       {/* Submit */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+      <div className="s-paymentaddre-7c6003">
         <button
           type="button" onClick={onSubmit}
           disabled={submitting || pinStatus === 'loading'}
-          style={{
-            flex: 1, padding: '12px', background: PRI, color: '#fff',
-            border: 'none', borderRadius: 8,
-            cursor: submitting || pinStatus === 'loading' ? 'wait' : 'pointer',
-            fontSize: 14, fontWeight: 700, fontFamily: FONT_UI,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            opacity: submitting ? 0.85 : 1, transition: 'opacity .2s',
-          }}>
+          className="s-paymentaddre-7578d9" style={{ cursor: submitting || pinStatus === 'loading' ? 'wait' : 'pointer', fontFamily: FONT_UI, opacity: submitting ? 0.85 : 1 }}>
           {submitting
-            ? <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'pa-spin .8s linear infinite' }} /> Saving…</>
+            ? <><span className="s-paymentaddre-ba4d02" /> Saving…</>
             : <>{submitLabel} <i className="bi bi-arrow-right" /></>
           }
         </button>
         {onCancel && (
           <button
             type="button" onClick={onCancel}
-            style={{
-              padding: '12px 22px', background: '#fff', color: '#666',
-              border: '1.5px solid #e0d6cc', borderRadius: 8,
-              cursor: 'pointer', fontSize: 13, fontFamily: FONT_UI,
-            }}>
+            className="s-paymentaddre-7d36f7 s-paymentaddre-ffd8281d">
             Cancel
           </button>
         )}
@@ -673,16 +618,11 @@ export default function PaymentAddress() {
 
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '28px 16px', maxWidth: 680, margin: '0 auto', fontFamily: FONT_UI }}>
-      <style>{`
-        @keyframes pa-spin { to { transform: rotate(360deg); } }
-        .pa-addr-card:hover { border-color: ${HEIRLOOM} !important; }
-      `}</style>
-
+    <div className="s-paymentaddre-2e2509 s-paymentaddre-ffd8281d">
       <Breadcrumb items={breadcrumbs} />
       <CheckoutSteps active="address" />
 
-      <h4 style={{ fontFamily: FONTS, color: PRI, fontWeight: 700, marginBottom: 22, fontSize: 22, margin: '0 0 22px' }}>
+      <h4 className="s-paymentaddre-e0ad90 s-paymentaddre-ffd02986">
         Delivery Address
       </h4>
 
@@ -691,33 +631,29 @@ export default function PaymentAddress() {
         <>
           {/* Sign-in nudge */}
           {showSignInBanner && (
-            <div style={{
-              background: IVORY, border: `1px solid ${HEIRLOOM}35`,
-              borderRadius: 10, padding: '11px 16px', marginBottom: 18,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-            }}>
-              <span style={{ fontSize: 13, color: '#555', fontFamily: FONT_UI }}>
-                <i className="bi bi-person-circle" style={{ color: PRI, marginRight: 8, fontSize: 15 }} />
+            <div className="s-paymentaddre-8d9363">
+              <span className="s-quickcart-08341f s-paymentaddre-ffd8281d">
+                <i className="bi bi-person-circle s-paymentaddre-dffb97" />
                 Have an account?{' '}
-                <Link to="/login" style={{ color: PRI, fontWeight: 700, textDecoration: 'none' }}>Sign in</Link>
+                <Link to="/login" className="s-paymentaddre-8b8b2d">Sign in</Link>
                 {' '}to use saved addresses &amp; track orders.
               </span>
               <button onClick={() => setShowSignInBanner(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 18, padding: 0, lineHeight: 1 }}>×</button>
+                className="s-paymentaddre-d488bf">×</button>
             </div>
           )}
 
           {/* Step 1 — Email verify */}
           {!otpVerified && (
-            <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 12, padding: 24, marginBottom: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                <div style={{ width: 26, height: 26, borderRadius: '50%', background: PRI, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>1</div>
-                <h6 style={{ margin: 0, fontFamily: FONTS, color: PRI, fontWeight: 700, fontSize: 15 }}>Verify your email</h6>
+            <div className="s-paymentaddre-81c77f">
+              <div className="s-paymentaddre-083bcb">
+                <div className="s-paymentaddre-39fefb">1</div>
+                <h6 className="s-paymentaddre-bf268a s-paymentaddre-ffd02986">Verify your email</h6>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <label style={labelSt}>Email Address <span style={{ color: '#e53935' }}>*</span></label>
+              <div className="s-paymentaddre-392b28">
+                <div className="s-userdashboar-6d7d28">
+                  <label style={labelSt}>Email Address <span className="s-resetpasswor-ddc1b2">*</span></label>
                   <input
                     type="email"
                     value={guestEmail}
@@ -730,20 +666,15 @@ export default function PaymentAddress() {
                 <button type="button"
                   onClick={otpSent ? () => { setOtpSent(false); setOtpValue(''); setEmailRegistered(false); } : handleSendOtp}
                   disabled={otpLoading || emailRegistered}
-                  style={{
-                    marginTop: 22, padding: '11px 20px',
-                    background: otpSent ? '#fff' : PRI, color: otpSent ? PRI : '#fff',
-                    border: `1.5px solid ${PRI}`, borderRadius: 8,
-                    cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: FONT_UI, whiteSpace: 'nowrap',
-                  }}>
+                  className="s-paymentaddre-a7c6a4" style={ {background: otpSent ? '#fff' : 'var(--brand)', color: otpSent ? 'var(--brand)' : '#fff', fontFamily: FONT_UI} }>
                   {otpLoading ? 'Sending…' : otpSent ? 'Change email' : 'Send OTP'}
                 </button>
               </div>
 
               {otpSent && (
-                <div style={{ marginTop: 18 }}>
+                <div className="s-paymentaddre-10efad">
                   <label style={labelSt}>OTP sent to <strong>{guestEmail}</strong></label>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div className="s-adminproduct-0f6417">
                     <input
                       type="text" inputMode="numeric"
                       value={otpValue}
@@ -751,22 +682,11 @@ export default function PaymentAddress() {
                       onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
                       placeholder="• • • • • •"
                       maxLength={6} autoComplete="one-time-code"
-                      style={{
-                        width: 162, padding: '11px 14px',
-                        border: '1.5px solid #ddd', borderRadius: 8,
-                        fontSize: 22, textAlign: 'center', fontWeight: 700,
-                        letterSpacing: 10, fontFamily: FONT_UI, outline: 'none',
-                      }}
+                      className="s-paymentaddre-66b84d s-paymentaddre-ffd8281d"
                     />
                     <button type="button" onClick={handleVerifyOtp}
                       disabled={otpLoading || otpValue.length < 4}
-                      style={{
-                        padding: '11px 24px',
-                        background: otpValue.length >= 4 ? PRI : '#ddd', color: '#fff',
-                        border: 'none', borderRadius: 8,
-                        cursor: otpValue.length >= 4 ? 'pointer' : 'not-allowed',
-                        fontSize: 13, fontWeight: 600, fontFamily: FONT_UI,
-                      }}>
+                      className="s-paymentaddre-24677c" style={ {background: otpValue.length >= 4 ? 'var(--brand)' : 'var(--ivory)', cursor: otpValue.length >= 4 ? 'pointer' : 'not-allowed', fontFamily: FONT_UI} }>
                       {otpLoading ? 'Verifying…' : 'Verify OTP'}
                     </button>
                   </div>
@@ -774,15 +694,7 @@ export default function PaymentAddress() {
                   <button type="button"
                     onClick={() => { if (resendTimer > 0) return; setOtpValue(''); setOtpError(''); handleSendOtp(); }}
                     disabled={resendTimer > 0}
-                    style={{
-                      marginTop: 10, padding: '6px 14px', borderRadius: 20,
-                      background: 'transparent',
-                      border: `1.5px solid ${resendTimer > 0 ? '#e0d6cc' : PRI}`,
-                      color: resendTimer > 0 ? '#bbb' : PRI,
-                      fontSize: 12, fontWeight: 600, fontFamily: FONT_UI,
-                      cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                    }}>
+                    className="s-paymentaddre-3e995d" style={ {border: `1.5px solid ${resendTimer > 0 ? 'var(--ivory)' : 'var(--brand)'}`, color: resendTimer > 0 ? 'var(--heirloom)' : 'var(--brand)', fontFamily: FONT_UI, cursor: resendTimer > 0 ? 'not-allowed' : 'pointer'} }>
                     {resendTimer > 0
                       ? `Resend in ${Math.floor(resendTimer / 60)}:${String(resendTimer % 60).padStart(2, '0')}`
                       : <><i className="bi bi-arrow-clockwise" /> Resend OTP</>}
@@ -791,16 +703,16 @@ export default function PaymentAddress() {
               )}
 
               {emailRegistered && (
-                <div style={{ marginTop: 14, padding: '12px 16px', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13, color: '#555' }}>
-                    <i className="bi bi-info-circle" style={{ color: '#f9a825', marginRight: 6 }} />
+                <div className="s-paymentaddre-e5a6a2">
+                  <span className="s-quickcart-08341f">
+                    <i className="bi bi-info-circle s-paymentaddre-827b5f" />
                     <strong>{guestEmail}</strong> is already registered.
                   </span>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Link to="/login" style={{ background: PRI, color: '#fff', padding: '7px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>Sign In</Link>
+                  <div className="s-adminbrands-ac734d">
+                    <Link to="/login" className="s-paymentaddre-e47eab">Sign In</Link>
                     <button type="button"
                       onClick={() => { setEmailRegistered(false); setGuestEmail(''); setOtpError(''); }}
-                      style={{ background: '#fff', border: '1px solid #ddd', color: '#555', padding: '7px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontFamily: FONT_UI }}>
+                      className="s-paymentaddre-99313b s-paymentaddre-ffd8281d">
                       Use different email
                     </button>
                   </div>
@@ -817,14 +729,14 @@ export default function PaymentAddress() {
 
           {/* Step 2 — Delivery Address form */}
           {otpVerified && (
-            <div style={{ background: '#fff', border: '1px solid #ece4d8', borderRadius: 12, padding: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <i className="bi bi-check-circle-fill" style={{ color: '#2e7d32', fontSize: 16 }} />
-                <span style={{ fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>{guestEmail} verified</span>
+            <div className="s-ourstores-5cd98f">
+              <div className="s-paymentaddre-3618cd">
+                <i className="bi bi-check-circle-fill s-paymentaddre-d3e729" />
+                <span className="s-cart-1c5a85">{guestEmail} verified</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 20px' }}>
-                <div style={{ width: 26, height: 26, borderRadius: '50%', background: PRI, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>2</div>
-                <h6 style={{ margin: 0, fontFamily: FONTS, color: PRI, fontWeight: 700, fontSize: 15 }}>Delivery Address</h6>
+              <div className="s-paymentaddre-b28ef4">
+                <div className="s-paymentaddre-39fefb">2</div>
+                <h6 className="s-paymentaddre-bf268a s-paymentaddre-ffd02986">Delivery Address</h6>
               </div>
               <AddressFormPanel
                 form={guestForm} setForm={setGuestForm}
@@ -842,17 +754,12 @@ export default function PaymentAddress() {
       {isAuth && (
         <>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontSize: 13.5, color: '#555' }}>Select a delivery address</span>
+          <div className="s-paymentaddre-0d4697">
+            <span className="s-paymentaddre-1ba117">Select a delivery address</span>
             {!showForm && (
               <button type="button"
                 onClick={() => { setShowForm(true); setEditItem(null); setForm({ ...emptyForm }); setErrors({}); }}
-                style={{
-                  background: 'none', border: `1.5px solid ${PRI}`, color: PRI,
-                  padding: '7px 16px', borderRadius: 6, cursor: 'pointer',
-                  fontSize: 13, fontFamily: FONT_UI, fontWeight: 600,
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}>
+                className="s-paymentaddre-4edcea s-paymentaddre-ffd8281d">
                 <i className="bi bi-plus-circle" /> Add New Address
               </button>
             )}
@@ -860,54 +767,39 @@ export default function PaymentAddress() {
 
           {/* Address list */}
           {isLoading
-            ? <div style={{ textAlign: 'center', padding: 48 }}><div className="spinner-border" style={{ color: PRI }} /></div>
+            ? <div className="s-paymentaddre-4d4a05"><div className="spinner-border s-paymentaddre-a6f59d" /></div>
             : (addresses as any[]).map((addr: any) => (
               <div key={addr.addressId}
                 className="pa-addr-card"
                 onClick={() => setSelectedAddressId(addr.addressId)}
-                style={{
-                  border: `2px solid ${selectedAddressId === addr.addressId ? PRI : '#ece4d8'}`,
-                  borderRadius: 10, padding: '14px 16px', marginBottom: 10, cursor: 'pointer',
-                  background: selectedAddressId === addr.addressId ? `${PRI}05` : '#fff',
-                  transition: 'all .15s',
-                }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                className="s-paymentaddre-2e14df" style={ {border: `2px solid ${selectedAddressId === addr.addressId ? 'var(--brand)' : 'var(--ivory)'}`, background: selectedAddressId === addr.addressId ? `var(--brand)05` : '#fff'} }>
+                <div className="s-paymentaddre-9998cf">
                   {/* Custom radio */}
-                  <div style={{
-                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
-                    border: `2px solid ${selectedAddressId === addr.addressId ? PRI : '#ccc'}`,
-                    background: selectedAddressId === addr.addressId ? PRI : '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {selectedAddressId === addr.addressId && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+                  <div className="s-paymentaddre-4e0051" style={ {border: `2px solid ${selectedAddressId === addr.addressId ? 'var(--brand)' : 'var(--ivory)'}`, background: selectedAddressId === addr.addressId ? 'var(--brand)' : '#fff'} }>
+                    {selectedAddressId === addr.addressId && <div className="s-payment-108f10" />}
                   </div>
 
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 600, fontSize: 14, fontFamily: FONTS }}>{addr.name}</span>
-                      <span style={{ fontSize: 11, background: '#f3ede4', padding: '2px 8px', borderRadius: 20, color: '#666' }}>
-                        <i className={`bi bi-${addr.typeId === 2 ? 'briefcase' : 'house'}`} style={{ marginRight: 4 }} />
+                  <div className="s-app-52dcac">
+                    <div className="s-paymentaddre-87be9d">
+                      <span className="s-adminsizes-5de088 s-paymentaddre-ffd02986">{addr.name}</span>
+                      <span className="s-paymentaddre-5dd002">
+                        <i className={`bi bi-${addr.typeId === 2 ? 'briefcase' : 'house'} s-paymentaddre-0bc507`} />
                         {addr.typeId === 2 ? 'Work' : 'Home'}
                       </span>
                       {addr.isDefault && (
-                        <span style={{ fontSize: 11, background: '#e8f5e9', color: '#2e7d32', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>Default</span>
+                        <span className="s-paymentaddre-0f4f48">Default</span>
                       )}
                     </div>
-                    <p style={{ margin: '0 0 3px', fontSize: 13, color: '#555', lineHeight: 1.55 }}>{getFullAddr(addr)}</p>
-                    <p style={{ margin: 0, fontSize: 12.5, color: '#888' }}>
-                      <i className="bi bi-telephone" style={{ marginRight: 5, fontSize: 11 }} />{addr.phone}
+                    <p className="s-paymentaddre-73515b">{getFullAddr(addr)}</p>
+                    <p className="s-paymentaddre-9168e1">
+                      <i className="bi bi-telephone s-paymentaddre-6b8f40" />{addr.phone}
                     </p>
                   </div>
 
                   <button type="button"
                     onClick={e => { e.stopPropagation(); editAddress(addr); }}
-                    style={{
-                      background: 'none', border: '1.5px solid #e8e0d8', borderRadius: 6,
-                      padding: '5px 11px', cursor: 'pointer', fontSize: 12, color: '#666',
-                      flexShrink: 0, fontFamily: FONT_UI,
-                      display: 'flex', alignItems: 'center', gap: 4,
-                    }}>
-                    <i className="bi bi-pencil" style={{ fontSize: 11 }} /> Edit
+                    className="s-paymentaddre-737dbe s-paymentaddre-ffd8281d">
+                    <i className="bi bi-pencil s-addresslist-2c42ad" /> Edit
                   </button>
                 </div>
               </div>
@@ -915,25 +807,22 @@ export default function PaymentAddress() {
           }
 
           {(addresses as any[]).length === 0 && !showForm && (
-            <div style={{ textAlign: 'center', padding: '52px 0', color: '#ccc' }}>
-              <i className="bi bi-geo-alt" style={{ fontSize: 46, display: 'block', marginBottom: 12 }} />
-              <p style={{ fontSize: 14 }}>No saved addresses. Add one to continue.</p>
+            <div className="s-paymentaddre-db9c9f">
+              <i className="bi bi-geo-alt s-paymentaddre-47f187" />
+              <p className="s-addresslist-92985e">No saved addresses. Add one to continue.</p>
             </div>
           )}
 
           {/* Add / Edit form */}
           {showForm && (
-            <div style={{
-              background: IVORY, border: `1px solid ${IVORY_DK}`,
-              borderRadius: 12, padding: 24, marginBottom: 14,
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h6 style={{ margin: 0, fontFamily: FONTS, color: PRI, fontWeight: 700, fontSize: 15 }}>
+            <div className="s-paymentaddre-01ed0c" style={{ border: `1px solid ${IVORY_DK}` }}>
+              <div className="s-adminproduct-a1f2ef">
+                <h6 className="s-paymentaddre-bf268a s-paymentaddre-ffd02986">
                   {editItem ? 'Edit Address' : 'Add New Address'}
                 </h6>
                 <button type="button"
                   onClick={() => { setShowForm(false); setEditItem(null); setErrors({}); }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 20, padding: 0, lineHeight: 1 }}>×</button>
+                  className="s-paymentaddre-2a22b3">×</button>
               </div>
               <AddressFormPanel
                 form={form} setForm={setForm}
@@ -950,15 +839,7 @@ export default function PaymentAddress() {
           {/* Continue CTA */}
           <button type="button" onClick={handleAuthContinue}
             disabled={!selectedAddressId}
-            style={{
-              marginTop: 6, width: '100%', background: PRI, color: '#fff',
-              border: 'none', padding: '13px', borderRadius: 8,
-              cursor: selectedAddressId ? 'pointer' : 'not-allowed',
-              opacity: selectedAddressId ? 1 : 0.45,
-              fontSize: 14, fontWeight: 700, fontFamily: FONT_UI,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              transition: 'opacity .2s',
-            }}>
+            className="s-paymentaddre-cbec3d" style={ {cursor: selectedAddressId ? 'pointer' : 'not-allowed', opacity: selectedAddressId ? 1 : 0.45, fontFamily: FONT_UI} }>
             Continue to Shipping <i className="bi bi-arrow-right" />
           </button>
         </>

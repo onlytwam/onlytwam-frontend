@@ -122,45 +122,45 @@ export default function AddressList() {
           </div>
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label" style={{ fontSize: 13 }}>Full Name *</label>
+              <label className="form-label s-addresslist-9eec06">Full Name *</label>
               <input className={`form-control ${errors.name ? 'is-invalid' : ''}`}
                 value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
               {errors.name && <div className="invalid-feedback">{errors.name}</div>}
             </div>
             <div className="col-md-6">
-              <label className="form-label" style={{ fontSize: 13 }}>Mobile Number *</label>
+              <label className="form-label s-addresslist-9eec06">Mobile Number *</label>
               <input className={`form-control ${errors.phone ? 'is-invalid' : ''}`}
                 value={form.phone} maxLength={10}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
               {errors.phone && <div className="invalid-feedback">{errors.phone}</div>}
             </div>
             <div className="col-12">
-              <label className="form-label" style={{ fontSize: 13 }}>Address *</label>
+              <label className="form-label s-addresslist-9eec06">Address *</label>
               <input className={`form-control ${errors.addressLine ? 'is-invalid' : ''}`}
                 placeholder="House/Flat No., Building, Street"
                 value={form.addressLine} onChange={e => setForm(f => ({ ...f, addressLine: e.target.value }))} />
               {errors.addressLine && <div className="invalid-feedback">{errors.addressLine}</div>}
             </div>
             <div className="col-12">
-              <label className="form-label" style={{ fontSize: 13 }}>Locality / Area</label>
+              <label className="form-label s-addresslist-9eec06">Locality / Area</label>
               <input className="form-control" placeholder="Area, Colony, Locality"
                 value={form.locality} onChange={e => setForm(f => ({ ...f, locality: e.target.value }))} />
             </div>
             <div className="col-md-4">
-              <label className="form-label" style={{ fontSize: 13 }}>Pincode *</label>
+              <label className="form-label s-addresslist-9eec06">Pincode *</label>
               <input className={`form-control ${errors.pinCode ? 'is-invalid' : ''}`}
                 value={form.pinCode} maxLength={6}
                 onChange={e => setForm(f => ({ ...f, pinCode: e.target.value }))} />
               {errors.pinCode && <div className="invalid-feedback">{errors.pinCode}</div>}
             </div>
             <div className="col-md-4">
-              <label className="form-label" style={{ fontSize: 13 }}>City *</label>
+              <label className="form-label s-addresslist-9eec06">City *</label>
               <input className={`form-control ${errors.city ? 'is-invalid' : ''}`}
                 value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
               {errors.city && <div className="invalid-feedback">{errors.city}</div>}
             </div>
             <div className="col-md-4">
-              <label className="form-label" style={{ fontSize: 13 }}>Address Type</label>
+              <label className="form-label s-addresslist-9eec06">Address Type</label>
               <select className="form-select" value={form.addressType}
                 onChange={e => setForm(f => ({ ...f, addressType: e.target.value }))}>
                 <option value="Home">Home</option>
@@ -171,7 +171,7 @@ export default function AddressList() {
               <div className="form-check">
                 <input className="form-check-input" type="checkbox" id="isDefault"
                   checked={form.isDefault} onChange={e => setForm(f => ({ ...f, isDefault: e.target.checked }))} />
-                <label className="form-check-label" htmlFor="isDefault" style={{ fontSize: 14 }}>
+                <label className="form-check-label s-addresslist-92985e" htmlFor="isDefault">
                   Set as default address
                 </label>
               </div>
@@ -190,7 +190,7 @@ export default function AddressList() {
       {/* ── Address list */}
       {(addresses as any[]).length === 0 && !showForm ? (
         <div className="text-center py-5">
-          <i className="bi bi-geo-alt" style={{ fontSize: 48, color: '#ddd' }} />
+          <i className="bi bi-geo-alt s-addresslist-d71ded" />
           <p className="text-muted mt-3">No addresses saved yet.</p>
           <button className="btn btn-dark btn-sm" onClick={() => setShowForm(true)}>
             Add Your First Address
@@ -204,7 +204,7 @@ export default function AddressList() {
                 <TypeIcon typeId={addr.typeId} />
                 <h6 className="mb-0">{addr.typeId === 2 ? 'Work' : 'Home'}</h6>
                 {addr.isDefault && (
-                  <span className="badge bg-success ms-1" style={{ fontSize: 11 }}>Default</span>
+                  <span className="badge bg-success ms-1 s-addresslist-2c42ad">Default</span>
                 )}
               </div>
               <div className="d-flex justify-content-between align-items-start">
@@ -213,9 +213,9 @@ export default function AddressList() {
                     <span className="fw-semibold">{addr.name}</span>
                     <span className="text-muted">{addr.phone}</span>
                   </div>
-                  <p className="text-muted mb-0" style={{ fontSize: 14 }}>{getFullAddress(addr)}</p>
+                  <p className="text-muted mb-0 s-addresslist-92985e">{getFullAddress(addr)}</p>
                 </div>
-                <div className="d-flex flex-column gap-2 ms-3" style={{ flexShrink: 0 }}>
+                <div className="d-flex flex-column gap-2 ms-3 s-addresslist-f8b697">
                   <button className="btn btn-sm btn-outline-secondary" onClick={() => handleEdit(addr)}>
                     <i className="bi bi-pencil me-1" />Edit
                   </button>

@@ -84,60 +84,59 @@ export default function ApiTester() {
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 700 }}>🧪 API Backend Tester</h2>
-        <p style={{ margin: 0, color: '#888', fontSize: 14 }}>Verify all FastAPI endpoints. Must be logged in for protected routes.</p>
+      <div className="s-adminblog-19fd7a">
+        <h2 className="s-apitester-3b2452">🧪 API Backend Tester</h2>
+        <p className="s-admindashboa-f39764">Verify all FastAPI endpoints. Must be logged in for protected routes.</p>
       </div>
 
       {total > 0 && (
-        <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div className="s-apitester-7d395e">
           {[
-            { label: 'Passed', count: passed, color: '#2e7d32', bg: '#e8f5e9' },
-            { label: 'Failed', count: failed, color: '#c62828', bg: '#ffebee' },
-            { label: 'Total',  count: total,  color: '#1565c0', bg: '#e3f2fd' },
+            { label: 'Passed', count: passed, color: 'var(--brand)', bg: 'var(--ivory)' },
+            { label: 'Failed', count: failed, color: 'var(--brand)', bg: 'var(--ivory)' },
+            { label: 'Total',  count: total,  color: 'var(--brand)', bg: 'var(--ivory)' },
           ].map(s => (
-            <div key={s.label} style={{ background: s.bg, padding: '12px 24px', borderRadius: 8, minWidth: 100 }}>
-              <p style={{ margin: '0 0 2px', fontSize: 12, color: s.color }}>{s.label}</p>
-              <h3 style={{ margin: 0, fontWeight: 800, fontSize: 28, color: s.color }}>{s.count}</h3>
+            <div key={s.label} className="s-apitester-f2fa4c s-apitester-95edc4">
+              <p className="s-apitester-0bde9c s-apitester-30f689">{s.label}</p>
+              <h3 className="s-apitester-c335f9 s-apitester-30f689">{s.count}</h3>
             </div>
           ))}
         </div>
       )}
 
       <button onClick={runAll} disabled={runningAll}
-        style={{ background: '#111', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 600, marginBottom: 20, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
+        className="s-apitester-f9d6f5">
         {runningAll ? <><span className="spinner-border spinner-border-sm me-1" />Running…</> : '▶ Run All Tests'}
       </button>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="s-adminproduct-6597c4">
         {TESTS.map(test => {
           const r = results[test.id] || { status: 'idle' as Status };
-          const colors = { idle: '#888', loading: '#1565c0', ok: '#2e7d32', error: '#c62828' };
+          const colors = { idle: 'var(--heirloom)', loading: 'var(--brand)', ok: 'var(--brand)', error: 'var(--brand)' };
           const icons  = { idle: 'bi-circle', loading: 'bi-arrow-repeat', ok: 'bi-check-circle-fill', error: 'bi-x-circle-fill' };
 
           return (
-            <div key={test.id} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 8, padding: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <i className={`bi ${icons[r.status]}`}
-                style={{ color: colors[r.status], fontSize: 18, flexShrink: 0, animation: r.status === 'loading' ? 'spin 1s linear infinite' : 'none' }} />
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{test.label}</p>
-                {r.status === 'error' && <p style={{ margin: '2px 0 0', fontSize: 12, color: '#c62828' }}>{r.error}</p>}
+            <div key={test.id} className="s-apitester-697ab3">
+              <i className={`bi ${icons[r.status]} s-apitester-5feea1`} style={{ color: colors[r.status], animation: r.status === 'loading' ? 'spin 1s linear infinite' : 'none' }} />
+              <div className="s-userdashboar-6d7d28">
+                <p className="s-apitester-1008d6">{test.label}</p>
+                {r.status === 'error' && <p className="s-apitester-bb994e">{r.error}</p>}
                 {r.status === 'ok' && (
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#2e7d32' }}>
+                  <p className="s-apitester-31aed0">
                     ✓ {r.time}ms
                     {r.data?.count !== undefined && ` · ${r.data.count} records`}
                     {Array.isArray(r.data?.list) && ` · ${r.data.list.length} items`}
                   </p>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="s-adminbrands-ac734d">
                 <button onClick={() => runTest(test)} disabled={r.status === 'loading'}
-                  style={{ padding: '6px 14px', border: '1px solid #ddd', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                  className="s-apitester-158256">
                   {r.status === 'loading' ? 'Running…' : 'Test'}
                 </button>
                 {r.status === 'ok' && r.data && (
                   <button onClick={() => console.log(test.label, r.data)}
-                    style={{ padding: '6px 14px', border: '1px solid #4caf50', borderRadius: 4, background: '#e8f5e9', color: '#2e7d32', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                    className="s-apitester-c67401">
                     Log
                   </button>
                 )}
@@ -146,7 +145,7 @@ export default function ApiTester() {
           );
         })}
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      
     </div>
   );
 }

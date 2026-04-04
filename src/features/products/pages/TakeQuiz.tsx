@@ -17,39 +17,39 @@ export default function TakeQuiz() {
     else setDone(true);
   };
   if (done) return (
-    <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-      <i className="bi bi-check-circle-fill" style={{ fontSize: 64, color: '#2e7d32', display: 'block', marginBottom: 20 }} />
-      <h2 style={{ fontWeight: 700, marginBottom: 10 }}>Your Perfect Fit is Ready!</h2>
-      <p style={{ color: '#888', marginBottom: 28 }}>Based on your answers, we recommend browsing our curated collection.</p>
+    <div className="s-ourblog-f6d3dd">
+      <i className="bi bi-check-circle-fill s-takequiz-d435f6" />
+      <h2 className="s-takequiz-1cc0e1">Your Perfect Fit is Ready!</h2>
+      <p className="s-takequiz-8cad27">Based on your answers, we recommend browsing our curated collection.</p>
       <button onClick={() => navigate('/user-products/product-list')}
-        style={{ background: '#111', color: '#fff', border: 'none', padding: '14px 32px', borderRadius: 6, fontSize: 15, cursor: 'pointer', fontWeight: 600 }}>
+        className="s-takequiz-69b45a">
         Shop Your Recommendations →
       </button>
     </div>
   );
   const q = QUESTIONS[step];
   return (
-    <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 16px' }}>
-      <div style={{ width: '100%', maxWidth: 560 }}>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-            {QUESTIONS.map((_, i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? '#6A012A' : '#eee', transition: 'background .3s' }} />)}
+    <div className="s-takequiz-c58c60">
+      <div className="s-takequiz-9fd041">
+        <div className="s-adminnewslet-70cb1d">
+          <div className="s-takequiz-7782dc">
+            {QUESTIONS.map((_, i) => <div key={i} className="s-takequiz-c1fa43" style={ {background: i <= step ? 'var(--brand)' : 'var(--ivory)'} } />)}
           </div>
-          <p style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Question {step + 1} of {QUESTIONS.length}</p>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#111', margin: 0 }}>{q.q}</h2>
+          <p className="s-takequiz-e87ca4">Question {step + 1} of {QUESTIONS.length}</p>
+          <h2 className="s-takequiz-7f5630">{q.q}</h2>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <div className="s-productlist-a2d5a5">
           {q.opts.map(opt => (
             <button key={opt} onClick={() => choose(opt)}
-              style={{ padding: '12px 20px', border: '2px solid #ddd', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 500, transition: 'all .15s' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#6A012A'; e.currentTarget.style.color = '#6A012A'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#ddd'; e.currentTarget.style.color = '#111'; }}>
+              className="s-takequiz-13e64c"
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--ivory)'; e.currentTarget.style.color = '#000000'; }}>
               {opt}
             </button>
           ))}
         </div>
         {step > 0 && <button onClick={() => { setStep(step - 1); setAnswers(answers.slice(0, -1)); }}
-          style={{ marginTop: 20, background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 14 }}>← Back</button>}
+          className="s-takequiz-d98c48">← Back</button>}
       </div>
     </div>
   );

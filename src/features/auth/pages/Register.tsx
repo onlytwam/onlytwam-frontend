@@ -32,11 +32,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const inp: React.CSSProperties = {
-  width: '100%', padding: '12px 14px', border: '1px solid #ddd', borderRadius: 8,
-  fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-};
-const errSt: React.CSSProperties = { color: '#e53935', fontSize: 11, margin: '3px 0 0' };
 
 export default function Register() {
   const navigate = useNavigate();
@@ -92,115 +87,103 @@ export default function Register() {
     setForm(prev => ({ ...prev, [field]: value }));
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#f5f6fa', padding: 20,
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: 16, padding: '40px 36px',
-        width: '100%', maxWidth: 460, boxShadow: '0 4px 24px rgba(0,0,0,.08)',
-      }}>
+    <div className="s-register-950e18">
+      <div className="s-register-cdd672">
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div className="s-login-9aad3d">
           <img src="/assets/Twam-Logo-Black.png" alt="TWAM"
-            style={{ height: 40, marginBottom: 10 }}
+            className="s-register-fa8330"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Create Account</h2>
-          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#888' }}>Join TWAM today</p>
+          <h2 className="s-register-916d9e">Create Account</h2>
+          <p className="s-register-d6d81a">Join TWAM today</p>
         </div>
 
         {/* First name + Last name */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+        <div className="s-register-84f4ff">
           {(['firstName', 'lastName'] as const).map(field => (
             <div key={field}>
-              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>
+              <label className="s-addressform-f1fb64">
                 {field === 'firstName' ? 'First Name *' : 'Last Name *'}
               </label>
               <input
                 value={form[field]}
                 onChange={e => set(field, e.target.value)}
-                style={inp}
+                className="inp-field"
               />
-              {errors[field] && <p style={errSt}>{errors[field]}</p>}
+              {errors[field] && <p className="auth-err-text">{errors[field]}</p>}
             </div>
           ))}
         </div>
 
         {/* Email */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Email *</label>
+        <div className="s-adminblog-22a617">
+          <label className="s-addressform-f1fb64">Email *</label>
           <input
             type="email"
             value={form.email}
             onChange={e => set('email', e.target.value)}
-            style={inp}
+            className="inp-field"
             placeholder="you@example.com"
           />
-          {errors.email && <p style={errSt}>{errors.email}</p>}
+          {errors.email && <p className="auth-err-text">{errors.email}</p>}
         </div>
 
         {/* Phone */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Phone Number *</label>
+        <div className="s-adminblog-22a617">
+          <label className="s-addressform-f1fb64">Phone Number *</label>
           <input
             type="tel"
             value={form.phoneNumber}
             onChange={e => set('phoneNumber', e.target.value)}
-            style={inp}
+            className="inp-field"
             placeholder="10-digit mobile number"
             maxLength={10}
           />
-          {errors.phoneNumber && <p style={errSt}>{errors.phoneNumber}</p>}
+          {errors.phoneNumber && <p className="auth-err-text">{errors.phoneNumber}</p>}
         </div>
 
         {/* Password */}
-        <div style={{ marginBottom: 14, position: 'relative' }}>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Password *</label>
+        <div className="s-register-afacf1">
+          <label className="s-addressform-f1fb64">Password *</label>
           <input
             type={showPw ? 'text' : 'password'}
             value={form.password}
             onChange={e => set('password', e.target.value)}
-            style={inp}
+            className="inp-field"
             placeholder="Min. 6 characters"
           />
           <button type="button" onClick={() => setShowPw(v => !v)}
-            style={{ position: 'absolute', right: 12, top: 34, background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>
+            className="s-register-a4e4aa">
             <i className={`bi ${showPw ? 'bi-eye-slash' : 'bi-eye'}`} />
           </button>
-          {errors.password && <p style={errSt}>{errors.password}</p>}
+          {errors.password && <p className="auth-err-text">{errors.password}</p>}
         </div>
 
         {/* Confirm Password */}
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Confirm Password *</label>
+        <div className="s-adminnewslet-70cb1d">
+          <label className="s-addressform-f1fb64">Confirm Password *</label>
           <input
             type="password"
             value={form.confirmPassword}
             onChange={e => set('confirmPassword', e.target.value)}
-            style={inp}
+            className="inp-field"
             placeholder="Repeat your password"
           />
-          {errors.confirmPassword && <p style={errSt}>{errors.confirmPassword}</p>}
+          {errors.confirmPassword && <p className="auth-err-text">{errors.confirmPassword}</p>}
         </div>
 
         {/* Submit */}
         <button
           onClick={() => { if (validate()) registerMutation.mutate(); }}
           disabled={registerMutation.isPending}
-          style={{
-            width: '100%', padding: '13px', background: '#6A012A', color: '#fff',
-            border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600,
-            cursor: registerMutation.isPending ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit',
-            opacity: registerMutation.isPending ? 0.7 : 1,
-          }}
+          className="s-register-47d940" style={ {cursor: registerMutation.isPending ? 'not-allowed' : 'pointer', opacity: registerMutation.isPending ? 0.7 : 1} }
         >
           {registerMutation.isPending ? 'Creating Account…' : 'Create Account'}
         </button>
 
-        <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 16 }}>
+        <p className="s-register-0a8a6b">
           Already have an account?{' '}
-          <Link to="/login" style={{ color: '#6A012A', fontWeight: 600 }}>Sign In</Link>
+          <Link to="/login" className="s-register-51a817">Sign In</Link>
         </p>
       </div>
     </div>

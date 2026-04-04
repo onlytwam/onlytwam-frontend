@@ -11,8 +11,6 @@
 //  9. ✅ ProductCard imported from component, no inline card CSS/JSX
 // 10. ✅ Smart category filter: root→subcategories with products, subcategory→hidden
 
-import "./ProductList.css";
-
 import Breadcrumb from "@/shared/components/Breadcrumb";
 import type { Crumb } from "@/shared/components/Breadcrumb";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -30,9 +28,6 @@ import {
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
 
-const PRI = "#6B0F2A";
-const HEIRLOOM = "#9E6070";
-const IVORY = "#F5F0E6";
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 
@@ -45,8 +40,8 @@ const COLOR_FAMILIES: {
 }[] = [
   {
     label: "Red",
-    swatch: "#c62828",
-    hexRanges: ["#8B0000", "#DC143C", "#FF0000", "#B22222"],
+    swatch: "var(--brand)",
+    hexRanges: ["var(--brand)", "var(--brand)", "var(--brand)", "var(--brand)"],
     keywords: [
       "red",
       "crimson",
@@ -75,8 +70,8 @@ const COLOR_FAMILIES: {
   },
   {
     label: "Purple",
-    swatch: "#7b1fa2",
-    hexRanges: ["#800080", "#9370DB", "#8A2BE2", "#9400D3"],
+    swatch: "var(--brand)",
+    hexRanges: ["var(--brand)", "#9370DB", "#8A2BE2", "#9400D3"],
     keywords: [
       "purple",
       "violet",
@@ -90,7 +85,7 @@ const COLOR_FAMILIES: {
   },
   {
     label: "Blue",
-    swatch: "#1565c0",
+    swatch: "var(--brand)",
     hexRanges: ["#0000FF", "#4169E1", "#1E90FF", "#00BFFF", "#5F9EA0"],
     keywords: [
       "blue",
@@ -113,8 +108,8 @@ const COLOR_FAMILIES: {
   },
   {
     label: "Green",
-    swatch: "#2e7d32",
-    hexRanges: ["#008000", "#228B22", "#32CD32", "#90EE90"],
+    swatch: "var(--brand)",
+    hexRanges: ["var(--brand)", "#228B22", "#32CD32", "#90EE90"],
     keywords: [
       "green",
       "olive",
@@ -128,14 +123,14 @@ const COLOR_FAMILIES: {
   },
   {
     label: "Yellow",
-    swatch: "#f9a825",
-    hexRanges: ["#FFFF00", "#FFD700", "#F0E68C", "#BDB76B"],
+    swatch: "var(--brand)",
+    hexRanges: ["#FFFF00", "var(--blush)", "var(--blush)", "#BDB76B"],
     keywords: ["yellow", "gold", "mustard", "amber", "lemon", "corn", "cream"],
   },
   {
     label: "Orange",
-    swatch: "#e65100",
-    hexRanges: ["#FF8C00", "#FF6347", "#FF4500", "#FFA500"],
+    swatch: "var(--brand)",
+    hexRanges: ["var(--brand)", "var(--brand)", "var(--brand)", "var(--brand)"],
     keywords: ["orange", "tangerine", "coral"],
   },
   {
@@ -146,7 +141,7 @@ const COLOR_FAMILIES: {
   },
   {
     label: "Brown",
-    swatch: "#6d4c41",
+    swatch: "var(--brand)",
     hexRanges: ["#8B4513", "#A0522D", "#D2691E", "#CD853F"],
     keywords: [
       "brown",
@@ -167,14 +162,14 @@ const COLOR_FAMILIES: {
   },
   {
     label: "Grey",
-    swatch: "#616161",
-    hexRanges: ["#808080", "#A9A9A9", "#696969", "#778899"],
+    swatch: "var(--heirloom)",
+    hexRanges: ["var(--heirloom)", "var(--heirloom)", "var(--heirloom)", "#778899"],
     keywords: ["grey", "gray", "silver", "charcoal", "slate", "ash", "smoke"],
   },
   {
     label: "White",
-    swatch: "#f5f5f5",
-    hexRanges: ["#FFFFFF", "#F5F5F5", "#FFFAF0", "#FAF0E6"],
+    swatch: "var(--ivory)",
+    hexRanges: ["#FFFFFF", "var(--ivory)", "#ffffff", "var(--ivory)"],
     keywords: [
       "white",
       "ivory",
@@ -187,8 +182,8 @@ const COLOR_FAMILIES: {
   },
   {
     label: "Black",
-    swatch: "#212121",
-    hexRanges: ["#000000", "#36454F", "#343434"],
+    swatch: "#000000",
+    hexRanges: ["#000000", "#36454F", "#000000"],
     keywords: ["black", "ebony", "onyx", "jet", "charcoal"],
   },
 ];
@@ -626,7 +621,7 @@ export default function ProductList() {
     : [{ label: "Home", path: "/" }, { label: "Shop" }];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fff", fontFamily: FONTS }}>
+    <div className="s-productlist-3ab64d s-productlist-ff586331">
       <Breadcrumb items={breadcrumbItems} />
 
       {categoryImage && (
@@ -637,54 +632,21 @@ export default function ProductList() {
 
       {/* Toolbar — filter LEFT · sort CENTER · count RIGHT (mirrors GlobalSearch) */}
       <div
-        className="filter-inline-bar"
-        style={{ position: "sticky", top: 0, zIndex: 100 }}
+        className="filter-inline-bar s-productlist-443104"
       >
         <div
-          className="container"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
+          className="container s-adminproduct-4f5591"
         >
           {/* Left: Filter button */}
           <button
             onClick={() => setFilterOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "8px 18px",
-              border: `1.5px solid ${PRI}`,
-              background: "#fff",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 700,
-              fontFamily: FONT_UI,
-              color: PRI,
-              transition: "all .2s",
-              flexShrink: 0,
-            }}
+            className="s-productlist-c43a49 s-productlist-ff0afd28"
           >
-            <i className="bi bi-sliders" style={{ fontSize: 15 }} />
+            <i className="bi bi-sliders s-productlist-ecd182" />
             <span>Filters</span>
             {activeFilterCount > 0 && (
               <span
-                style={{
-                  background: PRI,
-                  color: "#fff",
-                  fontSize: 10,
-                  fontWeight: 800,
-                  width: 18,
-                  height: 18,
-                  borderRadius: "50%",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                className="s-productlist-d2ca22"
               >
                 {activeFilterCount}
               </span>
@@ -693,13 +655,7 @@ export default function ProductList() {
 
           {/* Centre: Sort pills */}
           <div
-            style={{
-              flex: 1,
-              display: "flex",
-              gap: 6,
-              overflowX: "auto",
-              scrollbarWidth: "none",
-            }}
+            className="s-productlist-4e2836"
           >
             {[
               { label: "✨ Latest", value: "latest" },
@@ -712,8 +668,7 @@ export default function ProductList() {
               <button
                 key={s.value}
                 onClick={() => setSortOption(s.value)}
-                className={`sort-pill${filters.sortOption === s.value ? " active" : ""}`}
-                style={{ whiteSpace: "nowrap" }}
+                className={`sort-pill${filters.sortOption === s.value ? " active" : ""} s-productlist-b9ab83`}
               >
                 {s.label}
               </button>
@@ -722,14 +677,9 @@ export default function ProductList() {
 
           {/* Right: Product count */}
           <span
-            style={{
-              fontSize: 13,
-              color: HEIRLOOM,
-              fontFamily: FONT_UI,
-              flexShrink: 0,
-            }}
+            className="s-productlist-955672 s-productlist-ff0afd28"
           >
-            <strong style={{ color: PRI }}>{totalCount}</strong>{" "}
+            <strong className="s-productlist-6ff513">{totalCount}</strong>{" "}
             {totalCount === 1 ? "product" : "products"}
           </span>
         </div>
@@ -737,22 +687,12 @@ export default function ProductList() {
 
       {/* Active filters chips */}
       {activeFilterCount > 0 && (
-        <div className="container" style={{ padding: "16px 0 8px" }}>
+        <div className="container s-productlist-a9e730">
           <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              alignItems: "center",
-            }}
+            className="s-productlist-a6b0b8"
           >
             <span
-              style={{
-                fontSize: 12,
-                color: HEIRLOOM,
-                fontWeight: 600,
-                fontFamily: FONT_UI,
-              }}
+              className="s-productlist-6b0a08 s-productlist-ff0afd28"
             >
               Active Filters:
             </span>
@@ -764,8 +704,7 @@ export default function ProductList() {
               >
                 {c}{" "}
                 <i
-                  className="bi bi-x"
-                  style={{ marginLeft: 4, fontSize: 14 }}
+                  className="bi bi-x s-productlist-9b88cd"
                 />
               </button>
             ))}
@@ -779,8 +718,7 @@ export default function ProductList() {
                 >
                   Size: {sz.sizeLabel ?? sz.name}{" "}
                   <i
-                    className="bi bi-x"
-                    style={{ marginLeft: 4, fontSize: 14 }}
+                    className="bi bi-x s-productlist-9b88cd"
                   />
                 </button>
               ) : null;
@@ -795,8 +733,7 @@ export default function ProductList() {
                 >
                   Cup: {cs.sizeLabel ?? cs.size}{" "}
                   <i
-                    className="bi bi-x"
-                    style={{ marginLeft: 4, fontSize: 14 }}
+                    className="bi bi-x s-productlist-9b88cd"
                   />
                 </button>
               ) : null;
@@ -811,8 +748,7 @@ export default function ProductList() {
                 >
                   {br.brandName ?? br.name}{" "}
                   <i
-                    className="bi bi-x"
-                    style={{ marginLeft: 4, fontSize: 14 }}
+                    className="bi bi-x s-productlist-9b88cd"
                   />
                 </button>
               ) : null;
@@ -827,8 +763,7 @@ export default function ProductList() {
                 >
                   {cat.name}{" "}
                   <i
-                    className="bi bi-x"
-                    style={{ marginLeft: 4, fontSize: 14 }}
+                    className="bi bi-x s-productlist-9b88cd"
                   />
                 </button>
               ) : null;
@@ -842,23 +777,13 @@ export default function ProductList() {
               >
                 Price: ₹{filters.priceMin ?? 0}–₹{filters.priceMax ?? "10k+"}{" "}
                 <i
-                  className="bi bi-x"
-                  style={{ marginLeft: 4, fontSize: 14 }}
+                  className="bi bi-x s-productlist-9b88cd"
                 />
               </button>
             )}
             <button
               onClick={clearAllFilters}
-              style={{
-                fontSize: 12,
-                color: PRI,
-                fontWeight: 600,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                textDecoration: "underline",
-                fontFamily: FONT_UI,
-              }}
+              className="s-productlist-b250e2 s-productlist-ff0afd28"
             >
               Clear all
             </button>
@@ -877,31 +802,13 @@ export default function ProductList() {
             {/* Header */}
             <div className="filter-drawer-header">
               <h3
-                style={{
-                  margin: 0,
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: PRI,
-                  fontFamily: FONTS,
-                }}
+                className="s-productlist-464604 s-productlist-ff586331"
               >
                 Filters
               </h3>
               <button
                 onClick={() => setFilterOpen(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 24,
-                  color: PRI,
-                  padding: 0,
-                  width: 32,
-                  height: 32,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                className="s-productlist-9dcc3b"
               >
                 <i className="bi bi-x" />
               </button>
@@ -910,12 +817,12 @@ export default function ProductList() {
             {/* Body */}
             <div className="filter-drawer-body">
               <div
-                style={{ display: "flex", flexDirection: "column", gap: 24 }}
+                className="s-productlist-4402fd"
               >
                 {/* ─ 1. COLOR ─ */}
                 <div>
                   <p className="filter-section-label">Color</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  <div className="s-productlist-a2d5a5">
                     {COLOR_FAMILIES.filter((fam) =>
                       colorFamilyMap.has(fam.label),
                     ).map((fam) => {
@@ -926,31 +833,10 @@ export default function ProductList() {
                         <button
                           key={fam.label}
                           onClick={() => toggleColorFamily(fam.label)}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "8px 14px",
-                            border: `2px solid ${isActive ? PRI : "#ddd"}`,
-                            background: isActive ? `${PRI}10` : "#fff",
-                            borderRadius: 24,
-                            cursor: "pointer",
-                            fontSize: 13,
-                            fontWeight: isActive ? 700 : 500,
-                            color: isActive ? PRI : "#444",
-                            transition: "all .2s",
-                            fontFamily: FONT_UI,
-                          }}
+                          className="s-productlist-ad8bc4" style={ {border: `2px solid ${isActive ? 'var(--brand)' : "var(--ivory)"}`, background: isActive ? `var(--brand)10` : "#fff", fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--brand)' : "var(--heirloom)", fontFamily: FONT_UI} }
                         >
                           <div
-                            style={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: "50%",
-                              background: fam.swatch,
-                              border: "2px solid #fff",
-                              boxShadow: "0 0 0 1px #00000020",
-                            }}
+                            className="s-productlist-6441e7 s-productlist-711db7"
                           />
                           <span>{fam.label}</span>
                         </button>
@@ -962,7 +848,7 @@ export default function ProductList() {
                 {/* ─ 2. SIZE ─ */}
                 <div>
                   <p className="filter-section-label">Size</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <div className="s-adminorders-2af484">
                     {sizes.map((sz: any) => {
                       const checked = filters.sizeIds.includes(sz.sizeId);
                       return (
@@ -982,7 +868,7 @@ export default function ProductList() {
                 {cupSizes.length > 0 && (
                   <div>
                     <p className="filter-section-label">Cup Size</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <div className="s-adminorders-2af484">
                       {cupSizes.map((cs: any) => {
                         const checked = filters.cupSizeIds.includes(
                           cs.cupSizeId,
@@ -1009,27 +895,10 @@ export default function ProductList() {
                     placeholder="🔍 Search brands…"
                     value={brandSearch}
                     onChange={(e) => setBrandSearch(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: `1.5px solid ${HEIRLOOM}55`,
-                      borderRadius: 8,
-                      marginBottom: 10,
-                      fontSize: 13,
-                      outline: "none",
-                      fontFamily: FONT_UI,
-                      boxSizing: "border-box",
-                      background: "#fafafa",
-                    }}
+                    className="s-productlist-9dfc9c s-productlist-ff0afd28"
                   />
                   <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 6,
-                      maxHeight: 160,
-                      overflowY: "auto",
-                    }}
+                    className="s-productlist-48e5f5"
                   >
                     {filteredBrands.map((br: any) => {
                       const checked = filters.brandIds.includes(br.brandId);
@@ -1041,8 +910,7 @@ export default function ProductList() {
                         >
                           {checked && (
                             <i
-                              className="bi bi-check"
-                              style={{ fontSize: 11 }}
+                              className="bi bi-check s-addresslist-2c42ad"
                             />
                           )}
                           {br.brandName ?? br.name}
@@ -1059,13 +927,7 @@ export default function ProductList() {
                       {isMainCategory ? "Subcategory" : "Category"}
                     </p>
                     <div
-                      style={{
-                        maxHeight: 200,
-                        overflowY: "auto",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
+                      className="s-productlist-a8c057"
                     >
                       {categoriesToShowInFilter.map((cat: any) => {
                         const checked = filters.categoryIds.includes(
@@ -1074,35 +936,14 @@ export default function ProductList() {
                         return (
                           <label
                             key={cat.categoryId}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              padding: "7px 10px",
-                              cursor: "pointer",
-                              borderRadius: 8,
-                              background: checked ? `${PRI}10` : "transparent",
-                              transition: "background .15s",
-                            }}
+                            className="s-productlist-158eba" style={ {background: checked ? `var(--brand)10` : "transparent"} }
                           >
                             <div
-                              style={{
-                                width: 17,
-                                height: 17,
-                                borderRadius: 4,
-                                border: `2px solid ${checked ? PRI : "#ccc"}`,
-                                background: checked ? PRI : "#fff",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                flexShrink: 0,
-                                transition: "all .15s",
-                              }}
+                              className="s-productlist-4dc61c" style={ {border: `2px solid ${checked ? 'var(--brand)' : "var(--ivory)"}`, background: checked ? 'var(--brand)' : "#fff"} }
                             >
                               {checked && (
                                 <i
-                                  className="bi bi-check"
-                                  style={{ color: "#fff", fontSize: 11 }}
+                                  className="bi bi-check s-adminproduct-b5c012"
                                 />
                               )}
                             </div>
@@ -1110,14 +951,10 @@ export default function ProductList() {
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleCategory(cat.categoryId)}
-                              style={{ display: "none" }}
+                              className="s-addressform-8251cb"
                             />
                             <span
-                              style={{
-                                fontSize: 13,
-                                color: checked ? PRI : "#444",
-                                fontWeight: checked ? 600 : 400,
-                              }}
+                              className="s-productlist-ab59ad" style={ {color: checked ? 'var(--brand)' : "var(--heirloom)", fontWeight: checked ? 600 : 400} }
                             >
                               {cat.name}
                             </span>
@@ -1132,28 +969,20 @@ export default function ProductList() {
                 <div>
                   <p className="filter-section-label">Price Range</p>
                   {/* Dual range slider bar */}
-                  <div style={{ padding: "8px 4px 16px", position: "relative" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: PRI, fontFamily: FONT_UI }}>
+                  <div className="s-productlist-476428">
+                    <div className="s-userdashboar-474527">
+                      <span className="s-productlist-1da4a9 s-productlist-ff0afd28">
                         ₹{sliderMin.toLocaleString("en-IN")}
                       </span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: PRI, fontFamily: FONT_UI }}>
+                      <span className="s-productlist-1da4a9 s-productlist-ff0afd28">
                         ₹{sliderMax >= PRICE_CEIL ? "10k+" : sliderMax.toLocaleString("en-IN")}
                       </span>
                     </div>
-                    <div style={{ position: "relative", height: 36 }}>
+                    <div className="s-productlist-e51ab8">
                       {/* Track background */}
-                      <div style={{
-                        position: "absolute", top: 14, left: 0, right: 0, height: 6,
-                        background: "#e8d8de", borderRadius: 3,
-                      }} />
+                      <div className="s-productlist-b260d9" />
                       {/* Active range highlight */}
-                      <div style={{
-                        position: "absolute", top: 14, height: 6, borderRadius: 3,
-                        background: `linear-gradient(90deg, ${PRI}, ${HEIRLOOM})`,
-                        left: `${((sliderMin - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`,
-                        right: `${100 - ((sliderMax - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`,
-                      }} />
+                      <div className="s-productlist-b2f4a3" style={ {left: `${((sliderMin - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`, right: `${100 - ((sliderMax - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`} } />
                       {/* Min slider */}
                       <input
                         type="range"
@@ -1173,12 +1002,7 @@ export default function ProductList() {
                           setFilters((f) => ({ ...f, priceMin: sliderMin > PRICE_FLOOR ? sliderMin : null }));
                           setPage(1);
                         }}
-                        className="price-slider"
-                        style={{
-                          position: "absolute", top: 4, left: 0, width: "100%",
-                          WebkitAppearance: "none", appearance: "none" as any,
-                          background: "transparent", pointerEvents: "none", zIndex: 3, height: 28, margin: 0,
-                        }}
+                        className="price-slider s-productlist-7203f1 s-productlist-d12ad6"
                       />
                       {/* Max slider */}
                       <input
@@ -1199,22 +1023,12 @@ export default function ProductList() {
                           setFilters((f) => ({ ...f, priceMax: sliderMax < PRICE_CEIL ? sliderMax : null }));
                           setPage(1);
                         }}
-                        className="price-slider"
-                        style={{
-                          position: "absolute", top: 4, left: 0, width: "100%",
-                          WebkitAppearance: "none", appearance: "none" as any,
-                          background: "transparent", pointerEvents: "none", zIndex: 4, height: 28, margin: 0,
-                        }}
+                        className="price-slider s-productlist-4dec44 s-productlist-d12ad6"
                       />
-                      <style>{`
-                        .price-slider { -webkit-appearance: none; appearance: none; }
-                        .price-slider::-webkit-slider-thumb { pointer-events: all; }
-                        .price-slider::-moz-range-thumb { pointer-events: all; }
-                      `}</style>
-                    </div>
+                      </div>
                   </div>
                   {/* Quick price buttons */}
-                  <div className="filter-scroll" style={{ marginBottom: 12 }}>
+                  <div className="filter-scroll s-adminproduct-02d219">
                     {[
                       { label: "Under ₹500", min: null, max: 500 },
                       { label: "₹500–₹1k", min: 500, max: 1000 },
@@ -1247,26 +1061,13 @@ export default function ProductList() {
                   </div>
                   {/* Min / Max inputs */}
                   <div
-                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                    className="s-adminproduct-04b6ac"
                   >
                     <div
-                      style={{
-                        flex: 1,
-                        border: `1.5px solid ${HEIRLOOM}55`,
-                        borderRadius: 8,
-                        display: "flex",
-                        alignItems: "center",
-                        overflow: "hidden",
-                        background: "#fafafa",
-                      }}
+                      className="s-productlist-eb6593"
                     >
                       <span
-                        style={{
-                          padding: "0 8px",
-                          color: PRI,
-                          fontSize: 14,
-                          fontWeight: 600,
-                        }}
+                        className="s-productlist-01f74c"
                       >
                         ₹
                       </span>
@@ -1284,36 +1085,15 @@ export default function ProductList() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") setPage(1);
                         }}
-                        style={{
-                          flex: 1,
-                          border: "none",
-                          outline: "none",
-                          padding: "9px 6px",
-                          fontSize: 13,
-                          background: "transparent",
-                          fontFamily: FONT_UI,
-                        }}
+                        className="s-productlist-4706fe s-productlist-ff0afd28"
                       />
                     </div>
-                    <span style={{ color: HEIRLOOM, fontWeight: 600 }}>—</span>
+                    <span className="s-productlist-fdec40">—</span>
                     <div
-                      style={{
-                        flex: 1,
-                        border: `1.5px solid ${HEIRLOOM}55`,
-                        borderRadius: 8,
-                        display: "flex",
-                        alignItems: "center",
-                        overflow: "hidden",
-                        background: "#fafafa",
-                      }}
+                      className="s-productlist-eb6593"
                     >
                       <span
-                        style={{
-                          padding: "0 8px",
-                          color: PRI,
-                          fontSize: 14,
-                          fontWeight: 600,
-                        }}
+                        className="s-productlist-01f74c"
                       >
                         ₹
                       </span>
@@ -1331,30 +1111,12 @@ export default function ProductList() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") setPage(1);
                         }}
-                        style={{
-                          flex: 1,
-                          border: "none",
-                          outline: "none",
-                          padding: "9px 6px",
-                          fontSize: 13,
-                          background: "transparent",
-                          fontFamily: FONT_UI,
-                        }}
+                        className="s-productlist-4706fe s-productlist-ff0afd28"
                       />
                     </div>
                     <button
                       onClick={() => setPage(1)}
-                      style={{
-                        background: PRI,
-                        color: "#fff",
-                        border: "none",
-                        padding: "9px 14px",
-                        borderRadius: 8,
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        fontFamily: FONT_UI,
-                      }}
+                      className="s-productlist-dc5d39 s-productlist-ff0afd28"
                     >
                       Go
                     </button>
@@ -1367,35 +1129,13 @@ export default function ProductList() {
             <div className="filter-drawer-footer">
               <button
                 onClick={clearAllFilters}
-                style={{
-                  flex: 1,
-                  padding: "10px 0",
-                  border: `1.5px solid ${PRI}`,
-                  background: "#fff",
-                  color: PRI,
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  fontFamily: FONT_UI,
-                }}
+                className="s-productlist-0d455c s-productlist-ff0afd28"
               >
                 Clear All
               </button>
               <button
                 onClick={() => setFilterOpen(false)}
-                style={{
-                  flex: 1,
-                  padding: "10px 0",
-                  background: PRI,
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  fontFamily: FONT_UI,
-                }}
+                className="s-productlist-e7f1bf s-productlist-ff0afd28"
               >
                 Show {groupedProducts.length} Products
               </button>
@@ -1405,58 +1145,28 @@ export default function ProductList() {
       )}
 
       {/* ── Product grid ── */}
-      <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
+      <div className="container s-productlist-22e220">
         {productsLoading ? (
           <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              minHeight: 320,
-            }}
+            className="s-productlist-18a79d"
           >
             <div
-              style={{
-                width: 40,
-                height: 40,
-                border: `4px solid ${IVORY}`,
-                borderTopColor: PRI,
-                borderRadius: "50%",
-                animation: "plSpin .8s linear infinite",
-              }}
+              className="s-productlist-feb323"
             />
-            <style>{`@keyframes plSpin { to { transform: rotate(360deg); } }`}</style>
-          </div>
+            </div>
         ) : groupedProducts.length === 0 ? (
           <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 280,
-              gap: 12,
-            }}
+            className="s-productlist-3fa2c3"
           >
             <i
-              className="bi bi-bag-x"
-              style={{ fontSize: 56, color: HEIRLOOM, opacity: 0.4 }}
+              className="bi bi-bag-x s-productlist-28e718"
             />
-            <p style={{ color: HEIRLOOM, fontSize: 16, fontFamily: FONTS }}>
+            <p className="s-productlist-3964c5 s-productlist-ff586331">
               No products found
             </p>
             <button
               onClick={clearAllFilters}
-              style={{
-                background: PRI,
-                color: "#fff",
-                border: "none",
-                padding: "10px 24px",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontSize: 13,
-                fontFamily: FONT_UI,
-              }}
+              className="s-productlist-972b82 s-productlist-ff0afd28"
             >
               Clear Filters
             </button>
@@ -1480,14 +1190,7 @@ export default function ProductList() {
             {/* ── Pagination ── */}
             {totalPages > 1 && (
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "32px 0 8px",
-                  flexWrap: "wrap",
-                }}
+                className="s-productlist-a86882"
               >
                 <button
                   disabled={page === 1}
@@ -1501,11 +1204,7 @@ export default function ProductList() {
                   p === "..." ? (
                     <span
                       key={`el-${i}`}
-                      style={{
-                        padding: "0 4px",
-                        color: HEIRLOOM,
-                        userSelect: "none",
-                      }}
+                      className="s-productlist-2ab2e0"
                     >
                       …
                     </span>
@@ -1528,12 +1227,7 @@ export default function ProductList() {
                   <i className="bi bi-chevron-right" />
                 </button>
                 <span
-                  style={{
-                    fontSize: 12,
-                    color: HEIRLOOM,
-                    marginLeft: 8,
-                    fontFamily: FONT_UI,
-                  }}
+                  className="s-productlist-f6dfaf s-productlist-ff0afd28"
                 >
                   {
                     groupedProducts.slice(

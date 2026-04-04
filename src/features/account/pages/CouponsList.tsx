@@ -42,7 +42,7 @@ export default function CouponsList() {
 
       {coupons.length === 0 ? (
         <div className="text-center py-5">
-          <i className="bi bi-ticket-perforated" style={{ fontSize: 48, color: '#ddd' }} />
+          <i className="bi bi-ticket-perforated s-addresslist-d71ded" />
           <p className="text-muted mt-3">No coupons available right now.</p>
         </div>
       ) : (
@@ -55,41 +55,34 @@ export default function CouponsList() {
             return (
               <div key={coupon.couponId} className="col-md-6">
                 <div
-                  className={`h-100 ${isExpired ? 'opacity-50' : ''}`}
-                  style={{
-                    border: '1px solid #eee', borderLeft: '4px solid #6A012A',
-                    borderRadius: 8, padding: 20,
-                    background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,.04)',
-                  }}
+                  className={`h-100 ${isExpired ? 'opacity-50' : ''} s-couponslist-f13c87`}
                 >
                   <div className="d-flex justify-content-between align-items-start">
                     <div className="flex-fill">
                       {/* FIX: backend field is couponCode not code */}
                       <span
-                        className="badge mb-2"
-                        style={{ background: '#6A012A', color: '#fff', fontFamily: 'monospace', fontSize: 14, letterSpacing: 1, padding: '4px 10px' }}
+                        className="badge mb-2 s-couponslist-d339e9"
                       >
                         {coupon.couponCode ?? '—'}
                       </span>
 
                       {/* FIX: backend field is couponName not title */}
                       {coupon.couponName && (
-                        <p className="mb-1 fw-semibold" style={{ fontSize: 14 }}>{coupon.couponName}</p>
+                        <p className="mb-1 fw-semibold s-addresslist-92985e">{coupon.couponName}</p>
                       )}
 
                       {/* FIX: backend field is discount (flat number) not discountValue/discountType */}
-                      <p className="mb-1" style={{ fontSize: 14 }}>
+                      <p className="mb-1 s-addresslist-92985e">
                         {coupon.discount != null ? `${coupon.discount}% off` : 'Special Discount'}
                       </p>
 
                       {coupon.description && (
-                        <p className="text-muted mb-0" style={{ fontSize: 12 }}>{coupon.description}</p>
+                        <p className="text-muted mb-0 s-couponslist-030edf">{coupon.description}</p>
                       )}
                     </div>
 
                     <button
-                      className="btn btn-sm btn-outline-dark ms-3"
-                      style={{ flexShrink: 0 }}
+                      className="btn btn-sm btn-outline-dark ms-3 s-addresslist-f8b697"
                       onClick={() => copyCode(coupon.couponCode)}
                       disabled={isExpired || !coupon.couponCode}
                     >
@@ -98,7 +91,7 @@ export default function CouponsList() {
                   </div>
 
                   <div className="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                    <span style={{ fontSize: 12 }}>
+                    <span className="s-couponslist-030edf">
                       {isExpired ? (
                         <span className="text-danger"><i className="bi bi-x-circle me-1" />Expired</span>
                       ) : (
@@ -107,7 +100,7 @@ export default function CouponsList() {
                     </span>
                     {/* FIX: backend field is endDate not expiryDate */}
                     {coupon.endDate && (
-                      <span className="text-muted" style={{ fontSize: 12 }}>
+                      <span className="text-muted s-couponslist-030edf">
                         Expires: {formatDate(coupon.endDate)}
                       </span>
                     )}

@@ -45,15 +45,15 @@ export default function AdminLayout() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f5f6fa' }}>
+    <div className="s-adminlayout-474885">
 
       {/* ── Sidebar ── */}
-      <aside style={{ width: 240, background: '#111', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+      <aside className="s-adminlayout-358067">
 
         {/* Logo */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
+        <div className="s-adminlayout-418b89">
           <img src="/assets/Twam-Logo-Black.png" alt="TWAM"
-            style={{ height: 36, filter: 'brightness(0) invert(1)' }}
+            className="s-adminlayout-563ef2"
             onError={e => {
               const t = e.target as HTMLImageElement;
               t.style.display = 'none';
@@ -62,55 +62,55 @@ export default function AdminLayout() {
               span.style.cssText = 'color:#fff;font-weight:800;font-size:16px;letter-spacing:2px';
               t.parentNode?.insertBefore(span, t);
             }} />
-          <p style={{ color: '#888', fontSize: 11, margin: '4px 0 0', textTransform: 'uppercase', letterSpacing: 1 }}>
+          <p className="s-adminlayout-94ca0e">
             {roleLabel}
           </p>
         </div>
 
         {/* Role-filtered navigation */}
-        <nav style={{ flex: 1, padding: '12px 0' }}>
+        <nav className="s-adminlayout-482ea2">
           {NAV.map(item => (
             <NavLink key={item.path} to={item.path}
               style={({ isActive }) => ({
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '11px 20px', textDecoration: 'none',
-                color: isActive ? '#fff' : '#aaa',
+                color: isActive ? '#fff' : 'var(--heirloom)',
                 background: isActive ? 'rgba(106,1,42,.6)' : 'transparent',
-                borderLeft: isActive ? '3px solid #6A012A' : '3px solid transparent',
+                borderLeft: isActive ? '3px solid #6b0f2a' : '3px solid transparent',
                 fontSize: 13, transition: 'all .15s',
               })}>
-              <i className={`bi ${item.icon}`} style={{ width: 18, textAlign: 'center', flexShrink: 0 }} />
+              <i className={`bi ${item.icon} s-adminlayout-c758b0`} />
               {item.label}
             </NavLink>
           ))}
         </nav>
 
         {/* User footer */}
-        <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,.1)' }}>
-          <p style={{ color: '#888', fontSize: 12, margin: '0 0 2px' }}>Signed in as</p>
-          <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: '0 0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="s-adminlayout-0b2dc0">
+          <p className="s-adminlayout-185312">Signed in as</p>
+          <p className="s-adminlayout-700e11">
             {getUserName()}
           </p>
           <button onClick={goToStore}
-            style={{ width: '100%', background: 'rgba(255,255,255,.07)', color: '#ccc', border: '1px solid rgba(255,255,255,.12)', padding: '7px', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 8, fontFamily: 'inherit' }}>
+            className="s-adminlayout-c2ed36">
             <i className="bi bi-shop" /> View Store
           </button>
           <button onClick={() => { logout(); navigate('/login'); }}
-            style={{ width: '100%', background: 'rgba(229,57,53,.15)', color: '#ef9a9a', border: '1px solid rgba(229,57,53,.3)', padding: '7px', borderRadius: 6, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', fontFamily: 'inherit' }}>
+            className="s-adminlayout-e5f366">
             <i className="bi bi-box-arrow-right" /> Sign Out
           </button>
         </div>
       </aside>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, overflow: 'auto' }}>
-        <div style={{ background: '#fff', padding: '14px 24px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111' }}>TWAM Admin</h1>
-          <span style={{ fontSize: 12, background: '#f5f5f5', padding: '4px 12px', borderRadius: 20, color: '#555' }}>
+      <main className="s-adminlayout-5679e3">
+        <div className="s-adminlayout-5527a1">
+          <h1 className="s-adminlayout-6a1182">TWAM Admin</h1>
+          <span className="s-adminlayout-217eb8">
             {roleLabel}
           </span>
         </div>
-        <div style={{ padding: 24 }}>
+        <div className="s-adminlayout-52a355">
           <Outlet />
         </div>
       </main>

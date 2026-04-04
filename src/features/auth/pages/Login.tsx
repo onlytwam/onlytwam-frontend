@@ -178,7 +178,7 @@ export default function Login() {
   });
 
   const inputCls = (err?: any) => `form-control${err ? ' is-invalid' : ''}`;
-  const errMsg   = (msg?: string) => msg ? <div className="invalid-feedback" style={{ display: 'block' }}>{msg}</div> : null;
+  const errMsg   = (msg?: string) => msg ? <div className="invalid-feedback s-login-78f9a3">{msg}</div> : null;
 
   // Background images per mode
   const bgImage = mode === 'signup'
@@ -191,81 +191,51 @@ export default function Login() {
     <>
       {/* ── Syncing Overlay — shown while authStore is syncing cart/wishlist */}
       {isSyncing && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.7)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 9999,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 20,
-        }}>
-          <div style={{
-            width: 60,
-            height: 60,
-            border: '5px solid rgba(255,255,255,0.2)',
-            borderTop: '5px solid #fff',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-          }} />
-          <div style={{
-            color: '#fff',
-            fontSize: 18,
-            fontWeight: 600,
-            textAlign: 'center',
-            fontFamily: '"Palatino Linotype", serif',
-          }}>
+        <div className="s-login-a10a06">
+          <div className="s-login-21c8cb" />
+          <div className="s-login-044594">
             Syncing your cart and wishlist...
             <br />
-            <span style={{ fontSize: 14, opacity: 0.8 }}>This will only take a moment</span>
+            <span className="s-login-1c4695">This will only take a moment</span>
           </div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
 
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <div className="s-login-2bb036">
         {/* Left — decorative image */}
-        <div className="d-none d-md-flex" style={{ flex: '0 0 44%', overflow: 'hidden', position: 'relative' }}>
+        <div className="d-none d-md-flex s-login-2da0c0">
           <img
             src={bgImage}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            className="s-userdashboar-4ebae2"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             alt=""
           />
           {/* Subtle overlay */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(135deg, rgba(106,1,42,0.55) 0%, rgba(0,0,0,0.25) 100%)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-            padding: '48px 40px',
-          }}>
-            <p style={{ color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+          <div className="s-login-da6116">
+            <p className="s-login-f18190">
               {mode === 'signup' ? '"Every body deserves a perfect fit."'
                 : mode === 'forgot' ? 'No worries — we\'ll get you back in.'
                 : 'Welcome Back, Beautiful.'}
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+            <p className="s-login-6854c0">
               Only TWAM — Crafted with love.
             </p>
           </div>
         </div>
 
         {/* Right — form panel */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', background: '#fff' }}>
-          <div style={{ width: '100%', maxWidth: 440 }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', textDecoration: 'none', marginBottom: 24 }}>
+        <div className="s-login-5c2ebc">
+          <div className="s-login-d3c5f3">
+            <Link to="/" className="s-login-0aef96">
               <i className="bi bi-arrow-left" /> Back to Home
             </Link>
-            <div style={{ textAlign: 'center', marginBottom: 28 }}>
-              <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" style={{ height: 46 }}
+            <div className="s-login-9aad3d">
+              <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" className="s-login-cd2062"
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {redirectTo.includes('payment-address') && (
-              <div style={{ background: '#fff8f0', border: '1px solid #ffd580', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#7a4f00' }}>
+              <div className="s-login-3b11d9">
                 <i className="bi bi-bag me-2" />
                 Sign in to complete your order. Your cart items are saved.
               </div>
@@ -274,38 +244,38 @@ export default function Login() {
             {/* ── SIGN IN */}
             {mode === 'signin' && (
               <>
-                <h5 style={{ fontWeight: 700, marginBottom: 6 }}>Sign In</h5>
-                <p style={{ color: '#888', fontSize: 14, marginBottom: 20 }}>Welcome Back, Beautiful. Let's get you back to feeling fabulous.</p>
+                <h5 className="s-login-b4f13d">Sign In</h5>
+                <p className="s-login-7a79e7">Welcome Back, Beautiful. Let's get you back to feeling fabulous.</p>
                 <form onSubmit={handleLogin}>
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={{ fontSize: 13, marginBottom: 4, display: 'block' }}>Email or Mobile No.</label>
+                  <div className="s-adminblog-22a617">
+                    <label className="s-login-b4e387">Email or Mobile No.</label>
                     <input {...loginForm.register('email')} className={inputCls(loginForm.formState.errors.email)} type="email" placeholder="Enter email" />
                     {errMsg(loginForm.formState.errors.email?.message)}
                   </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <label style={{ fontSize: 13, marginBottom: 4, display: 'block' }}>Password</label>
-                    <div style={{ position: 'relative' }}>
-                      <input {...loginForm.register('password')} className={inputCls(loginForm.formState.errors.password)} type={hidePass ? 'password' : 'text'} placeholder="Enter password" style={{ paddingRight: 40 }} />
+                  <div className="s-login-e50f28">
+                    <label className="s-login-b4e387">Password</label>
+                    <div className="s-updateprofil-1d5e50">
+                      <input {...loginForm.register('password')} className={`${inputCls(loginForm.formState.errors.password)} s-login-51c683`} type={hidePass ? 'password' : 'text'} placeholder="Enter password" />
                       <button type="button" onClick={() => setHidePass(!hidePass)}
-                        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>
+                        className="s-login-af8e0d">
                         <i className={`bi ${hidePass ? 'bi-eye-slash' : 'bi-eye'}`} />
                       </button>
                     </div>
                     {errMsg(loginForm.formState.errors.password?.message)}
                   </div>
-                  <div style={{ textAlign: 'right', marginBottom: 18 }}>
-                    <button type="button" onClick={() => setMode('forgot')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6A012A', fontSize: 13 }}>
+                  <div className="s-login-8007bc">
+                    <button type="button" onClick={() => setMode('forgot')} className="s-login-aef348">
                       Forgot Password?
                     </button>
                   </div>
                   <button type="submit" disabled={loading}
-                    style={{ width: '100%', background: '#6A012A', color: '#fff', border: 'none', padding: 13, borderRadius: 4, fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                    className="s-login-c6af62" style={ {cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1} }>
                     {loading ? 'Signing in…' : 'Sign In'}
                   </button>
                 </form>
-                <p style={{ textAlign: 'center', marginTop: 18, fontSize: 14, color: '#888' }}>
+                <p className="s-login-89ef73">
                   Don't have an account?{' '}
-                  <button onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6A012A', fontWeight: 700 }}>Sign Up</button>
+                  <button onClick={() => setMode('signup')} className="s-login-182bea">Sign Up</button>
                 </p>
               </>
             )}
@@ -313,40 +283,40 @@ export default function Login() {
             {/* ── SIGN UP */}
             {mode === 'signup' && (
               <>
-                <h5 style={{ fontWeight: 700, marginBottom: 6 }}>Sign Up</h5>
-                <p style={{ color: '#888', fontSize: 14, marginBottom: 20 }}>"Every body deserves a perfect fit."</p>
+                <h5 className="s-login-b4f13d">Sign Up</h5>
+                <p className="s-login-7a79e7">"Every body deserves a perfect fit."</p>
                 <form onSubmit={handleSignup}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 10px', marginBottom: 12 }}>
+                  <div className="s-login-9f425c">
                     {(['firstName', 'middleName', 'lastName'] as const).map((key, i) => (
                       <div key={key}>
-                        <label style={{ fontSize: 12, marginBottom: 3, display: 'block' }}>{['First Name *', 'Middle', 'Last Name *'][i]}</label>
+                        <label className="s-login-4d06e1">{['First Name *', 'Middle', 'Last Name *'][i]}</label>
                         <input {...signupForm.register(key)} className={inputCls((signupForm.formState.errors as any)[key])} />
                         {errMsg((signupForm.formState.errors as any)[key]?.message)}
                       </div>
                     ))}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 10px' }}>
+                  <div className="s-login-863afe">
                     {([
                       { key: 'email',           label: 'Email *',        type: 'email' },
                       { key: 'phoneNumber',     label: 'Phone *',        type: 'tel' },
                       { key: 'password',        label: 'Password *',     type: hidePass ? 'password' : 'text' },
                       { key: 'confirmPassword', label: 'Confirm Pass *', type: 'password' },
                     ] as const).map(({ key, label, type }) => (
-                      <div key={key as string} style={{ marginBottom: 12 }}>
-                        <label style={{ fontSize: 12, marginBottom: 3, display: 'block' }}>{label}</label>
+                      <div key={key as string} className="s-adminproduct-02d219">
+                        <label className="s-login-4d06e1">{label}</label>
                         <input {...signupForm.register(key as any)} className={inputCls((signupForm.formState.errors as any)[key])} type={type} />
                         {errMsg((signupForm.formState.errors as any)[key as string]?.message)}
                       </div>
                     ))}
                   </div>
                   <button type="submit" disabled={loading}
-                    style={{ width: '100%', background: '#6A012A', color: '#fff', border: 'none', padding: 13, borderRadius: 4, fontWeight: 700, fontSize: 14, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, marginTop: 4 }}>
+                    className="s-login-8c5379" style={ {cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1} }>
                     {loading ? 'Creating account…' : 'Sign Up'}
                   </button>
                 </form>
-                <p style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: '#888' }}>
+                <p className="s-login-5d4ce1">
                   Already have an account?{' '}
-                  <button onClick={() => setMode('signin')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6A012A', fontWeight: 700 }}>Sign In</button>
+                  <button onClick={() => setMode('signin')} className="s-login-182bea">Sign In</button>
                 </p>
               </>
             )}
@@ -354,21 +324,21 @@ export default function Login() {
             {/* ── FORGOT PASSWORD */}
             {mode === 'forgot' && (
               <>
-                <h5 style={{ fontWeight: 700, marginBottom: 6 }}>Forgot Password?</h5>
-                <p style={{ color: '#888', fontSize: 14, marginBottom: 20 }}>Enter your registered email and we'll send you a one-time verification code.</p>
+                <h5 className="s-login-b4f13d">Forgot Password?</h5>
+                <p className="s-login-7a79e7">Enter your registered email and we'll send you a one-time verification code.</p>
                 <form onSubmit={handleForgot}>
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ fontSize: 13, marginBottom: 4, display: 'block' }}>Email Address</label>
+                  <div className="s-adminblog-19fd7a">
+                    <label className="s-login-b4e387">Email Address</label>
                     <input {...forgotForm.register('email')} className={inputCls(forgotForm.formState.errors.email)} type="email" placeholder="Enter registered email" />
                     {errMsg(forgotForm.formState.errors.email?.message)}
                   </div>
                   <button type="submit" disabled={loading}
-                    style={{ width: '100%', background: '#6A012A', color: '#fff', border: 'none', padding: 13, borderRadius: 4, fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                    className="s-login-c6af62" style={ {cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1} }>
                     {loading ? 'Sending OTP…' : 'Send OTP'}
                   </button>
                 </form>
-                <p style={{ textAlign: 'center', marginTop: 16, fontSize: 14, color: '#888' }}>
-                  <button onClick={() => setMode('signin')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6A012A', fontWeight: 700 }}>← Back to Sign In</button>
+                <p className="s-login-c80d80">
+                  <button onClick={() => setMode('signin')} className="s-login-182bea">← Back to Sign In</button>
                 </p>
               </>
             )}

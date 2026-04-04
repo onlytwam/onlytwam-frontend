@@ -22,10 +22,6 @@ import { useWishlistStore } from "@/shared/store/wishlistStore";
 import Breadcrumb from "@/shared/components/Breadcrumb";
 import { useBreadcrumb } from "@/shared/hooks/useBreadcrumb";
 import ProductCard from "@/features/products/components/ProductCard";
-const PRI = "#6B0F2A";
-const HEIRLOOM = "#9E6070";
-const BLUSH = "#A84C6B";
-const IVORY = "#F5F0E6";
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 
@@ -124,83 +120,25 @@ export default function Wishlist() {
   return (
     <>
       <Breadcrumb items={wishlistCrumbs} />
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "16px 16px 24px",
-          fontFamily: FONT_UI,
-        }}
-      >
+      <div className="s-wishlist-387046 s-wishlist-ff77776b">
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
+        <div className="s-wishlist-9e2513">
           <div>
-            <h1
-              style={{
-                fontSize: 26,
-                fontWeight: 800,
-                margin: 0,
-                color: PRI,
-                fontFamily: FONTS,
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
-              <i
-                className="bi bi-heart-fill"
-                style={{ color: BLUSH, fontSize: 22 }}
-              />
+            <h1 className="s-wishlist-b993f0 s-wishlist-ffaa1fea">
+              <i className="bi bi-heart-fill s-wishlist-9d41a6" />
               My Wishlist
             </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 14, color: HEIRLOOM }}>
+            <p className="s-wishlist-4735d5">
               {displayItems.length === 0
                 ? "Your wishlist is empty"
                 : `${displayItems.length} saved item${displayItems.length !== 1 ? "s" : ""}`}
-              {isGuest && (
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 12,
-                    background: IVORY,
-                    color: PRI,
-                    padding: "2px 8px",
-                    borderRadius: 12,
-                    fontWeight: 600,
-                    border: `1px solid ${HEIRLOOM}`,
-                  }}
-                >
-                  Guest
-                </span>
-              )}
+              {isGuest && <span className="s-wishlist-a22f7a">Guest</span>}
             </p>
           </div>
           {displayItems.length > 0 && (
             <button
               onClick={() => navigate(prevPath)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "9px 18px",
-                background: PRI,
-                color: "#fff",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600,
-                fontFamily: FONTS,
-              }}
+              className="s-wishlist-693b7a s-wishlist-ffaa1fea"
             >
               <i className="bi bi-arrow-left" /> Continue Shopping
             </button>
@@ -209,38 +147,15 @@ export default function Wishlist() {
 
         {/* Sync banner */}
         {!isGuest && guestItems.length > 0 && (
-          <div
-            style={{
-              background: IVORY,
-              border: `1.5px solid ${HEIRLOOM}`,
-              borderRadius: 10,
-              padding: "12px 16px",
-              marginBottom: 20,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 10,
-            }}
-          >
-            <span style={{ fontSize: 13, color: PRI }}>
+          <div className="s-wishlist-73d46c">
+            <span className="s-wishlist-19ae95">
               <strong>{guestItems.length}</strong> item
               {guestItems.length !== 1 ? "s" : ""} saved before signing in.
             </span>
             <button
               onClick={handleSync}
               disabled={syncing}
-              style={{
-                background: PRI,
-                color: "#fff",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 700,
-                fontFamily: FONTS,
-              }}
+              className="s-wishlist-7c0503 s-wishlist-ffaa1fea"
             >
               {syncing ? "Syncing…" : "Sync to account"}
             </button>
@@ -249,36 +164,13 @@ export default function Wishlist() {
 
         {/* Sign-in nudge for guests */}
         {isGuest && displayItems.length > 0 && (
-          <div
-            style={{
-              background: IVORY,
-              border: `1.5px solid ${HEIRLOOM}`,
-              borderRadius: 10,
-              padding: "12px 16px",
-              marginBottom: 20,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 10,
-            }}
-          >
-            <span style={{ fontSize: 13, color: PRI }}>
+          <div className="s-wishlist-73d46c">
+            <span className="s-wishlist-19ae95">
               <strong>Sign in</strong> to save your wishlist across devices.
             </span>
             <button
               onClick={() => navigate("/login")}
-              style={{
-                background: PRI,
-                color: "#fff",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 700,
-                fontFamily: FONTS,
-              }}
+              className="s-wishlist-7c0503 s-wishlist-ffaa1fea"
             >
               Sign In
             </button>
@@ -287,93 +179,26 @@ export default function Wishlist() {
 
         {/* Loading */}
         {isLoading && !isGuest && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              padding: "60px 0",
-            }}
-          >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                border: `4px solid ${IVORY}`,
-                borderTopColor: PRI,
-                borderRadius: "50%",
-                animation: "wl-spin .8s linear infinite",
-              }}
-            />
-            <style>{`@keyframes wl-spin{to{transform:rotate(360deg)}}`}</style>
+          <div className="s-wishlist-444f00">
+            <div className="s-wishlist-037958" />
           </div>
         )}
 
         {/* Empty state */}
         {!isLoading && displayItems.length === 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              padding: "60px 16px",
-              gap: 16,
-            }}
-          >
-            <div
-              style={{
-                width: 90,
-                height: 90,
-                borderRadius: "50%",
-                background: IVORY,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <i
-                className="bi bi-heart"
-                style={{ fontSize: 40, color: HEIRLOOM }}
-              />
+          <div className="s-wishlist-9466fd">
+            <div className="s-wishlist-1540d2">
+              <i className="bi bi-heart s-wishlist-cc38d3" />
             </div>
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 20,
-                fontWeight: 700,
-                color: PRI,
-                fontFamily: FONTS,
-              }}
-            >
+            <h3 className="s-wishlist-25a118 s-wishlist-ffaa1fea">
               Your wishlist is empty
             </h3>
-            <p
-              style={{
-                margin: 0,
-                color: HEIRLOOM,
-                fontSize: 14,
-                textAlign: "center",
-                maxWidth: 320,
-              }}
-            >
+            <p className="s-wishlist-6c13a8">
               Save items you love by clicking the heart icon on any product.
             </p>
             <button
               onClick={() => navigate(prevPath)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "12px 28px",
-                background: PRI,
-                color: "#fff",
-                borderRadius: 10,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: 700,
-                fontFamily: FONTS,
-                marginTop: 8,
-              }}
+              className="s-wishlist-dbc514 s-wishlist-ffaa1fea"
             >
               <i className="bi bi-arrow-left" /> Continue Shopping
             </button>
@@ -383,18 +208,7 @@ export default function Wishlist() {
         {/* Product grid — same card as Home */}
         {!isLoading && displayItems.length > 0 && (
           <>
-            <div
-              className="wl-grid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: 20,
-              }}
-            >
-              <style>{`
-              @media(max-width:991px){.wl-grid{grid-template-columns:repeat(2,1fr)!important;}}
-              @media(max-width:575px){.wl-grid{grid-template-columns:repeat(1,1fr)!important;}}
-            `}</style>
+            <div className="wl-grid s-wishlist-7d2408">
               {displayItems.map((item: any) => (
                 <ProductCard
                   key={item.productVariantId}
@@ -420,7 +234,7 @@ export default function Wishlist() {
                 />
               ))}
             </div>
-            <div style={{ textAlign: "center", marginTop: 32 }}>
+            <div className="s-wishlist-4b3d6a">
               <button
                 onClick={() => {
                   if (isGuest) clearGuestWishlist();
@@ -441,19 +255,7 @@ export default function Wishlist() {
                   }
                   toast.success("Wishlist cleared");
                 }}
-                style={{
-                  background: "none",
-                  border: `1.5px solid ${HEIRLOOM}`,
-                  color: HEIRLOOM,
-                  padding: "9px 22px",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontFamily: FONT_UI,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
+                className="s-wishlist-e1731e s-wishlist-ff77776b"
               >
                 <i className="bi bi-trash3" /> Clear wishlist
               </button>

@@ -27,24 +27,14 @@ export default function AdminBar() {
   if (!visible) return null;
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
-      background: '#6A012A', color: '#fff',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '8px 20px', fontSize: 13,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <i className="bi bi-shield-fill" style={{ fontSize: 14 }} />
+    <div className="s-adminbar-5bb105">
+      <div className="s-adminbar-877368">
+        <i className="bi bi-shield-fill s-addresslist-92985e" />
         <span>You are browsing as <strong>{getUserName()}</strong> (Admin view)</span>
       </div>
       <button
         onClick={goBack}
-        style={{
-          background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)',
-          color: '#fff', padding: '5px 16px', borderRadius: 4,
-          cursor: 'pointer', fontSize: 12, fontWeight: 600,
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
+        className="s-adminbar-7a3f93">
         <i className="bi bi-arrow-left" /> Back to Admin Panel
       </button>
     </div>

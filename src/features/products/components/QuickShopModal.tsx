@@ -26,16 +26,16 @@ function SizeBtn({ label, selected, inVariant, hasStock, stock, onClick }: {
     minWidth: 38, height: 38, borderRadius: '50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 11, fontWeight: 600, flexShrink: 0,
-    position: 'relative', fontFamily: 'inherit', transition: 'all .15s',
+    position: 'relative', fontFamily: 'var(--font-body)', transition: 'all .15s',
   };
   if (!inVariant) return (
-    <span title="Not available" style={{ ...base, border: '1.5px dashed #d0d0d0', color: '#ccc', userSelect: 'none', cursor: 'not-allowed', position: 'relative' }}>
+    <span title="Not available" style={{ ...base, border: '1.5px dashed #f5f0e6', color: 'var(--ivory)', userSelect: 'none', cursor: 'not-allowed', position: 'relative' }}>
       {label}
     </span>
   );
   if (!hasStock) return (
     <span title="Out of stock"
-      style={{ ...base, border: '1.5px solid #6B0F2A', color: '#6B0F2A', opacity: 0.45,
+      style={{ ...base, border: '1.5px solid #6B0F2A', color: 'var(--brand)', opacity: 0.45,
         textDecoration: 'line-through', userSelect: 'none', cursor: 'not-allowed' }}>
       {label}
     </span>
@@ -43,19 +43,14 @@ function SizeBtn({ label, selected, inVariant, hasStock, stock, onClick }: {
   return (
     <button onClick={onClick} style={{
       ...base,
-      border: `2px solid ${selected ? '#6A012A' : '#444'}`,
-      background: selected ? '#6A012A' : '#fff',
-      color: selected ? '#fff' : '#111',
+      border: `2px solid ${selected ? 'var(--brand)' : 'var(--heirloom)'}`,
+      background: selected ? 'var(--brand)' : '#fff',
+      color: selected ? '#fff' : '#000000',
       cursor: 'pointer',
     }}>
       {label}
       {stock === 1 && (
-        <span style={{
-          position: 'absolute', top: -5, right: -5,
-          background: '#e65100', color: '#fff', fontSize: 8,
-          borderRadius: '50%', width: 14, height: 14,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
-        }}>1</span>
+        <span className="s-quickshopmod-dd356c">1</span>
       )}
     </button>
   );
@@ -69,51 +64,19 @@ function ModalNotification({ notif, onDone }: { notif: ModalNotif; onDone: () =>
     return () => clearTimeout(t);
   }, [notif]);
 
-  const bg   = notif.type === 'error' ? '#A84C6B' : notif.type === 'warn' ? '#9E6070' : '#6B0F2A';
-  const textColor = '#F5F0E6';
+  const bg   = notif.type === 'error' ? 'var(--blush)' : notif.type === 'warn' ? 'var(--heirloom)' : 'var(--brand)';
+  const textColor = 'var(--ivory)';
   const icon = notif.type === 'error' ? 'bi-exclamation-circle-fill' : notif.type === 'warn' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill';
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 200,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,0,0,.35)',
-      borderRadius: 14,
-      animation: 'qs-notif-bg .15s ease',
-    }}>
-      <div style={{
-        background: bg,
-        color: textColor,
-        padding: '16px 20px 16px 20px',
-        borderRadius: 12,
-        fontSize: 14, fontWeight: 700,
-        display: 'flex', alignItems: 'center', gap: 10,
-        boxShadow: '0 12px 36px rgba(0,0,0,.35)',
-        maxWidth: 300, textAlign: 'center',
-        animation: 'qs-notif-in .18s ease',
-        lineHeight: 1.4,
-        position: 'relative',
-      }}>
-        <i className={`bi ${icon}`} style={{ fontSize: 20, flexShrink: 0 }} />
-        <span style={{ flex: 1 }}>{notif.message}</span>
+    <div className="s-quickshopmod-00c3dc">
+      <div className="s-quickshopmod-f79ffc" style={ {background: bg, color: textColor} }>
+        <i className={`bi ${icon} s-quickshopmod-42031d`} />
+        <span className="s-app-52dcac">{notif.message}</span>
         <button
           onClick={onDone}
           aria-label="Close"
-          style={{
-            width: 28, height: 28,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle at 35% 35%, #ffffff, #F5F0E6 55%, #ddd4c8)',
-            border: '1.5px solid rgba(255,255,255,0.6)',
-            boxShadow: '0 3px 8px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.9), inset 0 -1px 2px rgba(0,0,0,0.15)',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-            fontSize: 13,
-            fontWeight: 800,
-            color: bg,
-            transition: 'transform .1s, box-shadow .1s',
-            padding: 0,
-          }}
+          className="s-quickshopmod-0f4f3a" style={ {color: bg} }
           onMouseEnter={e => {
             e.currentTarget.style.transform = 'scale(1.12)';
             e.currentTarget.style.boxShadow = '0 5px 12px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.9), inset 0 -1px 2px rgba(0,0,0,0.15)';
@@ -249,7 +212,7 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     if (entirelyOOS) {
       toast('Out of stock — we\'ll restock soon! 🛍️', {
         icon: '⏳',
-        style: { background: '#6B0F2A', color: '#fff', fontWeight: 600 },
+        style: { background: 'var(--brand)', color: '#fff', fontWeight: 600 },
       });
       return false;
     }
@@ -348,22 +311,12 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
 
   return (
     <>
-      <style>{`
-        @keyframes qs-spin   { to  { transform: rotate(360deg) } }
-        @keyframes qs-in     { from{ opacity:0; transform:scale(.96) } to{ opacity:1; transform:scale(1) } }
-        @keyframes qs-notif-in    { from{ opacity:0; transform:scale(.85) translateY(10px) } to{ opacity:1; transform:scale(1) translateY(0) } }
-        @keyframes qs-notif-bg    { from{ opacity:0 } to{ opacity:1 } }
-      `}</style>
-
       {/* Backdrop */}
-      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999,
-        display:'flex', alignItems:'center', justifyContent:'center', padding:12 }}
+      <div className="s-quickshopmod-f19de9"
         onClick={onClose}>
 
         {/* Modal */}
-        <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:740,
-          maxHeight:'92vh', overflowY:'auto', position:'relative',
-          animation:'qs-in .18s ease', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}
+        <div className="s-quickshopmod-03f3dc"
           onClick={e => e.stopPropagation()}>
 
           {modalNotif && (
@@ -371,56 +324,45 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
           )}
 
           {isLoading && (
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:70 }}>
-              <div style={{ width:36, height:36, border:'3px solid #f0f0f0', borderTopColor:'#6A012A',
-                borderRadius:'50%', animation:'qs-spin .8s linear infinite' }} />
+            <div className="s-quickshopmod-ac7f6f">
+              <div className="s-quickshopmod-f338a2" />
             </div>
           )}
 
           {!isLoading && !product && (
-            <div style={{ padding:50, textAlign:'center', color:'#888' }}>Product not found.</div>
+            <div className="s-quickshopmod-9cdddc">Product not found.</div>
           )}
 
           {!isLoading && product && (
-            <div style={{ display:'flex', flexWrap:'wrap' }}>
+            <div className="s-quickshopmod-c18edd">
 
               {/* ── Left: image gallery ── */}
-              <div style={{ flex:'0 0 280px', padding:'16px 12px 16px 16px' }}
+              <div className="s-quickshopmod-df96a3"
                 onMouseEnter={() => { imgPaused.current = true; }}
                 onMouseLeave={() => { imgPaused.current = false; }}>
-                <div style={{ position:'relative', borderRadius:10, overflow:'hidden',
-                  background:'#f8f8f8', cursor:'pointer', aspectRatio:'3/4' }}
+                <div className="s-quickshopmod-7fa857"
                   onClick={goToDetail}>
                   <img src={images[imgIdx] || '/assets/category-bg.png'} alt={product.name}
-                    style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
+                    className="s-home-5a5ce8"
                     onError={e => { (e.target as HTMLImageElement).src='/assets/category-bg.png'; }} />
                   {images.length > 1 && (<>
                     <button onClick={e => { e.stopPropagation(); setImgIdx(i => (i-1+images.length)%images.length); }}
-                      style={{ position:'absolute', left:6, top:'50%', transform:'translateY(-50%)',
-                        background:'rgba(255,255,255,.9)', border:'none', borderRadius:'50%',
-                        width:28, height:28, cursor:'pointer', fontSize:15, display:'flex',
-                        alignItems:'center', justifyContent:'center' }}>‹</button>
+                      className="s-quickshopmod-5f0de3">‹</button>
                     <button onClick={e => { e.stopPropagation(); setImgIdx(i => (i+1)%images.length); }}
-                      style={{ position:'absolute', right:6, top:'50%', transform:'translateY(-50%)',
-                        background:'rgba(255,255,255,.9)', border:'none', borderRadius:'50%',
-                        width:28, height:28, cursor:'pointer', fontSize:15, display:'flex',
-                        alignItems:'center', justifyContent:'center' }}>›</button>
-                    <div style={{ position:'absolute', bottom:8, left:0, right:0,
-                      display:'flex', justifyContent:'center', gap:5 }}>
+                      className="s-quickshopmod-b53d1b">›</button>
+                    <div className="s-quickshopmod-d50f91">
                       {images.slice(0,6).map((_,i) => (
                         <span key={i} onClick={e => { e.stopPropagation(); setImgIdx(i); }}
-                          style={{ width:6, height:6, borderRadius:'50%', cursor:'pointer',
-                            background:imgIdx===i?'#6A012A':'rgba(255,255,255,.7)' }} />
+                          className="s-quickshopmod-3625b6" style={ {background: imgIdx===i?'var(--brand)':'rgba(255,255,255,.7)'} } />
                       ))}
                     </div>
                   </>)}
                 </div>
                 {images.length > 1 && (
-                  <div style={{ display:'flex', gap:5, marginTop:7, flexWrap:'wrap' }}>
+                  <div className="s-quickshopmod-c5c666">
                     {images.slice(0,5).map((img,i) => (
                       <img key={i} src={img} alt="" onClick={() => setImgIdx(i)}
-                        style={{ width:44, height:54, objectFit:'cover', borderRadius:5, cursor:'pointer',
-                          border:`2px solid ${imgIdx===i?'#6A012A':'transparent'}`, opacity:imgIdx===i?1:.55 }}
+                        className="s-quickshopmod-da4129" style={ {border: `2px solid ${imgIdx===i?'var(--brand)':'transparent'}`, opacity: imgIdx===i?1:.55} }
                         onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
                     ))}
                   </div>
@@ -428,77 +370,57 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
               </div>
 
               {/* ── Right: product info ── */}
-              <div style={{ flex:1, padding:'14px 16px 20px 4px', minWidth:240,
-                display:'flex', flexDirection:'column', gap:10 }}>
+              <div className="s-quickshopmod-4d5c2f">
 
                 {/* Brand + action icons */}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <span style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:.7, fontWeight:600 }}>
+                <div className="s-admininvento-69f9d2">
+                  <span className="s-quickshopmod-ea9de1 s-quickshopmod-e88d07">
                     {product.brandName || 'TWAM'}
                   </span>
-                  <div style={{ display:'flex', gap:6 }}>
+                  <div className="s-adminproduct-6209be">
                     <button onClick={handleWishlist} title={inWishlist ? 'Remove from wishlist' : 'Save to wishlist'}
-                      style={{ background: inWishlist ? 'rgba(107,15,42,0.08)' : 'none',
-                        border: `1px solid ${inWishlist ? '#6B0F2A' : '#eee'}`, borderRadius:'50%', width:30, height:30,
-                        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                        boxShadow: '0 2px 6px rgba(107,15,42,0.10)', transition: 'all .15s',
-                        color: inWishlist ? '#6B0F2A' : '#888' }}>
-                      <i className={`bi ${inWishlist?'bi-heart-fill':'bi-heart'}`} style={{ fontSize:13 }} />
+                      className="s-quickshopmod-d3da6f" style={ {background: inWishlist ? 'rgba(107,15,42,0.08)' : 'none', border: `1px solid ${inWishlist ? 'var(--brand)' : 'var(--ivory)'}`, color: inWishlist ? 'var(--brand)' : 'var(--heirloom)'} }>
+                      <i className={`bi ${inWishlist?'bi-heart-fill':'bi-heart'} s-addresslist-9eec06`} />
                     </button>
                     <button onClick={handleShare} title="Share"
-                      style={{ background:'none', border:'1px solid #eee', borderRadius:'50%', width:30, height:30,
-                        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#888',
-                        boxShadow: '0 2px 6px rgba(107,15,42,0.08)' }}>
-                      <i className="bi bi-share" style={{ fontSize:12 }} />
+                      className="s-quickshopmod-25000d">
+                      <i className="bi bi-share s-couponslist-030edf" />
                     </button>
                     <button onClick={onClose} title="Close"
-                      style={{ background:'none', border:'1px solid #eee', borderRadius:'50%', width:30, height:30,
-                        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#888',
-                        boxShadow: '0 2px 6px rgba(107,15,42,0.08)', transition: 'all .15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.background='#6B0F2A'; e.currentTarget.style.color='#fff'; e.currentTarget.style.borderColor='#6B0F2A'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.color='#888'; e.currentTarget.style.borderColor='#eee'; }}>
-                      <i className="bi bi-x-lg" style={{ fontSize:12 }} />
+                      className="s-quickshopmod-a75fdf"
+                      onMouseEnter={e => { e.currentTarget.style.background='var(--brand)'; e.currentTarget.style.color='#fff'; e.currentTarget.style.borderColor='var(--brand)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.color='var(--heirloom)'; e.currentTarget.style.borderColor='var(--ivory)'; }}>
+                      <i className="bi bi-x-lg s-couponslist-030edf" />
                     </button>
                   </div>
                 </div>
 
                 {/* Name + Rating (always shown even when rating = 0) */}
-                <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                <div className="s-quickshopmod-5f2dac">
                   <h3
                     onClick={goToDetail}
-                    style={{ margin:0, fontSize:17, fontWeight:700, lineHeight:1.3, cursor:'pointer', flex:1 }}>
+                    className="s-quickshopmod-d6ba9e">
                     {product.name}
                   </h3>
 
-                  <div style={{
-                    display:'flex', alignItems:'center', gap:3, flexShrink:0,
-                    background:'#fff8e1', border:'1px solid #ffe082',
-                    borderRadius:20, padding:'4px 10px', marginTop:2,
-                  }}>
+                  <div className="s-quickshopmod-135441">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <i key={i}
-                        className={`bi ${i < Math.floor(product.rating) ? 'bi-star-fill' : i < product.rating ? 'bi-star-half' : 'bi-star'}`}
-                        style={{
-                          fontSize: 10,
-                          color: product.rating > 0 ? '#f4a623' : '#ccc'
-                        }}
+                        className={`bi ${i < Math.floor(product.rating) ? 'bi-star-fill' : i < product.rating ? 'bi-star-half' : 'bi-star'} s-quickshopmod-07332b`} style={ {color: product.rating > 0 ? 'var(--brand)' : 'var(--ivory)'} }
                       />
                     ))}
-                    <span style={{ fontSize:12, fontWeight:700, color:'#795548', marginLeft:2 }}>
+                    <span className="s-quickshopmod-82b278">
                       {Number(product.rating).toFixed(1)}
                     </span>
                   </div>
                 </div>
 
                 {/* Price row */}
-                <div style={{ display:'flex', alignItems:'center', gap:8,
-                  background:'#fdf5f7', border:'1px solid #f0d8df', borderRadius:8,
-                  padding:'7px 12px', alignSelf:'flex-start' }}>
-                  <span style={{ fontSize:19, fontWeight:800, color:'#6A012A' }}>{formatPrice(dispPrice)}</span>
+                <div className="s-quickshopmod-392677">
+                  <span className="s-quickshopmod-4241b5">{formatPrice(dispPrice)}</span>
                   {dispMrp > dispPrice && (<>
-                    <span style={{ fontSize:12, textDecoration:'line-through', color:'#aaa' }}>{formatPrice(dispMrp)}</span>
-                    <span style={{ fontSize:11, background:'#fff3e0', color:'#e65100',
-                      padding:'2px 6px', borderRadius:4, fontWeight:700 }}>
+                    <span className="s-quickshopmod-056d49">{formatPrice(dispMrp)}</span>
+                    <span className="s-quickshopmod-360f44">
                       {Math.round(((dispMrp-dispPrice)/dispMrp)*100)}% OFF
                     </span>
                   </>)}
@@ -507,15 +429,12 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                 {/* Color */}
                 {colors.length > 1 && (
                   <div>
-                    <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#333', textTransform:'uppercase', letterSpacing:.5 }}>Color</p>
-                    <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
+                    <p className="s-quickshopmod-56bf79 s-quickshopmod-d170d8">Color</p>
+                    <div className="s-quickshopmod-70d45f">
                       {colors.map((col: any) => (
                         <button key={col.productVariantId} onClick={() => setVariantId(col.productVariantId)}
                           title={col.colorName ?? col.color}
-                          style={{ width:28, height:28, borderRadius:'50%', background:resolveHex(col.colorHex ?? col.color), cursor:'pointer',
-                            border:`3px solid ${col.productVariantId===variantId?'#6A012A':'transparent'}`,
-                            boxShadow:col.productVariantId===variantId?'0 0 0 2px #6A012A':'0 1px 4px rgba(0,0,0,.2)', padding:0,
-                            transition:'transform .15s', transform:col.productVariantId===variantId?'scale(1.15)':'scale(1)' }} />
+                          className="s-quickshopmod-150a6b" style={{ background: resolveHex(col.colorHex ?? col.color), border: `3px solid ${col.productVariantId===variantId?'var(--brand)':'transparent'}`, boxShadow: col.productVariantId===variantId?'0 0 0 2px #6b0f2a':'0 1px 4px rgba(0,0,0,.2)', transform: col.productVariantId===variantId?'scale(1.15)':'scale(1)' }} />
                       ))}
                     </div>
                   </div>
@@ -523,30 +442,29 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
 
                 {/* Sizes */}
                 <div>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                    <p style={{ margin:0, fontSize:12, fontWeight:700, color:'#111' }}>
+                  <div className="s-quickcart-4b986c">
+                    <p className="s-quickshopmod-faa5e3">
                       Size
                       {selLabel && (
-                        <span style={{ fontWeight:400, color:'#6A012A', marginLeft:6 }}>
+                        <span className="s-quickshopmod-f04ef2">
                           {selLabel}{cupLabel ? ` / ${cupLabel}` : ''}
                           {selStock !== null && !isOOS && (
-                            <span style={{ marginLeft:6, fontSize:11,
-                              color:selStock<=3?'#e65100':'#2e7d32', fontWeight:600 }}>
+                            <span className="s-quickshopmod-b6b997" style={ {color: selStock<=3?'var(--brand)':'var(--brand)'} }>
                               {selStock<=3 ? `(${selStock} left)` : '✓ In stock'}
                             </span>
                           )}
-                          {isOOS && <span style={{ marginLeft:6, fontSize:11, color:'#c62828', fontWeight:600 }}>Out of stock</span>}
+                          {isOOS && <span className="s-quickshopmod-afbaa7">Out of stock</span>}
                         </span>
                       )}
                     </p>
                     <Link to="/size-guide" onClick={onClose}
-                      style={{ fontSize:11, color:'#6A012A', textDecoration:'underline' }}>Size Chart</Link>
+                      className="s-quickshopmod-130dd3">Size Chart</Link>
                   </div>
 
-                  <p style={{ margin:'0 0 6px', fontSize:11, color:'#777' }}>
+                  <p className="s-quickshopmod-53be2b">
                     {hasCupSize ? 'Select your band size:' : 'Select your size:'}
                   </p>
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom: hasCupSize ? 12 : 0 }}>
+                  <div className="s-quickshopmod-9348d3" style={ {marginBottom: hasCupSize ? 12 : 0} }>
                     {allSizes.map((s: any) => (
                       <SizeBtn key={s.sizeId}
                         label={s.sizeLabel} selected={selBandId===s.sizeId}
@@ -557,8 +475,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
 
                   {hasCupSize && allCupSizes.length > 0 && (
                     <>
-                      <p style={{ margin:'0 0 6px', fontSize:11, color:'#777' }}>Select your cup size:</p>
-                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      <p className="s-quickshopmod-53be2b">Select your cup size:</p>
+                      <div className="s-quickshopmod-07988e">
                         {allCupSizes.map((c: any) => {
                           const av = cupAvail(c.cupSizeId);
                           return (
@@ -582,15 +500,11 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                     (!hasCupSize || allCupSizes.every((c: any) => !c.hasStock));
 
                   if (entirelyOOS) return (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      background: '#fff5f5', border: '1.5px solid #f5c6cb',
-                      borderRadius: 8, padding: '10px 14px',
-                    }}>
-                      <i className="bi bi-slash-circle" style={{ fontSize: 20, color: '#c62828', flexShrink: 0 }} />
+                    <div className="s-quickshopmod-f0f929">
+                      <i className="bi bi-slash-circle s-quickshopmod-6a912d" />
                       <div>
-                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#c62828' }}>Out of Stock</p>
-                        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#e57373' }}>We'll be back soon — check again later!</p>
+                        <p className="s-quickshopmod-74fc36">Out of Stock</p>
+                        <p className="s-quickshopmod-295a54">We'll be back soon — check again later!</p>
                       </div>
                     </div>
                   );
@@ -598,25 +512,15 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                   const hasSizes  = allSizes.some((s: any) => s.inVariant);
                   const qtyLocked = hasSizes && selPVDId === null;
                   return (
-                    <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
-                      <div style={{ position: 'relative' }}>
-                        <p style={{ margin:'0 0 5px', fontSize:10, fontWeight:700,
-                          color: qtyLocked ? '#bbb' : '#666',
-                          textTransform:'uppercase', letterSpacing:.4 }}>Qty</p>
-                        <div style={{
-                          display:'flex', alignItems:'center',
-                          border:`1.5px solid ${qtyLocked ? '#eee' : '#ddd'}`,
-                          borderRadius:7, overflow:'hidden', width:96,
-                          background: qtyLocked ? '#fafafa' : '#fff',
-                        }}>
+                    <div className="s-quickshopmod-930e9e">
+                      <div className="s-updateprofil-1d5e50">
+                        <p className="s-quickshopmod-2b6e29" style={ {color: qtyLocked ? 'var(--heirloom)' : 'var(--heirloom)'} }>Qty</p>
+                        <div className="s-quickshopmod-7b2934" style={ {border: `1.5px solid ${qtyLocked ? 'var(--ivory)' : 'var(--ivory)'}`, background: qtyLocked ? 'var(--ivory)' : '#fff'} }>
                           <button
                             disabled={qtyLocked || qty <= 1}
                             onClick={() => setQty(q => Math.max(1, q - 1))}
-                            style={{ flex:1, padding:'6px', border:'none', background:'transparent',
-                              cursor: (qtyLocked || qty <= 1) ? 'not-allowed' : 'pointer',
-                              fontSize:16, color: (qtyLocked || qty <= 1) ? '#ccc' : '#333' }}>−</button>
-                          <span style={{ flex:1, textAlign:'center', fontSize:14,
-                            fontWeight:600, color: qtyLocked ? '#bbb' : '#111' }}>{qty}</span>
+                            className="s-quickshopmod-4b7499" style={{ cursor: (qtyLocked || qty <= 1) ? 'not-allowed' : 'pointer', color: (qtyLocked || qty <= 1) ? 'var(--ivory)' : '#000' }}>−</button>
+                          <span className="s-quickshopmod-c5b4f1" style={ {color: qtyLocked ? 'var(--heirloom)' : '#000000'} }>{qty}</span>
                           <button
                             disabled={qtyLocked}
                             onClick={() => {
@@ -627,24 +531,15 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                               }
                               setQty(q => q + 1);
                             }}
-                            style={{ flex:1, padding:'6px', border:'none', background:'transparent',
-                              cursor: (qtyLocked || (selStock !== null && qty >= selStock)) ? 'not-allowed' : 'pointer',
-                              fontSize:16, color: (qtyLocked || (selStock !== null && qty >= selStock)) ? '#ccc' : '#333' }}>+</button>
+                            className="s-quickshopmod-9562cb" style={{ cursor: (qtyLocked || (selStock !== null && qty >= selStock)) ? 'not-allowed' : 'pointer', color: (qtyLocked || (selStock !== null && qty >= selStock)) ? 'var(--ivory)' : '#000' }}>+</button>
                         </div>
                         {showStockTip && selStock !== null && (
-                          <div style={{
-                            position: 'absolute', top: '100%', left: 0, zIndex: 50,
-                            background: '#fff', border: '1.5px solid #6B0F2A',
-                            borderRadius: 8, padding: '6px 13px', marginTop: 4,
-                            fontSize: 12, fontWeight: 600, color: '#6B0F2A',
-                            boxShadow: '0 4px 14px rgba(107,15,42,.18)',
-                            whiteSpace: 'nowrap', pointerEvents: 'none',
-                          }}>
+                          <div className="s-quickshopmod-7d337a">
                             {selStock} available
                           </div>
                         )}
                         {qtyLocked && (
-                          <p style={{ margin:'4px 0 0', fontSize:10, color:'#e65100', fontWeight:600 }}>
+                          <p className="s-quickshopmod-c3f009">
                             ↑ Select a size first
                           </p>
                         )}
@@ -652,9 +547,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
 
                       {/* Stock status */}
                       {!qtyLocked && selStock !== null && (
-                        <div style={{ paddingTop: 22 }}>
-                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700,
-                            color: isOOS ? '#c62828' : selStock <= 3 ? '#e65100' : '#2e7d32' }}>
+                        <div className="s-quickshopmod-fa18f9">
+                          <p className="s-quickshopmod-41f0a1" style={ {color: isOOS ? 'var(--brand)' : selStock <= 3 ? 'var(--brand)' : 'var(--brand)'} }>
                             {isOOS
                               ? '🚫 Out of stock'
                               : selStock <= 3
@@ -668,39 +562,31 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                 })()}
 
                 {/* CTA buttons */}
-                <div style={{ display:'flex', gap:8, marginTop:'auto', paddingTop:4 }}>
+                <div className="s-quickshopmod-8c2d93">
                   <button onClick={handleAddToCart}
                     disabled={addMut.isPending || isOOS}
-                    style={{ flex:1, background:isOOS?'#ccc':'#6A012A', color:'#fff', border:'none',
-                      padding:'11px 10px', borderRadius:8, cursor:isOOS?'not-allowed':'pointer',
-                      fontSize:13, fontWeight:700, display:'flex', alignItems:'center',
-                      justifyContent:'center', gap:6, fontFamily:'inherit' }}>
+                    className="s-quickshopmod-6cb3ac" style={ {background: isOOS?'var(--ivory)':'var(--brand)', cursor: isOOS?'not-allowed':'pointer'} }>
                     {addMut.isPending
-                      ? <div style={{ width:14, height:14, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'qs-spin .8s linear infinite' }} />
+                      ? <div className="s-quickshopmod-25cf85" />
                       : <i className="bi bi-cart-plus" />}
                     Add to Cart
                   </button>
                   <button onClick={handleBuyNow}
                     disabled={isOOS}
-                    style={{ flex:1, background:isOOS?'#f5f5f5':'#fff',
-                      color:isOOS?'#aaa':'#6A012A',
-                      border:`2px solid ${isOOS?'#eee':'#6A012A'}`,
-                      padding:'11px 10px', borderRadius:8, cursor:isOOS?'not-allowed':'pointer',
-                      fontSize:13, fontWeight:700, display:'flex', alignItems:'center',
-                      justifyContent:'center', gap:6, fontFamily:'inherit' }}>
+                    className="s-quickshopmod-2a0451" style={ {background: isOOS?'var(--ivory)':'#fff', color: isOOS?'var(--heirloom)':'var(--brand)', border: `2px solid ${isOOS?'var(--ivory)':'var(--brand)'}`, cursor: isOOS?'not-allowed':'pointer'} }>
                     <i className="bi bi-lightning-fill" />Buy Now
                   </button>
                 </div>
 
                 {/* Delivery / return info */}
-                <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                  <span style={{ fontSize:11, color:'#555', display:'flex', alignItems:'center', gap:6 }}>
-                    <i className="bi bi-truck" style={{ color:'#2e7d32' }} />
+                <div className="s-quickshopmod-ac060f">
+                  <span className="s-quickshopmod-21de92">
+                    <i className="bi bi-truck s-resetpasswor-ddc1b2" />
                     Free delivery on orders above <strong>₹5000</strong>
                   </span>
                   {product.isReturnAvailable && (
-                    <span style={{ fontSize:11, color:'#555', display:'flex', alignItems:'center', gap:6 }}>
-                      <i className="bi bi-arrow-return-left" style={{ color:'#2e7d32' }} />
+                    <span className="s-quickshopmod-21de92">
+                      <i className="bi bi-arrow-return-left s-resetpasswor-ddc1b2" />
                       Easy returns within 15 days
                     </span>
                   )}

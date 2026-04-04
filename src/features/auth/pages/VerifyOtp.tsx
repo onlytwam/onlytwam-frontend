@@ -122,78 +122,68 @@ export default function VerifyOtp() {
 
   const boxStyle = (filled: boolean, hasError: boolean): React.CSSProperties => ({
     width: 52, height: 60,
-    border: `2px solid ${hasError ? '#e53935' : filled ? '#6A012A' : '#ddd'}`,
+    border: `2px solid ${hasError ? 'var(--brand)' : filled ? 'var(--brand)' : 'var(--ivory)'}`,
     borderRadius: 10,
     fontSize: 24,
     fontWeight: 700,
     textAlign: 'center',
     outline: 'none',
-    background: filled ? '#fdf3f6' : '#fafafa',
-    color: '#1a1a1a',
+    background: filled ? 'var(--ivory)' : 'var(--ivory)',
+    color: '#000000',
     transition: 'border-color 0.15s, background 0.15s',
-    caretColor: '#6A012A',
+    caretColor: 'var(--brand)',
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="s-login-2bb036">
       {/* Left — image */}
-      <div className="d-none d-md-flex" style={{ flex: '0 0 44%', overflow: 'hidden', position: 'relative' }}>
+      <div className="d-none d-md-flex s-login-2da0c0">
         <img
           src="/assets/images/forgot-bg.jpg"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          className="s-userdashboar-4ebae2"
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           alt=""
         />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(135deg, rgba(106,1,42,0.55) 0%, rgba(0,0,0,0.25) 100%)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-          padding: '48px 40px',
-        }}>
-          <p style={{ color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+        <div className="s-verifyotp-c6d041">
+          <p className="s-verifyotp-d4225b">
             Check your inbox — your code is waiting.
           </p>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+          <p className="s-verifyotp-8b64e1">
             Only TWAM — Crafted with love.
           </p>
         </div>
       </div>
 
       {/* Right — form */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', background: '#fff' }}>
-        <div style={{ width: '100%', maxWidth: 420 }}>
+      <div className="s-login-5c2ebc">
+        <div className="s-resetpasswor-4c6092">
 
-          <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', textDecoration: 'none', marginBottom: 24 }}>
+          <Link to="/login" className="s-login-0aef96">
             <i className="bi bi-arrow-left" /> Back to Sign In
           </Link>
 
           {/* Logo */}
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" style={{ height: 46 }}
+          <div className="s-login-9aad3d">
+            <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" className="s-login-cd2062"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
 
           {/* Icon + heading */}
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{
-              width: 68, height: 68, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6A012A, #b0003a)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px', boxShadow: '0 4px 16px rgba(106,1,42,0.25)',
-            }}>
-              <i className="bi bi-shield-lock" style={{ fontSize: 30, color: '#fff' }} />
+          <div className="s-login-9aad3d">
+            <div className="s-verifyotp-f5c8cb">
+              <i className="bi bi-shield-lock s-verifyotp-0f59f9" />
             </div>
-            <h5 style={{ fontWeight: 700, marginBottom: 6 }}>Verify Your Email</h5>
-            <p style={{ color: '#888', fontSize: 14, margin: 0 }}>
+            <h5 className="s-login-b4f13d">Verify Your Email</h5>
+            <p className="s-resetpasswor-4c0ccf">
               We sent a {OTP_LENGTH}-digit code to
             </p>
-            <p style={{ color: '#6A012A', fontWeight: 600, fontSize: 14, marginTop: 2 }}>
+            <p className="s-verifyotp-c35bd3">
               {email || 'your email'}
             </p>
           </div>
 
           {/* OTP boxes */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 8 }} onPaste={handlePaste}>
+          <div className="s-verifyotp-482e19" onPaste={handlePaste}>
             {digits.map((digit, i) => (
               <input
                 key={i}
@@ -211,7 +201,7 @@ export default function VerifyOtp() {
 
           {/* Error */}
           {error && (
-            <p style={{ color: '#e53935', fontSize: 12, textAlign: 'center', marginBottom: 12 }}>
+            <p className="s-verifyotp-7770fc">
               <i className="bi bi-exclamation-circle me-1" />{error}
             </p>
           )}
@@ -220,12 +210,7 @@ export default function VerifyOtp() {
           <button
             onClick={handleVerify}
             disabled={loading}
-            style={{
-              width: '100%', background: '#6A012A', color: '#fff', border: 'none',
-              padding: 14, borderRadius: 8, fontWeight: 700, fontSize: 15,
-              cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
-              marginTop: 8, fontFamily: 'inherit',
-            }}
+            className="s-verifyotp-0ec883" style={ {cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1} }
           >
             {loading
               ? <><span className="spinner-border spinner-border-sm me-2" />Verifying…</>
@@ -234,14 +219,14 @@ export default function VerifyOtp() {
           </button>
 
           {/* Resend */}
-          <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#888' }}>
+          <p className="s-verifyotp-5ec9a3">
             Didn't receive the code?{' '}
             {resendSec > 0 ? (
-              <span style={{ color: '#aaa' }}>Resend in {resendSec}s</span>
+              <span className="s-adminbrands-95b451">Resend in {resendSec}s</span>
             ) : (
               <button
                 onClick={handleResend}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6A012A', fontWeight: 700, fontSize: 13 }}
+                className="s-verifyotp-85105f"
               >
                 Resend OTP
               </button>
@@ -249,21 +234,16 @@ export default function VerifyOtp() {
           </p>
 
           {/* Progress indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginTop: 28 }}>
+          <div className="s-resetpasswor-cb112e">
             {['Enter Email', 'Verify OTP', 'New Password'].map((step, i) => (
-              <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: '50%',
-                  background: i === 1 ? '#6A012A' : i === 0 ? '#d4a0b0' : '#eee',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, color: i <= 1 ? '#fff' : '#aaa', fontWeight: 600,
-                }}>
-                  {i === 0 ? <i className="bi bi-check" style={{ fontSize: 13 }} /> : i + 1}
+              <div key={step} className="s-resetpasswor-6e6177">
+                <div className="s-verifyotp-366f20" style={ {background: i === 1 ? 'var(--brand)' : i === 0 ? 'var(--heirloom)' : 'var(--ivory)', color: i <= 1 ? '#fff' : 'var(--heirloom)'} }>
+                  {i === 0 ? <i className="bi bi-check s-addresslist-9eec06" /> : i + 1}
                 </div>
-                <span style={{ fontSize: 11, color: i === 1 ? '#6A012A' : '#aaa', fontWeight: i === 1 ? 600 : 400 }}>
+                <span className="s-verifyotp-202412" style={ {color: i === 1 ? 'var(--brand)' : 'var(--heirloom)', fontWeight: i === 1 ? 600 : 400} }>
                   {step}
                 </span>
-                {i < 2 && <div style={{ width: 24, height: 1, background: '#eee' }} />}
+                {i < 2 && <div className="s-resetpasswor-8f54ef" />}
               </div>
             ))}
           </div>

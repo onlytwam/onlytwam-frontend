@@ -146,30 +146,29 @@ function AutoBreadcrumb() {
 }
 
 const MainLayout = () => (
-  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+  <div className="s-app-22e1be">
     <AdminBar />
     <Navbar />
     <AutoBreadcrumb />
-    <main style={{ flex: 1 }}><Outlet /></main>
+    <main className="s-app-52dcac"><Outlet /></main>
     <Footer />
   </div>
 );
 
 // Simple layout wrapper for standalone pages that need Navbar/Footer but not ProfileLayout
 const SimpleLayout = () => (
-  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+  <div className="s-app-22e1be">
     <AdminBar />
     <Navbar />
-    <main style={{ flex: 1, padding: '24px 0' }}><Outlet /></main>
+    <main className="s-app-beb4d1"><Outlet /></main>
     <Footer />
   </div>
 );
 
 const PageLoader = () => (
-  <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <div style={{ width: 40, height: 40, border: '4px solid #f0f0f0', borderTopColor: '#111', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
-    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-  </div>
+  <div className="s-app-6f11a1">
+    <div className="s-app-090d50" />
+    </div>
 );
 
 export default function App() {

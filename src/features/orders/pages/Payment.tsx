@@ -87,12 +87,12 @@ export default function Payment() {
   };
 
   return (
-    <div className="container" style={{ padding: '32px 16px' }}>
+    <div className="container s-orderdetails-c93f0f">
       {/* Breadcrumb */}
-      <div className="d-flex align-items-center gap-2 mb-4" style={{ fontSize: 13, color: '#888' }}>
-        <span style={{ cursor: 'pointer', color: '#555' }} onClick={() => navigate('/user-products/payment-address')}>Address</span>
+      <div className="d-flex align-items-center gap-2 mb-4 s-quickcart-08341f">
+        <span className="s-payment-2ac9d6" onClick={() => navigate('/user-products/payment-address')}>Address</span>
         <i className="bi bi-chevron-right" />
-        <span style={{ cursor: 'pointer', color: '#555' }} onClick={() => navigate('/user-products/shipping-option')}>Shipping</span>
+        <span className="s-payment-2ac9d6" onClick={() => navigate('/user-products/shipping-option')}>Shipping</span>
         <i className="bi bi-chevron-right" />
         <span className="fw-bold text-dark">Payment</span>
       </div>
@@ -108,10 +108,10 @@ export default function Payment() {
                 <button onClick={() => navigate('/user-products/payment-address')}
                   className="btn btn-sm btn-link p-0 text-dark">Change</button>
               </div>
-              <p className="mb-0 fw-semibold" style={{ fontSize: 14 }}>{deliveryAddress.name}</p>
+              <p className="mb-0 fw-semibold s-addresslist-92985e">{deliveryAddress.name}</p>
               {/* FIX: use correct backend fields — no .state, no .mobileNumber */}
-              <p className="mb-0 text-muted" style={{ fontSize: 13 }}>{addrLine}</p>
-              <p className="mb-0 text-muted" style={{ fontSize: 13 }}>{deliveryAddress.phone}</p>
+              <p className="mb-0 text-muted s-addresslist-9eec06">{addrLine}</p>
+              <p className="mb-0 text-muted s-addresslist-9eec06">{deliveryAddress.phone}</p>
             </div>
           )}
 
@@ -119,24 +119,15 @@ export default function Payment() {
           <h6 className="mb-3">Payment Method</h6>
           {PAYMENT_METHODS.map(m => (
             <div key={m.id} onClick={() => setPaymentMethod(m.id)}
-              style={{
-                border: `2px solid ${paymentMethod === m.id ? '#111' : '#eee'}`,
-                borderRadius: 8, padding: 14, marginBottom: 10, cursor: 'pointer',
-                background: paymentMethod === m.id ? '#f9f9f9' : '#fff', transition: 'all .2s',
-              }}>
+              className="s-payment-f22545" style={ {border: `2px solid ${paymentMethod === m.id ? '#000000' : 'var(--ivory)'}`, background: paymentMethod === m.id ? 'var(--ivory)' : '#fff'} }>
               <div className="d-flex align-items-center gap-3">
-                <div style={{
-                  width: 18, height: 18, borderRadius: '50%',
-                  border: `2px solid ${paymentMethod === m.id ? '#111' : '#ccc'}`,
-                  background: paymentMethod === m.id ? '#111' : '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  {paymentMethod === m.id && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+                <div className="s-payment-46e910" style={ {border: `2px solid ${paymentMethod === m.id ? '#000000' : 'var(--ivory)'}`, background: paymentMethod === m.id ? '#000000' : '#fff'} }>
+                  {paymentMethod === m.id && <div className="s-payment-108f10" />}
                 </div>
-                <i className={`bi ${m.icon}`} style={{ fontSize: 20, color: '#555' }} />
+                <i className={`bi ${m.icon} s-payment-bbcbc9`} />
                 <div>
-                  <p className="mb-0 fw-semibold" style={{ fontSize: 14 }}>{m.label}</p>
-                  <p className="mb-0 text-muted" style={{ fontSize: 12 }}>{m.desc}</p>
+                  <p className="mb-0 fw-semibold s-addresslist-92985e">{m.label}</p>
+                  <p className="mb-0 text-muted s-couponslist-030edf">{m.desc}</p>
                 </div>
               </div>
             </div>
@@ -145,9 +136,9 @@ export default function Payment() {
           {/* WhatsApp toggle */}
           <div className="d-flex align-items-center gap-2 pt-3 mt-2 border-top">
             <input type="checkbox" id="whatsapp" checked={isWhatsapp}
-              onChange={e => setIsWhatsapp(e.target.checked)} style={{ width: 16, height: 16 }} />
-            <label htmlFor="whatsapp" style={{ fontSize: 13, cursor: 'pointer', color: '#555' }}>
-              <i className="bi bi-whatsapp" style={{ color: '#25D366', marginRight: 6 }} />
+              onChange={e => setIsWhatsapp(e.target.checked)} className="s-addressform-040894" />
+            <label htmlFor="whatsapp" className="s-payment-56b375">
+              <i className="bi bi-whatsapp s-payment-fdac66" />
               Send order updates via WhatsApp
             </label>
           </div>
@@ -155,18 +146,18 @@ export default function Payment() {
 
         {/* Right — summary */}
         <div className="col-lg-4">
-          <div className="border rounded p-4 position-sticky" style={{ top: 80 }}>
+          <div className="border rounded p-4 position-sticky s-payment-429933">
             <h6 className="mb-3 fw-bold">Order Summary</h6>
-            <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 12 }}>
+            <div className="s-payment-726fa8">
               {selectedItems.map((item: any, i: number) => (
                 <div key={i} className="d-flex gap-2 mb-2">
                   <img src={getImageUrl(item.image)} alt={item.productName}
-                    style={{ width: 46, height: 56, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                    className="s-payment-c643bf"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <div>
-                    <p className="mb-0" style={{ fontSize: 13, fontWeight: 500 }}>{item.productName || item.name}</p>
-                    {item.size && <p className="mb-0 text-muted" style={{ fontSize: 11 }}>Size: {item.size}</p>}
-                    <p className="mb-0" style={{ fontSize: 13, fontWeight: 600 }}>
+                    <p className="mb-0 s-cart-d5c56b">{item.productName || item.name}</p>
+                    {item.size && <p className="mb-0 text-muted s-addresslist-2c42ad">Size: {item.size}</p>}
+                    <p className="mb-0 s-userdashboar-4adb1b">
                       ₹{(item.finalPrice * (item.processedQuantity || 1)).toLocaleString('en-IN')} × {item.processedQuantity || 1}
                     </p>
                   </div>
@@ -181,24 +172,23 @@ export default function Payment() {
               ...(couponDiscount > 0 ? [{ label: 'Coupon', value: `−₹${couponDiscount.toLocaleString('en-IN')}`, green: true }] : []),
             ].map(({ label, value, green }: any) => (
               <div key={label} className="d-flex justify-content-between mb-1">
-                <span className="text-muted" style={{ fontSize: 13 }}>{label}</span>
-                <span style={{ fontSize: 13, color: green ? '#16a34a' : '#111' }}>{value}</span>
+                <span className="text-muted s-addresslist-9eec06">{label}</span>
+                <span className="s-payment-05b8b4" style={ {color: green ? 'var(--brand)' : '#000000'} }>{value}</span>
               </div>
             ))}
             <hr />
-            <div className="d-flex justify-content-between fw-bold mb-3" style={{ fontSize: 16 }}>
+            <div className="d-flex justify-content-between fw-bold mb-3 s-userdashboar-c14ee8">
               <span>Total Payable</span>
               <span>₹{totalPayable.toLocaleString('en-IN')}</span>
             </div>
             <button onClick={handlePlaceOrder}
               disabled={orderMutation.isPending || selectedItems.length === 0}
-              className="btn btn-dark w-100 d-flex align-items-center justify-content-center gap-2"
-              style={{ padding: 14, fontSize: 15, fontWeight: 700, opacity: orderMutation.isPending ? 0.7 : 1 }}>
+              className="btn btn-dark w-100 d-flex align-items-center justify-content-center gap-2 s-payment-702916" style={ {opacity: orderMutation.isPending ? 0.7 : 1} }>
               {orderMutation.isPending
                 ? <><span className="spinner-border spinner-border-sm" />Placing Order…</>
                 : <><i className="bi bi-bag-check" />Place Order</>}
             </button>
-            <p className="text-center text-muted mt-2 mb-0" style={{ fontSize: 11 }}>
+            <p className="text-center text-muted mt-2 mb-0 s-addresslist-2c42ad">
               <i className="bi bi-shield-check me-1" />Secure & encrypted checkout
             </p>
           </div>

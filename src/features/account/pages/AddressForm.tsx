@@ -14,11 +14,6 @@ const emptyForm = {
   addressType: 'Home', isDefault: false,
 };
 
-const inp: React.CSSProperties = {
-  width: '100%', padding: '11px 14px', border: '1px solid #ddd', borderRadius: 8,
-  fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-};
-const errSt: React.CSSProperties = { color: '#e53935', fontSize: 12, marginTop: 3 };
 
 export default function AddressForm() {
   const navigate = useNavigate();
@@ -100,67 +95,67 @@ export default function AddressForm() {
       ]} />
       <div>
       {/* Back + title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+      <div className="s-addressform-bafc04">
         <button onClick={() => navigate('/account/address-list')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#555', padding: 0 }}>
+          className="s-addressform-be2487">
           <i className="bi bi-arrow-left" />
         </button>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
+        <h2 className="s-addressform-638cea">
           {isEdit ? 'Edit Address' : 'Add New Address'}
         </h2>
       </div>
 
-      <div style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="s-addressform-b04dc9">
 
         {/* Full name */}
         <div>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Full Name *</label>
-          <input value={form.name} onChange={e => set('name', e.target.value)} style={inp} placeholder="Full name" />
-          {errors.name && <p style={errSt}>{errors.name}</p>}
+          <label className="s-addressform-f1fb64">Full Name *</label>
+          <input value={form.name} onChange={e => set('name', e.target.value)} className="inp-field" placeholder="Full name" />
+          {errors.name && <p className="auth-err-text">{errors.name}</p>}
         </div>
 
         {/* Mobile */}
         <div>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Mobile Number *</label>
-          <input value={form.phone} onChange={e => set('phone', e.target.value)} style={inp} placeholder="10-digit mobile number" maxLength={10} />
-          {errors.phone && <p style={errSt}>{errors.phone}</p>}
+          <label className="s-addressform-f1fb64">Mobile Number *</label>
+          <input value={form.phone} onChange={e => set('phone', e.target.value)} className="inp-field" placeholder="10-digit mobile number" maxLength={10} />
+          {errors.phone && <p className="auth-err-text">{errors.phone}</p>}
         </div>
 
         {/* Address line */}
         <div>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Address Line *</label>
-          <input value={form.addressLine} onChange={e => set('addressLine', e.target.value)} style={inp} placeholder="House no., building, street, area" />
-          {errors.addressLine && <p style={errSt}>{errors.addressLine}</p>}
+          <label className="s-addressform-f1fb64">Address Line *</label>
+          <input value={form.addressLine} onChange={e => set('addressLine', e.target.value)} className="inp-field" placeholder="House no., building, street, area" />
+          {errors.addressLine && <p className="auth-err-text">{errors.addressLine}</p>}
         </div>
 
         {/* Locality */}
         <div>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Locality / Landmark</label>
-          <input value={form.locality} onChange={e => set('locality', e.target.value)} style={inp} placeholder="Near landmark or area name" />
+          <label className="s-addressform-f1fb64">Locality / Landmark</label>
+          <input value={form.locality} onChange={e => set('locality', e.target.value)} className="inp-field" placeholder="Near landmark or area name" />
         </div>
 
         {/* City + Pincode */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="s-addressform-cdfbe9">
           <div>
-            <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>City *</label>
-            <input value={form.city} onChange={e => set('city', e.target.value)} style={inp} placeholder="City" />
-            {errors.city && <p style={errSt}>{errors.city}</p>}
+            <label className="s-addressform-f1fb64">City *</label>
+            <input value={form.city} onChange={e => set('city', e.target.value)} className="inp-field" placeholder="City" />
+            {errors.city && <p className="auth-err-text">{errors.city}</p>}
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>Pincode *</label>
-            <input value={form.pinCode} onChange={e => set('pinCode', e.target.value)} style={inp} placeholder="6-digit pincode" maxLength={6} />
-            {errors.pinCode && <p style={errSt}>{errors.pinCode}</p>}
+            <label className="s-addressform-f1fb64">Pincode *</label>
+            <input value={form.pinCode} onChange={e => set('pinCode', e.target.value)} className="inp-field" placeholder="6-digit pincode" maxLength={6} />
+            {errors.pinCode && <p className="auth-err-text">{errors.pinCode}</p>}
           </div>
         </div>
 
         {/* State */}
         {states.length > 0 && (
           <div>
-            <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 5 }}>State</label>
+            <label className="s-addressform-f1fb64">State</label>
             <select
               value={form.stateId ?? ''}
               onChange={e => set('stateId', e.target.value ? Number(e.target.value) : null)}
-              style={{ ...inp, cursor: 'pointer', background: '#fff' }}
+              className="inp-field s-addressform-ebd15a"
             >
               <option value="">Select State</option>
               {states.map((s: any) => (
@@ -172,21 +167,15 @@ export default function AddressForm() {
 
         {/* Address type */}
         <div>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 8 }}>Address Type</label>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <label className="s-addressform-dd104a">Address Type</label>
+          <div className="s-addressform-be0342">
             {['Home', 'Work'].map(t => (
-              <label key={t} style={{
-                display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14,
-                padding: '8px 16px', borderRadius: 8,
-                border: `2px solid ${form.addressType === t ? '#6A012A' : '#ddd'}`,
-                background: form.addressType === t ? '#fff5f5' : '#fff',
-                color: form.addressType === t ? '#6A012A' : '#555',
-              }}>
+              <label key={t} className="s-addressform-e997cd" style={ {border: `2px solid ${form.addressType === t ? 'var(--brand)' : 'var(--ivory)'}`, background: form.addressType === t ? 'var(--ivory)' : '#fff', color: form.addressType === t ? 'var(--brand)' : 'var(--heirloom)'} }>
                 <input
                   type="radio" name="addressType" value={t}
                   checked={form.addressType === t}
                   onChange={() => set('addressType', t)}
-                  style={{ display: 'none' }}
+                  className="s-addressform-8251cb"
                 />
                 <i className={`bi ${t === 'Home' ? 'bi-house-door' : 'bi-briefcase'}`} />
                 {t}
@@ -196,32 +185,27 @@ export default function AddressForm() {
         </div>
 
         {/* Default toggle */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14 }}>
+        <label className="s-addressform-b28077">
           <input
             type="checkbox"
             checked={form.isDefault}
             onChange={e => set('isDefault', e.target.checked)}
-            style={{ width: 16, height: 16 }}
+            className="s-addressform-040894"
           />
           Set as default address
         </label>
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+        <div className="s-addressform-4a7f76">
           <button
             onClick={() => navigate('/account/address-list')}
-            style={{ flex: 1, padding: '12px', border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer', fontSize: 14, background: '#fff', fontFamily: 'inherit' }}>
+            className="s-addressform-3fedb2">
             Cancel
           </button>
           <button
             onClick={() => { if (validate()) saveMutation.mutate(); }}
             disabled={saveMutation.isPending}
-            style={{
-              flex: 2, padding: '12px', background: '#6A012A', color: '#fff',
-              border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14,
-              fontWeight: 600, fontFamily: 'inherit',
-              opacity: saveMutation.isPending ? 0.7 : 1,
-            }}>
+            className="s-addressform-54d247" style={ {opacity: saveMutation.isPending ? 0.7 : 1} }>
             {saveMutation.isPending ? 'Saving…' : isEdit ? 'Update Address' : 'Save Address'}
           </button>
         </div>

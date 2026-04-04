@@ -48,12 +48,8 @@ function SaveForLater({ item, onRemoveFromCart }: { item: any; onRemoveFromCart:
     <button
       onClick={handleSaveForLater}
       title="Save for later"
-      style={{ background: 'none', border: 'none', cursor: 'pointer',
-        color: 'var(--heirloom)', fontSize: 12, padding: 0,
-        display: 'flex', alignItems: 'center', gap: 3,
-        fontFamily: 'inherit', whiteSpace: 'nowrap',
-        textDecoration: 'underline', textUnderlineOffset: 2 }}>
-      <i className="bi bi-bookmark" style={{ fontSize: 13 }} />
+      className="s-cart-be1587">
+      <i className="bi bi-bookmark s-addresslist-9eec06" />
       Save for later
     </button>
   );
@@ -208,20 +204,19 @@ export default function Cart() {
   };
 
   if (isLoading) return (
-    <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
-      <div className="spinner-border" style={{ color: 'var(--brand)' }} />
+    <div className="d-flex justify-content-center align-items-center s-cart-cd9eb3">
+      <div className="spinner-border s-cart-8398cc" />
     </div>
   );
 
   if (cartItems.length === 0) return (
     <div className="container py-5">
-      <div className="d-flex flex-column align-items-center" style={{ minHeight: 300 }}>
-        <i className="bi bi-cart-x" style={{ fontSize: 64, color: '#ddd' }} />
+      <div className="d-flex flex-column align-items-center s-cart-cd9eb3">
+        <i className="bi bi-cart-x s-cart-b5dbda" />
         <h5 className="mt-4 text-muted">Your cart is empty</h5>
         <p className="text-muted">Looks like you haven't added anything yet.</p>
         <button onClick={() => navigate(prevPath)}
-          style={{ background: 'var(--brand)', color: '#fff', padding: '10px 28px', borderRadius: 4,
-            border: 'none', cursor: 'pointer', marginTop: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+          className="s-cart-289753">
           ← Continue Shopping
         </button>
       </div>
@@ -231,13 +226,13 @@ export default function Cart() {
   return (
     <>
       <Breadcrumb items={cartCrumbs} />
-      <div className="container" style={{ paddingTop: 24, paddingBottom: 32 }}>
+      <div className="container s-cart-2eb199">
 
         {/* ── Select All row ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div className="s-cart-1fdbde">
           <input type="checkbox" checked={allSelected} onChange={toggleAll}
-            style={{ width: 16, height: 16, accentColor: 'var(--brand)', cursor: 'pointer' }} />
-          <span style={{ fontSize: 13, color: '#555' }}>
+            className="s-cart-f71922" />
+          <span className="s-quickcart-08341f">
             Select All ({selectedItems.length}/{cartItems.length})
           </span>
         </div>
@@ -247,92 +242,83 @@ export default function Cart() {
           <div className="col-lg-8">
             {cartItems.map((item: any) => (
               <div key={item.cartId ?? item.productVariantId}
-                style={{ border: '1px solid #eee', borderRadius: 8, padding: '14px 16px', marginBottom: 12,
-                  background: item.isSelected ? 'rgba(107,15,42,0.03)' : '#fff',
-                  display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                className="s-cart-100fbc" style={ {background: item.isSelected ? 'rgba(107,15,42,0.03)' : '#fff'} }>
 
                 <input type="checkbox" checked={!!item.isSelected} onChange={() => toggleSelect(item)}
-                  style={{ width: 16, height: 16, marginTop: 6, accentColor: 'var(--brand)', flexShrink: 0, cursor: 'pointer' }} />
+                  className="s-cart-d8c8fe" />
 
                 {/* Clickable image */}
                 <img
                   src={getImageUrl(item.image || item.imageURL)}
                   alt={item.productName || item.name || ''}
                   onClick={() => navigate(`/user-products/product-detail/${item.productVariantId}/${slugify(item.productName || item.name || '')}`)}
-                  style={{ width: 80, height: 96, objectFit: 'cover', borderRadius: 6, flexShrink: 0, cursor: 'pointer' }}
+                  className="s-cart-c9a7a1"
                   onError={e => { (e.target as HTMLImageElement).src = '/assets/category-bg.png'; }}
                 />
 
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="s-userdashboar-7aa8c4">
                   {/* Name + Brand */}
-                  <h6 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#111', lineHeight: 1.3 }}>
+                  <h6 className="s-cart-04af82">
                     {item.productName || item.name}
                     {item.brandName && (
-                      <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--heirloom)', marginLeft: 6 }}>
+                      <span className="s-cart-9a8498">
                         ({item.brandName})
                       </span>
                     )}
                   </h6>
 
                   {/* Color + Size */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 14px', marginBottom: 8 }}>
+                  <div className="s-cart-0e031f">
                     {(item.colorName || item.color) && (
-                      <span style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span style={{ width: 13, height: 13, borderRadius: '50%',
-                          background: resolveHex(item.colorHex ?? item.color),
-                          border: '1px solid rgba(0,0,0,.15)', display: 'inline-block', flexShrink: 0 }} />
+                      <span className="s-cart-c8ff6d">
+                        <span className="s-cart-552e26" style={{ background: resolveHex(item.colorHex ?? item.color) }} />
                         {item.colorName ?? item.color}
                       </span>
                     )}
                     {(item.size || item.bandSize) && (
-                      <span style={{ fontSize: 12, color: '#666' }}>Band Size: <strong>{item.size || item.bandSize}</strong></span>
+                      <span className="s-adminnewslet-f01220">Band Size: <strong>{item.size || item.bandSize}</strong></span>
                     )}
                     {item.cupSize && (
-                      <span style={{ fontSize: 12, color: '#666' }}>Cup Size: <strong>{item.cupSize}</strong></span>
+                      <span className="s-adminnewslet-f01220">Cup Size: <strong>{item.cupSize}</strong></span>
                     )}
                   </div>
 
                   {/* Quantity */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: '#666' }}>Quantity:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #ddd', borderRadius: 4 }}>
+                  <div className="s-adminbar-877368">
+                    <span className="s-adminnewslet-f01220">Quantity:</span>
+                    <div className="s-cart-13c6e0">
                       <button onClick={() => handleQtyChange(item, (item.processedQuantity || 1) - 1)}
-                        style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', fontSize: 16,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                      <span style={{ width: 28, textAlign: 'center', fontSize: 13 }}>{item.processedQuantity || 1}</span>
+                        className="s-cart-bbdb9d">−</button>
+                      <span className="s-cart-686e55">{item.processedQuantity || 1}</span>
                       <button onClick={() => handleQtyChange(item, (item.processedQuantity || 1) + 1)}
-                        style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', fontSize: 16,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                        className="s-cart-bbdb9d">+</button>
                     </div>
                   </div>
                 </div>
 
                 {/* Right: price + save + delete */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--brand)' }}>
+                <div className="s-cart-4c5975">
+                  <span className="s-cart-abec22">
                     ₹{((item.finalPrice || 0) * (item.processedQuantity || 1)).toLocaleString('en-IN')}
                   </span>
                   {item.mrpPrice && item.mrpPrice > item.finalPrice && (
-                    <span style={{ fontSize: 12, color: '#aaa', textDecoration: 'line-through' }}>
+                    <span className="s-cart-c7ed91">
                       ₹{(item.mrpPrice * (item.processedQuantity || 1)).toLocaleString('en-IN')}
                     </span>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="s-adminbar-877368">
                     <SaveForLater item={item} onRemoveFromCart={() => handleRemove(item)} />
                     <button onClick={() => handleRemove(item)} title="Remove"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--blush)', fontSize: 18, padding: 0, lineHeight: 1 }}>✕</button>
+                      className="s-cart-f7fc7f">✕</button>
                   </div>
                 </div>
               </div>
             ))}
 
             {/* Clear Cart — centered below items */}
-            <div style={{ textAlign: 'center', marginTop: 4 }}>
+            <div className="s-cart-7a55d6">
               <button onClick={handleClearCart}
-                style={{ background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--heirloom)', fontSize: 13, fontFamily: 'inherit',
-                  textDecoration: 'underline', padding: 0 }}>
+                className="s-cart-eda0e1">
                 Clear Shopping Cart
               </button>
             </div>
@@ -340,61 +326,57 @@ export default function Cart() {
 
           {/* ── Right: Order Summary ── */}
           <div className="col-lg-4">
-            <div style={{ border: '1px solid #eee', borderRadius: 8, padding: 20, position: 'sticky', top: 170 }}>
+            <div className="s-cart-a4c113">
 
               {/* Coupon */}
-              <h6 style={{ fontWeight: 700, marginBottom: 12 }}>Apply Coupon Code</h6>
+              <h6 className="s-cart-d1f5ec">Apply Coupon Code</h6>
               {appliedCoupon ? (
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6,
-                  padding: '8px 12px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+                <div className="s-cart-1914b7">
+                  <span className="s-cart-1c5a85">
                     {(appliedCoupon as any).couponCode} applied
                   </span>
                   <button onClick={removeCoupon}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--blush)', fontSize: 18, padding: 0 }}>✕</button>
+                    className="s-cart-3ecda7">✕</button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <div className="s-cart-e57b74">
                   <input
                     value={couponInput}
                     onChange={e => setCouponInput(e.target.value.toUpperCase())}
                     onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
                     placeholder="Coupon code"
-                    style={{ flex: 1, padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4,
-                      fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                    className="s-cart-d635cd"
                   />
                   <button onClick={handleApplyCoupon}
-                    style={{ background: 'var(--brand)', color: '#fff', border: 'none', padding: '8px 16px',
-                      borderRadius: 4, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 700 }}>
+                    className="s-cart-6ee566">
                     Apply
                   </button>
                 </div>
               )}
 
-              <hr style={{ margin: '0 0 14px' }} />
-              <h6 style={{ fontWeight: 700, marginBottom: 12 }}>Order Summary</h6>
+              <hr className="s-cart-0ff409" />
+              <h6 className="s-cart-d1f5ec">Order Summary</h6>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 13, color: '#555' }}>
+              <div className="s-cart-1e2460">
+                <span className="s-quickcart-08341f">
                   Subtotal ({selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} · {selectedItems.reduce((s,i) => s + (i.processedQuantity || 1), 0)} qty)
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>₹{subTotal.toLocaleString('en-IN')}.00</span>
+                <span className="s-cart-d5c56b">₹{subTotal.toLocaleString('en-IN')}.00</span>
               </div>
-              <p style={{ fontSize: 12, color: '#888', margin: '4px 0 8px', fontStyle: 'italic' }}>
+              <p className="s-cart-a8f4aa">
                 GST and shipping calculated at checkout
               </p>
 
               {couponDiscount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: '#15803d' }}>Coupon Discount</span>
-                  <span style={{ fontSize: 13, color: '#15803d', fontWeight: 600 }}>− ₹{couponDiscount.toLocaleString('en-IN')}</span>
+                <div className="s-userdashboar-474527">
+                  <span className="s-cart-83be37">Coupon Discount</span>
+                  <span className="s-cart-1c5a85">− ₹{couponDiscount.toLocaleString('en-IN')}</span>
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '12px 0 16px',
-                borderTop: '1px solid #eee', paddingTop: 12 }}>
-                <span style={{ fontSize: 15, fontWeight: 700 }}>Total</span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--brand)' }}>
+              <div className="s-cart-5258c8">
+                <span className="s-cart-4d546e">Total</span>
+                <span className="s-cart-7977ea">
                   ₹{totalPayable.toLocaleString('en-IN')}
                 </span>
               </div>
@@ -403,37 +385,30 @@ export default function Cart() {
               <>
                 {isAuth ? (
                   <button onClick={handleCheckout}
-                    style={{ width: '100%', background: 'var(--brand)', color: '#fff', border: 'none',
-                      padding: '13px', borderRadius: 8, cursor: 'pointer', fontSize: 15,
-                      fontWeight: 700, fontFamily: 'inherit' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#A84C6B')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '#6A012A')}>
+                    className="s-cart-769238"
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--blush)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'var(--brand)')}>
                     Checkout Order →
                   </button>
                 ) : (
                   <button onClick={handleCheckout}
-                    style={{ width: '100%', background: 'var(--brand)', color: '#fff', border: 'none',
-                      padding: '13px', borderRadius: 8, cursor: 'pointer', fontSize: 15,
-                      fontWeight: 700, fontFamily: 'inherit' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#A84C6B')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '#6A012A')}>
+                    className="s-cart-769238"
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--blush)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'var(--brand)')}>
                     Checkout as Guest →
                   </button>
                 )}
                 <button onClick={() => navigate(prevPath)}
-                  style={{ width: '100%', background: 'transparent', color: 'var(--brand)',
-                    border: '1.5px solid var(--brand)', padding: '11px', borderRadius: 8,
-                    cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
-                    marginTop: 8 }}
+                  className="s-cart-d3b151"
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(107,15,42,.06)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
                   ← Continue Shopping
                 </button>
               </>
 
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+              <div className="s-cart-2a4b1d">
                 {['🔒 Secure', '↩️ Easy Returns', '✅ Trusted'].map(t => (
-                  <span key={t} style={{ fontSize: 11, color: '#888' }}>{t}</span>
+                  <span key={t} className="s-adminsizes-b54cfc">{t}</span>
                 ))}
               </div>
             </div>

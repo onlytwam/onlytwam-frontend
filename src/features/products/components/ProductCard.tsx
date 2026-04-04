@@ -4,8 +4,6 @@ import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { slugify, getImageUrl } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
-import "./ProductCard.css";
-
 interface Props {
   product: any;
   onQuickShop: (id: number) => void;
@@ -23,6 +21,9 @@ export default function ProductCard({
 }: Props) {
   const navigate = useNavigate();
   const [selectedVariant, setSelectedVariant] = useState(product);
+
+  // Track whether the hover image loaded successfully — gates the crossfade CSS class
+  const [hoverLoaded, setHoverLoaded] = useState(false);
 
   useEffect(() => {
     setSelectedVariant(product);
@@ -93,38 +94,44 @@ export default function ProductCard({
   const oldPrice = selectedVariant.oldPrice ?? selectedVariant.mrpPrice ?? 0;
 
   /*
-   * ── Image resolution — mirrors ProductDetail exactly ──────────────────────
+   * ── Image resolution ─────────────────────────────────────────────────────
    *
-   * ProductDetail does:
-   *   const images = (product?.images?.length
-   *     ? product.images
-   *     : product?.image ? [product.image] : []
-   *   ).map(getImageUrl);
+   * Priority order:
+   *   1. selectedVariant.images[]  — populated by backend ARRAY_AGG (full URLs)
+   *   2. [selectedVariant.image]   — single-image fallback
+   *   3. product.images[] / product.image — in case selectedVariant is a stub
    *
-   * So the API returns an `images` string[] on the variant.
-   * images[0] → primary   images[1] → hover / second image
+   * images[0] → primary (always shown)
+   * images[1] → hover   (crossfade target — only if it loads successfully)
    */
-  const resolvedImages: string[] = (
-    selectedVariant?.images?.length
-      ? selectedVariant.images
-      : selectedVariant?.image
-        ? [selectedVariant.image]
-        : product?.images?.length
-          ? product.images
-          : product?.image
-            ? [product.image]
-            : []
-  ).map(getImageUrl);
+  const rawImages: string[] = selectedVariant?.images?.length
+    ? selectedVariant.images
+    : selectedVariant?.image
+      ? [selectedVariant.image]
+      : product?.images?.length
+        ? product.images
+        : product?.image
+          ? [product.image]
+          : [];
+
+  // Already-absolute URLs come back from the backend as-is; relative paths get prefixed
+  const resolvedImages = rawImages.map((src) => getImageUrl(src));
 
   const imgSrc = resolvedImages[0] || "";
-  const hoverImgSrc = resolvedImages[1] || ""; // empty string when no 2nd image
+  const hoverImgSrc = resolvedImages[1] || ""; // "" when only one image exists
+
+  // Reset hover-loaded state whenever the variant (and therefore the image set) changes
+  useEffect(() => {
+    setHoverLoaded(false);
+  }, [imgSrc, hoverImgSrc]);
 
   /*
-   * The CSS class `pc-image-wrap--has-hover` GATES the crossfade.
-   * Without it the primary image never fades — so no blank white on
-   * products that only have one image.
+   * `pc-image-wrap--has-hover` GATES the crossfade.
+   *   - Without it the primary image would fade to white on single-image products.
+   *   - We only add it AFTER the hover image confirms it loaded (`hoverLoaded`).
+   *   - This also silently handles missing/broken second images.
    */
-  const imageWrapClass = `pc-image-wrap${hoverImgSrc ? " pc-image-wrap--has-hover" : ""}`;
+  const imageWrapClass = `pc-image-wrap${hoverLoaded ? " pc-image-wrap--has-hover" : ""}`;
 
   const hasDiscount = Boolean(oldPrice && oldPrice > price);
   const discountPct = hasDiscount
@@ -161,10 +168,6 @@ export default function ProductCard({
 
         {/* ── LAYER 3: PRODUCT CONTENT ── */}
         <div className="pc-content-wrapper">
-          {/*
-           * pc-image-wrap--has-hover added only when images[1] exists.
-           * Prevents primary image fading to white on single-image products.
-           */}
           <div className={imageWrapClass}>
             {/* Primary — images[0] — always visible; zooms on hover */}
             <img
@@ -176,16 +179,19 @@ export default function ProductCard({
               }}
             />
 
-            {/* Hover — images[1] — rendered only when a 2nd image exists */}
+            {/*
+             * Hover — images[1] — rendered only when a 2nd URL exists.
+             * onLoad  → marks hover image ready; adds --has-hover class → enables crossfade
+             * onError → keeps hoverLoaded=false; crossfade never fires for broken images
+             */}
             {hoverImgSrc && (
               <img
                 className="pc-img-hover"
                 src={hoverImgSrc}
                 alt=""
                 aria-hidden="true"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
+                onLoad={() => setHoverLoaded(true)}
+                onError={() => setHoverLoaded(false)}
               />
             )}
 
@@ -211,49 +217,61 @@ export default function ProductCard({
           </div>
 
           <div className="pc-body">
-            {showColors && colorVariants.length > 0 && (
-              <div className="pc-swatches" onClick={(e) => e.stopPropagation()}>
-                {colorVariants.slice(0, 6).map((v) => (
-                  <span
-                    key={v.id}
-                    className={`pc-swatch-dot${selectedVariant.productVariantId === v.id ? " selected" : ""}`}
-                    title={v.colorName}
-                    style={{ background: v.colorHex }}
-                    onClick={() => handleColorChange(v.id)}
-                  />
-                ))}
-                {colorVariants.length > 6 && (
-                  <span className="pc-swatch-more">
-                    +{colorVariants.length - 6}
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div className="pc-row-brand">
-              <span className="pc-brand">{product.brandName || "\u00A0"}</span>
-              {hasDiscount && (
-                <span className="pc-mrp">
-                  ₹{Number(oldPrice).toLocaleString("en-IN")}
-                </span>
+            {/* Row 1: colour swatches (left) | brand name (right) */}
+            <div className="pc-row1">
+              {showColors && colorVariants.length > 0 ? (
+                <div
+                  className="pc-swatches"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {colorVariants.slice(0, 6).map((v) => (
+                    <span
+                      key={v.id}
+                      className={`pc-swatch-dot${selectedVariant.productVariantId === v.id ? " selected" : ""}`}
+                      style={{ background: v.colorHex || "#ccc" }}
+                      title={v.colorName}
+                      onClick={() => handleColorChange(v.id)}
+                    />
+                  ))}
+                  {colorVariants.length > 6 && (
+                    <span className="pc-swatch-more">
+                      +{colorVariants.length - 6}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div />
+              )}
+              {product.brandName && (
+                <span className="pc-brand">{product.brandName}</span>
               )}
             </div>
 
+            {/* Row 2: product name (left) | original price above + selling price below (right) */}
             <div className="pc-row-name">
-              <h4
-                className="pc-name"
-                title={selectedVariant.name || product.name}
-              >
-                {selectedVariant.name || product.name}
-              </h4>
-              <span
-                className={`pc-price${!hasDiscount ? " pc-price--full" : ""}`}
-              >
-                ₹
-                {Number(hasDiscount ? price : oldPrice || price).toLocaleString(
-                  "en-IN",
+              <div className="pc-name-block">
+                <h4
+                  className="pc-name"
+                  title={selectedVariant.name || product.name}
+                >
+                  {selectedVariant.name || product.name}
+                </h4>
+              </div>
+              <div className="pc-price-block">
+                {hasDiscount && (
+                  <span className="pc-mrp">
+                    ₹{Number(oldPrice).toLocaleString("en-IN")}
+                  </span>
                 )}
-              </span>
+                <span
+                  className={`pc-price${!hasDiscount ? " pc-price--full" : ""}`}
+                >
+                  ₹
+                  {Number(
+                    hasDiscount ? price : oldPrice || price,
+                  ).toLocaleString("en-IN")}
+                </span>
+              </div>
             </div>
 
             <div className="pc-row-bottom">

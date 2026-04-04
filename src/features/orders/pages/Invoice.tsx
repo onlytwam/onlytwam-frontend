@@ -12,64 +12,64 @@ export default function Invoice() {
     enabled: !!id,
   });
 
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner-border text-secondary" /></div>;
-  if (!order) return <div style={{ textAlign: 'center', padding: 60, color: '#888' }}>Invoice not found.</div>;
+  if (isLoading) return <div className="s-invoice-cf706b"><div className="spinner-border text-secondary" /></div>;
+  if (!order) return <div className="s-invoice-28e22e">Invoice not found.</div>;
 
   const handlePrint = () => window.print();
 
   return (
-    <div className="container" style={{ padding: '32px 16px', maxWidth: 700 }}>
+    <div className="container s-invoice-5c9003">
       <div id="invoice-print">
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+        <div className="s-invoice-841451">
           <div>
-            <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" style={{ height: 40, marginBottom: 8 }} />
-            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Only TWAM — It's all about you</p>
+            <img src="/assets/images/Twam-Logo-Black.png" alt="TWAM" className="s-invoice-d9d21a" />
+            <p className="s-admindashboa-75a6ca">Only TWAM — It's all about you</p>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <h5 style={{ margin: 0, fontWeight: 700 }}>INVOICE</h5>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>#{order.orderNumber || id}</p>
-            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Date: {formatDate(order.orderDate || order.createdAt)}</p>
+          <div className="s-quickcart-f66ceb">
+            <h5 className="s-invoice-b2b6eb">INVOICE</h5>
+            <p className="s-invoice-fb8e99">#{order.orderNumber || id}</p>
+            <p className="s-admindashboa-75a6ca">Date: {formatDate(order.orderDate || order.createdAt)}</p>
           </div>
         </div>
 
         {/* Addresses */}
         {order.shippingAddress && (
-          <div style={{ marginBottom: 24 }}>
-            <h6 style={{ marginBottom: 8 }}>Bill / Ship To</h6>
-            <p style={{ margin: 0, fontWeight: 600 }}>{order.shippingAddress.name}</p>
-            <p style={{ margin: 0, fontSize: 13, color: '#555' }}>
+          <div className="s-adminnewslet-70cb1d">
+            <h6 className="s-login-e50f28">Bill / Ship To</h6>
+            <p className="s-invoice-765d91">{order.shippingAddress.name}</p>
+            <p className="s-userdashboar-bc8be4">
               {[order.shippingAddress.addressLine, order.shippingAddress.locality, order.shippingAddress.city, order.shippingAddress.state, order.shippingAddress.pinCode].filter(Boolean).join(', ')}
             </p>
-            <p style={{ margin: 0, fontSize: 13, color: '#555' }}>{order.shippingAddress.phone}</p>
+            <p className="s-userdashboar-bc8be4">{order.shippingAddress.phone}</p>
           </div>
         )}
 
         {/* Items table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
+        <table className="s-invoice-de333d">
           <thead>
-            <tr style={{ background: '#111', color: '#fff' }}>
+            <tr className="s-invoice-05182c">
               {['Product', 'Size', 'Qty', 'Price', 'Total'].map(h => (
-                <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 13 }}>{h}</th>
+                <th key={h} className="s-invoice-b29995">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {(order.orderItems || order.items || []).map((item: any, i: number) => (
-              <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                <td style={{ padding: '10px 12px', fontSize: 13 }}>{item.productName || item.name}</td>
-                <td style={{ padding: '10px 12px', fontSize: 13, color: '#666' }}>{item.size || '—'}</td>
-                <td style={{ padding: '10px 12px', fontSize: 13 }}>{item.quantity}</td>
-                <td style={{ padding: '10px 12px', fontSize: 13 }}>₹{(item.price || 0).toLocaleString('en-IN')}</td>
-                <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>₹{((item.price || 0) * item.quantity).toLocaleString('en-IN')}</td>
+              <tr key={i} className="s-adminbrands-59d787">
+                <td className="s-invoice-4473dd">{item.productName || item.name}</td>
+                <td className="s-invoice-52bde2">{item.size || '—'}</td>
+                <td className="s-invoice-4473dd">{item.quantity}</td>
+                <td className="s-invoice-4473dd">₹{(item.price || 0).toLocaleString('en-IN')}</td>
+                <td className="s-invoice-244c34">₹{((item.price || 0) * item.quantity).toLocaleString('en-IN')}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
         {/* Totals */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <table style={{ minWidth: 240 }}>
+        <div className="s-invoice-c5795d">
+          <table className="s-invoice-423b00">
             <tbody>
               {[
                 { label: 'Subtotal', value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}` },
@@ -78,13 +78,13 @@ export default function Invoice() {
                 ...(order.couponAmount > 0 ? [{ label: 'Coupon Discount', value: `−₹${order.couponAmount}`, green: true }] : []),
               ].map(({ label, value, green }: any) => (
                 <tr key={label}>
-                  <td style={{ padding: '4px 12px', fontSize: 13, color: '#666' }}>{label}</td>
-                  <td style={{ padding: '4px 12px', fontSize: 13, color: green ? '#16a34a' : '#111', textAlign: 'right' }}>{value}</td>
+                  <td className="s-invoice-178719">{label}</td>
+                  <td className="s-invoice-d7f350" style={ {color: green ? 'var(--brand)' : '#000000'} }>{value}</td>
                 </tr>
               ))}
-              <tr style={{ borderTop: '2px solid #111' }}>
-                <td style={{ padding: '8px 12px', fontWeight: 700, fontSize: 15 }}>Total</td>
-                <td style={{ padding: '8px 12px', fontWeight: 700, fontSize: 15, textAlign: 'right' }}>₹{(order.totalAmount || 0).toLocaleString('en-IN')}</td>
+              <tr className="s-invoice-a5a8f6">
+                <td className="s-invoice-6817f0">Total</td>
+                <td className="s-invoice-e5e76a">₹{(order.totalAmount || 0).toLocaleString('en-IN')}</td>
               </tr>
             </tbody>
           </table>
@@ -92,13 +92,13 @@ export default function Invoice() {
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 32 }} className="no-print">
+      <div className="s-invoice-fc3840 no-print">
         <button onClick={handlePrint}
-          style={{ background: '#111', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 4, cursor: 'pointer', fontSize: 14 }}>
+          className="s-invoice-a6f8ad">
           <i className="bi bi-printer me-2" />Print / Download
         </button>
         <Link to="/account/orders-list"
-          style={{ background: '#fff', color: '#111', border: '1px solid #ddd', padding: '10px 24px', borderRadius: 4, textDecoration: 'none', fontSize: 14 }}>
+          className="s-invoice-4ce0f5">
           Back to Orders
         </Link>
       </div>
