@@ -7,7 +7,6 @@ import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { updateProfile, changePassword } from '@/features/auth/api/auth.api';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 
 export default function UpdateProfile() {
   const { user, setUser } = useAuthStore();
@@ -106,11 +105,6 @@ export default function UpdateProfile() {
 
   return (
     <>
-      <Breadcrumb items={[
-        { label: 'Home', path: '/' },
-        { label: 'My Account', path: '/account/update-profile' },
-        { label: isPasswordPage ? 'Change Password' : 'My Profile' }
-      ]} />
       <div className="s-updateprofil-245770">
       <h5 className="s-updateprofil-e41087">Account Settings</h5>
 

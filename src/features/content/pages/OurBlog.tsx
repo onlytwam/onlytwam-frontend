@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { listBlogs } from '@/features/products/api/products.api';
 import { formatDate } from '@/shared/utils/helpers';
 import { getImageUrl } from '@/shared/utils/helpers';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 
 export default function OurBlog() {
   const navigate = useNavigate();
@@ -17,8 +16,6 @@ export default function OurBlog() {
 
   return (
     <div className="s-ourblog-635938">
-      <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'Our Blog' }]} />
-
       {/* ── Hero Banner — matches reference: woman photo + text overlay */}
       <div className="s-ourblog-a75c7f">
         <img

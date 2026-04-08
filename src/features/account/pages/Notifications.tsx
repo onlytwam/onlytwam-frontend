@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listNotifications } from '@/features/orders/api/orders.api';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 
 export default function Notifications() {
   const qc = useQueryClient();
@@ -23,11 +22,6 @@ export default function Notifications() {
 
   return (
     <>
-      <Breadcrumb items={[
-        { label: 'Home', path: '/' },
-        { label: 'My Account', path: '/account/update-profile' },
-        { label: 'Notifications' }
-      ]} />
       <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h5 className="mb-0">

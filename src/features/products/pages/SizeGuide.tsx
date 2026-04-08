@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 
 type Category = 'Bra' | 'Panty' | 'Active Wear' | null;
 type Brand = 'Amante' | 'Enamor' | 'Soie' | 'Blossom' | 'OnlyTWAM';
@@ -62,7 +61,6 @@ export default function SizeGuide() {
 
   return (
     <div className="s-sizeguide-3d9799">
-      <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'Size Guide' }]} />
       <div className="s-sizeguide-513310">
 
         {/* Header */}

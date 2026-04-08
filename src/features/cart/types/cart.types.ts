@@ -1,5 +1,3 @@
-// ─── Cart Types ───────────────────────────────────────────────────────────────
-
 export interface CartModel {
   cartId: number;
   productId: number | null;
@@ -16,20 +14,8 @@ export interface CartModel {
   variantDescription: string | null;
   size: string | null;
   cupSize?: string | null;
-  /**
-   * Human-readable color name: "Bark", "Midnight", "Coffee Cream".
-   * Used for display labels. Auto-resolved from colorHex if absent.
-   */
   colorName: string | null;
-  /**
-   * CSS hex color: "#C8A882".
-   * Used for swatch dots in cart / quick-cart. Auto-resolved from colorName if absent.
-   */
   colorHex: string | null;
-  /**
-   * @deprecated Raw value from backend — may be a name OR a hex.
-   * Read colorName / colorHex instead. Kept for backwards compat.
-   */
   color?: string | null;
   stockQuantity: number | null;
   processedQuantity: number | null;
@@ -48,7 +34,6 @@ export interface CartModel {
   taxAmount?: number | null;
 }
 
-// FIX: matches actual backend DeliveryCharge response fields
 export interface ShippingOption {
   deliveryChargeId: number;
   shippingTypeId: number | null;
@@ -57,13 +42,15 @@ export interface ShippingOption {
   days: string | null;
   description: string | null;
   orderValueRange: string | null;
+  minOrderValue?: number | null;
+  isEligible?: boolean | null;
+  unlockAmount?: number | null;
   shippingType: { shippingTypeId: number; shippingType: string } | null;
   cost?: number;
   name?: string;
   estimatedDays?: number;
 }
 
-// FIX: matches actual backend CouponResponse fields
 export interface CouponModel {
   couponId: number;
   couponCode: string | null;

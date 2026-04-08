@@ -12,6 +12,7 @@ import { listOrders } from '@/features/orders/api/orders.api';
 import { listUserCoupons, listAddress } from '@/features/orders/api/orders.api';
 import { listWishlist, deleteWishlistVariant } from '@/features/products/api/products.api';
 import { useWishlistStore } from '@/shared/store/wishlistStore';
+import { getWishlistDisplayMeta } from "@/shared/utils/guestWishlist";
 import ProductCard from '@/features/products/components/ProductCard';
 import QuickShopModal from '@/features/products/components/QuickShopModal';
 
@@ -119,20 +120,26 @@ export default function UserDashboard() {
     : [];
 
   // Normalize wishlist items for ProductCard
-  const wishlistItems = (Array.isArray(wishlist) ? wishlist : []).map((item: any) => ({
-    productId: item.productId,
-    productVariantId: item.productVariantId,
-    productVariantDetailId: item.productVariantDetailId,
-    name: item.productName || item.productname || item.variantName || item.name || 'Product',
-    image: item.imageURL || item.imageurl || item.image || '',
-    price: item.finalPrice || item.finalprice || item.price || 0,
-    oldPrice: item.mrpPrice || item.mrpprice || item.oldPrice || 0,
-    rating: item.rating || 0,
-    color: item.colorName || item.color || '',
-    colorName: item.colorName || item.color || '',
-    colorHex: item.colorHex || '',
-    brandName: item.brandName || '',
-  }));
+  const wishlistItems = (Array.isArray(wishlist) ? wishlist : []).map((item: any) => {
+    const meta = getWishlistDisplayMeta(item.productVariantId);
+    return {
+      productId: item.productId,
+      productVariantId: item.productVariantId,
+      productVariantDetailId: item.productVariantDetailId,
+      name: item.productName || item.productname || item.variantName || item.name || 'Product',
+      image: item.imageURL || item.imageurl || item.image || meta?.imageURL || '',
+      hoverImage: item.hoverImage || item.image2 || item.secondaryImage || meta?.hoverImage || '',
+      images: Array.isArray(item.images) && item.images.length ? item.images : meta?.images || [],
+      price: item.finalPrice || item.finalprice || item.price || 0,
+      oldPrice: item.mrpPrice || item.mrpprice || item.oldPrice || 0,
+      rating: item.rating || item.avgRating || item.averageRating || 0,
+      reviewCount: item.reviewCount || item.totalReviews || item.ratingCount || item.noOfReviews || item.numReviews || 0,
+      color: item.colorName || item.color || '',
+      colorName: item.colorName || item.color || '',
+      colorHex: item.colorHex || '',
+      brandName: item.brandName || '',
+    };
+  });
 
   useEffect(() => {
     setWishlistCount(wishlistItems.length);
@@ -451,6 +458,7 @@ export default function UserDashboard() {
                     key={item.productVariantId}
                     product={item}
                     onQuickShop={(id) => setQuickShopId(id)}
+                    singleColorOnly={true}
                     onRemove={() => handleRemoveWishlist(item.productVariantId)}
                   />
                 ))}

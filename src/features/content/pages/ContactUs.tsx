@@ -32,41 +32,15 @@ export default function ContactUs() {
   return (
     <div>
       {/* ── Hero image banner */}
-      <div className="s-contactus-d659f0">
-        <img
-          src="/assets/images/contact-hero.jpg"
-          alt="Contact Us"
-          className="s-contactus-630f82"
-          onError={e => {
-            // Fallback gradient if image missing
-            const el = e.target as HTMLImageElement;
-            el.style.display = 'none';
-          }}
-        />
-        {/* Overlay */}
-        <div className="s-contactus-9233c7">
-          <span className="s-contactus-89c32e">
-            We're Here For You
-          </span>
-          <h1 className="s-contactus-22b25d">
-            Contact Us
-          </h1>
-          <p className="s-contactus-0c7006">
-            We'd love to hear from you. Our team is ready to help with any questions or concerns.
-          </p>
-        </div>
-      </div>
-
-      {/* ── Breadcrumb strip */}
-      <div className="s-contactus-4062de">
-        <div className="container s-contactus-9d03dd">
-          <nav className="s-quickcart-08341f">
-            <a href="/" className="s-contactus-ad3620">Home</a>
-            <i className="bi bi-chevron-right s-contactus-f1f612" />
-            <span>Contact Us</span>
-          </nav>
-        </div>
-      </div>
+      <img
+        src="/assets/images/contact-hero.jpg"
+        alt="Contact Us"
+        style={{ width: "100%", display: "block" }}
+        onError={e => {
+          const el = e.target as HTMLImageElement;
+          el.style.display = 'none';
+        }}
+      />
 
       {/* ── Main content */}
       <div className="container s-contactus-4e9077">

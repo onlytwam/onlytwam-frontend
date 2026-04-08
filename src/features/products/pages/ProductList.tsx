@@ -1,230 +1,35 @@
-// src/pages/ProductList.tsx
-// Fixes applied:
-//  1. ✅ productsData?.list (was .products — caused zero products to ever render)
-//  2. ✅ buildParams uses camelCase keys matching products.api.ts
-//  3. ✅ Sort options mapped to orderProperty/orderAscending (matches GlobalSearch)
-//  4. ✅ Toolbar layout: Filter LEFT · Sort CENTER · Count RIGHT (mirrors GlobalSearch)
-//  5. ✅ Brand/size/cupSize field names fixed (brandName, sizeLabel)
-//  6. ✅ Brand search input added (matches GlobalSearch)
-//  7. ✅ Price filter replaced with quick-buttons + min/max inputs (matches GlobalSearch)
-//  8. ✅ Discount tag no longer clipped — removed stale overflow:hidden from ProductList.css
-//  9. ✅ ProductCard imported from component, no inline card CSS/JSX
-// 10. ✅ Smart category filter: root→subcategories with products, subcategory→hidden
+// src/features/products/pages/ProductList.tsx
+// Merged:
+//  ✅ Global breadcrumb via useBreadcrumbStore (no direct <Breadcrumb> render)
+//  ✅ Modular ProductFilters + ProductToolbar (global filter components)
+//  ✅ Smart category filtering: root → subcategories, subcategory → hidden
+//  ✅ Category product counts to hide zero-product subcategories
+//  ✅ Full URL param sync (brand, size, cupSize, bestseller, sort, search)
+//  ✅ CAT_IMAGE_MAP merged from both versions
 
-import Breadcrumb from "@/shared/components/Breadcrumb";
-import type { Crumb } from "@/shared/components/Breadcrumb";
+import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   listProducts,
   listCategories,
-  listBrands,
-  getProductColors,
-  listSizes,
-  listCupSizes,
-  getCategoryProductCounts,
 } from "@/features/products/api/products.api";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
+import ProductFilters, {
+  ProductActiveFilters,
+  getAppliedFilterCount,
+  matchesVariantCollectionPriceFilters,
+  matchesVariantCollectionSizeAndCupFilters,
+  shouldDeferCupSizeFiltering,
+  type ProductFilterState,
+} from "@/features/products/components/ProductFilters";
+import ProductToolbar from "@/features/products/components/ProductToolbar";
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
-const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 
-// ─── Enhanced Color families with tighter matching ───────────────────────────
-const COLOR_FAMILIES: {
-  label: string;
-  swatch: string;
-  hexRanges?: string[];
-  keywords: string[];
-}[] = [
-  {
-    label: "Red",
-    swatch: "var(--brand)",
-    hexRanges: ["var(--brand)", "var(--brand)", "var(--brand)", "var(--brand)"],
-    keywords: [
-      "red",
-      "crimson",
-      "scarlet",
-      "cherry",
-      "maroon",
-      "burgundy",
-      "wine",
-      "brick",
-      "ruby",
-    ],
-  },
-  {
-    label: "Pink",
-    swatch: "#e91e8c",
-    hexRanges: ["#FFC0CB", "#FF69B4", "#FF1493", "#DB7093"],
-    keywords: [
-      "pink",
-      "blush",
-      "rose",
-      "magenta",
-      "fuchsia",
-      "hot pink",
-      "baby pink",
-    ],
-  },
-  {
-    label: "Purple",
-    swatch: "var(--brand)",
-    hexRanges: ["var(--brand)", "#9370DB", "#8A2BE2", "#9400D3"],
-    keywords: [
-      "purple",
-      "violet",
-      "lavender",
-      "mauve",
-      "lilac",
-      "plum",
-      "indigo",
-      "orchid",
-    ],
-  },
-  {
-    label: "Blue",
-    swatch: "var(--brand)",
-    hexRanges: ["#0000FF", "#4169E1", "#1E90FF", "#00BFFF", "#5F9EA0"],
-    keywords: [
-      "blue",
-      "navy",
-      "cobalt",
-      "sky",
-      "azure",
-      "steel",
-      "powder blue",
-      "denim",
-      "royal",
-      "sapphire",
-    ],
-  },
-  {
-    label: "Teal",
-    swatch: "#008080",
-    hexRanges: ["#008080", "#20B2AA", "#48D1CC", "#40E0D0"],
-    keywords: ["teal", "turquoise", "cyan", "aqua", "sea green"],
-  },
-  {
-    label: "Green",
-    swatch: "var(--brand)",
-    hexRanges: ["var(--brand)", "#228B22", "#32CD32", "#90EE90"],
-    keywords: [
-      "green",
-      "olive",
-      "mint",
-      "sage",
-      "forest",
-      "lime",
-      "emerald",
-      "jade",
-    ],
-  },
-  {
-    label: "Yellow",
-    swatch: "var(--brand)",
-    hexRanges: ["#FFFF00", "var(--blush)", "var(--blush)", "#BDB76B"],
-    keywords: ["yellow", "gold", "mustard", "amber", "lemon", "corn", "cream"],
-  },
-  {
-    label: "Orange",
-    swatch: "var(--brand)",
-    hexRanges: ["var(--brand)", "var(--brand)", "var(--brand)", "var(--brand)"],
-    keywords: ["orange", "tangerine", "coral"],
-  },
-  {
-    label: "Peach",
-    swatch: "#FFDAB9",
-    hexRanges: ["#FFDAB9", "#FFE5B4", "#FFDEAD"],
-    keywords: ["peach", "apricot"],
-  },
-  {
-    label: "Brown",
-    swatch: "var(--brand)",
-    hexRanges: ["#8B4513", "#A0522D", "#D2691E", "#CD853F"],
-    keywords: [
-      "brown",
-      "tan",
-      "beige",
-      "caramel",
-      "chocolate",
-      "mocha",
-      "sand",
-      "coffee",
-    ],
-  },
-  {
-    label: "Nude",
-    swatch: "#D4A59A",
-    hexRanges: ["#D4A59A", "#E0AC9D", "#C68E7C"],
-    keywords: ["nude", "skin", "flesh"],
-  },
-  {
-    label: "Grey",
-    swatch: "var(--heirloom)",
-    hexRanges: ["var(--heirloom)", "var(--heirloom)", "var(--heirloom)", "#778899"],
-    keywords: ["grey", "gray", "silver", "charcoal", "slate", "ash", "smoke"],
-  },
-  {
-    label: "White",
-    swatch: "var(--ivory)",
-    hexRanges: ["#FFFFFF", "var(--ivory)", "#ffffff", "var(--ivory)"],
-    keywords: [
-      "white",
-      "ivory",
-      "cream",
-      "snow",
-      "off-white",
-      "pearl",
-      "eggshell",
-    ],
-  },
-  {
-    label: "Black",
-    swatch: "#000000",
-    hexRanges: ["#000000", "#36454F", "#000000"],
-    keywords: ["black", "ebony", "onyx", "jet", "charcoal"],
-  },
-];
-
-// Enhanced color matching function - much stricter
-function colorToFamily(rawColor: string): string | null {
-  const lower = rawColor.toLowerCase().trim();
-
-  // Exact keyword match first (stricter)
-  for (const fam of COLOR_FAMILIES) {
-    // Check for exact word boundaries
-    for (const keyword of fam.keywords) {
-      // Exact match
-      if (lower === keyword) return fam.label;
-
-      // Word boundary match (e.g., "light blue" matches "blue")
-      const wordBoundaryRegex = new RegExp(`\\b${keyword}\\b`, "i");
-      if (wordBoundaryRegex.test(lower)) return fam.label;
-    }
-  }
-
-  // No match found
-  return null;
-}
-
-function groupColors(
-  rawColors: { name: string; hex: string }[],
-): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-  for (const c of rawColors) {
-    const fam = colorToFamily(c.name);
-    if (fam) {
-      const existing = map.get(fam) ?? [];
-      existing.push(c.name); // store name — sent to backend as the filter value
-      map.set(fam, existing);
-    }
-  }
-  return map;
-}
-
-// ─── Category images ──────────────────────────────────────────────────────────
+// ─── Category images (merged from both versions) ──────────────────────────────
 const CAT_IMAGE_MAP: { pattern: RegExp; file: string }[] = [
   { pattern: /active/i, file: "Active Wear.jpg" },
   { pattern: /balconette/i, file: "Balconette Bras.jpg" },
@@ -235,68 +40,60 @@ const CAT_IMAGE_MAP: { pattern: RegExp; file: string }[] = [
   { pattern: /boy.?short/i, file: "Boy Shorts.jpg" },
   { pattern: /^bras?$/i, file: "bras.jpg" },
   { pattern: /bridal/i, file: "Bridal Bras.jpg" },
-  { pattern: /brief/i, file: "Brief.jpg" },
+  { pattern: /brief/i, file: "briefs.jpg" },
+  { pattern: /cami/i, file: "Camisoles.jpg" },
   { pattern: /cotton/i, file: "Cotton Bras.jpg" },
   { pattern: /essential/i, file: "essentials.jpg" },
+  { pattern: /everyday/i, file: "Everyday Bras.jpg" },
+  { pattern: /full.?cover/i, file: "Full Coverage Bras.jpg" },
   { pattern: /high.waist|high.leg/i, file: "High-Waist & High-Leg.jpg" },
   { pattern: /hipster/i, file: "Hipster.jpg" },
   { pattern: /lace/i, file: "Lace.jpg" },
-  { pattern: /leakproof/i, file: "leakproof.jpg" },
+  { pattern: /leak.?proof|leakproof/i, file: "Leak Proof.jpg" },
+  { pattern: /lingerie.?set/i, file: "Lingerie Sets.jpg" },
   { pattern: /mastectomy/i, file: "Mastectomy Bras.jpg" },
-  { pattern: /minimizer/i, file: "Minimizer Bras.jpg" },
-  { pattern: /nursing/i, file: "Nursing Bras.jpg" },
+  { pattern: /minimiz/i, file: "Minimizer Bras.jpg" },
+  { pattern: /new.?arrival/i, file: "New Arrivals.jpg" },
+  { pattern: /nurs/i, file: "Nursing Bras.jpg" },
   { pattern: /only.?twam/i, file: "Only TWAM.jpg" },
-  { pattern: /panty|panties/i, file: "panties.jpg" },
-  { pattern: /push.?up/i, file: "Push up Bras.jpg" },
+  { pattern: /panty|panties/i, file: "Panties.jpg" },
+  { pattern: /plus/i, file: "Plus Size.jpg" },
+  { pattern: /push.?up/i, file: "Push Up Bras.jpg" },
   { pattern: /seamless.?bra/i, file: "Seamless Bras.jpg" },
   { pattern: /seamless.?pant/i, file: "Seamless Panty.jpg" },
   { pattern: /shape/i, file: "Shapewear.jpg" },
-  { pattern: /sports?.bra/i, file: "Sports bra.jpg" },
+  { pattern: /sleep/i, file: "Sleepwear.jpg" },
+  { pattern: /sport/i, file: "Sports Bras.jpg" },
   { pattern: /strapless/i, file: "Strapless Bras.jpg" },
-  { pattern: /swim/i, file: "Swim Wear.jpg" },
-  { pattern: /thong|g.?string/i, file: "Thongs & V-Strings.jpg" },
+  { pattern: /swim/i, file: "Swimwear.jpg" },
   { pattern: /t.?shirt.?bra/i, file: "T-Shirt Bras.jpg" },
+  { pattern: /teen/i, file: "Teen Bras.jpg" },
+  { pattern: /thong|g.?string/i, file: "Thongs & V-Strings.jpg" },
+  { pattern: /wire.?free|wireless/i, file: "Wireless Bras.jpg" },
 ];
 
-function getCategoryImage(categoryName: string): string | null {
-  if (!categoryName) return null;
-  const match = CAT_IMAGE_MAP.find((m) => m.pattern.test(categoryName));
+function getCategoryImage(name: string): string | null {
+  if (!name) return null;
+  const match = CAT_IMAGE_MAP.find((m) => m.pattern.test(name));
   return match ? `/assets/categories/${match.file}` : null;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface FilterState {
-  categoryIds: number[];
-  brandIds: number[];
-  sizeIds: number[];
-  cupSizeIds: number[];
-  colorFamilies: string[];
-  rawColors: string[];
-  priceMin: number | null;
-  priceMax: number | null;
-  sortOption: string;
-  search: string;
-  isBestSeller: boolean;
-}
-
-const DEFAULT_FILTERS: FilterState = {
-  categoryIds: [],
-  brandIds: [],
+const DEFAULT_FILTERS: ProductFilterState = {
+  colors: [],
+  colorFamilies: [],
   sizeIds: [],
   cupSizeIds: [],
-  colorFamilies: [],
-  rawColors: [],
+  brandIds: [],
+  categoryIds: [],
   priceMin: null,
   priceMax: null,
-  sortOption: "default",
-  search: "",
-  isBestSeller: false,
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ProductList() {
   const { categoryId } = useParams<{ categoryId?: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { setCrumbs } = useBreadcrumbStore();
 
   const catId = Number(categoryId) || 0;
   const urlSearch = searchParams.get("search") || searchParams.get("q") || "";
@@ -304,92 +101,52 @@ export default function ProductList() {
   const urlSize = Number(searchParams.get("sizeId")) || 0;
   const urlCupSize = Number(searchParams.get("cupSizeId")) || 0;
   const urlBestSeller = searchParams.get("bestseller") === "true";
+  const urlSort = searchParams.get("sort") || "";
 
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  // ── State ──────────────────────────────────────────────────────────────────
+  // Lazy initialiser: URL params applied on first render so the very first
+  // query already carries the correct filters (no "all-products flash").
+  const [filters, setFilters] = useState<ProductFilterState>(() => ({
+    ...DEFAULT_FILTERS,
+    ...(urlBrand && { brandIds: [urlBrand] }),
+    ...(urlSize && { sizeIds: [urlSize] }),
+    ...(urlCupSize && { cupSizeIds: [urlCupSize] }),
+  }));
+  const [sortOption, setSortOption] = useState(urlSort || "default");
+  const [searchQuery, setSearchQuery] = useState(urlSearch);
+  const [isBestSeller, setIsBestSeller] = useState(urlBestSeller);
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
 
-  // Price slider state
-  const [brandSearch, setBrandSearch] = useState("");
-  const PRICE_FLOOR = 0;
-  const PRICE_CEIL = 10000;
-  const [sliderMin, setSliderMin] = useState(PRICE_FLOOR);
-  const [sliderMax, setSliderMax] = useState(PRICE_CEIL);
-
+  // Safety-net: re-sync when URL params change while component stays mounted
   useEffect(() => {
-    if (urlSearch) setFilters((f) => ({ ...f, search: urlSearch }));
-    if (urlBrand) setFilters((f) => ({ ...f, brandIds: [urlBrand] }));
-    if (urlSize) setFilters((f) => ({ ...f, sizeIds: [urlSize] }));
-    if (urlCupSize) setFilters((f) => ({ ...f, cupSizeIds: [urlCupSize] }));
-    if (urlBestSeller) setFilters((f) => ({ ...f, isBestSeller: true }));
-  }, [urlSearch, urlBrand, urlSize, urlCupSize, urlBestSeller]);
+    setSearchQuery(urlSearch || "");
+    setIsBestSeller(urlBestSeller);
+    setSortOption(urlSort || "default");
+  }, [urlSearch, urlBestSeller, urlSort]);
 
-  // Disable body scroll when filter is open
+  // Disable body scroll when filter drawer is open
   useEffect(() => {
-    if (filterOpen) {
-      document.body.style.overflow = "hidden";
-      document.body.style.paddingRight = "0px"; // Prevent layout shift
-    } else {
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
-    }
+    document.body.style.overflow = filterOpen ? "hidden" : "";
+    document.body.style.paddingRight = filterOpen ? "0px" : "";
     return () => {
       document.body.style.overflow = "";
       document.body.style.paddingRight = "";
     };
   }, [filterOpen]);
 
-  // Queries
-  const { data: categories = [] } = useQuery({
+  // ── Queries ────────────────────────────────────────────────────────────────
+  const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
-    queryFn: listCategories,
-    select: (d: any) => d?.list ?? [],
+    queryFn: () => listCategories({ pageSize: 200 }),
+    staleTime: 10 * 60 * 1000,
   });
-  const { data: brands = [] } = useQuery({
-    queryKey: ["brands"],
-    queryFn: listBrands,
-    select: (d: any) => d?.list ?? [],
-  });
-  const { data: sizes = [] } = useQuery({
-    queryKey: ["sizes"],
-    queryFn: listSizes,
-    select: (d: any) => d?.list ?? [],
-  });
-  const { data: cupSizes = [] } = useQuery({
-    queryKey: ["cupSizes"],
-    queryFn: listCupSizes,
-    select: (d: any) => d?.list ?? [],
-  });
-  const { data: rawColorList = [] } = useQuery({
-    queryKey: ["productColors"],
-    queryFn: getProductColors,
-  });
-  // Map of categoryId → product count — used to hide subcategories with zero products
-  const { data: categoryCountsRaw = [] } = useQuery({
-    queryKey: ["categoryProductCounts"],
-    queryFn: getCategoryProductCounts,
-    staleTime: 5 * 60 * 1000,
-  });
-  const categoryCountMap = useMemo(() => {
-    const map = new Map<number, number>();
-    const arr: any[] = Array.isArray(categoryCountsRaw)
-      ? categoryCountsRaw
-      : [];
-    arr.forEach((item: any) => {
-      const id = item.categoryId ?? item.CategoryId;
-      const count = item.productCount ?? item.ProductCount ?? item.count ?? 0;
-      if (id != null) map.set(Number(id), Number(count));
-    });
-    return map;
-  }, [categoryCountsRaw]);
 
   const buildParams = useCallback(() => {
-    const p: any = {
-      pageSize: 500,
-    };
+    const p: any = { pageSize: 500 };
+    const deferCupSizeFiltering = shouldDeferCupSizeFiltering(filters);
 
-    // Combine URL category param with drawer-selected category IDs
     const allCatIds = catId
       ? [catId, ...filters.categoryIds.filter((id) => id !== catId)]
       : filters.categoryIds;
@@ -397,61 +154,64 @@ export default function ProductList() {
 
     if (filters.brandIds.length) p.brandIds = filters.brandIds.join(",");
     if (filters.sizeIds.length) p.sizeIds = filters.sizeIds.join(",");
-    if (filters.cupSizeIds.length) p.cupSizeIds = filters.cupSizeIds.join(",");
-    if (filters.rawColors.length) p.colors = filters.rawColors.join(",");
-    if (filters.priceMin !== null) p.priceMin = filters.priceMin;
-    if (filters.priceMax !== null) p.priceMax = filters.priceMax;
-    if (filters.search) p.quickSearch = filters.search;
-    if (filters.isBestSeller) p.isBestSeller = true;
+    if (filters.cupSizeIds.length && !deferCupSizeFiltering) {
+      p.cupSizeIds = filters.cupSizeIds.join(",");
+    }
+    if (filters.colors.length) p.colors = filters.colors.join(",");
+    if (searchQuery) p.quickSearch = searchQuery;
+    if (isBestSeller) p.isBestSeller = true;
 
-    // Map sort option values to API fields
-    if (filters.sortOption === "latest") {
+    if (sortOption === "latest") {
       p.orderProperty = "ModifiedDate";
       p.orderAscending = false;
-    } else if (filters.sortOption === "az") {
+    } else if (sortOption === "az") {
       p.orderProperty = "product.name";
       p.orderAscending = true;
-    } else if (filters.sortOption === "za") {
+    } else if (sortOption === "za") {
       p.orderProperty = "product.name";
       p.orderAscending = false;
-    } else if (filters.sortOption === "low") {
+    } else if (sortOption === "low") {
       p.orderProperty = "FinalPrice";
       p.orderAscending = true;
-    } else if (filters.sortOption === "high") {
+    } else if (sortOption === "high") {
       p.orderProperty = "FinalPrice";
       p.orderAscending = false;
-    } else if (filters.sortOption === "rating") {
+    } else if (sortOption === "rating") {
       p.orderProperty = "Rating";
       p.orderAscending = false;
     } else {
-      // default — no specific sort, let API decide
       p.orderProperty = "ModifiedDate";
       p.orderAscending = false;
     }
 
     return p;
-  }, [catId, filters]);
+  }, [filters, sortOption, searchQuery, isBestSeller, catId]);
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
-    queryKey: ["products", buildParams()],
+    queryKey: ["products-list", buildParams()],
     queryFn: () => listProducts(buildParams()),
+    staleTime: 30 * 1000,
   });
 
-  const allProducts = productsData?.list || [];
-  const totalCount = productsData?.totalCount || allProducts.length;
-
+  // ── Product grouping ───────────────────────────────────────────────────────
   const groupedProducts = useMemo(() => {
-    const groups = new Map<number, any[]>();
-    allProducts.forEach((p: any) => {
-      if (!groups.has(p.productId)) groups.set(p.productId, []);
-      groups.get(p.productId)!.push(p);
-    });
-    return Array.from(groups.values()).map((variants) => ({
-      ...variants[0],
-      allVariants: variants,
-    }));
-  }, [allProducts]);
+    const raw = productsData?.list ?? [];
+    const grouped = new Map<number, any>();
+    for (const variant of raw) {
+      const pid = variant.productId;
+      if (!grouped.has(pid)) grouped.set(pid, { ...variant, allVariants: [] });
+      grouped.get(pid).allVariants.push(variant);
+    }
+    return Array.from(grouped.values()).filter(
+      (product) =>
+        matchesVariantCollectionSizeAndCupFilters(
+          product.allVariants,
+          filters,
+        ) && matchesVariantCollectionPriceFilters(product.allVariants, filters),
+    );
+  }, [productsData, filters]);
 
+  // ── Pagination ─────────────────────────────────────────────────────────────
   const pageSize = 20;
   const totalPages = Math.max(1, Math.ceil(groupedProducts.length / pageSize));
 
@@ -472,762 +232,245 @@ export default function ProductList() {
   }, [page, totalPages]);
 
   const goToPage = (p: number) => {
-    setPage(p);
+    setPage(Math.max(1, Math.min(p, totalPages)));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const colorFamilyMap = useMemo(
-    () => groupColors(rawColorList),
-    [rawColorList],
-  );
-
-  const filteredBrands = useMemo(
-    () =>
-      brandSearch
-        ? brands.filter((b: any) =>
-            (b.brandName ?? b.name ?? "")
-              .toLowerCase()
-              .includes(brandSearch.toLowerCase()),
-          )
-        : brands,
-    [brands, brandSearch],
-  );
-
-  const toggleColorFamily = (label: string) => {
-    const raw = colorFamilyMap.get(label) ?? [];
-    setFilters((f) => {
-      const alreadySelected = f.colorFamilies.includes(label);
-      if (alreadySelected) {
-        return {
-          ...f,
-          colorFamilies: f.colorFamilies.filter((c) => c !== label),
-          rawColors: f.rawColors.filter((c) => !raw.includes(c)),
-        };
-      } else {
-        return {
-          ...f,
-          colorFamilies: [...f.colorFamilies, label],
-          rawColors: [...f.rawColors, ...raw],
-        };
-      }
-    });
-    setPage(1);
-  };
-
-  const toggleBrand = (id: number) => {
-    setFilters((f) => ({
-      ...f,
-      brandIds: f.brandIds.includes(id)
-        ? f.brandIds.filter((b) => b !== id)
-        : [...f.brandIds, id],
-    }));
-    setPage(1);
-  };
-
-  const toggleSize = (id: number) => {
-    setFilters((f) => ({
-      ...f,
-      sizeIds: f.sizeIds.includes(id)
-        ? f.sizeIds.filter((s) => s !== id)
-        : [...f.sizeIds, id],
-    }));
-    setPage(1);
-  };
-
-  const toggleCupSize = (id: number) => {
-    setFilters((f) => ({
-      ...f,
-      cupSizeIds: f.cupSizeIds.includes(id)
-        ? f.cupSizeIds.filter((c) => c !== id)
-        : [...f.cupSizeIds, id],
-    }));
-    setPage(1);
-  };
-
-  const toggleCategory = (id: number) => {
-    setFilters((f) => ({
-      ...f,
-      categoryIds: f.categoryIds.includes(id)
-        ? f.categoryIds.filter((c) => c !== id)
-        : [...f.categoryIds, id],
-    }));
-    setPage(1);
-  };
-
-  const clearAllFilters = () => {
-    setFilters(DEFAULT_FILTERS);
-    setSliderMin(PRICE_FLOOR);
-    setSliderMax(PRICE_CEIL);
-    setPage(1);
-  };
-
-  const activeFilterCount =
-    filters.categoryIds.length +
-    filters.brandIds.length +
-    filters.sizeIds.length +
-    filters.cupSizeIds.length +
-    filters.colorFamilies.length +
-    (filters.priceMin !== null || filters.priceMax !== null ? 1 : 0);
-
-  const setSortOption = (opt: string) => {
-    setFilters((f) => ({ ...f, sortOption: opt }));
-    setPage(1);
-  };
-
+  // ── Category data ──────────────────────────────────────────────────────────
+  const categories = categoriesData?.list ?? [];
   const currentCategory = categories.find((c: any) => c.categoryId === catId);
   const categoryName = currentCategory?.name || "";
   const categoryImage = getCategoryImage(categoryName);
 
-  // ── Smart category filter logic ──────────────────────────────────────────
-  // • No catId (all products / global browse) → show root categories with products
-  // • Main category (parentCategoryId = null) → show direct subcategories that
-  //   have products (handles cases like Essentials/SwimWear where products are
-  //   stored in the parent directly and subcategories have zero products)
-  // • Subcategory (parentCategoryId is set) → hide category filter entirely
-  const isMainCategory = Boolean(
-    catId && currentCategory?.parentCategoryId === null,
+  const currentSubcategoryId = currentCategory?.parentCategoryId ? catId : null;
+
+  // ── Global breadcrumb store ────────────────────────────────────────────────
+  useEffect(() => {
+    const crumbs = categoryName
+      ? [
+          { label: "Home", path: "/" },
+          { label: "All Products", path: "/user-products/product-list" },
+          { label: categoryName },
+        ]
+      : [{ label: "Home", path: "/" }, { label: "All Products" }];
+    setCrumbs(crumbs);
+  }, [categoryName, setCrumbs]);
+
+  // ── Quick price handler (passed to ProductToolbar) ─────────────────────────
+  const handleQuickPrice = (min: number | null, max: number | null) => {
+    setFilters((f) => ({ ...f, priceMin: min, priceMax: max }));
+    setPage(1);
+  };
+
+  const activeQuickPrice = useMemo(() => {
+    const { priceMin, priceMax } = filters;
+    if (priceMin !== null || priceMax !== null)
+      return { min: priceMin, max: priceMax };
+    return null;
+  }, [filters.priceMin, filters.priceMax]);
+
+  const appliedFilterCount = useMemo(
+    () => getAppliedFilterCount(filters),
+    [filters],
   );
 
-  const categoriesToShowInFilter = useMemo(() => {
-    // Helper: returns true if category has any products (falls back to true when
-    // the counts API hasn't loaded yet, so we don't flash an empty list)
-    const hasProducts = (id: number) =>
-      categoryCountMap.size === 0 || (categoryCountMap.get(id) ?? 0) > 0;
+  // ── Sort handler — syncs state + URL ──────────────────────────────────────
+  const handleSortChange = (val: string) => {
+    const newSort = val || "default";
+    setSortOption(newSort);
+    setPage(1);
+    const newParams = new URLSearchParams(searchParams);
+    if (newSort === "default") newParams.delete("sort");
+    else newParams.set("sort", newSort);
+    setSearchParams(newParams, { replace: true });
+  };
 
-    if (!catId) {
-      // All-products page: root categories that have products
-      return categories.filter(
-        (c: any) => c.parentCategoryId === null && hasProducts(c.categoryId),
-      );
-    }
-    if (isMainCategory) {
-      // On a root category: show subcategories that actually have products
-      const subs = categories.filter(
-        (c: any) => c.parentCategoryId === catId && hasProducts(c.categoryId),
-      );
-      return subs; // empty → section hidden, products stored directly in parent
-    }
-    // On a subcategory: hide the category filter entirely
-    return [];
-  }, [catId, categories, isMainCategory, categoryCountMap]);
-
-  // Build breadcrumb items for Crumb[] prop
-  const breadcrumbItems: Crumb[] = categoryName
-    ? [
-        { label: "Home", path: "/" },
-        { label: "Shop", path: "/user-products/product-list" },
-        { label: categoryName },
-      ]
-    : [{ label: "Home", path: "/" }, { label: "Shop" }];
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="s-productlist-3ab64d s-productlist-ff586331">
-      <Breadcrumb items={breadcrumbItems} />
-
+    <div style={{ fontFamily: FONTS }}>
       {categoryImage && (
         <div className="category-hero-banner">
           <img src={categoryImage} alt={categoryName} loading="lazy" />
         </div>
       )}
 
-      {/* Toolbar — filter LEFT · sort CENTER · count RIGHT (mirrors GlobalSearch) */}
-      <div
-        className="filter-inline-bar s-productlist-443104"
-      >
-        <div
-          className="container s-adminproduct-4f5591"
-        >
-          {/* Left: Filter button */}
-          <button
-            onClick={() => setFilterOpen(true)}
-            className="s-productlist-c43a49 s-productlist-ff0afd28"
-          >
-            <i className="bi bi-sliders s-productlist-ecd182" />
-            <span>Filters</span>
-            {activeFilterCount > 0 && (
-              <span
-                className="s-productlist-d2ca22"
-              >
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
+      {/* Toolbar: Filter button | Quick price | Sort dropdown | Product count */}
+      <ProductToolbar
+        productCount={groupedProducts.length}
+        appliedFilterCount={appliedFilterCount}
+        onFilterClick={() => setFilterOpen(true)}
+        sortOption={sortOption}
+        onSortChange={handleSortChange}
+        onQuickPrice={handleQuickPrice}
+        activeQuickPrice={activeQuickPrice}
+      />
 
-          {/* Centre: Sort pills */}
-          <div
-            className="s-productlist-4e2836"
-          >
-            {[
-              { label: "✨ Latest", value: "latest" },
-              { label: "A → Z", value: "az" },
-              { label: "Z → A", value: "za" },
-              { label: "₹ Low → High", value: "low" },
-              { label: "₹ High → Low", value: "high" },
-              { label: "⭐ Top Rated", value: "rating" },
-            ].map((s) => (
-              <button
-                key={s.value}
-                onClick={() => setSortOption(s.value)}
-                className={`sort-pill${filters.sortOption === s.value ? " active" : ""} s-productlist-b9ab83`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+      <ProductActiveFilters
+        filters={filters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setPage(1);
+        }}
+      />
 
-          {/* Right: Product count */}
-          <span
-            className="s-productlist-955672 s-productlist-ff0afd28"
-          >
-            <strong className="s-productlist-6ff513">{totalCount}</strong>{" "}
-            {totalCount === 1 ? "product" : "products"}
-          </span>
-        </div>
-      </div>
+      {/* Filter Drawer (global modular component) */}
+      <ProductFilters
+        isOpen={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        filters={filters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setPage(1);
+        }}
+        productCount={groupedProducts.length}
+        currentCategoryId={catId || null}
+        currentSubcategoryId={currentSubcategoryId}
+      />
 
-      {/* Active filters chips */}
-      {activeFilterCount > 0 && (
-        <div className="container s-productlist-a9e730">
-          <div
-            className="s-productlist-a6b0b8"
-          >
-            <span
-              className="s-productlist-6b0a08 s-productlist-ff0afd28"
-            >
-              Active Filters:
-            </span>
-            {filters.colorFamilies.map((c) => (
-              <button
-                key={c}
-                onClick={() => toggleColorFamily(c)}
-                className="filter-chip"
-              >
-                {c}{" "}
-                <i
-                  className="bi bi-x s-productlist-9b88cd"
-                />
-              </button>
-            ))}
-            {filters.sizeIds.map((id) => {
-              const sz = sizes.find((s: any) => s.sizeId === id);
-              return sz ? (
-                <button
-                  key={id}
-                  onClick={() => toggleSize(id)}
-                  className="filter-chip"
-                >
-                  Size: {sz.sizeLabel ?? sz.name}{" "}
-                  <i
-                    className="bi bi-x s-productlist-9b88cd"
-                  />
-                </button>
-              ) : null;
-            })}
-            {filters.cupSizeIds.map((id) => {
-              const cs = cupSizes.find((c: any) => c.cupSizeId === id);
-              return cs ? (
-                <button
-                  key={id}
-                  onClick={() => toggleCupSize(id)}
-                  className="filter-chip"
-                >
-                  Cup: {cs.sizeLabel ?? cs.size}{" "}
-                  <i
-                    className="bi bi-x s-productlist-9b88cd"
-                  />
-                </button>
-              ) : null;
-            })}
-            {filters.brandIds.map((id) => {
-              const br = brands.find((b: any) => b.brandId === id);
-              return br ? (
-                <button
-                  key={id}
-                  onClick={() => toggleBrand(id)}
-                  className="filter-chip"
-                >
-                  {br.brandName ?? br.name}{" "}
-                  <i
-                    className="bi bi-x s-productlist-9b88cd"
-                  />
-                </button>
-              ) : null;
-            })}
-            {filters.categoryIds.map((id) => {
-              const cat = categories.find((c: any) => c.categoryId === id);
-              return cat ? (
-                <button
-                  key={id}
-                  onClick={() => toggleCategory(id)}
-                  className="filter-chip"
-                >
-                  {cat.name}{" "}
-                  <i
-                    className="bi bi-x s-productlist-9b88cd"
-                  />
-                </button>
-              ) : null;
-            })}
-            {(filters.priceMin !== null || filters.priceMax !== null) && (
-              <button
-                onClick={() => {
-                  setFilters((f) => ({ ...f, priceMin: null, priceMax: null }));
-                }}
-                className="filter-chip"
-              >
-                Price: ₹{filters.priceMin ?? 0}–₹{filters.priceMax ?? "10k+"}{" "}
-                <i
-                  className="bi bi-x s-productlist-9b88cd"
-                />
-              </button>
-            )}
-            <button
-              onClick={clearAllFilters}
-              className="s-productlist-b250e2 s-productlist-ff0afd28"
-            >
-              Clear all
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter Drawer */}
-      {filterOpen && (
-        <>
-          <div
-            className="filter-drawer-overlay"
-            onClick={() => setFilterOpen(false)}
-          />
-          <div className="filter-drawer">
-            {/* Header */}
-            <div className="filter-drawer-header">
-              <h3
-                className="s-productlist-464604 s-productlist-ff586331"
-              >
-                Filters
-              </h3>
-              <button
-                onClick={() => setFilterOpen(false)}
-                className="s-productlist-9dcc3b"
-              >
-                <i className="bi bi-x" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="filter-drawer-body">
-              <div
-                className="s-productlist-4402fd"
-              >
-                {/* ─ 1. COLOR ─ */}
-                <div>
-                  <p className="filter-section-label">Color</p>
-                  <div className="s-productlist-a2d5a5">
-                    {COLOR_FAMILIES.filter((fam) =>
-                      colorFamilyMap.has(fam.label),
-                    ).map((fam) => {
-                      const isActive = filters.colorFamilies.includes(
-                        fam.label,
-                      );
-                      return (
-                        <button
-                          key={fam.label}
-                          onClick={() => toggleColorFamily(fam.label)}
-                          className="s-productlist-ad8bc4" style={ {border: `2px solid ${isActive ? 'var(--brand)' : "var(--ivory)"}`, background: isActive ? `var(--brand)10` : "#fff", fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--brand)' : "var(--heirloom)", fontFamily: FONT_UI} }
-                        >
-                          <div
-                            className="s-productlist-6441e7 s-productlist-711db7"
-                          />
-                          <span>{fam.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* ─ 2. SIZE ─ */}
-                <div>
-                  <p className="filter-section-label">Size</p>
-                  <div className="s-adminorders-2af484">
-                    {sizes.map((sz: any) => {
-                      const checked = filters.sizeIds.includes(sz.sizeId);
-                      return (
-                        <button
-                          key={sz.sizeId}
-                          onClick={() => toggleSize(sz.sizeId)}
-                          className={`size-chip${checked ? " active" : ""}`}
-                        >
-                          {sz.sizeLabel ?? sz.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* ─ 3. CUP SIZE ─ */}
-                {cupSizes.length > 0 && (
-                  <div>
-                    <p className="filter-section-label">Cup Size</p>
-                    <div className="s-adminorders-2af484">
-                      {cupSizes.map((cs: any) => {
-                        const checked = filters.cupSizeIds.includes(
-                          cs.cupSizeId,
-                        );
-                        return (
-                          <button
-                            key={cs.cupSizeId}
-                            onClick={() => toggleCupSize(cs.cupSizeId)}
-                            className={`size-chip${checked ? " active" : ""}`}
-                          >
-                            {cs.sizeLabel ?? cs.size}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* ─ 4. BRAND ─ */}
-                <div>
-                  <p className="filter-section-label">Brand</p>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search brands…"
-                    value={brandSearch}
-                    onChange={(e) => setBrandSearch(e.target.value)}
-                    className="s-productlist-9dfc9c s-productlist-ff0afd28"
-                  />
-                  <div
-                    className="s-productlist-48e5f5"
-                  >
-                    {filteredBrands.map((br: any) => {
-                      const checked = filters.brandIds.includes(br.brandId);
-                      return (
-                        <button
-                          key={br.brandId}
-                          onClick={() => toggleBrand(br.brandId)}
-                          className={`brand-pill${checked ? " active" : ""}`}
-                        >
-                          {checked && (
-                            <i
-                              className="bi bi-check s-addresslist-2c42ad"
-                            />
-                          )}
-                          {br.brandName ?? br.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* ─ 5. CATEGORY / SUBCATEGORY ─ (hidden on subcategory pages or when no child categories have products) */}
-                {categoriesToShowInFilter.length > 0 && (
-                  <div>
-                    <p className="filter-section-label">
-                      {isMainCategory ? "Subcategory" : "Category"}
-                    </p>
-                    <div
-                      className="s-productlist-a8c057"
-                    >
-                      {categoriesToShowInFilter.map((cat: any) => {
-                        const checked = filters.categoryIds.includes(
-                          cat.categoryId,
-                        );
-                        return (
-                          <label
-                            key={cat.categoryId}
-                            className="s-productlist-158eba" style={ {background: checked ? `var(--brand)10` : "transparent"} }
-                          >
-                            <div
-                              className="s-productlist-4dc61c" style={ {border: `2px solid ${checked ? 'var(--brand)' : "var(--ivory)"}`, background: checked ? 'var(--brand)' : "#fff"} }
-                            >
-                              {checked && (
-                                <i
-                                  className="bi bi-check s-adminproduct-b5c012"
-                                />
-                              )}
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleCategory(cat.categoryId)}
-                              className="s-addressform-8251cb"
-                            />
-                            <span
-                              className="s-productlist-ab59ad" style={ {color: checked ? 'var(--brand)' : "var(--heirloom)", fontWeight: checked ? 600 : 400} }
-                            >
-                              {cat.name}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* ─ 6. PRICE RANGE ─ */}
-                <div>
-                  <p className="filter-section-label">Price Range</p>
-                  {/* Dual range slider bar */}
-                  <div className="s-productlist-476428">
-                    <div className="s-userdashboar-474527">
-                      <span className="s-productlist-1da4a9 s-productlist-ff0afd28">
-                        ₹{sliderMin.toLocaleString("en-IN")}
-                      </span>
-                      <span className="s-productlist-1da4a9 s-productlist-ff0afd28">
-                        ₹{sliderMax >= PRICE_CEIL ? "10k+" : sliderMax.toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                    <div className="s-productlist-e51ab8">
-                      {/* Track background */}
-                      <div className="s-productlist-b260d9" />
-                      {/* Active range highlight */}
-                      <div className="s-productlist-b2f4a3" style={ {left: `${((sliderMin - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`, right: `${100 - ((sliderMax - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100}%`} } />
-                      {/* Min slider */}
-                      <input
-                        type="range"
-                        min={PRICE_FLOOR}
-                        max={PRICE_CEIL}
-                        step={100}
-                        value={sliderMin}
-                        onChange={(e) => {
-                          const val = Math.min(Number(e.target.value), sliderMax - 100);
-                          setSliderMin(val);
-                        }}
-                        onMouseUp={() => {
-                          setFilters((f) => ({ ...f, priceMin: sliderMin > PRICE_FLOOR ? sliderMin : null }));
-                          setPage(1);
-                        }}
-                        onTouchEnd={() => {
-                          setFilters((f) => ({ ...f, priceMin: sliderMin > PRICE_FLOOR ? sliderMin : null }));
-                          setPage(1);
-                        }}
-                        className="price-slider s-productlist-7203f1 s-productlist-d12ad6"
-                      />
-                      {/* Max slider */}
-                      <input
-                        type="range"
-                        min={PRICE_FLOOR}
-                        max={PRICE_CEIL}
-                        step={100}
-                        value={sliderMax}
-                        onChange={(e) => {
-                          const val = Math.max(Number(e.target.value), sliderMin + 100);
-                          setSliderMax(val);
-                        }}
-                        onMouseUp={() => {
-                          setFilters((f) => ({ ...f, priceMax: sliderMax < PRICE_CEIL ? sliderMax : null }));
-                          setPage(1);
-                        }}
-                        onTouchEnd={() => {
-                          setFilters((f) => ({ ...f, priceMax: sliderMax < PRICE_CEIL ? sliderMax : null }));
-                          setPage(1);
-                        }}
-                        className="price-slider s-productlist-4dec44 s-productlist-d12ad6"
-                      />
-                      </div>
-                  </div>
-                  {/* Quick price buttons */}
-                  <div className="filter-scroll s-adminproduct-02d219">
-                    {[
-                      { label: "Under ₹500", min: null, max: 500 },
-                      { label: "₹500–₹1k", min: 500, max: 1000 },
-                      { label: "₹1k–₹2k", min: 1000, max: 2000 },
-                      { label: "₹2k–₹5k", min: 2000, max: 5000 },
-                      { label: "₹5k+", min: 5000, max: null },
-                    ].map((p) => {
-                      const isActive =
-                        filters.priceMin === p.min &&
-                        filters.priceMax === p.max;
-                      return (
-                        <button
-                          key={p.label}
-                          className={`price-quick${isActive ? " active" : ""}`}
-                          onClick={() => {
-                            setFilters((f) => ({
-                              ...f,
-                              priceMin: p.min,
-                              priceMax: p.max,
-                            }));
-                            setSliderMin(p.min ?? PRICE_FLOOR);
-                            setSliderMax(p.max ?? PRICE_CEIL);
-                            setPage(1);
-                          }}
-                        >
-                          {p.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* Min / Max inputs */}
-                  <div
-                    className="s-adminproduct-04b6ac"
-                  >
-                    <div
-                      className="s-productlist-eb6593"
-                    >
-                      <span
-                        className="s-productlist-01f74c"
-                      >
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        placeholder="Min"
-                        value={filters.priceMin ?? ""}
-                        min={0}
-                        onChange={(e) => {
-                          const val = e.target.value !== "" ? Number(e.target.value) : null;
-                          setFilters((f) => ({ ...f, priceMin: val }));
-                          if (val !== null) setSliderMin(val);
-                          else setSliderMin(PRICE_FLOOR);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") setPage(1);
-                        }}
-                        className="s-productlist-4706fe s-productlist-ff0afd28"
-                      />
-                    </div>
-                    <span className="s-productlist-fdec40">—</span>
-                    <div
-                      className="s-productlist-eb6593"
-                    >
-                      <span
-                        className="s-productlist-01f74c"
-                      >
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        placeholder="Max"
-                        value={filters.priceMax ?? ""}
-                        min={0}
-                        onChange={(e) => {
-                          const val = e.target.value !== "" ? Number(e.target.value) : null;
-                          setFilters((f) => ({ ...f, priceMax: val }));
-                          if (val !== null) setSliderMax(val);
-                          else setSliderMax(PRICE_CEIL);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") setPage(1);
-                        }}
-                        className="s-productlist-4706fe s-productlist-ff0afd28"
-                      />
-                    </div>
-                    <button
-                      onClick={() => setPage(1)}
-                      className="s-productlist-dc5d39 s-productlist-ff0afd28"
-                    >
-                      Go
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="filter-drawer-footer">
-              <button
-                onClick={clearAllFilters}
-                className="s-productlist-0d455c s-productlist-ff0afd28"
-              >
-                Clear All
-              </button>
-              <button
-                onClick={() => setFilterOpen(false)}
-                className="s-productlist-e7f1bf s-productlist-ff0afd28"
-              >
-                Show {groupedProducts.length} Products
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ── Product grid ── */}
-      <div className="container s-productlist-22e220">
+      {/* Product grid */}
+      <div className="container" style={{ padding: "40px 20px" }}>
         {productsLoading ? (
           <div
-            className="s-productlist-18a79d"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "100px 20px",
+            }}
           >
             <div
-              className="s-productlist-feb323"
+              style={{
+                width: "50px",
+                height: "50px",
+                border: "4px solid var(--ivory)",
+                borderTop: "4px solid var(--brand)",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
             />
-            </div>
+          </div>
         ) : groupedProducts.length === 0 ? (
-          <div
-            className="s-productlist-3fa2c3"
-          >
+          <div style={{ textAlign: "center", padding: "100px 20px" }}>
             <i
-              className="bi bi-bag-x s-productlist-28e718"
+              className="bi bi-bag-x"
+              style={{ fontSize: "64px", color: "#ccc", marginBottom: "20px" }}
             />
-            <p className="s-productlist-3964c5 s-productlist-ff586331">
-              No products found
-            </p>
+            <p style={{ fontSize: "18px", color: "#666" }}>No products found</p>
             <button
-              onClick={clearAllFilters}
-              className="s-productlist-972b82 s-productlist-ff0afd28"
+              onClick={() => setFilters(DEFAULT_FILTERS)}
+              style={{
+                marginTop: "20px",
+                padding: "12px 30px",
+                border: "2px solid var(--brand)",
+                borderRadius: "6px",
+                background: "#fff",
+                color: "var(--brand)",
+                fontSize: "15px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
             >
               Clear Filters
             </button>
           </div>
         ) : (
           <>
-            <div key={page} className="pl-grid-wrap pl-grid">
+            <div
+              key={page}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: "30px",
+                marginBottom: "40px",
+              }}
+            >
               {groupedProducts
                 .slice((page - 1) * pageSize, page * pageSize)
                 .map((product: any) => (
-                  <div key={product.productId} className="pl-card-anim">
+                  <div key={product.productId}>
                     <ProductCard
                       product={product}
                       onQuickShop={setQuickShopId}
                       showColors={true}
+                      delayedDiscountReveal={true}
                     />
                   </div>
                 ))}
             </div>
 
-            {/* ── Pagination ── */}
+            {/* Pagination */}
             {totalPages > 1 && (
               <div
-                className="s-productlist-a86882"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "10px",
+                  padding: "20px 0",
+                }}
               >
                 <button
                   disabled={page === 1}
                   onClick={() => goToPage(page - 1)}
-                  className="pl-page-arrow"
+                  style={{
+                    padding: "10px 16px",
+                    border: "2px solid var(--ivory)",
+                    borderRadius: "6px",
+                    background: page === 1 ? "#f5f5f5" : "#fff",
+                    cursor: page === 1 ? "not-allowed" : "pointer",
+                  }}
                   aria-label="Previous page"
                 >
                   <i className="bi bi-chevron-left" />
                 </button>
+
                 {pagesArr.map((p, i) =>
                   p === "..." ? (
-                    <span
-                      key={`el-${i}`}
-                      className="s-productlist-2ab2e0"
-                    >
+                    <span key={`el-${i}`} style={{ padding: "0 10px" }}>
                       …
                     </span>
                   ) : (
                     <button
                       key={p}
                       onClick={() => goToPage(p as number)}
-                      className={`pl-page-btn${page === p ? " active" : ""}`}
+                      style={{
+                        padding: "10px 16px",
+                        border:
+                          page === p
+                            ? "2px solid var(--brand)"
+                            : "2px solid var(--ivory)",
+                        borderRadius: "6px",
+                        background: page === p ? "var(--ivory)" : "#fff",
+                        fontWeight: page === p ? 600 : 500,
+                        cursor: "pointer",
+                        minWidth: "45px",
+                      }}
                     >
                       {p}
                     </button>
                   ),
                 )}
+
                 <button
                   disabled={page === totalPages}
                   onClick={() => goToPage(page + 1)}
-                  className="pl-page-arrow"
+                  style={{
+                    padding: "10px 16px",
+                    border: "2px solid var(--ivory)",
+                    borderRadius: "6px",
+                    background: page === totalPages ? "#f5f5f5" : "#fff",
+                    cursor: page === totalPages ? "not-allowed" : "pointer",
+                  }}
                   aria-label="Next page"
                 >
                   <i className="bi bi-chevron-right" />
                 </button>
+
                 <span
-                  className="s-productlist-f6dfaf s-productlist-ff0afd28"
+                  style={{
+                    marginLeft: "20px",
+                    fontSize: "14px",
+                    color: "#666",
+                  }}
                 >
                   {
                     groupedProducts.slice(
@@ -1249,6 +492,28 @@ export default function ProductList() {
           onClose={() => setQuickShopId(null)}
         />
       )}
+
+      <style>{`
+        @keyframes spin {
+          0%   { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .category-hero-banner {
+          width: 100%;
+          max-height: 300px;
+          overflow: hidden;
+        }
+        .category-hero-banner img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+      `}</style>
     </div>
   );
 }
+
+
+
+
+

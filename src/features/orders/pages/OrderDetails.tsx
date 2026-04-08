@@ -6,7 +6,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getOrderDetail } from '@/features/orders/api/orders.api';
 import { formatDate, formatPrice, getImageUrl} from '@/shared/utils/helpers';
-import Breadcrumb from '@/shared/components/Breadcrumb';
+
 
 const STATUS_STYLE: Record<string, React.CSSProperties> = {
   Delivered:  { background: 'var(--ivory)', color: 'var(--brand)' },
@@ -30,7 +30,6 @@ export default function OrderDetails() {
 
   if (isLoading) return (
     <div className="s-blog1-3b196e">
-      <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'My Orders', path: '/account/orders-list' }, { label: 'Order Details' }]} />
       <div className="spinner-border text-secondary" />
     </div>
   );

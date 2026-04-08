@@ -5,6 +5,7 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import { createWishlist, deleteWishlistVariant, listWishlist } from '@/features/products/api/products.api';
 import {
   addToGuestWishlist,
+  saveWishlistDisplayMeta,
   removeFromGuestWishlist,
   isInGuestWishlist,
 } from '@/shared/utils/guestWishlist';
@@ -116,6 +117,8 @@ export const useWishlistToggle = (productVariantId: number) => {
 
   const addMut = useMutation({
     mutationFn: async (item: any) => {
+      saveWishlistDisplayMeta(item);
+
       if (!isAuthenticated) {
         addToGuestWishlist({
           productId:              item.productId,
@@ -125,6 +128,8 @@ export const useWishlistToggle = (productVariantId: number) => {
           finalPrice:             item.price || item.finalPrice,
           mrpPrice:               item.oldPrice || item.mrpPrice,
           imageURL:               item.image || item.imageURL,
+          hoverImage:             item.hoverImage,
+          images:                 item.images,
           color:                  item.color,
         });
         return null;
@@ -188,6 +193,8 @@ export const useWishlist = () => {
 
   const addMutation = useMutation({
     mutationFn: async (item: any) => {
+      saveWishlistDisplayMeta(item);
+
       if (!isAuthenticated) {
         addToGuestWishlist({
           productId:              item.productId,
@@ -197,6 +204,8 @@ export const useWishlist = () => {
           finalPrice:             item.price || item.finalPrice,
           mrpPrice:               item.oldPrice || item.mrpPrice,
           imageURL:               item.image || item.imageURL,
+          hoverImage:             item.hoverImage,
+          images:                 item.images,
           color:                  item.color,
         });
         return { success: true, isGuest: true };

@@ -14,8 +14,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import Breadcrumb from '@/shared/components/Breadcrumb';
-import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
+
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -24,7 +24,6 @@ import api from '@/shared/api/axiosInstance';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const IVORY_DK = 'var(--ivory)';
-const FONTS    = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI  = '"Trebuchet MS", Arial, sans-serif';
 
 // ── Empty form ────────────────────────────────────────────────────────────────
@@ -88,44 +87,24 @@ async function reverseGeocode(lat: number, lon: number): Promise<GeoData | null>
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const inpStyle = (err?: boolean, disabled?: boolean): React.CSSProperties => ({
-  width: '100%', padding: '11px 14px', boxSizing: 'border-box',
+  width: '100%', padding: '13px 15px', boxSizing: 'border-box',
   border: `1.5px solid ${err ? 'var(--brand)' : 'var(--ivory)'}`, borderRadius: 8,
-  fontSize: 14, fontFamily: FONT_UI, outline: 'none',
+  fontSize: 15, fontFamily: FONT_UI, outline: 'none',
   background: disabled ? 'var(--ivory)' : '#fff', color: disabled ? 'var(--heirloom)' : '#000000',
   transition: 'border-color .2s',
 });
 
 const labelSt: React.CSSProperties = {
-  fontSize: 12.5, fontWeight: 600, display: 'block',
+  fontSize: 14, fontWeight: 600, display: 'block',
   marginBottom: 5, color: 'var(--heirloom)', fontFamily: FONT_UI,
 };
 
 const errSt: React.CSSProperties = {
-  color: 'var(--brand)', fontSize: 11.5, marginTop: 4,
+  color: 'var(--brand)', fontSize: 12.5, marginTop: 4,
   display: 'flex', alignItems: 'center', gap: 4, margin: '4px 0 0',
 };
 
 // ── Checkout breadcrumb steps ─────────────────────────────────────────────────
-function CheckoutSteps({ active }: { active: 'address' | 'shipping' | 'payment' }) {
-  const steps = ['Address', 'Shipping', 'Payment'];
-  const idx   = steps.findIndex(s => s.toLowerCase() === active);
-  return (
-    <div className="s-paymentaddre-b73835 s-paymentaddre-ffd8281d">
-      {steps.map((s, i) => (
-        <span key={s} className="s-paymentaddre-c5c4a3">
-          <span className="s-paymentaddre-fcf208" style={ {background: i <= idx ? 'var(--brand)' : 'var(--ivory)', color: i <= idx ? '#fff' : 'var(--heirloom)'} }>
-            {i < idx ? '✓' : i + 1}
-          </span>
-          <span className="s-paymentaddre-52b54c" style={ {fontWeight: i === idx ? 700 : 400, color: i < idx ? 'var(--heirloom)' : i === idx ? 'var(--brand)' : 'var(--heirloom)', marginRight: i < steps.length - 1 ? 8 : 0} }>{s}</span>
-          {i < steps.length - 1 && (
-            <span className="s-paymentaddre-e316ec" style={ {background: i < idx ? 'var(--heirloom)' : 'var(--ivory)'} } />
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Reusable Address Form Panel
 // ─────────────────────────────────────────────────────────────────────────────
@@ -454,7 +433,6 @@ export default function PaymentAddress() {
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
   const isBuyNow       = searchParams.get('buyNow') === '1';
-  const breadcrumbs    = useBreadcrumb({ staticItems: [{ label: 'Checkout' }, { label: 'Address' }] });
   const qc             = useQueryClient();
   const { getUserId, hasValidToken } = useAuthStore();
   const userId = getUserId();
@@ -618,11 +596,8 @@ export default function PaymentAddress() {
 
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="s-paymentaddre-2e2509 s-paymentaddre-ffd8281d">
-      <Breadcrumb items={breadcrumbs} />
-      <CheckoutSteps active="address" />
-
-      <h4 className="s-paymentaddre-e0ad90 s-paymentaddre-ffd02986">
+    <div className="s-paymentaddre-2e2509 s-paymentaddre-ffd8281d checkout-shell checkout-shell--address">
+      <h4 className="s-paymentaddre-e0ad90 s-paymentaddre-ffd02986 checkout-page-title">
         Delivery Address
       </h4>
 

@@ -15,7 +15,6 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listOrders } from '@/features/orders/api/orders.api';
 import api from '@/shared/api/axiosInstance';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 import { resolveHex } from '@/shared/utils/colorHelpers';
 
 const ORDER_FILTERS = [
@@ -106,11 +105,6 @@ export default function OrdersList() {
 
   return (
     <>
-      <Breadcrumb items={[
-        { label: 'Home', path: '/' },
-        { label: 'My Account', path: '/account/update-profile' },
-        { label: 'My Orders' }
-      ]} />
       <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h5 className="mb-0">My Orders</h5>

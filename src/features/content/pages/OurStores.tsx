@@ -3,17 +3,6 @@ import { Link } from 'react-router-dom';
 export default function OurStores() {
   return (
     <div>
-      <div className="page-title s-ourstores-d47955">
-        <div className="container">
-          <nav className="breadcrumbs">
-            <ol className="pb-0">
-              <li><Link to="/">Home</Link></li>
-              <li className="current">Our Stores</li>
-            </ol>
-          </nav>
-        </div>
-      </div>
-
       <div className="container s-ourstores-b744a7">
         <h5 className="s-ourstores-ab0dfc">Our Stores</h5>
         <div className="s-ourstores-0e2f63">

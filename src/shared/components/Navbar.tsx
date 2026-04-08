@@ -8,6 +8,7 @@ import type { CategoryMenu } from "@/shared/types";
 import QuickCart from "@/features/cart/components/QuickCart";
 import { getGuestWishlistCount } from "@/shared/utils/guestWishlist";
 import toast from "react-hot-toast";
+
 const TEXTS = [
   "Hello, Beautiful.",
   "Welcome, Gorgeous.",
@@ -366,8 +367,7 @@ export default function Navbar() {
               className="nb-logo"
             />
             <p
-              className="nb-tagline"
-              style={{ opacity: sloganPhase === "in" ? 1 : 0 }}
+              className={`nb-tagline ${sloganPhase === "in" ? "is-visible" : "is-hidden"}`}
             >
               {TEXTS[sloganIdx]}
             </p>
@@ -379,7 +379,17 @@ export default function Navbar() {
             className={`nb-search-region${searchOpen ? " nb-search-region--open" : ""}`}
           >
             <div className="nb-inline-search">
-              <i className="bi bi-search nb-inline-search__icon" />
+              {/* Mic Icon moved to left */}
+              <button
+                className={`nb-mic-btn${isListening ? " nb-mic-btn--active" : ""}`}
+                onClick={startVoice}
+                title={isListening ? "Stop" : "Voice search"}
+              >
+                <i
+                  className={`bi ${isListening ? "bi-stop-circle-fill" : "bi-mic-fill"}`}
+                />
+              </button>
+
               <div className="nb-search-field-wrap">
                 {!searchText && (
                   <span
@@ -401,14 +411,15 @@ export default function Navbar() {
                   placeholder=""
                 />
               </div>
+
+              {/* Search Icon moved to right and made clickable */}
               <button
-                className={`nb-mic-btn${isListening ? " nb-mic-btn--active" : ""}`}
-                onClick={startVoice}
-                title={isListening ? "Stop" : "Voice search"}
+                className="nb-inline-search__submit"
+                onClick={onSearch}
+                title="Search"
+                aria-label="Submit search"
               >
-                <i
-                  className={`bi ${isListening ? "bi-stop-circle-fill" : "bi-mic-fill"}`}
-                />
+                <i className="bi bi-search" />
               </button>
             </div>
           </div>
@@ -461,7 +472,10 @@ export default function Navbar() {
               <div ref={userMenuRef} className="nb-user-wrap">
                 <button
                   className="nb-icon-btn nb-user-btn"
-                  onClick={() => setIsUserMenuOpen((v) => !v)}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    navigate("/account/dashboard");
+                  }}
                   aria-label="Account"
                 >
                   <span className="nb-avatar">
@@ -496,7 +510,7 @@ export default function Navbar() {
                         {
                           icon: "bi-heart",
                           label: "Wishlist",
-                          path: "/wishlist",
+                          path: "/account/wishlist",
                         },
                         {
                           icon: "bi-geo-alt",
@@ -574,9 +588,7 @@ export default function Navbar() {
 
           <div className="nb-drawer">
             <div className="nb-drawer__head">
-              <span className="nb-drawer__head-title">
-                Menu
-              </span>
+              <span className="nb-drawer__head-title">Menu</span>
               <button
                 className="nb-drawer__close"
                 onClick={() => {

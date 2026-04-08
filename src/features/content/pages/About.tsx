@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 export default function About() {
   return (
     <div>
-      <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'About Us' }]} />
       <div className="s-about-936baf">
         <h1 className="s-about-9faa02">About Only TWAM</h1>
         <p className="s-about-8369f5">Where every body finds its perfect fit. It's all about you.</p>

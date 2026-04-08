@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
+// src/features/account/pages/AddressList.tsx — Fixed
+// Fixes:
+//   1. useQuery enabled only when userId is present
+//   2. listAddress returns array directly (normalised in orders.api.ts)
+//   3. Proper empty state
+//   4. Form fields match backend schema
+
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listAddress, createAddress, updateAddress, deleteAddress } from '@/features/orders/api/orders.api';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 
-// FIX: form fields now match backend schema (addressLine, pinCode, phone — not addressLine1, pincode, mobileNumber)
 const emptyForm = {
   name: '', phone: '', addressLine: '', locality: '',
   city: '', pinCode: '', addressType: 'Home', isDefault: false,
@@ -24,17 +29,17 @@ export default function AddressList() {
 
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ ...emptyForm });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [form, setForm]         = useState({ ...emptyForm });
+  const [errors, setErrors]     = useState<Record<string, string>>({});
 
+  // Fetch addresses — backend auto-scopes to authenticated user
   const { data: addresses = [], isLoading } = useQuery({
     queryKey: ['addresses', userId],
-    queryFn: () => listAddress({ userProfileId: userId }),
-    enabled: !!userId,
-    select: (d: any) => d?.list ?? d ?? [],
+    queryFn:  () => listAddress({ userProfileId: userId }),
+    enabled:  !!userId,
+    staleTime: 30_000,
   });
 
-  // FIX: createAddress/updateAddress in orders.api.ts now handles field mapping (phone→phone, addressLine→addressLine, etc.)
   const saveMutation = useMutation({
     mutationFn: (data: any) =>
       editItem
@@ -45,10 +50,10 @@ export default function AddressList() {
       qc.invalidateQueries({ queryKey: ['addresses', userId] });
       handleClose();
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to save address'),
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.detail || 'Failed to save address'),
   });
 
-  // FIX: deleteAddress takes number not string
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteAddress(id),
     onSuccess: () => {
@@ -80,151 +85,191 @@ export default function AddressList() {
     setErrors({});
   };
 
-  const validate = () => {
+  const validate = (): boolean => {
     const e: Record<string, string> = {};
     if (!form.name.trim())        e.name        = 'Name is required';
     if (!form.phone.trim())       e.phone       = 'Phone is required';
-    else if (!/^\d{10}$/.test(form.phone)) e.phone = 'Enter valid 10-digit phone';
+    else if (!/^\d{10}$/.test(form.phone.trim())) e.phone = '10-digit number required';
     if (!form.addressLine.trim()) e.addressLine = 'Address is required';
     if (!form.city.trim())        e.city        = 'City is required';
     if (!form.pinCode.trim())     e.pinCode     = 'Pincode is required';
-    else if (!/^\d{6}$/.test(form.pinCode)) e.pinCode = 'Enter valid 6-digit pincode';
+    else if (!/^\d{6}$/.test(form.pinCode.trim())) e.pinCode = '6-digit pincode required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const getFullAddress = (a: any) =>
-    [a.addressLine, a.locality, a.city, a.pinCode].filter(Boolean).join(', ');
+  const set = (field: string, val: any) => setForm(f => ({ ...f, [field]: val }));
 
-  if (isLoading) return (
-    <div className="d-flex justify-content-center py-4">
-      <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'My Account', path: '/account/update-profile' }, { label: 'Addresses' }]} /><div className="spinner-border text-secondary" /></div>
-  );
+  if (!userId) {
+    return (
+      <div className="container py-5 text-center">
+        <p className="text-muted">Please log in to manage your addresses.</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="container py-4" style={{ maxWidth: 720 }}>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5 className="mb-0">My Addresses</h5>
-        {!showForm && (
-          <button className="btn btn-sm btn-dark d-flex align-items-center gap-2"
-            onClick={() => setShowForm(true)}>
-            <i className="bi bi-plus-circle" />Add New Address
-          </button>
-        )}
+        <h5 className="mb-0" style={{ fontFamily: 'Palatino, serif', color: '#6B0F2A' }}>
+          Saved Addresses
+        </h5>
+        <button
+          className="btn btn-sm"
+          style={{ background: '#6B0F2A', color: '#fff', borderRadius: 8 }}
+          onClick={() => { handleClose(); setShowForm(true); }}
+        >
+          + Add Address
+        </button>
       </div>
 
-      {/* ── Address form */}
+      {/* Inline Add/Edit Form */}
       {showForm && (
-        <div className="card p-4 mb-4 shadow-sm">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h6 className="mb-0">{editItem ? 'Edit Address' : 'Add New Address'}</h6>
-            <button className="btn-close" onClick={handleClose} />
-          </div>
-          <div className="row g-3">
-            <div className="col-md-6">
-              <label className="form-label s-addresslist-9eec06">Full Name *</label>
-              <input className={`form-control ${errors.name ? 'is-invalid' : ''}`}
-                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-              {errors.name && <div className="invalid-feedback">{errors.name}</div>}
-            </div>
-            <div className="col-md-6">
-              <label className="form-label s-addresslist-9eec06">Mobile Number *</label>
-              <input className={`form-control ${errors.phone ? 'is-invalid' : ''}`}
-                value={form.phone} maxLength={10}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-              {errors.phone && <div className="invalid-feedback">{errors.phone}</div>}
-            </div>
-            <div className="col-12">
-              <label className="form-label s-addresslist-9eec06">Address *</label>
-              <input className={`form-control ${errors.addressLine ? 'is-invalid' : ''}`}
-                placeholder="House/Flat No., Building, Street"
-                value={form.addressLine} onChange={e => setForm(f => ({ ...f, addressLine: e.target.value }))} />
-              {errors.addressLine && <div className="invalid-feedback">{errors.addressLine}</div>}
-            </div>
-            <div className="col-12">
-              <label className="form-label s-addresslist-9eec06">Locality / Area</label>
-              <input className="form-control" placeholder="Area, Colony, Locality"
-                value={form.locality} onChange={e => setForm(f => ({ ...f, locality: e.target.value }))} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label s-addresslist-9eec06">Pincode *</label>
-              <input className={`form-control ${errors.pinCode ? 'is-invalid' : ''}`}
-                value={form.pinCode} maxLength={6}
-                onChange={e => setForm(f => ({ ...f, pinCode: e.target.value }))} />
-              {errors.pinCode && <div className="invalid-feedback">{errors.pinCode}</div>}
-            </div>
-            <div className="col-md-4">
-              <label className="form-label s-addresslist-9eec06">City *</label>
-              <input className={`form-control ${errors.city ? 'is-invalid' : ''}`}
-                value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-              {errors.city && <div className="invalid-feedback">{errors.city}</div>}
-            </div>
-            <div className="col-md-4">
-              <label className="form-label s-addresslist-9eec06">Address Type</label>
-              <select className="form-select" value={form.addressType}
-                onChange={e => setForm(f => ({ ...f, addressType: e.target.value }))}>
-                <option value="Home">Home</option>
-                <option value="Work">Work</option>
-              </select>
-            </div>
-            <div className="col-12">
-              <div className="form-check">
-                <input className="form-check-input" type="checkbox" id="isDefault"
-                  checked={form.isDefault} onChange={e => setForm(f => ({ ...f, isDefault: e.target.checked }))} />
-                <label className="form-check-label s-addresslist-92985e" htmlFor="isDefault">
-                  Set as default address
-                </label>
+        <div className="card mb-4 shadow-sm" style={{ borderRadius: 12, border: '1.5px solid #e5c9d0' }}>
+          <div className="card-body">
+            <h6 className="mb-3" style={{ color: '#6B0F2A' }}>
+              {editItem ? 'Edit Address' : 'New Address'}
+            </h6>
+            <div className="row g-3">
+              {[
+                { field: 'name',        label: 'Full Name',     type: 'text',  col: 6 },
+                { field: 'phone',       label: 'Phone',         type: 'tel',   col: 6 },
+                { field: 'addressLine', label: 'Address Line',  type: 'text',  col: 12 },
+                { field: 'locality',    label: 'Locality / Area', type: 'text', col: 6 },
+                { field: 'city',        label: 'City',          type: 'text',  col: 6 },
+                { field: 'pinCode',     label: 'Pincode',       type: 'text',  col: 6 },
+              ].map(({ field, label, type, col }) => (
+                <div key={field} className={`col-${col}`}>
+                  <label className="form-label" style={{ fontSize: 12.5, fontWeight: 600, color: '#6B0F2A' }}>
+                    {label} {['name','phone','addressLine','city','pinCode'].includes(field) && <span style={{color:'red'}}>*</span>}
+                  </label>
+                  <input
+                    type={type}
+                    className={`form-control form-control-sm ${errors[field] ? 'is-invalid' : ''}`}
+                    value={(form as any)[field]}
+                    onChange={e => set(field, e.target.value)}
+                    style={{ borderRadius: 8 }}
+                  />
+                  {errors[field] && <div className="invalid-feedback">{errors[field]}</div>}
+                </div>
+              ))}
+
+              <div className="col-6">
+                <label className="form-label" style={{ fontSize: 12.5, fontWeight: 600, color: '#6B0F2A' }}>Type</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={form.addressType}
+                  onChange={e => set('addressType', e.target.value)}
+                  style={{ borderRadius: 8 }}
+                >
+                  <option value="Home">Home</option>
+                  <option value="Work">Work</option>
+                </select>
+              </div>
+
+              <div className="col-12">
+                <div className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="isDefault"
+                    checked={form.isDefault}
+                    onChange={e => set('isDefault', e.target.checked)}
+                  />
+                  <label className="form-check-label" htmlFor="isDefault" style={{ fontSize: 13 }}>
+                    Set as default address
+                  </label>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="d-flex gap-3 mt-4">
-            <button className="btn btn-dark"
-              onClick={() => validate() && saveMutation.mutate(form)} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? 'Saving...' : (editItem ? 'Update Address' : 'Save Address')}
-            </button>
-            <button className="btn btn-outline-secondary" onClick={handleClose}>Cancel</button>
+
+            <div className="d-flex gap-2 mt-4">
+              <button
+                className="btn btn-sm"
+                style={{ background: '#6B0F2A', color: '#fff', borderRadius: 8, minWidth: 100 }}
+                disabled={saveMutation.isPending}
+                onClick={() => { if (validate()) saveMutation.mutate(form); }}
+              >
+                {saveMutation.isPending ? 'Saving…' : editItem ? 'Update' : 'Save'}
+              </button>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                style={{ borderRadius: 8 }}
+                onClick={handleClose}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ── Address list */}
-      {(addresses as any[]).length === 0 && !showForm ? (
-        <div className="text-center py-5">
-          <i className="bi bi-geo-alt s-addresslist-d71ded" />
-          <p className="text-muted mt-3">No addresses saved yet.</p>
-          <button className="btn btn-dark btn-sm" onClick={() => setShowForm(true)}>
-            Add Your First Address
-          </button>
+      {/* Address Cards */}
+      {isLoading ? (
+        <div className="text-center py-4">
+          <div className="spinner-border" style={{ color: '#6B0F2A' }} />
+        </div>
+      ) : addresses.length === 0 ? (
+        <div className="text-center py-5 text-muted">
+          <i className="bi bi-geo-alt" style={{ fontSize: 40, display: 'block', marginBottom: 12 }} />
+          No saved addresses yet. Add one to get started.
         </div>
       ) : (
-        <div>
-          {(addresses as any[]).map((addr: any) => (
-            <div key={addr.addressId} className="border rounded p-3 mb-3">
-              <div className="d-flex align-items-center gap-2 mb-2">
-                <TypeIcon typeId={addr.typeId} />
-                <h6 className="mb-0">{addr.typeId === 2 ? 'Work' : 'Home'}</h6>
+        <div className="row g-3">
+          {addresses.map((addr: any) => (
+            <div key={addr.addressId} className="col-12 col-md-6">
+              <div
+                className="card h-100"
+                style={{
+                  borderRadius: 12,
+                  border: addr.isDefault ? '2px solid #6B0F2A' : '1px solid #e5e7eb',
+                  position: 'relative',
+                }}
+              >
                 {addr.isDefault && (
-                  <span className="badge bg-success ms-1 s-addresslist-2c42ad">Default</span>
+                  <span
+                    style={{
+                      position: 'absolute', top: -1, right: 12,
+                      background: '#6B0F2A', color: '#fff',
+                      fontSize: 10, fontWeight: 700,
+                      padding: '2px 10px', borderRadius: '0 0 8px 8px',
+                    }}
+                  >
+                    DEFAULT
+                  </span>
                 )}
-              </div>
-              <div className="d-flex justify-content-between align-items-start">
-                <div>
-                  <div className="d-flex gap-3 mb-1">
-                    <span className="fw-semibold">{addr.name}</span>
-                    <span className="text-muted">{addr.phone}</span>
+                <div className="card-body pb-3">
+                  <div className="fw-bold mb-1" style={{ color: '#1f2937' }}>
+                    <TypeIcon typeId={addr.typeId} />
+                    {addr.name}
                   </div>
-                  <p className="text-muted mb-0 s-addresslist-92985e">{getFullAddress(addr)}</p>
-                </div>
-                <div className="d-flex flex-column gap-2 ms-3 s-addresslist-f8b697">
-                  <button className="btn btn-sm btn-outline-secondary" onClick={() => handleEdit(addr)}>
-                    <i className="bi bi-pencil me-1" />Edit
-                  </button>
-                  <button className="btn btn-sm btn-outline-danger"
-                    // FIX: pass number not string
-                    onClick={() => { if (window.confirm('Delete this address?')) deleteMutation.mutate(addr.addressId); }}
-                    disabled={deleteMutation.isPending}>
-                    <i className="bi bi-trash me-1" />Delete
-                  </button>
+                  <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>
+                    {addr.addressLine && <div>{addr.addressLine}</div>}
+                    {addr.locality   && <div>{addr.locality}</div>}
+                    <div>{[addr.city, addr.pinCode].filter(Boolean).join(' - ')}</div>
+                    {addr.phone && <div style={{ marginTop: 4, color: '#6b7280' }}>📞 {addr.phone}</div>}
+                  </div>
+
+                  <div className="d-flex gap-2 mt-3">
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      style={{ fontSize: 12, borderRadius: 6 }}
+                      onClick={() => handleEdit(addr)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      style={{ fontSize: 12, borderRadius: 6 }}
+                      disabled={deleteMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm('Delete this address?'))
+                          deleteMutation.mutate(addr.addressId);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

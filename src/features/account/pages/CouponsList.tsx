@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listUserCoupons } from '@/features/orders/api/orders.api';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 
 export default function CouponsList() {
   const { getUserId } = useAuthStore();
@@ -32,11 +31,6 @@ export default function CouponsList() {
 
   return (
     <>
-      <Breadcrumb items={[
-        { label: 'Home', path: '/' },
-        { label: 'My Account', path: '/account/update-profile' },
-        { label: 'Coupons' }
-      ]} />
       <div>
       <h5 className="mb-4">My Coupons</h5>
 

@@ -132,7 +132,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   clearCart: () =>
     set({
       items: [], totalItems: 0, totalPrice: 0,
-      appliedCoupon: null, couponDiscount: 0,
+      appliedCoupon: null, couponDiscount: 0, selectedShipping: null,
       _selectedItems: [], _subTotal: 0, _taxAmount: 0,
     }),
 

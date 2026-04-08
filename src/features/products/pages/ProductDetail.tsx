@@ -1,16 +1,6 @@
 /**
  * ProductDetail.tsx
- * Layout: Left = sticky image gallery (thumbnails left scrollable, main image right)
- *         Right = scrollable info panel
- * Below: Tabs → Similar Products (same category, ProductList card + grouping) →
- *        Shipping Bar → Footer (common)
- *
- * Changes:
- *  - Thumbnail column is now independently scrollable (hidden scrollbar)
- *  - Main image auto-advances every 6 s
- *  - Manual thumb click / arrow click resets the 6 s countdown
  */
-
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   useParams,
@@ -31,7 +21,7 @@ import { addToCart } from "@/features/cart/api/cart.api";
 import { formatPrice, slugify, getImageUrl } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 
-import Breadcrumb from "@/shared/components/Breadcrumb";
+import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useBreadcrumb } from "@/shared/hooks/useBreadcrumb";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
@@ -80,12 +70,8 @@ function PageNotification({
         ? "bi-exclamation-triangle-fill"
         : "bi-info-circle-fill";
   return (
-    <div
-      className="s-productdetai-5ab3e3"
-    >
-      <div
-        className="s-productdetai-bb046e" style={ {background: bg} }
-      >
+    <div className="s-productdetai-5ab3e3">
+      <div className="s-productdetai-bb046e" style={{ background: bg }}>
         <i className={`bi ${icon} s-quickshopmod-42031d`} />
         <span>{notif.message}</span>
       </div>
@@ -118,11 +104,11 @@ function Stars({
           <i
             key={i}
             className={`bi ${on ? "bi-star-fill" : half ? "bi-star-half" : "bi-star"}`}
-            style={ {
+            style={{
               fontSize: size,
               color: on || half ? "var(--brand)" : "var(--ivory)",
               cursor: interactive ? "pointer" : "default",
-            } }
+            }}
             onMouseEnter={() => interactive && setHover(i)}
             onMouseLeave={() => interactive && setHover(0)}
             onClick={() => interactive && onRate?.(i)}
@@ -254,7 +240,7 @@ function ScrollableProductRow({
     width: 42,
     height: 42,
     borderRadius: "50%",
-    background: enabled ? 'var(--brand)' : "var(--ivory)",
+    background: enabled ? "var(--brand)" : "var(--ivory)",
     border: "none",
     cursor: enabled ? "pointer" : "default",
     display: "flex",
@@ -289,7 +275,8 @@ function ScrollableProductRow({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="s-productdetai-3283d7 s-productdetai-e7ff84" style={ {gap: ROW_GAP} }
+        className="s-productdetai-3283d7 s-productdetai-e7ff84"
+        style={{ gap: ROW_GAP }}
       >
         {products.map((p: any) => (
           <div
@@ -350,6 +337,26 @@ export default function ProductDetail() {
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
   const [pageNotif, setPageNotif] = useState<PageNotif | null>(null);
   const [showStockTip, setShowStockTip] = useState(false);
+
+  /* ── Thumbnail Pagination & Scrolling Logic ── */
+  const thumbScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollThumbUp, setCanScrollThumbUp] = useState(false);
+  const [canScrollThumbDown, setCanScrollThumbDown] = useState(false);
+
+  const checkThumbScroll = useCallback(() => {
+    const el = thumbScrollRef.current;
+    if (!el) return;
+    setCanScrollThumbUp(el.scrollTop > 2);
+    setCanScrollThumbDown(el.scrollTop < el.scrollHeight - el.clientHeight - 2);
+  }, []);
+
+  const scrollThumbs = (dir: 1 | -1) => {
+    const el = thumbScrollRef.current;
+    if (!el) return;
+    // 5 images (88px each) + 5 gaps (8px each) = exactly one full view jump
+    const amount = (88 + 8) * 5;
+    el.scrollBy({ top: dir * amount, behavior: "smooth" });
+  };
 
   /* ── Auto-scroll ref: holds the setInterval handle ── */
   const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -468,6 +475,12 @@ export default function ProductDetail() {
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
 
+  /* Fire checkThumbScroll once images load so we know if we need arrows initially */
+  useEffect(() => {
+    const t = setTimeout(checkThumbScroll, 100);
+    return () => clearTimeout(t);
+  }, [images, checkThumbScroll]);
+
   /* ── Auto-scroll: start/restart the 6-second interval ── */
   const startAutoScroll = useCallback((imgCount: number) => {
     if (autoScrollRef.current) clearInterval(autoScrollRef.current);
@@ -484,6 +497,23 @@ export default function ProductDetail() {
       if (autoScrollRef.current) clearInterval(autoScrollRef.current);
     };
   }, [images.length, startAutoScroll]);
+
+  /* Make sure the active thumbnail is always scrolled into view */
+  useEffect(() => {
+    const el = thumbScrollRef.current;
+    if (!el) return;
+    const thumbItem = el.children[activeImg] as HTMLElement;
+    if (thumbItem) {
+      const itemTop = thumbItem.offsetTop;
+      const itemBottom = itemTop + thumbItem.clientHeight;
+      const viewTop = el.scrollTop;
+      const viewBottom = viewTop + el.clientHeight;
+
+      if (itemTop < viewTop || itemBottom > viewBottom) {
+        thumbItem.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [activeImg]);
 
   /* Manual thumbnail click — show that thumb, then resume countdown */
   const handleThumbClick = (i: number) => {
@@ -730,8 +760,14 @@ export default function ProductDetail() {
     currentLabel: product?.name || undefined,
   });
 
+  // Push dynamic crumbs (category tree + product name) into the global breadcrumb
+  const { setCrumbs } = useBreadcrumbStore();
+  useEffect(() => {
+    if (detailCrumbs.length > 0) setCrumbs(detailCrumbs);
+  }, [detailCrumbs]);
+
   const btnStyle: React.CSSProperties = {
-    background: 'var(--brand)',
+    background: "var(--brand)",
     color: "#fff",
     border: "none",
     borderRadius: 8,
@@ -747,19 +783,18 @@ export default function ProductDetail() {
   if (isLoading)
     return (
       <div className="s-blog1-3b196e">
-        <div
-          className="s-productdetai-fa17e1"
-        />
-        </div>
+        <div className="s-productdetai-fa17e1" />
+      </div>
     );
   if (!product)
     return (
       <div className="s-productdetai-490f26">
-        <i
-          className="bi bi-box-seam s-orderslist-94e3bd"
-        />
+        <i className="bi bi-box-seam s-orderslist-94e3bd" />
         <h4 className="s-adminbrands-95b451">Product not found</h4>
-        <Link to="/user-products/product-list" className="s-productdetai-b87156">
+        <Link
+          to="/user-products/product-list"
+          className="s-productdetai-b87156"
+        >
           Browse Products
         </Link>
       </div>
@@ -770,44 +805,127 @@ export default function ProductDetail() {
       {pageNotif && (
         <PageNotification notif={pageNotif} onDone={() => setPageNotif(null)} />
       )}
-      <Breadcrumb items={detailCrumbs} />
 
-      <div
-        className="container s-productdetai-312006 s-productdetai-ffe77190"
-      >
+      <div className="container s-productdetai-312006 s-productdetai-ffe77190">
         {/* ── Two-column layout ── */}
-        <div
-          className="s-productdetai-3bf9d0"
-        >
+        <div className="s-productdetai-3bf9d0">
           {/* LEFT: sticky image gallery */}
-          <div
-            className="pd-left-col s-productdetai-993ff1"
-          >
-            <div className="pd-gallery-row s-adminbrands-bccf37">
-              {/* ── Thumbnail column — independently scrollable, height matches main image ── */}
+          <div className="pd-left-col s-productdetai-993ff1">
+            <div
+              className="pd-gallery-row s-adminbrands-bccf37"
+              style={{ alignItems: "flex-start" }}
+            >
+              {/* ── Thumbnail column with Exactly 5 Visible + Arrows ── */}
               {images.length > 1 && (
                 <div
-                  className="pd-thumb-col s-productdetai-f26fa6"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    width: "76px",
+                    flexShrink: 0,
+                  }}
                 >
-                  {images.map((img, i) => (
-                    <img
-                      key={i}
-                      src={img}
-                      alt=""
-                      onClick={() => handleThumbClick(i)}
-                      className="s-productdetai-81ffd3" style={ {border: `2px solid ${activeImg === i ? 'var(--brand)' : "var(--ivory)"}`, opacity: activeImg === i ? 1 : 0.65} }
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
+                  {/* Up Arrow (Only visible if scrolled down) */}
+                  {canScrollThumbUp ? (
+                    <button
+                      onClick={() => scrollThumbs(-1)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--brand)",
+                        cursor: "pointer",
+                        fontSize: "20px",
+                        padding: "4px 0",
+                        height: "30px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "100%",
                       }}
-                    />
-                  ))}
+                    >
+                      <i className="bi bi-chevron-up" />
+                    </button>
+                  ) : (
+                    <div style={{ height: "30px" }} />
+                  )}
+
+                  {/* Scrollable Container constrained exactly to 5 images (472px) */}
+                  <div
+                    ref={thumbScrollRef}
+                    onScroll={checkThumbScroll}
+                    className="pd-thumb-col s-productdetai-f26fa6"
+                    style={{
+                      maxHeight: "472px", // 5 images (88px each) + 4 gaps (8px each) = 440 + 32 = 472px
+                      overflowY: "auto", // NATIVE SCROLLING RE-ENABLED HERE
+                      overflowX: "hidden",
+                      scrollbarWidth: "none",
+                      msOverflowStyle: "none",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      paddingRight: "0px",
+                      flexShrink: 0,
+                      scrollBehavior: "smooth",
+                    }}
+                  >
+                    {images.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img}
+                        alt=""
+                        onClick={() => handleThumbClick(i)}
+                        className="s-productdetai-81ffd3"
+                        style={{
+                          border: `2px solid ${activeImg === i ? "var(--brand)" : "var(--ivory)"}`,
+                          opacity: activeImg === i ? 1 : 0.65,
+                          flexShrink: 0,
+                          width: "72px",
+                          height: "88px",
+                          objectFit: "cover",
+                          margin: "0 auto",
+                        }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Down Arrow / "More" (Only visible if there's room to scroll down) */}
+                  {canScrollThumbDown ? (
+                    <button
+                      onClick={() => scrollThumbs(1)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--brand)",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        padding: "4px 0",
+                        height: "40px",
+                        width: "100%",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      <span>More</span>
+                      <i
+                        className="bi bi-chevron-down"
+                        style={{ fontSize: "16px", marginTop: "-4px" }}
+                      />
+                    </button>
+                  ) : (
+                    <div style={{ height: "40px" }} />
+                  )}
                 </div>
               )}
 
               {/* ── Main image ── */}
-              <div
-                className="s-productdetai-c12f49"
-              >
+              <div className="s-productdetai-c12f49">
                 {images.length > 0 ? (
                   <img
                     src={images[activeImg]}
@@ -819,9 +937,7 @@ export default function ProductDetail() {
                     }}
                   />
                 ) : (
-                  <div
-                    className="s-productdetai-cc055a"
-                  >
+                  <div className="s-productdetai-cc055a">
                     <i className="bi bi-image s-productdetai-f49855" />
                   </div>
                 )}
@@ -843,14 +959,19 @@ export default function ProductDetail() {
                     </button>
 
                     {/* ── Dot indicators showing current image & progress ── */}
-                    <div
-                      className="s-productdetai-20eb94"
-                    >
+                    <div className="s-productdetai-20eb94">
                       {images.map((_, i) => (
                         <button
                           key={i}
                           onClick={() => handleThumbClick(i)}
-                          className="s-productdetai-ae8395" style={ {width: activeImg === i ? 20 : 8, background: activeImg === i ? 'var(--brand)' : "rgba(255,255,255,0.7)"} }
+                          className="s-productdetai-ae8395"
+                          style={{
+                            width: activeImg === i ? 20 : 8,
+                            background:
+                              activeImg === i
+                                ? "var(--brand)"
+                                : "rgba(255,255,255,0.7)",
+                          }}
                         />
                       ))}
                     </div>
@@ -862,36 +983,33 @@ export default function ProductDetail() {
 
           {/* RIGHT: scrollable info */}
           <div>
-            <div
-              className="s-productdetai-a5163d"
-            >
+            <div className="s-productdetai-a5163d">
               <div className="s-userdashboar-7aa8c4">
                 {product.brandName && (
-                  <p
-                    className="s-productdetai-a025fe s-productdetai-ff85a0a9"
-                  >
+                  <p className="s-productdetai-a025fe s-productdetai-ff85a0a9">
                     {product.brandName}
                   </p>
                 )}
-                <h1
-                  className="s-productdetai-2d0f51 s-productdetai-ff85a0a9"
-                >
+                <h1 className="s-productdetai-2d0f51 s-productdetai-ff85a0a9">
                   {product.name}
                 </h1>
               </div>
 
-              <div
-                className="s-productdetai-121533"
-              >
+              <div className="s-productdetai-121533">
                 <div className="s-adminproduct-6209be">
                   <button
                     onClick={handleWishlist}
                     title={
                       inWishlist ? "Remove from wishlist" : "Save to wishlist"
                     }
-                    className="s-productdetai-2405c9" style={ {background: inWishlist
+                    className="s-productdetai-2405c9"
+                    style={{
+                      background: inWishlist
                         ? "linear-gradient(135deg, rgba(107,15,42,0.12) 0%, rgba(168,76,107,0.08) 100%)"
-                        : "linear-gradient(135deg, #fff 0%, #f5f0e6 100%)", border: `1.5px solid ${inWishlist ? 'var(--brand)' : "rgba(158,96,112,0.3)"}`, color: inWishlist ? 'var(--brand)' : 'var(--heirloom)'} }
+                        : "linear-gradient(135deg, #fff 0%, #f5f0e6 100%)",
+                      border: `1.5px solid ${inWishlist ? "var(--brand)" : "rgba(158,96,112,0.3)"}`,
+                      color: inWishlist ? "var(--brand)" : "var(--heirloom)",
+                    }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-2px)";
                     }}
@@ -928,18 +1046,12 @@ export default function ProductDetail() {
                 >
                   <Stars rating={avgRating} size={13} />
                   {avgRating > 0 && (
-                    <span
-                      className="s-productdetai-cf3f7f s-productdetai-ffe77190"
-                    >
+                    <span className="s-productdetai-cf3f7f s-productdetai-ffe77190">
                       {avgRating.toFixed(1)}
                     </span>
                   )}
-                  <span
-                    className="s-productdetai-465cd0"
-                  />
-                  <span
-                    className="s-productdetai-4ed7ad s-productdetai-ffe77190"
-                  >
+                  <span className="s-productdetai-465cd0" />
+                  <span className="s-productdetai-4ed7ad s-productdetai-ffe77190">
                     {totalReviews > 0
                       ? `${totalReviews} Review${totalReviews !== 1 ? "s" : ""}`
                       : "No reviews"}
@@ -949,31 +1061,21 @@ export default function ProductDetail() {
             </div>
 
             {product.productCode && (
-              <p
-                className="s-productdetai-264680 s-productdetai-ffe77190"
-              >
+              <p className="s-productdetai-264680 s-productdetai-ffe77190">
                 SKU: {product.productCode}
               </p>
             )}
 
-            <div
-              className="s-productdetai-404819"
-            >
-              <span
-                className="s-productdetai-4a68f9 s-productdetai-ff85a0a9"
-              >
+            <div className="s-productdetai-404819">
+              <span className="s-productdetai-4a68f9 s-productdetai-ff85a0a9">
                 {formatPrice(product.price || 0)}
               </span>
               {(product.originalPrice || 0) > (product.price || 0) && (
                 <>
-                  <span
-                    className="s-productdetai-b1cd3b s-productdetai-ffe77190"
-                  >
+                  <span className="s-productdetai-b1cd3b s-productdetai-ffe77190">
                     {formatPrice(product.originalPrice)}
                   </span>
-                  <span
-                    className="s-productdetai-d3ead5 s-productdetai-ffe77190"
-                  >
+                  <span className="s-productdetai-d3ead5 s-productdetai-ffe77190">
                     {discount}% OFF
                   </span>
                 </>
@@ -987,15 +1089,11 @@ export default function ProductDetail() {
               />
             )}
 
-            <div
-              className="s-productdetai-239f8e"
-            />
+            <div className="s-productdetai-239f8e" />
 
             {colors.length > 0 && (
               <div className="s-adminblog-19fd7a">
-                <p
-                  className="s-productdetai-06262c s-productdetai-ff85a0a9"
-                >
+                <p className="s-productdetai-06262c s-productdetai-ff85a0a9">
                   Color:{" "}
                   <span className="s-productdetai-6ed0de">
                     {colors.find((c: any) => c.productVariantId === currentVId)
@@ -1018,7 +1116,10 @@ export default function ProductDetail() {
                         }
                       }}
                       title={c.colorName ?? c.color ?? ""}
-                      className="s-productdetai-e37fda" style={ {border: `2.5px solid ${c.productVariantId === currentVId ? 'var(--brand)' : "transparent"}`} }
+                      className="s-productdetai-e37fda"
+                      style={{
+                        border: `2.5px solid ${c.productVariantId === currentVId ? "var(--brand)" : "transparent"}`,
+                      }}
                     >
                       <img
                         src={getImageUrl(c.image)}
@@ -1040,22 +1141,20 @@ export default function ProductDetail() {
 
             {allSizes.length > 0 && (
               <div className="s-updateprofil-246fef">
-                <div
-                  className="s-productdetai-858448"
-                >
-                  <p
-                    className="s-productdetai-8d5dc6 s-productdetai-ff85a0a9"
-                  >
+                <div className="s-productdetai-858448">
+                  <p className="s-productdetai-8d5dc6 s-productdetai-ff85a0a9">
                     {hasCupSize ? "Band Size" : "Size"}
                     {selLabel && (
-                      <span
-                        className="s-productdetai-84f726"
-                      >
+                      <span className="s-productdetai-84f726">
                         {selLabel}
                         {cupLabel ? ` / ${cupLabel}` : ""}
                         {selStock !== null && !isOOS && (
                           <span
-                            className="s-productdetai-cd29bb" style={ {color: selStock <= 3 ? "var(--brand)" : "var(--brand)"} }
+                            className="s-productdetai-cd29bb"
+                            style={{
+                              color:
+                                selStock <= 3 ? "var(--brand)" : "var(--brand)",
+                            }}
                           >
                             {selStock <= 3
                               ? `(${selStock} left)`
@@ -1063,9 +1162,7 @@ export default function ProductDetail() {
                           </span>
                         )}
                         {isOOS && (
-                          <span
-                            className="s-paymentaddre-b0868f"
-                          >
+                          <span className="s-paymentaddre-b0868f">
                             Out of stock
                           </span>
                         )}
@@ -1106,13 +1203,18 @@ export default function ProductDetail() {
                       <button
                         key={s.sizeId}
                         onClick={() => onBand(s)}
-                        className="s-productdetai-a9a160" style={ {border: `2px solid ${sel ? 'var(--brand)' : "var(--heirloom)"}`, background: sel ? 'var(--brand)' : "#fff", color: sel ? "#fff" : "#000000", fontFamily: FONT_UI, fontWeight: sel ? 700 : 500} }
+                        className="s-productdetai-a9a160"
+                        style={{
+                          border: `2px solid ${sel ? "var(--brand)" : "var(--heirloom)"}`,
+                          background: sel ? "var(--brand)" : "#fff",
+                          color: sel ? "#fff" : "#000000",
+                          fontFamily: FONT_UI,
+                          fontWeight: sel ? 700 : 500,
+                        }}
                       >
                         {s.sizeLabel}
                         {s.stock > 0 && s.stock <= 3 && (
-                          <span
-                            className="s-productdetai-0707db"
-                          />
+                          <span className="s-productdetai-0707db" />
                         )}
                       </button>
                     );
@@ -1123,13 +1225,9 @@ export default function ProductDetail() {
 
             {hasCupSize && allCupSizes.length > 0 && (
               <div className="s-updateprofil-246fef">
-                <p
-                  className="s-productdetai-06262c s-productdetai-ff85a0a9"
-                >
+                <p className="s-productdetai-06262c s-productdetai-ff85a0a9">
                   Cup Size:{" "}
-                  <span className="s-productdetai-6ed0de">
-                    {cupLabel}
-                  </span>
+                  <span className="s-productdetai-6ed0de">{cupLabel}</span>
                 </p>
                 <div className="s-adminorders-2af484">
                   {allCupSizes.map((cs: any) => {
@@ -1159,7 +1257,14 @@ export default function ProductDetail() {
                       <button
                         key={cs.cupSizeId}
                         onClick={() => onCup(cs.cupSizeId)}
-                        className="s-productdetai-83f876" style={ {border: `2px solid ${sel ? 'var(--brand)' : "var(--heirloom)"}`, background: sel ? 'var(--brand)' : "#fff", color: sel ? "#fff" : "#000000", fontFamily: FONT_UI, fontWeight: sel ? 700 : 500} }
+                        className="s-productdetai-83f876"
+                        style={{
+                          border: `2px solid ${sel ? "var(--brand)" : "var(--heirloom)"}`,
+                          background: sel ? "var(--brand)" : "#fff",
+                          color: sel ? "#fff" : "#000000",
+                          fontFamily: FONT_UI,
+                          fontWeight: sel ? 700 : 500,
+                        }}
                       >
                         {cs.sizeLabel}
                       </button>
@@ -1178,21 +1283,13 @@ export default function ProductDetail() {
 
               if (entirelyOOS)
                 return (
-                  <div
-                    className="s-productdetai-7cf585"
-                  >
-                    <i
-                      className="bi bi-slash-circle s-productdetai-db68d0"
-                    />
+                  <div className="s-productdetai-7cf585">
+                    <i className="bi bi-slash-circle s-productdetai-db68d0" />
                     <div>
-                      <p
-                        className="s-productdetai-d617ad s-productdetai-ffe77190"
-                      >
+                      <p className="s-productdetai-d617ad s-productdetai-ffe77190">
                         Out of Stock
                       </p>
-                      <p
-                        className="s-productdetai-d67440"
-                      >
+                      <p className="s-productdetai-d67440">
                         We'll be back soon — check again later!
                       </p>
                     </div>
@@ -1202,24 +1299,38 @@ export default function ProductDetail() {
               const hasSizes = allSizes.some((s: any) => s.inVariant);
               const qtyLocked = hasSizes && selectedPVDId === null;
               return (
-                <div
-                  className="s-productdetai-c9ee63"
-                >
+                <div className="s-productdetai-c9ee63">
                   <div className="s-updateprofil-1d5e50">
                     <div
-                      className="s-productdetai-dbae90" style={ {border: `1.5px solid ${qtyLocked ? "var(--ivory)" : "var(--ivory)"}`, background: qtyLocked ? "var(--ivory)" : "#fff"} }
+                      className="s-productdetai-dbae90"
+                      style={{
+                        border: `1.5px solid ${qtyLocked ? "var(--ivory)" : "var(--ivory)"}`,
+                        background: qtyLocked ? "var(--ivory)" : "#fff",
+                      }}
                     >
                       <button
                         disabled={qtyLocked || quantity <= 1}
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                        className="s-productdetai-631941" style={ {cursor: qtyLocked || quantity <= 1
+                        className="s-productdetai-631941"
+                        style={{
+                          cursor:
+                            qtyLocked || quantity <= 1
                               ? "not-allowed"
-                              : "pointer", color: qtyLocked || quantity <= 1 ? "var(--ivory)" : "#000000"} }
+                              : "pointer",
+                          color:
+                            qtyLocked || quantity <= 1
+                              ? "var(--ivory)"
+                              : "#000000",
+                        }}
                       >
                         −
                       </button>
                       <span
-                        className="s-productdetai-3e73a5" style={ {fontFamily: FONTS, color: qtyLocked ? "var(--heirloom)" : "#000000"} }
+                        className="s-productdetai-3e73a5"
+                        style={{
+                          fontFamily: FONTS,
+                          color: qtyLocked ? "var(--heirloom)" : "#000000",
+                        }}
                       >
                         {quantity}
                       </span>
@@ -1235,24 +1346,28 @@ export default function ProductDetail() {
                         }}
                         className="s-productdetai-5c049f"
                         style={{
-                          cursor: qtyLocked || (selStock !== null && quantity >= selStock) ? "not-allowed" : "pointer",
-                          color: qtyLocked || (selStock !== null && quantity >= selStock) ? "var(--ivory)" : "var(--brand)"
+                          cursor:
+                            qtyLocked ||
+                            (selStock !== null && quantity >= selStock)
+                              ? "not-allowed"
+                              : "pointer",
+                          color:
+                            qtyLocked ||
+                            (selStock !== null && quantity >= selStock)
+                              ? "var(--ivory)"
+                              : "var(--brand)",
                         }}
                       >
                         +
                       </button>
                     </div>
                     {showStockTip && selStock !== null && (
-                      <div
-                        className="s-productdetai-0f3955"
-                      >
+                      <div className="s-productdetai-0f3955">
                         {selStock} available
                       </div>
                     )}
                     {qtyLocked && (
-                      <p
-                        className="s-productdetai-41432e"
-                      >
+                      <p className="s-productdetai-41432e">
                         ↑ Select a size first
                       </p>
                     )}
@@ -1260,11 +1375,15 @@ export default function ProductDetail() {
 
                   {!qtyLocked && selStock !== null && (
                     <p
-                      className="s-productdetai-eeb06b" style={ {fontFamily: FONT_UI, color: isOOS
+                      className="s-productdetai-eeb06b"
+                      style={{
+                        fontFamily: FONT_UI,
+                        color: isOOS
                           ? "var(--brand)"
                           : selStock <= 3
                             ? "var(--brand)"
-                            : "var(--brand)"} }
+                            : "var(--brand)",
+                      }}
                     >
                       {isOOS
                         ? "🚫 Out of stock"
@@ -1310,7 +1429,9 @@ export default function ProductDetail() {
               >
                 <i
                   className={`bi ${inWishlist ? "bi-heart-fill" : "bi-heart"}`}
-                  style={ { color: inWishlist ? "var(--brand)" : 'var(--brand)' } }
+                  style={{
+                    color: inWishlist ? "var(--brand)" : "var(--brand)",
+                  }}
                 />
                 {inWishlist ? "Wishlisted" : "Wishlist"}
               </button>
@@ -1323,9 +1444,7 @@ export default function ProductDetail() {
             </div>
 
             {product.isReturnAvailable && (
-              <p
-                className="s-productdetai-ecd15c s-productdetai-ffe77190"
-              >
+              <p className="s-productdetai-ecd15c s-productdetai-ffe77190">
                 <i className="bi bi-arrow-return-left me-1" />
                 Easy returns available within 15 days
               </p>
@@ -1336,9 +1455,7 @@ export default function ProductDetail() {
 
         {/* ── Tabs ── */}
         <div id="pd-tabs" className="s-productdetai-478f1c">
-          <div
-            className="s-productdetai-3d764b"
-          >
+          <div className="s-productdetai-3d764b">
             {(["description", "additional", "reviews"] as const).map(
               (tab, i) => {
                 const label = [
@@ -1350,7 +1467,13 @@ export default function ProductDetail() {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className="s-productdetai-227547" style={ {fontWeight: activeTab === tab ? 700 : 400, color: activeTab === tab ? "#000000" : "var(--heirloom)", borderBottom: `3px solid ${activeTab === tab ? 'var(--brand)' : "transparent"}`, fontFamily: FONTS} }
+                    className="s-productdetai-227547"
+                    style={{
+                      fontWeight: activeTab === tab ? 700 : 400,
+                      color: activeTab === tab ? "#000000" : "var(--heirloom)",
+                      borderBottom: `3px solid ${activeTab === tab ? "var(--brand)" : "transparent"}`,
+                      fontFamily: FONTS,
+                    }}
                   >
                     {label}
                   </button>
@@ -1360,15 +1483,15 @@ export default function ProductDetail() {
           </div>
 
           {activeTab === "description" && (
-            <div
-              className="s-productdetai-ec3045 s-productdetai-ffe77190"
-            >
+            <div className="s-productdetai-ec3045 s-productdetai-ffe77190">
               {product.description ? (
                 <div
                   dangerouslySetInnerHTML={{ __html: product.description }}
                 />
               ) : (
-                <p className="s-adminbrands-95b451">No description available.</p>
+                <p className="s-adminbrands-95b451">
+                  No description available.
+                </p>
               )}
               {product.tag && (
                 <p className="s-productdetai-cdd3f3">
@@ -1379,9 +1502,7 @@ export default function ProductDetail() {
           )}
 
           {activeTab === "additional" && (
-            <table
-              className="s-productdetai-17e9ae s-productdetai-ffe77190"
-            >
+            <table className="s-productdetai-17e9ae s-productdetai-ffe77190">
               <tbody>
                 {[
                   product.productCode && ["SKU", product.productCode],
@@ -1400,11 +1521,7 @@ export default function ProductDetail() {
                   .filter(Boolean)
                   .map(([label, value]: any) => (
                     <tr key={label}>
-                      <td
-                        className="s-productdetai-03ad4f"
-                      >
-                        {label}
-                      </td>
+                      <td className="s-productdetai-03ad4f">{label}</td>
                       <td className="s-productdetai-3e4e20">{value}</td>
                     </tr>
                   ))}
@@ -1415,43 +1532,31 @@ export default function ProductDetail() {
           {activeTab === "reviews" && (
             <div id="reviews">
               {totalReviews > 0 && (
-                <div
-                  className="s-productdetai-07a510"
-                >
+                <div className="s-productdetai-07a510">
                   <div className="s-adminnewslet-e2e1e0">
-                    <div
-                      className="s-productdetai-8ba13e s-productdetai-ff85a0a9"
-                    >
+                    <div className="s-productdetai-8ba13e s-productdetai-ff85a0a9">
                       {avgRating.toFixed(1)}
                     </div>
                     <Stars rating={avgRating} size={18} />
-                    <p
-                      className="s-productdetai-485fe5 s-productdetai-ffe77190"
-                    >
+                    <p className="s-productdetai-485fe5 s-productdetai-ffe77190">
                       {totalReviews} reviews
                     </p>
                   </div>
                   <div className="s-userdashboar-6d7d28">
                     {breakdown.map(({ star, count }) => (
-                      <div
-                        key={star}
-                        className="s-productdetai-9fc601"
-                      >
-                        <span
-                          className="s-productdetai-dfdd5e s-productdetai-ffe77190"
-                        >
+                      <div key={star} className="s-productdetai-9fc601">
+                        <span className="s-productdetai-dfdd5e s-productdetai-ffe77190">
                           {star}★
                         </span>
-                        <div
-                          className="s-productdetai-788842"
-                        >
+                        <div className="s-productdetai-788842">
                           <div
-                            className="s-productdetai-1c4975" style={ {width: `${totalReviews ? (count / totalReviews) * 100 : 0}%`} }
+                            className="s-productdetai-1c4975"
+                            style={{
+                              width: `${totalReviews ? (count / totalReviews) * 100 : 0}%`,
+                            }}
                           />
                         </div>
-                        <span
-                          className="s-productdetai-701deb s-productdetai-ffe77190"
-                        >
+                        <span className="s-productdetai-701deb s-productdetai-ffe77190">
                           {count}
                         </span>
                       </div>
@@ -1486,15 +1591,10 @@ export default function ProductDetail() {
                   <i className="bi bi-pencil" /> Write a Review
                 </button>
               ) : (
-                <div
-                  className="s-productdetai-5e11d3"
-                >
+                <div className="s-productdetai-5e11d3">
                   <i className="bi bi-lock s-productdetai-39554d" />
                   Please{" "}
-                  <a
-                    href="/auth/login"
-                    className="s-productdetai-4ffa2d"
-                  >
+                  <a href="/auth/login" className="s-productdetai-4ffa2d">
                     sign in
                   </a>{" "}
                   to write a review
@@ -1502,18 +1602,14 @@ export default function ProductDetail() {
               )}
 
               {showForm && (
-                <div
-                  className="s-productdetai-55950f"
-                >
+                <div className="s-productdetai-55950f">
                   <div className="row g-3">
                     {[
                       ["displayName", "Your Name", "text"],
                       ["email", "Email", "email"],
                     ].map(([k, l, t]) => (
                       <div key={k} className="col-md-6">
-                        <label
-                          className="s-productdetai-149337 s-productdetai-ffe77190"
-                        >
+                        <label className="s-productdetai-149337 s-productdetai-ffe77190">
                           {l}
                         </label>
                         <input
@@ -1527,9 +1623,7 @@ export default function ProductDetail() {
                       </div>
                     ))}
                     <div className="col-12">
-                      <label
-                        className="s-productdetai-ce3a86 s-productdetai-ffe77190"
-                      >
+                      <label className="s-productdetai-ce3a86 s-productdetai-ffe77190">
                         Rating
                       </label>
                       <Stars
@@ -1541,9 +1635,7 @@ export default function ProductDetail() {
                     </div>
 
                     <div className="col-12">
-                      <label
-                        className="s-productdetai-149337 s-productdetai-ffe77190"
-                      >
+                      <label className="s-productdetai-149337 s-productdetai-ffe77190">
                         Review
                       </label>
                       <textarea
@@ -1556,23 +1648,15 @@ export default function ProductDetail() {
                       />
                     </div>
                     <div className="col-12">
-                      <label
-                        className="s-productdetai-149337 s-productdetai-ffe77190"
-                      >
+                      <label className="s-productdetai-149337 s-productdetai-ffe77190">
                         Photo{" "}
                         <span className="s-productdetai-0f512b">
                           (optional)
                         </span>
                       </label>
-                      <label
-                        className="s-productdetai-83019e"
-                      >
-                        <i
-                          className="bi bi-camera s-productdetai-f407f6"
-                        />
-                        <span
-                          className="s-quickcart-08341f s-productdetai-ffe77190"
-                        >
+                      <label className="s-productdetai-83019e">
+                        <i className="bi bi-camera s-productdetai-f407f6" />
+                        <span className="s-quickcart-08341f s-productdetai-ffe77190">
                           {photoFile ? photoFile.name : "Upload a photo"}
                         </span>
                         <input
@@ -1587,9 +1671,7 @@ export default function ProductDetail() {
                         />
                       </label>
                       {photoPreview && (
-                        <div
-                          className="s-productdetai-ae794c"
-                        >
+                        <div className="s-productdetai-ae794c">
                           <img
                             src={photoPreview}
                             alt="preview"
@@ -1646,13 +1728,8 @@ export default function ProductDetail() {
                 </p>
               ) : (
                 reviews.map((r: any, i: number) => (
-                  <div
-                    key={i}
-                    className="s-productdetai-e82d15"
-                  >
-                    <div
-                      className="s-paymentaddre-9998cf"
-                    >
+                  <div key={i} className="s-productdetai-e82d15">
+                    <div className="s-paymentaddre-9998cf">
                       <div className="s-addresslist-f8b697">
                         {r.photo ? (
                           <img
@@ -1669,24 +1746,16 @@ export default function ProductDetail() {
                             }}
                           />
                         ) : (
-                          <i
-                            className="bi bi-person-circle s-productdetai-c0ad13"
-                          />
+                          <i className="bi bi-person-circle s-productdetai-c0ad13" />
                         )}
                       </div>
                       <div className="s-app-52dcac">
-                        <div
-                          className="s-adminblog-95277f"
-                        >
+                        <div className="s-adminblog-95277f">
                           <Stars rating={r.rating || 0} size={13} />
-                          <span
-                            className="s-productdetai-de8fb2 s-productdetai-ff85a0a9"
-                          >
+                          <span className="s-productdetai-de8fb2 s-productdetai-ff85a0a9">
                             {r.name || r.displayName || "Anonymous"}
                           </span>
-                          <span
-                            className="s-adminnewslet-f01220 s-productdetai-ffe77190"
-                          >
+                          <span className="s-adminnewslet-f01220 s-productdetai-ffe77190">
                             {r.createdDate
                               ? new Date(r.createdDate).toLocaleDateString(
                                   "en-IN",
@@ -1695,15 +1764,11 @@ export default function ProductDetail() {
                           </span>
                         </div>
                         {(r.title || r.reviewTitle) && (
-                          <p
-                            className="s-productdetai-c46b5b s-productdetai-ff85a0a9"
-                          >
+                          <p className="s-productdetai-c46b5b s-productdetai-ff85a0a9">
                             {r.title || r.reviewTitle}
                           </p>
                         )}
-                        <p
-                          className="s-admindashboa-f39764 s-productdetai-ffe77190"
-                        >
+                        <p className="s-admindashboa-f39764 s-productdetai-ffe77190">
                           {r.comment}
                         </p>
                       </div>
@@ -1717,14 +1782,10 @@ export default function ProductDetail() {
 
         {similarProducts.length > 0 && (
           <div className="s-productdetai-478f1c">
-            <p
-              className="s-productdetai-f3099c s-productdetai-ffe77190"
-            >
+            <p className="s-productdetai-f3099c s-productdetai-ffe77190">
               You May Also Like
             </p>
-            <h2
-              className="s-productdetai-8ef3c3 s-productdetai-ff85a0a9"
-            >
+            <h2 className="s-productdetai-8ef3c3 s-productdetai-ff85a0a9">
               Similar Products
             </h2>
             <ScrollableProductRow
@@ -1736,14 +1797,10 @@ export default function ProductDetail() {
 
         {exploreProducts.length > 0 && (
           <div className="s-productdetai-478f1c">
-            <p
-              className="s-productdetai-f3099c s-productdetai-ffe77190"
-            >
+            <p className="s-productdetai-f3099c s-productdetai-ffe77190">
               Discover More
             </p>
-            <h2
-              className="s-productdetai-8ef3c3 s-productdetai-ff85a0a9"
-            >
+            <h2 className="s-productdetai-8ef3c3 s-productdetai-ff85a0a9">
               Explore Our Products
             </h2>
             <ScrollableProductRow

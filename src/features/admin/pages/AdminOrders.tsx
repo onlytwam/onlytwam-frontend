@@ -48,15 +48,14 @@ export default function AdminOrders() {
     queryFn:  () => api.get('/Orders/AdminList', { params: buildParams() }).then(r => r.data),
   });
 
-  // Update order status — backend has /Orders/CancelOrder for cancel
-  // For general state changes, we use a direct state update approach
+  // Update order status — uses new /Orders/UpdateStatus endpoint
   const updateStatus = useMutation({
     mutationFn: ({ orderId, state }: any) => {
       if (state === 'Cancelled') {
         return api.post('/Orders/CancelOrder', { orderId, isRefund: false, reason: 'Admin cancellation' }).then(r => r.data);
       }
-      // For other state changes: update via order tracking
-      return api.post('/Orders/order-tracking', { orderId }).then(() => ({ state }));
+      // For other state changes: use UpdateStatus endpoint
+      return api.put('/Orders/UpdateStatus', { orderId, state }).then(r => r.data);
     },
     onSuccess: () => {
       toast.success('Order status updated!');

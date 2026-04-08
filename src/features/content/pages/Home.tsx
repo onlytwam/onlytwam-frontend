@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  getUserDashboard,
+  listProducts,
   listBrands,
   listUserReviews,
+  listNewArrivals,
 } from "@/features/products/api/products.api";
-import { useAuthStore } from "@/features/auth/store/authStore";
 import { useMenuStore } from "@/shared/store/menuStore";
 import { getCategories } from "@/features/auth/api/auth.api";
 import api from "@/shared/api/axiosInstance";
@@ -55,13 +55,26 @@ function ProductSlider({
   const [vis, setVis] = useState(4);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const numProducts = products.length;
+  // ── Fix 3: Deduplicate products by productVariantId ──────────────────────
+  const uniqueProducts = useMemo(() => {
+    const seen = new Set<number>();
+    return products.filter((p) => {
+      const id = p.productVariantId;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [products]);
+
+  const numProducts = uniqueProducts.length;
   const shouldScroll = numProducts > vis;
   const showArrows = shouldScroll;
 
   const tripled = useMemo(() => {
-    return shouldScroll ? [...products, ...products, ...products] : products;
-  }, [products, shouldScroll]);
+    return shouldScroll
+      ? [...uniqueProducts, ...uniqueProducts, ...uniqueProducts]
+      : uniqueProducts;
+  }, [uniqueProducts, shouldScroll]);
 
   const singleW = useMemo(() => {
     if (!cw || numProducts === 0) return 0;
@@ -166,81 +179,94 @@ function ProductSlider({
 
   const safeCw = cw > 0 ? cw : 280;
 
-  if (!products.length)
-    return (
-      <p
-        className="s-home-eb8359"
-      >
-        No products yet
-      </p>
-    );
+  if (!uniqueProducts.length)
+    return <p className="s-home-eb8359">No products yet</p>;
 
   return (
-    <div
-      ref={wrapRef}
-      className="s-home-1e81b6"
-      onMouseEnter={pause}
-      onMouseLeave={resume}
-    >
+    // Fix 1: outer column wrapper so View All sits above the slider track
+    <div className="s-home-slider-outer">
       {viewAllPath && (
-        <button
-          onClick={() => navigate(viewAllPath)}
-          className="s-home-54af6d" style={ {right: showArrows ? 52 : 0} }
-        >
-          View All →
-        </button>
-      )}
-
-      {showArrows && (
-        <>
+        <div className="s-home-slider-header">
           <button
-            onClick={() => scrollBy(-1)}
-            className="s-home-edfe26"
+            onClick={() => navigate(viewAllPath)}
+            className="s-home-54af6d"
           >
-            ‹
+            View All →
           </button>
-          <button
-            onClick={() => scrollBy(1)}
-            className="s-home-fe2d0f"
-          >
-            ›
-          </button>
-        </>
-      )}
-
-      <div
-        ref={scrollRef}
-        onScroll={onScrollHandler}
-        className="s-home-4ec7f1" style={ {gap: GAP, overflowX: shouldScroll ? "auto" : "hidden", ...(showArrows ? { marginLeft: 44, marginRight: 44 } : {})} }
-      >
-        {tripled.map((p, i) => (
-          <div
-            key={`${p.productVariantId}-${i}`}
-            className="s-home-685bdd" style={{ flex: `0 0 ${safeCw}px`, width: safeCw, minWidth: safeCw }}
-          >
-            <ProductCard
-              product={p}
-              onQuickShop={onQuickShop}
-              showColors={false}
-              showDiscountTag={false}
-            />
-          </div>
-        ))}
-      </div>
-
-      {showArrows && products.length > 0 && (
-        <div
-          className="s-home-78e566"
-        >
-          {products.map((_, i) => (
-            <span
-              key={i}
-              onClick={() => scrollToCard(i)}
-              className="s-home-9bff23" style={ {width: activeIndex === i ? 20 : 7, background: activeIndex === i ? 'var(--brand)' : 'var(--heirloom)'} }
-            />
-          ))}
         </div>
       )}
+      <div
+        ref={wrapRef}
+        className="s-home-1e81b6"
+        onMouseEnter={pause}
+        onMouseLeave={resume}
+      >
+        {showArrows && (
+          <>
+            <button onClick={() => scrollBy(-1)} className="s-home-edfe26">
+              ‹
+            </button>
+            <button onClick={() => scrollBy(1)} className="s-home-fe2d0f">
+              ›
+            </button>
+          </>
+        )}
+
+        <div
+          ref={scrollRef}
+          onScroll={onScrollHandler}
+          className="s-home-4ec7f1"
+          style={{
+            gap: GAP,
+            overflowX: shouldScroll ? "auto" : "hidden",
+            // Give the track enough top breathing room so that the card's
+            // hover translateY(-6px) + scale(1.015) are never clipped.
+            // NOTE: setting overflow-x:auto implicitly clips overflow-y,
+            // so we compensate with extra padding-top instead of overflow-y:visible
+            // (browsers disallow that combination).
+            paddingTop: 18,
+            marginTop: -10,
+            ...(showArrows ? { marginLeft: 44, marginRight: 44 } : {}),
+          }}
+        >
+          {tripled.map((p, i) => (
+            <div
+              key={`${p.productVariantId}-${i}`}
+              className="s-home-685bdd"
+              style={{
+                flex: `0 0 ${safeCw}px`,
+                width: safeCw,
+                minWidth: safeCw,
+              }}
+            >
+              <ProductCard
+                product={p}
+                onQuickShop={onQuickShop}
+                showDiscountTag={false}
+                singleColorOnly={true}
+                compact={true}
+              />
+            </div>
+          ))}
+        </div>
+
+        {showArrows && uniqueProducts.length > 0 && (
+          <div className="s-home-78e566">
+            {uniqueProducts.map((_, i) => (
+              <span
+                key={i}
+                onClick={() => scrollToCard(i)}
+                className="s-home-9bff23"
+                style={{
+                  width: activeIndex === i ? 20 : 7,
+                  background:
+                    activeIndex === i ? "var(--brand)" : "var(--heirloom)",
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -254,9 +280,7 @@ function SectionTitle({
   highlight?: boolean;
 }) {
   return (
-    <div
-      className="s-home-1428f7"
-    >
+    <div className="s-home-1428f7">
       <h2
         className="section-title s-home-58ca8b"
         style={{
@@ -280,9 +304,7 @@ function SectionTitle({
 
 function ShippingBar() {
   return (
-    <section
-      className="shipping_section s-home-bcf04f"
-    >
+    <section className="shipping_section s-home-bcf04f">
       <div className="container">
         <div className="shipping_inner">
           {[
@@ -335,34 +357,36 @@ function BrandsSection({ logos: _logos }: { logos: any[] }) {
     src.includes("/assets/brands/logo-slide-") ? logoSlideScale : 1;
 
   return (
-    <section
-      className="s-home-be6933"
-    >
-      <div
-        className="s-home-b9d256"
-      />
+    <section className="s-home-be6933">
+      <div className="s-home-b9d256" />
       <div className="container s-home-59ddea">
         <SectionTitle title="Brands" />
         <div
-          className="brand-marquee s-home-68cb82" style={ {["--brand-gap" as any]: `${gap}px`, ["--brand-duration" as any]: `${durationSeconds}s`, ["--brand-set-width" as any]: `${setWidth}px`} }
+          className="brand-marquee s-home-68cb82"
+          style={{
+            ["--brand-gap" as any]: `${gap}px`,
+            ["--brand-duration" as any]: `${durationSeconds}s`,
+            ["--brand-set-width" as any]: `${setWidth}px`,
+          }}
         >
           <div className="brand-marquee-track">
             {[...baseBrands, ...baseBrands].map((img, i) => (
               <div
                 key={`${img}-${i}`}
                 className="brand-marquee-item"
-                style={ {
+                style={{
                   width: itemWidth,
                   minWidth: itemWidth,
                   height: itemHeight,
                   marginRight:
                     i % baseBrands.length === baseBrands.length - 1 ? 0 : gap,
-                } }
+                }}
               >
                 <img
                   src={img}
                   alt={`Brand ${i}`}
-                  className="s-home-783e28" style={ {transform: `scale(${getImgScale(img)})`} }
+                  className="s-home-783e28"
+                  style={{ transform: `scale(${getImgScale(img)})` }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -398,24 +422,27 @@ function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
   );
 
   return (
-    <div
-      className="s-home-7a0874"
-    >
+    <div className="s-home-7a0874">
       {/* Deep space background */}
-      <div
-        className="s-home-122982"
-      />
+      <div className="s-home-122982" />
 
       {/* Grain texture */}
-      <div
-        className="s-home-489f94"
-      />
+      <div className="s-home-489f94" />
 
       {/* Stars */}
       {stars.map((s) => (
         <div
           key={s.id}
-          className="s-home-98dae8 s-home-62280e" style={{ width: s.size, height: s.size, left: `${s.left}%`, top: `${s.top}%`, animation: `star-blink ${s.dur}s ease-in-out infinite`, animationDelay: `${s.delay}s`, pointerEvents: "none" }}
+          className="s-home-98dae8 s-home-62280e"
+          style={{
+            width: s.size,
+            height: s.size,
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            animation: `star-blink ${s.dur}s ease-in-out infinite`,
+            animationDelay: `${s.delay}s`,
+            pointerEvents: "none",
+          }}
         />
       ))}
 
@@ -425,14 +452,14 @@ function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
         { d: 490, dur: 45, rev: true, dash: "4 12" },
         { d: 340, dur: 30, rev: false, dash: "2 8" },
       ].map(({ d, dur, rev, dash }, k) => (
-        <div
-          key={d}
-          className="s-home-1925fd" style={ { width: d, height: d } }
-        >
+        <div key={d} className="s-home-1925fd" style={{ width: d, height: d }}>
           <svg
             width={d}
             height={d}
-            className="s-home-8a6320" style={ {animation: `${rev ? "ring-spin-rev" : "ring-spin"} ${dur}s linear infinite`} }
+            className="s-home-8a6320"
+            style={{
+              animation: `${rev ? "ring-spin-rev" : "ring-spin"} ${dur}s linear infinite`,
+            }}
           >
             <circle
               cx={d / 2}
@@ -448,25 +475,15 @@ function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
       ))}
 
       {/* TWAM FEATURED headline */}
-      <div
-        className="s-home-f8908f"
-      >
-        <div
-          className="s-home-ff1b89"
-        >
-          ✦&thinsp; TWAM FEATURED &thinsp;✦
-        </div>
-        <p
-          className="s-home-98096a"
-        >
+      <div className="s-home-f8908f">
+        <div className="s-home-ff1b89">✦&thinsp; TWAM FEATURED &thinsp;✦</div>
+        <p className="s-home-98096a">
           Comfort &nbsp;·&nbsp; Elegance &nbsp;·&nbsp; Style
         </p>
       </div>
 
       {/* Ambient glow */}
-      <div
-        className="s-home-7f0e6f"
-      />
+      <div className="s-home-7f0e6f" />
 
       {/* Model image — elevated & floating */}
       <img
@@ -480,9 +497,7 @@ function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
 
       {/* Orbiting product cards */}
       {orbitItems.length > 0 && (
-        <div
-          className="s-home-6baa2b"
-        >
+        <div className="s-home-6baa2b">
           {orbitItems.map((p, i) => {
             const delayS = -((i / count) * ORBIT_DUR);
             const imgSrc = getImageUrl(
@@ -497,22 +512,26 @@ function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
             return (
               <div
                 key={`ob-${p.productVariantId ?? i}-${i}`}
-                className="s-home-db0758 s-home-d35c85" style={{ animation: `orbit-go ${ORBIT_DUR}s linear infinite`, animationDelay: `${delayS}s` }}
+                className="s-home-db0758 s-home-d35c85"
+                style={{
+                  animation: `orbit-go ${ORBIT_DUR}s linear infinite`,
+                  animationDelay: `${delayS}s`,
+                }}
               >
                 <div
-                  className="s-home-517646 s-home-c6ae21" style={{ animation: `face-go ${ORBIT_DUR}s linear infinite`, animationDelay: `${delayS}s` }}
+                  className="s-home-517646 s-home-c6ae21"
+                  style={{
+                    animation: `face-go ${ORBIT_DUR}s linear infinite`,
+                    animationDelay: `${delayS}s`,
+                  }}
                   onClick={() =>
                     navigate(
                       `/user-products/product-detail/${p.productVariantId}/${slugify(p.productName ?? "product")}`,
                     )
                   }
                 >
-                  <div
-                    className="twam-orbit-card s-home-b20fd0"
-                  >
-                    <div
-                      className="s-home-fbcd5b"
-                    >
+                  <div className="twam-orbit-card s-home-b20fd0">
+                    <div className="s-home-fbcd5b">
                       <img
                         src={imgSrc}
                         alt={p.productName ?? "Product"}
@@ -522,18 +541,12 @@ function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
                         }}
                       />
                     </div>
-                    <div
-                      className="s-home-3c1e54"
-                    >
-                      <p
-                        className="s-home-720656"
-                      >
+                    <div className="s-home-3c1e54">
+                      <p className="s-home-720656">
                         {p.productName ?? "Product"}
                       </p>
                       {(p.sellingPrice ?? p.price) != null && (
-                        <p
-                          className="s-home-e27872"
-                        >
+                        <p className="s-home-e27872">
                           ₹{p.sellingPrice ?? p.price}
                         </p>
                       )}
@@ -552,7 +565,6 @@ function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
 // ─── Main Home Component ─────────────────────────────────────────────────────
 export default function Home() {
   const navigate = useNavigate();
-  const { getUserId } = useAuthStore();
   const { menus, setMenus } = useMenuStore();
   const [selectedCategoryId, setSelectedCategoryId] = useState(0);
   const [categoryProducts, setCategoryProducts] = useState<any[] | null>(null);
@@ -625,9 +637,30 @@ export default function Home() {
     };
   }, []);
 
-  const { data: dashboard } = useQuery({
-    queryKey: ["dashboard", getUserId()],
-    queryFn: () => getUserDashboard({ userProfileId: getUserId() }),
+  // ── Best Sellers — same API as ProductList so field names match ProductCard ─
+  // Deduplicate by productId (API returns one row per colour variant).
+  const dedupeByProductId = (d: any) => {
+    const seen = new Set<number>();
+    return (d?.list ?? []).filter((p: any) => {
+      if (seen.has(p.productId)) return false;
+      seen.add(p.productId);
+      return true;
+    });
+  };
+
+  const { data: bestSellersProducts = [] } = useQuery({
+    queryKey: ["home-best-sellers"],
+    queryFn: () => listProducts({ isBestSeller: true, pageSize: 40 }),
+    select: dedupeByProductId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── New Arrivals — products added in the last 6 months (server-side date filter) ─
+  const { data: newArrivalsProducts = [] } = useQuery({
+    queryKey: ["home-new-arrivals"],
+    queryFn: () => listNewArrivals({ pageSize: 40 }),
+    select: dedupeByProductId,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: brandsData } = useQuery({
@@ -675,8 +708,8 @@ export default function Home() {
   const orbitProducts: any[] = useMemo(() => {
     if (twamProductsData && twamProductsData.length > 0)
       return twamProductsData;
-    return dashboard?.bestSellers?.slice(0, 8) ?? [];
-  }, [twamProductsData, dashboard]);
+    return bestSellersProducts.slice(0, 8);
+  }, [twamProductsData, bestSellersProducts]);
 
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],
@@ -729,8 +762,11 @@ export default function Home() {
     staleTime: 0,
   });
 
-  const products = dashboard?.bestSellers ?? [];
-  const newArrivals = dashboard?.newArrivals ?? [];
+  // products & newArrivals now come directly from the same
+  // /ProductVariantDetail/UserProductVariantDetail endpoint that ProductList
+  // uses — field names are guaranteed to match what ProductCard reads.
+  const products = bestSellersProducts;
+  const newArrivals = newArrivalsProducts;
   const logos = brandsData?.list ?? [];
   const reviews = reviewsData ?? [];
 
@@ -768,15 +804,13 @@ export default function Home() {
       <HeroBanner orbitProducts={orbitProducts} />
       <div className="section-gap" />
 
-      <section
-        className="best-sellers best-sellers-bg best-sellers-bg-1 s-home-42eb71"
-      >
+      <section className="best-sellers best-sellers-bg best-sellers-bg-1 s-home-42eb71">
         <div className="container">
           <SectionTitle title="Best Sellers" highlight />
           <ProductSlider
             products={products}
             onQuickShop={setQuickShopId}
-            viewAllPath="/user-products/product-list?isBestSeller=true"
+            viewAllPath="/best-sellers"
           />
         </div>
       </section>
@@ -794,23 +828,19 @@ export default function Home() {
       </div>
       <div className="section-gap" />
 
-      <section
-        className="best-sellers s-home-51e4ca"
-      >
+      <section className="best-sellers s-home-51e4ca">
         <div className="container">
           <SectionTitle title="New Arrivals" highlight />
           <ProductSlider
             products={newArrivals}
             onQuickShop={setQuickShopId}
-            viewAllPath="/user-products/product-list?title=New+Arrivals"
+            viewAllPath="/new-arrivals"
           />
         </div>
       </section>
       <div className="section-gap" />
 
-      <section
-        className="s-home-7af910"
-      >
+      <section className="s-home-7af910">
         <div className="container">
           <SectionTitle title="Shop by Category" highlight />
           <div className="category-buttons s-home-5e0218">
@@ -825,24 +855,16 @@ export default function Home() {
             ))}
           </div>
           {categoryProducts === null ? (
-            <div
-              className="s-home-0b4322"
-            >
-              <div
-                className="s-home-0349cd"
-              />
-              </div>
+            <div className="s-home-0b4322">
+              <div className="s-home-0349cd" />
+            </div>
           ) : categoryProducts.length > 0 ? (
             <ProductSlider
               products={categoryProducts}
               onQuickShop={setQuickShopId}
             />
           ) : (
-            <p
-              className="s-home-374f3d"
-            >
-              No products in this category yet.
-            </p>
+            <p className="s-home-374f3d">No products in this category yet.</p>
           )}
         </div>
       </section>
@@ -853,9 +875,7 @@ export default function Home() {
           <section className="testimonial-section">
             <div className="container">
               <SectionTitle title="Testimonials" />
-              <div
-                className="s-home-2448b9"
-              >
+              <div className="s-home-2448b9">
                 {reviews.map((r: any, i: number) => {
                   const canNav = !!r.productVariantId;
                   const handleTestimonialClick = () => {
@@ -872,7 +892,8 @@ export default function Home() {
                     <div
                       key={i}
                       className="testimonial-card s-home-dce984"
-                      onClick={handleTestimonialClick} style={ {cursor: canNav ? "pointer" : "default"} }
+                      onClick={handleTestimonialClick}
+                      style={{ cursor: canNav ? "pointer" : "default" }}
                       onMouseEnter={(e) => {
                         if (canNav) {
                           (e.currentTarget as HTMLDivElement).style.transform =
@@ -888,9 +909,7 @@ export default function Home() {
                           "";
                       }}
                     >
-                      <div
-                        className="s-home-ba3c41"
-                      >
+                      <div className="s-home-ba3c41">
                         {hasUserPhoto && (
                           <div className="s-addresslist-f8b697">
                             <img
@@ -904,44 +923,36 @@ export default function Home() {
                             />
                           </div>
                         )}
-                        <p
-                          className="quote s-home-2242ed"
-                        >
-                          "{r.comment}"
-                        </p>
+                        <p className="quote s-home-2242ed">"{r.comment}"</p>
                       </div>
-                      <div
-                        className="s-home-6ebbb3"
-                      >
-                        <div
-                          className="s-home-8c7d4e"
-                        >
-                          <i
-                            className="bi bi-person-fill s-home-0820cb"
-                          />
+                      <div className="s-home-6ebbb3">
+                        <div className="s-home-8c7d4e">
+                          <i className="bi bi-person-fill s-home-0820cb" />
                         </div>
                         <div>
                           <h4 className="s-home-918042">
                             {r.name || r.displayName}
                           </h4>
-                          <div
-                            className="stars s-home-5c2fcc"
-                          >
+                          <div className="stars s-home-5c2fcc">
                             {Array.from({ length: 5 }).map((_, j) => (
                               <i
                                 key={j}
-                                className={`${j < r.rating
+                                className={`${
+                                  j < r.rating
                                     ? "bi bi-star-fill"
-                                    : "bi bi-star"} s-home-b3de66`} style={ {color: j < r.rating ? 'var(--blush)' : "var(--ivory)"} }
+                                    : "bi bi-star"
+                                } s-home-b3de66`}
+                                style={{
+                                  color:
+                                    j < r.rating
+                                      ? "var(--blush)"
+                                      : "var(--ivory)",
+                                }}
                               />
                             ))}
                           </div>
                           {canNav && r.productName && (
-                            <p
-                              className="s-home-398bbc"
-                            >
-                              {r.productName}
-                            </p>
+                            <p className="s-home-398bbc">{r.productName}</p>
                           )}
                         </div>
                       </div>

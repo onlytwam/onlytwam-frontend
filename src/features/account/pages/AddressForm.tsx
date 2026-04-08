@@ -6,7 +6,6 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { createAddress, updateAddress, listAddress } from '@/features/orders/api/orders.api';
 import api from '@/shared/api/axiosInstance';
-import Breadcrumb from '@/shared/components/Breadcrumb';
 
 const emptyForm = {
   name: '', phone: '', addressLine: '', locality: '',
@@ -87,12 +86,6 @@ export default function AddressForm() {
 
   return (
     <>
-      <Breadcrumb items={[
-        { label: 'Home', path: '/' },
-        { label: 'My Account', path: '/account/update-profile' },
-        { label: 'Addresses', path: '/account/address-list' },
-        { label: isEdit ? 'Edit Address' : 'Add New Address' }
-      ]} />
       <div>
       {/* Back + title */}
       <div className="s-addressform-bafc04">

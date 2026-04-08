@@ -13,14 +13,13 @@ import {
 } from "@/features/products/api/products.api";
 import {
   getGuestWishlist,
+  getWishlistDisplayMeta,
   removeFromGuestWishlist,
   clearGuestWishlist,
   type GuestWishlistItem,
 } from "@/shared/utils/guestWishlist";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
-import Breadcrumb from "@/shared/components/Breadcrumb";
-import { useBreadcrumb } from "@/shared/hooks/useBreadcrumb";
 import ProductCard from "@/features/products/components/ProductCard";
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
@@ -32,19 +31,16 @@ export default function Wishlist() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
-  const wishlistCrumbs = useBreadcrumb({
-    staticItems: [{ label: "My Wishlist" }],
-  });
   const prevPath =
     (location.state as any)?.from ||
     sessionStorage.getItem("lastPage") ||
-    "/user-products/product-list";
-  const { getUserId, isAuthenticated, setWishlistCount, wishlistCount } =
+    "/";
+  const { getUserId, hasValidToken, setWishlistCount, wishlistCount } =
     useAuthStore();
   const { removeId: removeWishlistId, reset: resetWishlistStore } =
     useWishlistStore();
   const userId = getUserId();
-  const isGuest = !isAuthenticated || !userId;
+  const isGuest = !hasValidToken() || !userId;
 
   const [guestItems, setGuestItems] =
     useState<GuestWishlistItem[]>(getGuestWishlist);
@@ -67,33 +63,64 @@ export default function Wishlist() {
   const authItems: any[] = serverData ?? [];
   const rawItems = isGuest ? guestItems : authItems;
 
-  // Normalize fields so ProductCard works (same as Home)
-  const displayItems = rawItems.map((item: any) => ({
-    productId: item.productId,
-    productVariantId: item.productVariantId,
-    productVariantDetailId: item.productVariantDetailId,
-    name:
-      item.productName ||
-      item.productname ||
-      item.variantName ||
-      item.name ||
-      "Product",
-    image: item.imageURL || item.imageurl || item.image || "",
-    price: item.finalPrice || item.finalprice || item.price || 0,
-    oldPrice: item.mrpPrice || item.mrpprice || item.oldPrice || 0,
-    rating: item.rating || 0,
-    color: item.colorName || item.color || "",
-    colorName: item.colorName || item.color || "",
-    colorHex: item.colorHex || "",
-    brandName: item.brandName || "",
-  }));
+  // Spread the full API item first so ALL fields reach ProductCard
+  // (reviewCount, totalReviews, rating, brandName, colorHex, etc.)
+  // then override only the fields that need normalisation across API shapes.
+  const displayItems = rawItems.map((item: any) => {
+    const meta = getWishlistDisplayMeta(item.productVariantId);
+    return {
+      ...item,
+      productId: item.productId,
+      productVariantId: item.productVariantId,
+      productVariantDetailId: item.productVariantDetailId,
+      name:
+        item.productName ||
+        item.productname ||
+        item.variantName ||
+        item.name ||
+        "Product",
+      image:
+        item.imageURL ||
+        item.imageurl ||
+        item.image ||
+        meta?.imageURL ||
+        "",
+      hoverImage:
+        item.hoverImage ||
+        item.image2 ||
+        item.secondaryImage ||
+        item.backImage ||
+        meta?.hoverImage ||
+        "",
+      images: Array.isArray(item.images) && item.images.length ? item.images : meta?.images || [],
+      price: item.finalPrice || item.finalprice || item.price || 0,
+      oldPrice: item.mrpPrice || item.mrpprice || item.oldPrice || 0,
+      rating: item.rating || item.avgRating || item.averageRating || 0,
+      reviewCount:
+        item.reviewCount ||
+        item.totalReviews ||
+        item.ratingCount ||
+        item.noOfReviews ||
+        item.numReviews ||
+        0,
+      color: item.colorName || item.color || "",
+      colorName: item.colorName || item.colourName || item.color || "",
+      colorHex: item.colorHex || item.colourHex || item.hexCode || "",
+      brandName:
+        item.brandName ||
+        item.brand ||
+        item.brandTitle ||
+        item.productBrand ||
+        "",
+    };
+  });
 
   useEffect(() => {
     setWishlistCount(displayItems.length);
   }, [displayItems.length]);
 
   const handleSync = async () => {
-    if (!isAuthenticated || !userId || !guestItems.length) return;
+    if (!hasValidToken() || !userId || !guestItems.length) return;
     setSyncing(true);
     try {
       await bulkCreateWishlist({
@@ -118,14 +145,12 @@ export default function Wishlist() {
   };
 
   return (
-    <>
-      <Breadcrumb items={wishlistCrumbs} />
-      <div className="s-wishlist-387046 s-wishlist-ff77776b">
-        {/* Header */}
-        <div className="s-wishlist-9e2513">
-          <div>
-            <h1 className="s-wishlist-b993f0 s-wishlist-ffaa1fea">
-              <i className="bi bi-heart-fill s-wishlist-9d41a6" />
+    <div className="s-wishlist-387046 s-wishlist-ff77776b">
+      {/* Header */}
+      <div className="s-wishlist-9e2513">
+        <div>
+          <h1 className="s-wishlist-b993f0 s-wishlist-ffaa1fea">
+            <i className="bi bi-heart-fill s-wishlist-9d41a6" />
               My Wishlist
             </h1>
             <p className="s-wishlist-4735d5">
@@ -214,6 +239,7 @@ export default function Wishlist() {
                   key={item.productVariantId}
                   product={item}
                   onQuickShop={setQuickShopId}
+                  singleColorOnly={true}
                   onRemove={() => {
                     if (isGuest) {
                       removeFromGuestWishlist(item.productVariantId);
@@ -270,6 +296,5 @@ export default function Wishlist() {
           />
         )}
       </div>
-    </>
   );
 }

@@ -1,7 +1,5 @@
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import Breadcrumb from '@/shared/components/Breadcrumb';
-import type { Crumb } from '@/shared/components/Breadcrumb';
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 
@@ -9,7 +7,7 @@ const navItems = [
   { path: '/account/dashboard',       label: 'Dashboard',       icon: 'bi-grid-1x2' },
   { path: '/account/update-profile',  label: 'My Profile',      icon: 'bi-person' },
   { path: '/account/orders-list',     label: 'My Orders',       icon: 'bi-bag' },
-  { path: '/wishlist',                label: 'Wishlist',         icon: 'bi-heart' },
+  { path: '/account/wishlist',        label: 'Wishlist',         icon: 'bi-heart' },
   { path: '/account/address-list',    label: 'Addresses',        icon: 'bi-geo-alt' },
   { path: '/account/coupons-list',    label: 'Coupons',          icon: 'bi-ticket-perforated' },
   { path: '/account/notifications',   label: 'Notifications',    icon: 'bi-bell' },
@@ -28,31 +26,11 @@ function ProfileAvatar({ name, size = 48 }: { name: string; size?: number }) {
 export default function ProfileLayout() {
   const { getUserName, logout, user } = useAuthStore();
   const navigate = useNavigate();
-  const location = useLocation();
   const name  = getUserName();
   const email = (user as any)?.email || (user as any)?.emailId || '';
 
-  // Build breadcrumbs from current path
-  const pageLabelMap: Record<string, string> = {
-    '/account/dashboard': 'Dashboard',
-    '/account/update-profile': 'My Profile',
-    '/account/change-password': 'Change Password',
-    '/account/orders-list': 'My Orders',
-    '/account/address-list': 'Addresses',
-    '/account/address-form': 'Add Address',
-    '/account/coupons-list': 'Coupons',
-    '/account/notifications': 'Notifications',
-  };
-  const currentLabel = pageLabelMap[location.pathname] || 'Account';
-  const accountCrumbs: Crumb[] = [
-    { label: 'Home', path: '/' },
-    { label: 'My Account', path: '/account/dashboard' },
-    ...(location.pathname !== '/account/dashboard' ? [{ label: currentLabel }] : []),
-  ];
-
   return (
     <>
-      <Breadcrumb items={accountCrumbs} />
       <div className="container pl-wrap s-profilelayou-8cf73f">
 
         {/* ── Sidebar ── */}
