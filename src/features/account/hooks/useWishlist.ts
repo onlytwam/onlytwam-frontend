@@ -131,6 +131,11 @@ export const useWishlistToggle = (productVariantId: number) => {
           hoverImage:             item.hoverImage,
           images:                 item.images,
           color:                  item.color,
+          colorName:              item.colorName || item.color,
+          colorHex:               item.colorHex,
+          brandName:              item.brandName,
+          rating:                 item.rating,
+          reviewCount:            item.reviewCount,
         });
         return null;
       }
@@ -207,6 +212,11 @@ export const useWishlist = () => {
           hoverImage:             item.hoverImage,
           images:                 item.images,
           color:                  item.color,
+          colorName:              item.colorName || item.color,
+          colorHex:               item.colorHex,
+          brandName:              item.brandName,
+          rating:                 item.rating,
+          reviewCount:            item.reviewCount,
         });
         return { success: true, isGuest: true };
       }

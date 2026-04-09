@@ -75,3 +75,40 @@ export const getImageUrl = (
   if (path.startsWith('/')) return `${API_ORIGIN}${path}`;
   return `${API_ORIGIN}/${path}`;
 };
+
+// Returns a same-origin URL whenever we can safely proxy backend-served images.
+// This keeps visible images untouched while allowing canvas pixel reads for
+// features like tear-line colour sampling.
+export const getCanvasSafeImageUrl = (
+  path: string | null | undefined,
+  fallback = '/assets/category-bg.png'
+): string => {
+  if (!path) return fallback;
+
+  const trimmed = path.trim();
+  if (!trimmed) return fallback;
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+  if (trimmed.startsWith('/assets/') || trimmed.startsWith('assets/')) {
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  }
+
+  const resolved = getImageUrl(trimmed, fallback);
+
+  if (typeof window === 'undefined') return resolved;
+
+  try {
+    const resolvedUrl = new URL(resolved, window.location.origin);
+
+    if (resolvedUrl.origin === window.location.origin) {
+      return resolvedUrl.toString();
+    }
+
+    if (resolvedUrl.origin === API_ORIGIN) {
+      return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
+    }
+
+    return resolved;
+  } catch {
+    return resolved;
+  }
+};

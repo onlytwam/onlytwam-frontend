@@ -21,13 +21,24 @@ export interface GuestWishlistItem {
   mrpPrice?:              number;
   sizeLabel?:             string;
   color?:                 string;
+  colorName?:             string;
+  colorHex?:              string;
+  brandName?:             string;
+  rating?:                number;
+  reviewCount?:           number;
 }
 
 export interface WishlistDisplayMeta {
   productVariantId: number;
+  productName?: string;
   imageURL?: string;
   hoverImage?: string;
   images?: string[];
+  brandName?: string;
+  rating?: number;
+  reviewCount?: number;
+  colorName?: string;
+  colorHex?: string;
 }
 
 const dispatch = () => window.dispatchEvent(new Event('wishlistUpdated'));
@@ -73,12 +84,76 @@ export const saveWishlistDisplayMeta = (item: any): void => {
     ),
   );
 
+  const productName =
+    item?.productName ||
+    item?.productname ||
+    item?.variantName ||
+    item?.name ||
+    "";
+
+  const brandName =
+    item?.brandName ||
+    item?.brand ||
+    item?.brandTitle ||
+    item?.productBrand ||
+    "";
+
+  const rating = Number(
+    item?.rating ||
+      item?.avgRating ||
+      item?.averageRating ||
+      item?.ratingAverage ||
+      item?.productRating ||
+      0,
+  );
+
+  const reviewCount = Number(
+    item?.reviewCount ||
+      item?.totalReviews ||
+      item?.ratingCount ||
+      item?.reviewsCount ||
+      item?.numReviews ||
+      item?.noOfReviews ||
+      0,
+  );
+
+  const colorName =
+    item?.colorName ||
+    item?.colourName ||
+    item?.color ||
+    item?.colour ||
+    "";
+
+  const colorHex =
+    item?.colorHex ||
+    item?.colourHex ||
+    item?.hexCode ||
+    item?.colorHexCode ||
+    item?.hex ||
+    "";
+
   const meta = getDisplayMetaMap();
+  const existing = meta[String(variantId)];
   meta[String(variantId)] = {
     productVariantId: variantId,
-    imageURL: primaryImage || undefined,
-    hoverImage: hoverImage || undefined,
-    images: dedupedImages.length ? dedupedImages : undefined,
+    productName: productName || existing?.productName,
+    imageURL: primaryImage || existing?.imageURL,
+    hoverImage: hoverImage || existing?.hoverImage,
+    images:
+      dedupedImages.length
+        ? dedupedImages
+        : existing?.images,
+    brandName: brandName || existing?.brandName,
+    rating:
+      Number.isFinite(rating) && rating > 0
+        ? rating
+        : (existing?.rating ?? 0),
+    reviewCount:
+      Number.isFinite(reviewCount) && reviewCount > 0
+        ? reviewCount
+        : (existing?.reviewCount ?? 0),
+    colorName: colorName || existing?.colorName,
+    colorHex: colorHex || existing?.colorHex,
   };
   setDisplayMetaMap(meta);
 };
@@ -113,6 +188,12 @@ export function addToGuestWishlist(item: any) {
     hoverImage: item.hoverImage,
     images: item.images,
     sizeLabel: item.sizeLabel,
+    color: item.color,
+    colorName: item.colorName || item.color,
+    colorHex: item.colorHex,
+    brandName: item.brandName,
+    rating: item.rating,
+    reviewCount: item.reviewCount,
   };
 
   localStorage.setItem("guestWishlist", JSON.stringify([...wishlist, newItem]));

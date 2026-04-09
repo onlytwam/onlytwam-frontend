@@ -39,6 +39,7 @@ function RouteMemory() {
       "/user-products/shipping-option",
       "/user-products/payment",
       "/user-products/order-confirm",
+      "/user-products/payment-callback",
     ];
 
     if (excludedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
@@ -111,6 +112,9 @@ const PaymentAddress = lazy(
   () => import("@/features/orders/pages/PaymentAddress"),
 );
 const OrderConfirm = lazy(() => import("@/features/orders/pages/OrderConfirm"));
+const PaymentCallback = lazy(
+  () => import("@/features/orders/pages/PaymentCallback"),
+);
 const GuestSignup = lazy(() => import("@/features/auth/pages/GuestSignup"));
 const ShippingOption = lazy(
   () => import("@/features/orders/pages/ShippingOption"),
@@ -439,6 +443,10 @@ export default function App() {
           <Route
             path="/user-products/order-confirm/:id"
             element={<OrderConfirm />}
+          />
+          <Route
+            path="/user-products/payment-callback"
+            element={<PaymentCallback />}
           />
           <Route
             path="/user-products/shipping-option"

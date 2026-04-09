@@ -3,8 +3,30 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
-import { slugify, getImageUrl } from "@/shared/utils/helpers";
+import {
+  slugify,
+  getImageUrl,
+  getCanvasSafeImageUrl,
+} from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
+
+const TEAR_LINE_SAMPLE_POINTS = [
+  { x: 48.5, y: 0.8 },
+  { x: 44, y: 3.4 },
+  { x: 44.8, y: 4.8 },
+  { x: 38.2, y: 9.6 },
+  { x: 39, y: 10.8 },
+  { x: 28.6, y: 18.8 },
+  { x: 29.4, y: 20 },
+  { x: 16.4, y: 29.8 },
+  { x: 17, y: 31 },
+  { x: 1.4, y: 42.2 },
+  { x: 0.4, y: 43 },
+];
+const DISCOUNT_REVEAL_DELAY_MS = 3000;
+const DISCOUNT_VISIBLE_START_DELAY_MS = 4400;
+const DISCOUNT_VISIBLE_HOLD_MS = 10000;
+const DISCOUNT_CLOSE_DURATION_MS = 1800;
 
 interface Props {
   product: any;
@@ -17,7 +39,7 @@ interface Props {
   singleColorOnly?: boolean;
   /** Home-page mode: tighter body so the image is the focal point. */
   compact?: boolean;
-  /** Reveal the discount by tearing away the paper flap after 5 seconds. */
+  /** Reveal the discount by tearing away the paper flap after 3 seconds. */
   delayedDiscountReveal?: boolean;
 }
 
@@ -38,11 +60,20 @@ export default function ProductCard({
   // Track which variant's hover image has fully loaded.
   // Derived synchronously → no stale-state flash when the user switches colour.
   const [hoverLoadedVariantId, setHoverLoadedVariantId] = useState(-1);
-  const [discountAnimationStarted, setDiscountAnimationStarted] =
-    useState(false);
+  const [discountAnimationPhase, setDiscountAnimationPhase] = useState<
+    "idle" | "opening" | "open" | "closing"
+  >("idle");
+  const [tearVisualStyle, setTearVisualStyle] = useState<React.CSSProperties>(
+    {},
+  );
 
+  const primaryImageRef = useRef<HTMLImageElement>(null);
   const swatchesRef = useRef<HTMLDivElement>(null);
+  const tearSamplerCleanupRef = useRef<(() => void) | null>(null);
+  const tearFrameOneRef = useRef<number | null>(null);
+  const tearFrameTwoRef = useRef<number | null>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const showDiscountTagEnabled = showDiscountTag && !isRemovableCard;
   const delayedDiscountRevealEnabled =
     delayedDiscountReveal && !isRemovableCard && !prefersReducedMotion;
 
@@ -123,7 +154,12 @@ export default function ProductCard({
         product.backImage ||
         "",
       images: rawImages,
-      color: selectedVariant.colorName || selectedVariant.color || "",
+      color: selectedColorFields.colorName,
+      colorName: selectedColorFields.colorName,
+      colorHex: selectedColorFields.colorHex,
+      brandName: brandLabel,
+      rating,
+      reviewCount,
     });
   };
 
@@ -193,6 +229,271 @@ export default function ProductCard({
   const imgSrc = resolvedImages[0] || "";
   const hoverImgSrc = resolvedImages[1] || "";
 
+  const hexToRgb = (hex: string) => {
+    const clean = hex.replace("#", "").trim();
+    if (clean.length === 3) {
+      return {
+        r: Number.parseInt(clean[0] + clean[0], 16),
+        g: Number.parseInt(clean[1] + clean[1], 16),
+        b: Number.parseInt(clean[2] + clean[2], 16),
+      };
+    }
+    if (clean.length === 6) {
+      return {
+        r: Number.parseInt(clean.slice(0, 2), 16),
+        g: Number.parseInt(clean.slice(2, 4), 16),
+        b: Number.parseInt(clean.slice(4, 6), 16),
+      };
+    }
+    return null;
+  };
+
+  const clearScheduledTearVisualStyleUpdate = () => {
+    if (tearFrameOneRef.current !== null) {
+      window.cancelAnimationFrame(tearFrameOneRef.current);
+      tearFrameOneRef.current = null;
+    }
+    if (tearFrameTwoRef.current !== null) {
+      window.cancelAnimationFrame(tearFrameTwoRef.current);
+      tearFrameTwoRef.current = null;
+    }
+  };
+
+  const clearTearVisualSyncWork = () => {
+    clearScheduledTearVisualStyleUpdate();
+    tearSamplerCleanupRef.current?.();
+    tearSamplerCleanupRef.current = null;
+  };
+
+  const scheduleTearVisualStyleUpdate = (
+    imageEl: HTMLImageElement | null,
+    sampleImageEl: HTMLImageElement | null = imageEl,
+  ) => {
+    if (!imageEl) return;
+
+    clearScheduledTearVisualStyleUpdate();
+
+    tearFrameOneRef.current = window.requestAnimationFrame(() => {
+      tearFrameTwoRef.current = window.requestAnimationFrame(() => {
+        tearFrameOneRef.current = null;
+        tearFrameTwoRef.current = null;
+        updateTearVisualStyle(imageEl, sampleImageEl);
+      });
+    });
+  };
+
+  const updateTearVisualStyle = (
+    imageEl: HTMLImageElement | null,
+    sampleImageEl: HTMLImageElement | null = imageEl,
+  ) => {
+    if (!imageEl) return;
+
+    const imageUrl = imageEl.currentSrc || imageEl.src || imgSrc;
+    const naturalWidth =
+      sampleImageEl?.naturalWidth || imageEl.naturalWidth || 0;
+    const naturalHeight =
+      sampleImageEl?.naturalHeight || imageEl.naturalHeight || 0;
+    const containerWidth = imageEl.clientWidth || 0;
+    const containerHeight = imageEl.clientHeight || 0;
+
+    const fallbackHex = resolveHex(
+      selectedColorFields.colorHex ||
+        selectedColorFields.colorName ||
+        productColorFields.colorHex ||
+        productColorFields.colorName ||
+        "#767676",
+    );
+    const fallbackBase = hexToRgb(fallbackHex) || { r: 118, g: 118, b: 118 };
+    let base = fallbackBase;
+    let renderWidth = containerWidth;
+    let renderHeight = containerHeight;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (
+      naturalWidth > 0 &&
+      naturalHeight > 0 &&
+      containerWidth > 0 &&
+      containerHeight > 0
+    ) {
+      try {
+        const coverScale = Math.max(
+          containerWidth / naturalWidth,
+          containerHeight / naturalHeight,
+        );
+        renderWidth = naturalWidth * coverScale;
+        renderHeight = naturalHeight * coverScale;
+        offsetX = (containerWidth - renderWidth) / 2;
+        offsetY = 0;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 50;
+        canvas.height = 50;
+
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (context) {
+          context.clearRect(0, 0, 50, 50);
+          context.drawImage(
+            sampleImageEl || imageEl,
+            offsetX,
+            offsetY,
+            renderWidth,
+            renderHeight,
+          );
+
+          const sampleOffsets = [
+            { dx: 0, dy: 0, weight: 1.2 },
+            { dx: -0.8, dy: -0.9, weight: 0.7 },
+            { dx: -1.4, dy: -1.6, weight: 0.38 },
+          ];
+
+          let totalR = 0;
+          let totalG = 0;
+          let totalB = 0;
+          let totalWeight = 0;
+
+          for (const point of TEAR_LINE_SAMPLE_POINTS) {
+            for (const sample of sampleOffsets) {
+              const sampleX = Math.max(
+                0,
+                Math.min(49, Math.round(point.x + sample.dx)),
+              );
+              const sampleY = Math.max(
+                0,
+                Math.min(49, Math.round(point.y + sample.dy)),
+              );
+              const pixel = context.getImageData(sampleX, sampleY, 1, 1).data;
+              const alpha = pixel[3] / 255;
+              if (alpha < 0.12) continue;
+
+              const weight = sample.weight * alpha;
+              totalR += pixel[0] * weight;
+              totalG += pixel[1] * weight;
+              totalB += pixel[2] * weight;
+              totalWeight += weight;
+            }
+          }
+
+          if (totalWeight > 0) {
+            base = {
+              r: Math.round(totalR / totalWeight),
+              g: Math.round(totalG / totalWeight),
+              b: Math.round(totalB / totalWeight),
+            };
+          }
+        }
+      } catch {
+        base = fallbackBase;
+      }
+    }
+
+    const clampChannel = (value: number) => Math.max(0, Math.min(255, value));
+    const mixChannel = (channel: number, target: number, amount: number) =>
+      clampChannel(Math.round(channel + (target - channel) * amount));
+    const toHex = (value: { r: number; g: number; b: number }) =>
+      `#${[value.r, value.g, value.b]
+        .map((channel) => channel.toString(16).padStart(2, "0"))
+        .join("")}`;
+    const edgeStrong = {
+      r: mixChannel(base.r, 0, 0.28),
+      g: mixChannel(base.g, 0, 0.28),
+      b: mixChannel(base.b, 0, 0.28),
+    };
+    const edgeLine = {
+      r: mixChannel(base.r, 0, 0.22),
+      g: mixChannel(base.g, 0, 0.22),
+      b: mixChannel(base.b, 0, 0.22),
+    };
+    const edgeSoft = {
+      r: mixChannel(base.r, 0, 0.14),
+      g: mixChannel(base.g, 0, 0.14),
+      b: mixChannel(base.b, 0, 0.14),
+    };
+    const edgeHighlight = {
+      r: mixChannel(base.r, 245, 0.24),
+      g: mixChannel(base.g, 240, 0.24),
+      b: mixChannel(base.b, 230, 0.24),
+    };
+    const sampledLineHex = toHex(edgeLine);
+
+    setTearVisualStyle({
+      ["--pc-tear-image" as string]: imageUrl
+        ? `url(${JSON.stringify(imageUrl)})`
+        : "none",
+      ["--pc-tear-image-size" as string]:
+        renderWidth > 0 && renderHeight > 0
+          ? `${renderWidth}px ${renderHeight}px`
+          : "100% 100%",
+      ["--pc-tear-image-position" as string]: `${offsetX}px ${offsetY}px`,
+      ["--pc-tear-line-color" as string]: sampledLineHex,
+      ["--pc-tear-line-soft" as string]: `rgba(${edgeSoft.r}, ${edgeSoft.g}, ${edgeSoft.b}, 0.42)`,
+      ["--pc-tear-line-strong" as string]: `rgba(${edgeStrong.r}, ${edgeStrong.g}, ${edgeStrong.b}, 0.58)`,
+      ["--pc-tear-line-highlight" as string]: `rgba(${edgeHighlight.r}, ${edgeHighlight.g}, ${edgeHighlight.b}, 0.54)`,
+    });
+  };
+
+  const refreshTearVisualStyle = (imageEl: HTMLImageElement | null) => {
+    clearTearVisualSyncWork();
+    if (!imageEl) return;
+
+    const displaySrc = imageEl.currentSrc || imageEl.src || imgSrc;
+    const sampleSrc = getCanvasSafeImageUrl(displaySrc, "");
+
+    if (!sampleSrc) {
+      scheduleTearVisualStyleUpdate(imageEl);
+      return;
+    }
+
+    const toAbsoluteUrl = (value: string) => {
+      try {
+        return new URL(value, window.location.origin).toString();
+      } catch {
+        return value;
+      }
+    };
+
+    if (toAbsoluteUrl(sampleSrc) === toAbsoluteUrl(displaySrc)) {
+      scheduleTearVisualStyleUpdate(imageEl);
+      return;
+    }
+
+    let cancelled = false;
+    const sampler = new window.Image();
+    sampler.decoding = "async";
+    sampler.onload = () => {
+      if (!cancelled) {
+        scheduleTearVisualStyleUpdate(imageEl, sampler);
+      }
+    };
+    sampler.onerror = () => {
+      if (!cancelled) {
+        scheduleTearVisualStyleUpdate(imageEl);
+      }
+    };
+    sampler.src = sampleSrc;
+
+    if (sampler.complete && sampler.naturalWidth > 0) {
+      scheduleTearVisualStyleUpdate(imageEl, sampler);
+    }
+
+    tearSamplerCleanupRef.current = () => {
+      cancelled = true;
+      sampler.onload = null;
+      sampler.onerror = null;
+    };
+  };
+
+  useEffect(() => {
+    const imageEl = primaryImageRef.current;
+    if (imageEl?.complete && imageEl.naturalWidth > 0) {
+      refreshTearVisualStyle(imageEl);
+    }
+
+    return () => {
+      clearTearVisualSyncWork();
+    };
+  }, [imgSrc, selectedVariant.productVariantId]);
+
   useEffect(() => {
     setHoverLoadedVariantId(-1);
     if (!hoverImgSrc) return;
@@ -238,15 +539,45 @@ export default function ProductCard({
     : 0;
 
   useEffect(() => {
-    setDiscountAnimationStarted(false);
+    setDiscountAnimationPhase("idle");
+  }, [
+    delayedDiscountRevealEnabled,
+    hasDiscount,
+    selectedVariant.productVariantId,
+    oldPrice,
+    price,
+  ]);
+
+  useEffect(() => {
     if (!delayedDiscountRevealEnabled || !hasDiscount) return;
 
-    const timer = window.setTimeout(() => {
-      setDiscountAnimationStarted(true);
-    }, 5000);
+    let timer: number | null = null;
 
-    return () => window.clearTimeout(timer);
+    if (discountAnimationPhase === "idle") {
+      timer = window.setTimeout(() => {
+        setDiscountAnimationPhase("opening");
+      }, DISCOUNT_REVEAL_DELAY_MS);
+    } else if (discountAnimationPhase === "opening") {
+      timer = window.setTimeout(() => {
+        setDiscountAnimationPhase("open");
+      }, DISCOUNT_VISIBLE_START_DELAY_MS);
+    } else if (discountAnimationPhase === "open") {
+      timer = window.setTimeout(() => {
+        setDiscountAnimationPhase("closing");
+      }, DISCOUNT_VISIBLE_HOLD_MS);
+    } else if (discountAnimationPhase === "closing") {
+      timer = window.setTimeout(() => {
+        setDiscountAnimationPhase("idle");
+      }, DISCOUNT_CLOSE_DURATION_MS);
+    }
+
+    return () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
   }, [
+    discountAnimationPhase,
     delayedDiscountRevealEnabled,
     hasDiscount,
     selectedVariant.productVariantId,
@@ -333,6 +664,7 @@ export default function ProductCard({
   };
 
   const productColorFields = resolveColorFields(product);
+  const selectedColorFields = resolveColorFields(selectedVariant);
 
   const colorVariants: { id: number; colorName: string; colorHex: string }[] =
     singleColorOnly
@@ -373,9 +705,10 @@ export default function ProductCard({
         <div className="pc-card-solid-bg" />
 
         <div className="pc-content-wrapper">
-          {showDiscountTag && discountPct > 0 && (
+          {showDiscountTagEnabled && discountPct > 0 && (
             <div
-              className={`pc-discount-corner${delayedDiscountRevealEnabled ? " pc-discount-corner--delayed" : ""}${discountAnimationStarted ? " pc-discount-corner--animated" : ""}`}
+              className={`pc-discount-corner${delayedDiscountRevealEnabled ? " pc-discount-corner--delayed" : ""}${delayedDiscountRevealEnabled ? ` pc-discount-corner--${discountAnimationPhase}` : ""}`}
+              style={tearVisualStyle}
               aria-hidden="true"
             >
               <div className="pc-discount-mask">
@@ -404,9 +737,13 @@ export default function ProductCard({
 
           <div className={imageWrapClass}>
             <img
+              ref={primaryImageRef}
               className="pc-img-primary"
               src={imgSrc}
               alt={selectedVariant.name || product.name}
+              onLoad={(e) => {
+                refreshTearVisualStyle(e.currentTarget);
+              }}
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "/assets/category-bg.png";
               }}

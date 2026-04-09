@@ -365,7 +365,35 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
       price: dispPrice,
       oldPrice: dispMrp,
       image: images[0] || "",
+      hoverImage: images[1] || "",
+      images,
       color: selectedColor,
+      colorName: selectedColor,
+      colorHex:
+        selectedColorSwatch?.colorHex ??
+        selectedColorSwatch?.colourHex ??
+        selectedColorSwatch?.color ??
+        "",
+      brandName:
+        product?.brandName ||
+        product?.brand ||
+        product?.brandTitle ||
+        product?.productBrand ||
+        "",
+      rating:
+        product?.rating ||
+        product?.avgRating ||
+        product?.averageRating ||
+        product?.ratingAverage ||
+        0,
+      reviewCount:
+        product?.reviewCount ||
+        product?.totalReviews ||
+        product?.ratingCount ||
+        product?.reviewsCount ||
+        product?.noOfReviews ||
+        product?.numReviews ||
+        0,
     });
   };
 

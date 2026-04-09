@@ -12,9 +12,7 @@ import { getCategories } from "@/features/auth/api/auth.api";
 import api from "@/shared/api/axiosInstance";
 import { slugify, getImageUrl } from "@/shared/utils/helpers";
 import type { CategoryMenu } from "@/shared/types";
-import toast from "react-hot-toast";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
-import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 
 import ProductCard from "@/features/products/components/ProductCard";
 
@@ -400,165 +398,21 @@ function BrandsSection({ logos: _logos }: { logos: any[] }) {
   );
 }
 
-// ─── Hero Banner with 360° Orbit ─────────────────────────────────────────────
-function HeroBanner({ orbitProducts }: { orbitProducts: any[] }) {
-  const navigate = useNavigate();
-  const ORBIT_R = 300;
-  const ORBIT_DUR = 22;
-  const orbitItems = orbitProducts.slice(0, 8);
-  const count = Math.max(orbitItems.length, 1);
-
-  const stars = useMemo(
-    () =>
-      Array.from({ length: 65 }, (_, k) => ({
-        id: k,
-        size: Math.random() * 2.5 + 0.5,
-        left: Math.random() * 100,
-        top: Math.random() * 100,
-        dur: 2 + Math.random() * 4,
-        delay: Math.random() * 5,
-      })),
-    [],
-  );
-
+// ─── TWAM Featured Section ───────────────────────────────────────────────────
+function TwamFeaturedSection({
+  products,
+  onQuickShop,
+}: {
+  products: any[];
+  onQuickShop: (id: number) => void;
+}) {
   return (
-    <div className="s-home-7a0874">
-      {/* Deep space background */}
-      <div className="s-home-122982" />
-
-      {/* Grain texture */}
-      <div className="s-home-489f94" />
-
-      {/* Stars */}
-      {stars.map((s) => (
-        <div
-          key={s.id}
-          className="s-home-98dae8 s-home-62280e"
-          style={{
-            width: s.size,
-            height: s.size,
-            left: `${s.left}%`,
-            top: `${s.top}%`,
-            animation: `star-blink ${s.dur}s ease-in-out infinite`,
-            animationDelay: `${s.delay}s`,
-            pointerEvents: "none",
-          }}
-        />
-      ))}
-
-      {/* Decorative spinning rings */}
-      {[
-        { d: 640, dur: 60, rev: false, dash: "8 18" },
-        { d: 490, dur: 45, rev: true, dash: "4 12" },
-        { d: 340, dur: 30, rev: false, dash: "2 8" },
-      ].map(({ d, dur, rev, dash }, k) => (
-        <div key={d} className="s-home-1925fd" style={{ width: d, height: d }}>
-          <svg
-            width={d}
-            height={d}
-            className="s-home-8a6320"
-            style={{
-              animation: `${rev ? "ring-spin-rev" : "ring-spin"} ${dur}s linear infinite`,
-            }}
-          >
-            <circle
-              cx={d / 2}
-              cy={d / 2}
-              r={d / 2 - 1}
-              fill="none"
-              stroke={`rgba(158,96,112,${0.3 - k * 0.07})`}
-              strokeWidth="1"
-              strokeDasharray={dash}
-            />
-          </svg>
-        </div>
-      ))}
-
-      {/* TWAM FEATURED headline */}
-      <div className="s-home-f8908f">
-        <div className="s-home-ff1b89">✦&thinsp; TWAM FEATURED &thinsp;✦</div>
-        <p className="s-home-98096a">
-          Comfort &nbsp;·&nbsp; Elegance &nbsp;·&nbsp; Style
-        </p>
+    <section className="best-sellers" style={{ background: "#fff" }}>
+      <div className="container">
+        <SectionTitle title="TWAM Featured" />
+        <ProductSlider products={products} onQuickShop={onQuickShop} />
       </div>
-
-      {/* Ambient glow */}
-      <div className="s-home-7f0e6f" />
-
-      {/* Model image — elevated & floating */}
-      <img
-        src="/assets/.png"
-        alt="TWAM Featured"
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
-        className="s-home-c76b11"
-      />
-
-      {/* Orbiting product cards */}
-      {orbitItems.length > 0 && (
-        <div className="s-home-6baa2b">
-          {orbitItems.map((p, i) => {
-            const delayS = -((i / count) * ORBIT_DUR);
-            const imgSrc = getImageUrl(
-              p.imageUrl ??
-                p.image ??
-                p.productImage ??
-                p.thumbnail ??
-                p.variantImage ??
-                "",
-              "",
-            );
-            return (
-              <div
-                key={`ob-${p.productVariantId ?? i}-${i}`}
-                className="s-home-db0758 s-home-d35c85"
-                style={{
-                  animation: `orbit-go ${ORBIT_DUR}s linear infinite`,
-                  animationDelay: `${delayS}s`,
-                }}
-              >
-                <div
-                  className="s-home-517646 s-home-c6ae21"
-                  style={{
-                    animation: `face-go ${ORBIT_DUR}s linear infinite`,
-                    animationDelay: `${delayS}s`,
-                  }}
-                  onClick={() =>
-                    navigate(
-                      `/user-products/product-detail/${p.productVariantId}/${slugify(p.productName ?? "product")}`,
-                    )
-                  }
-                >
-                  <div className="twam-orbit-card s-home-b20fd0">
-                    <div className="s-home-fbcd5b">
-                      <img
-                        src={imgSrc}
-                        alt={p.productName ?? "Product"}
-                        className="s-home-5a5ce8"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    </div>
-                    <div className="s-home-3c1e54">
-                      <p className="s-home-720656">
-                        {p.productName ?? "Product"}
-                      </p>
-                      {(p.sellingPrice ?? p.price) != null && (
-                        <p className="s-home-e27872">
-                          ₹{p.sellingPrice ?? p.price}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
 
@@ -684,32 +538,14 @@ export default function Home() {
     return found?.brandId ?? found?.id ?? null;
   }, [brandsData]);
 
-  // ── Fetch TWAM brand products for the orbit ──────────────────────────────
-  const { data: twamProductsData } = useQuery({
-    queryKey: ["twam-orbit-products", twamBrandId],
+  // ── Fetch TWAM brand products for the featured slider ────────────────────
+  const { data: twamFeaturedProducts = [] } = useQuery({
+    queryKey: ["home-twam-featured", twamBrandId],
     enabled: twamBrandId != null,
-    queryFn: () =>
-      api
-        .get("/ProductVariantDetail/UserProductVariantDetail", {
-          params: {
-            "filters[0].property": "Product.BrandId",
-            "filters[0].comparison": "eq",
-            "filters[0].value": String(twamBrandId),
-            "order.property": "ModifiedDate",
-            "order.ascending": false,
-            "page.size": 8,
-          },
-        })
-        .then((r) => r.data?.list ?? []),
+    queryFn: () => listProducts({ brandIds: twamBrandId, pageSize: 40 }),
+    select: dedupeByProductId,
     staleTime: 5 * 60 * 1000,
   });
-
-  // Fallback: if brand not found or returns empty, use bestSellers
-  const orbitProducts: any[] = useMemo(() => {
-    if (twamProductsData && twamProductsData.length > 0)
-      return twamProductsData;
-    return bestSellersProducts.slice(0, 8);
-  }, [twamProductsData, bestSellersProducts]);
 
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],
@@ -800,8 +636,24 @@ export default function Home() {
 
   return (
     <div className="s-home-bcf04f">
-      {/* ── Hero Banner — replaces old static image ── */}
-      <HeroBanner orbitProducts={orbitProducts} />
+      {/* TWAM Banner */}
+      <section className="product-offers" aria-label="TWAM Banner">
+        <img
+          src="/assets/40-offer.png"
+          className="img-fluid"
+          alt="TWAM Banner"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = "/assets/40-offer.jpg";
+          }}
+        />
+      </section>
+      <div className="section-gap" />
+
+      {/* TWAM Featured */}
+      <TwamFeaturedSection
+        products={twamFeaturedProducts}
+        onQuickShop={setQuickShopId}
+      />
       <div className="section-gap" />
 
       <section className="best-sellers best-sellers-bg best-sellers-bg-1 s-home-42eb71">
@@ -814,18 +666,6 @@ export default function Home() {
           />
         </div>
       </section>
-      <div className="section-gap" />
-
-      <div className="product-offers">
-        <img
-          src="/assets/40-offer.png"
-          className="img-fluid"
-          alt="Special Offer"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/assets/40-offer.jpg";
-          }}
-        />
-      </div>
       <div className="section-gap" />
 
       <section className="best-sellers s-home-51e4ca">

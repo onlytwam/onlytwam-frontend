@@ -77,6 +77,7 @@ export default function Wishlist() {
         item.productName ||
         item.productname ||
         item.variantName ||
+        meta?.productName ||
         item.name ||
         "Product",
       image:
@@ -95,22 +96,44 @@ export default function Wishlist() {
       images: Array.isArray(item.images) && item.images.length ? item.images : meta?.images || [],
       price: item.finalPrice || item.finalprice || item.price || 0,
       oldPrice: item.mrpPrice || item.mrpprice || item.oldPrice || 0,
-      rating: item.rating || item.avgRating || item.averageRating || 0,
+      rating:
+        item.rating ||
+        item.avgRating ||
+        item.averageRating ||
+        meta?.rating ||
+        0,
       reviewCount:
         item.reviewCount ||
         item.totalReviews ||
         item.ratingCount ||
         item.noOfReviews ||
         item.numReviews ||
+        meta?.reviewCount ||
         0,
-      color: item.colorName || item.color || "",
-      colorName: item.colorName || item.colourName || item.color || "",
-      colorHex: item.colorHex || item.colourHex || item.hexCode || "",
+      color:
+        item.colorName ||
+        item.colourName ||
+        item.color ||
+        meta?.colorName ||
+        "",
+      colorName:
+        item.colorName ||
+        item.colourName ||
+        item.color ||
+        meta?.colorName ||
+        "",
+      colorHex:
+        item.colorHex ||
+        item.colourHex ||
+        item.hexCode ||
+        meta?.colorHex ||
+        "",
       brandName:
         item.brandName ||
         item.brand ||
         item.brandTitle ||
         item.productBrand ||
+        meta?.brandName ||
         "",
     };
   });

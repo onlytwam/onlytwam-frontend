@@ -203,7 +203,7 @@ export const listUserReviews = async (params?: Record<string, any>) => {
     }
   }
 
-  const response = await api.get("/ProductReview/", { params: queryParams });
+  const response = await api.get("/ProductReview", { params: queryParams });
   return response.data;
 };
 
@@ -216,7 +216,7 @@ export const createReview = async (data: any) => {
       form.append(key, String(val));
     }
   });
-  const response = await api.post("/ProductReview/", form, {
+  const response = await api.post("/ProductReview", form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return response.data;
