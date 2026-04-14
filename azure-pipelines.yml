@@ -1,0 +1,26 @@
+trigger:
+  branches:
+    include:
+      - frontend-setup/Vishnu
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: NodeTool@0
+    displayName: Install Node.js
+    inputs:
+      versionSpec: '20.x'
+
+  - script: npm install
+    displayName: Install dependencies
+
+  - script: npx vite build
+    displayName: Build frontend
+
+  - task: AzureStaticWebApp@0
+    displayName: Deploy to Static Web Apps
+    inputs:
+      app_location: 'dist'
+      skip_app_build: true
+      azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)
