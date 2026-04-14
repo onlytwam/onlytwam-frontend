@@ -9,11 +9,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import { useCartStore } from "@/features/cart/store/cartStore";
 import { getProductDetail } from "@/features/products/api/products.api";
 import { addToCart } from "@/features/cart/api/cart.api";
 import { formatPrice, getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
+import { setBuyNowSession } from "@/shared/utils/checkoutSession";
 
 interface Props {
   productVariantId: number;
@@ -417,6 +419,38 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     quantity: qty,
   });
 
+  const buildBuyNowItem = () => ({
+    cartId: 0,
+    productId: product?.productId ?? null,
+    productVariantId: variantId,
+    productVariantDetailId: selPVDId,
+    productCode: product?.productCode ?? null,
+    productName: product?.name ?? null,
+    name: product?.name ?? null,
+    productDescription: null,
+    brandName: product?.brandName ?? null,
+    categoryId: product?.categoryId ?? null,
+    brandId: null,
+    variantName: null,
+    variantDescription: null,
+    size: selLabel || null,
+    cupSize: cupLabel || null,
+    colorName: selectedColor || null,
+    colorHex: null,
+    color: selectedColor || null,
+    stockQuantity: selStock ?? null,
+    processedQuantity: qty,
+    returnedQuantity: null,
+    discountPercent: null,
+    mrpPrice: dispMrp || null,
+    finalPrice: dispPrice || null,
+    personalId: null,
+    userProfileId: getUserId() || null,
+    state: "Created",
+    image: images[0] || null,
+    isSelected: true,
+  });
+
   // ── Cart mutation — invalidates all cart keys so Navbar + QuickCart + Cart page all refresh ──
   const addMut = useMutation({
     mutationFn: (obj: any) => addToCart(obj),
@@ -479,16 +513,22 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   };
   const handleBuyNow = () => {
     if (!validate()) return;
-    if (hasValidToken())
-      addMut.mutate(buildItem(), {
-        onSuccess: () => {
-          onClose();
-          navigate("/user-products/cart", {
-            state: { from: location.pathname + location.search },
-          });
-        },
-      });
-    else guestAdd("/user-products/cart");
+    const buyNowItem = buildBuyNowItem();
+    setBuyNowSession([buyNowItem as any]);
+    const store = useCartStore.getState();
+    store.removeCoupon?.();
+    store.setShipping?.(null);
+
+    if (hasValidToken()) {
+      store.setSelectedItems?.([buyNowItem as any]);
+      store.setSubTotal?.(Number(dispPrice || 0) * qty);
+      store.setTaxAmount?.(Math.round(Number(dispPrice || 0) * qty * 0.05));
+    }
+
+    onClose();
+    navigate("/user-products/payment-address?buyNow=1", {
+      state: { from: location.pathname + location.search },
+    });
   };
   const goToDetail = () => {
     navigate(

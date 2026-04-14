@@ -461,7 +461,8 @@ export default function MobileNavbar() {
 
             <button
               className="mnb-icon-btn mnb-icon-relative"
-              onClick={() => setShowQuickCart(true)}
+              onClick={() => setShowQuickCart((open) => !open)}
+              data-quickcart-trigger="true"
               aria-label="Cart"
             >
               <i className="bi bi-bag" />

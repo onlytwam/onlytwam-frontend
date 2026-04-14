@@ -7,14 +7,15 @@
 //   color/size info in the orders list view.
 //   All UI code is completely unchanged.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getImageUrl } from "@/shared/utils/helpers";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useCartStore } from "@/features/cart/store/cartStore";
 import { createOrder, listAddress } from "@/features/orders/api/orders.api";
+import { getBuyNowSession } from "@/shared/utils/checkoutSession";
 
 const PAYMENT_METHOD = {
   id: "online",
@@ -25,6 +26,8 @@ const PAYMENT_METHOD = {
 
 export default function Payment() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isBuyNow = searchParams.get("buyNow") === "1";
   const { getUserId } = useAuthStore();
   const {
     getSelectedItems,
@@ -35,6 +38,18 @@ export default function Payment() {
     appliedCoupon,
   } = useCartStore();
   const userId = getUserId();
+  const buyNowSession = isBuyNow ? getBuyNowSession() : null;
+  const buyNowItems = buyNowSession?.items?.length ? buyNowSession.items : [];
+
+  useEffect(() => {
+    if (!isBuyNow) return;
+    const session = getBuyNowSession();
+    if (!session?.items?.length) return;
+    const store = useCartStore.getState();
+    store.setSelectedItems?.(session.items as any);
+    store.setSubTotal?.(session.subTotal);
+    store.setTaxAmount?.(session.taxAmount);
+  }, [isBuyNow]);
 
   const selectedAddressId = Number(
     sessionStorage.getItem("selectedAddressId") || 0,
@@ -46,9 +61,10 @@ export default function Payment() {
     select: (d: any) => d?.list ?? d ?? [],
   });
 
-  const selectedItems = getSelectedItems();
-  const subTotal = getSubTotal();
-  const taxAmount = getTaxAmount();
+  const cartSelectedItems = getSelectedItems();
+  const selectedItems = buyNowItems.length ? buyNowItems : cartSelectedItems;
+  const subTotal = buyNowSession?.subTotal ?? getSubTotal();
+  const taxAmount = buyNowSession?.taxAmount ?? getTaxAmount();
   const shippingCost = Number(
     (selectedShipping as any)?.cost ??
       (selectedShipping as any)?.deliveryCharges ??
@@ -93,7 +109,190 @@ export default function Payment() {
       ),
   });
 
-  const handlePlaceOrder = () => {
+  const submitPayment = (whatsappUpdates: boolean) => {
+    setWhatsappOptIn(whatsappUpdates);
+
+    const cartIds = selectedItems
+      .map((i: any) => Number(i.cartId))
+      .filter((id: number) => Number.isFinite(id) && id > 0);
+
+    orderMutation.mutate({
+      userProfileId: userId,
+      subTotal,
+      totalAmount: totalPayable,
+      taxAmount,
+      deliveryCharge: shippingCost,
+      shippingTypeId: (selectedShipping as any)?.shippingTypeId ?? null,
+      shippingAddressId: selectedAddressId,
+      billingAddressId: selectedAddressId,
+      couponId: appliedCoupon?.couponId ?? null,
+      couponAmount: couponDiscount ?? 0,
+      cartId: cartIds,
+      orderNumber: null,
+      paymentMethod: "Online Payment",
+      isWhatsappNotification: whatsappUpdates,
+      orderItems: selectedItems.map((i: any) => ({
+        productId: i.productId,
+        // FIX: include productVariantId so OrderItems.ProductVariantId is stored in DB.
+        // Without this it saves NULL, breaking Ekart SKU lookup and hiding color/size in orders list.
+        productVariantId: i.productVariantId ?? null,
+        productVariantDetailId: i.productVariantDetailId,
+        quantity: i.processedQuantity || 1,
+        price: i.finalPrice,
+      })),
+    });
+  };
+
+  const showWhatsappPrompt = () => {
+    toast.custom(
+      (t) => (
+        <div
+          role="dialog"
+          aria-label="WhatsApp updates prompt"
+          style={{
+            width: "min(92vw, 390px)",
+            background: "linear-gradient(180deg, #fffdf8 0%, #ffffff 100%)",
+            border: "1px solid rgba(107, 15, 42, 0.12)",
+            borderRadius: 20,
+            boxShadow: "0 24px 60px rgba(107, 15, 42, 0.16)",
+            padding: 16,
+            position: "relative",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => toast.dismiss(t.id)}
+            aria-label="Dismiss"
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              width: 30,
+              height: 30,
+              borderRadius: 999,
+              border: "1px solid rgba(107, 15, 42, 0.12)",
+              background: "#fff",
+              color: "var(--heirloom)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            <i className="bi bi-x-lg" />
+          </button>
+
+          <div style={{ display: "flex", gap: 12, paddingRight: 36 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background:
+                  "linear-gradient(135deg, rgba(37, 211, 102, 0.14), rgba(37, 211, 102, 0.24))",
+                color: "#25d366",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                boxShadow: "inset 0 0 0 1px rgba(37, 211, 102, 0.14)",
+              }}
+            >
+              <i className="bi bi-whatsapp" style={{ fontSize: 24 }} />
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  background: "var(--ivory)",
+                  color: "var(--brand)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: 0.3,
+                  marginBottom: 8,
+                }}
+              >
+                <i className="bi bi-chat-dots" />
+                WhatsApp updates
+              </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 800,
+                color: "var(--brand)",
+                lineHeight: 1.35,
+              }}
+            >
+              Do you need WhatsApp updates?
+            </p>
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: "#6f5e64",
+              }}
+            >
+              We can send your order status and delivery updates there.
+            </p>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={() => {
+                toast.dismiss(t.id);
+                submitPayment(true);
+              }}
+              style={{
+                flex: 1,
+                border: "none",
+                borderRadius: 14,
+                background: "linear-gradient(135deg, var(--brand), #8b143c)",
+                color: "#fff",
+                padding: "11px 14px",
+                fontSize: 14,
+                fontWeight: 800,
+                fontFamily: "var(--font-body)",
+                boxShadow: "0 10px 18px rgba(107, 15, 42, 0.16)",
+              }}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                toast.dismiss(t.id);
+                submitPayment(false);
+              }}
+              style={{
+                flex: 1,
+                border: "1px solid rgba(107, 15, 42, 0.16)",
+                borderRadius: 14,
+                background: "#fff",
+                color: "var(--brand)",
+                padding: "11px 14px",
+                fontSize: 14,
+                fontWeight: 800,
+                fontFamily: "var(--font-body)",
+              }}
+            >
+              No
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: 30000, position: "top-center" },
+    );
+  };
+
+  const handleProceedToPayment = () => {
     if (!selectedAddressId) {
       toast.error("Please go back and select a delivery address");
       return;
@@ -113,32 +312,16 @@ export default function Payment() {
       return;
     }
 
-    orderMutation.mutate({
-      userProfileId: userId,
-      subTotal,
-      totalAmount: totalPayable,
-      taxAmount,
-      deliveryCharge: shippingCost,
-      shippingTypeId: (selectedShipping as any)?.shippingTypeId ?? null,
-      shippingAddressId: selectedAddressId,
-      billingAddressId: selectedAddressId,
-      couponId: appliedCoupon?.couponId ?? null,
-      couponAmount: couponDiscount ?? 0,
-      cartId: selectedItems.map((i: any) => i.cartId),
-      orderNumber: null,
-      paymentMethod: "Online Payment",
-      isWhatsappNotification: whatsappOptIn,
-      orderItems: selectedItems.map((i: any) => ({
-        productId: i.productId,
-        // FIX: include productVariantId so OrderItems.ProductVariantId is stored in DB.
-        // Without this it saves NULL, breaking Ekart SKU lookup and hiding color/size in orders list.
-        productVariantId: i.productVariantId ?? null,
-        productVariantDetailId: i.productVariantDetailId,
-        quantity: i.processedQuantity || 1,
-        price: i.finalPrice,
-      })),
-    });
+    if (!whatsappOptIn) {
+      showWhatsappPrompt();
+      return;
+    }
+
+    submitPayment(true);
   };
+
+  const mobileFooterDisabled =
+    orderMutation.isPending || selectedItems.length === 0;
 
   return (
     <div className="container s-orderdetails-c93f0f checkout-shell checkout-shell--payment">
@@ -151,7 +334,11 @@ export default function Payment() {
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <h6 className="mb-0">Delivering to</h6>
                 <button
-                  onClick={() => navigate("/user-products/payment-address")}
+                  onClick={() =>
+                    navigate(
+                      "/user-products/payment-address" + (isBuyNow ? "?buyNow=1" : ""),
+                    )
+                  }
                   className="btn btn-sm btn-link p-0 text-dark"
                 >
                   Change
@@ -215,7 +402,7 @@ export default function Payment() {
                         "/assets/category-bg.png";
                     }}
                   />
-                  <div className="s-app-52dcac">
+                  <div className="checkout-summary-item__body">
                     <p className="mb-0 s-cart-d5c56b">
                       {item.productName || item.name}
                     </p>
@@ -280,7 +467,7 @@ export default function Payment() {
               </div>
             ))}
             <hr />
-            <div className="d-flex justify-content-between fw-bold mb-3 s-userdashboar-c14ee8">
+            <div className="checkout-summary-total">
               <span>Total Payable</span>
               <span>Rs.{totalPayable.toLocaleString("en-IN")}</span>
             </div>
@@ -325,9 +512,9 @@ export default function Payment() {
               </span>
             </label>
 
-            <button
-              onClick={handlePlaceOrder}
-              disabled={orderMutation.isPending || selectedItems.length === 0}
+              <button
+                onClick={handleProceedToPayment}
+                disabled={orderMutation.isPending || selectedItems.length === 0}
               className="btn btn-dark w-100 d-flex align-items-center justify-content-center gap-2 s-payment-702916"
               style={{ opacity: orderMutation.isPending ? 0.7 : 1 }}
             >
@@ -349,6 +536,38 @@ export default function Payment() {
             </p>
           </div>
         </div>
+      </div>
+
+      <div
+        className="checkout-mobile-action-bar checkout-mobile-action-bar--payment"
+        style={{ display: "none" }}
+      >
+        <div className="checkout-mobile-action-bar__meta">
+          <span className="checkout-mobile-action-bar__badge">
+            Total payable
+          </span>
+          <span className="checkout-mobile-action-bar__meta-dot">|</span>
+          <span className="checkout-mobile-action-bar__total">
+            Rs.{totalPayable.toLocaleString("en-IN")}
+          </span>
+        </div>
+        <button
+          onClick={handleProceedToPayment}
+          disabled={mobileFooterDisabled}
+          className="checkout-mobile-action-bar__primary"
+        >
+          {orderMutation.isPending ? (
+            <>
+              <span className="spinner-border spinner-border-sm me-2" />
+              Starting Payment...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-credit-card me-2" />
+              Proceed to Payment
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

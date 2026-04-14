@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -15,14 +15,32 @@ export default function QuickCart({ onClose }: Props) {
   const prevPath = location.pathname + location.search;
   const qc       = useQueryClient();
   const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', fn);
+    const handlePointerDown = (event: PointerEvent) => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const target = event.target as Element | null;
+      if (target?.closest?.('[data-quickcart-trigger="true"]')) return;
+      if (target && !panel.contains(target)) {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', fn); document.body.style.overflow = prev; };
-  }, []);
+    return () => {
+      document.removeEventListener('keydown', fn);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
 
   const { data: cartData, isLoading } = useQuery({
     queryKey: ['quick-cart', getUserId()],
@@ -123,11 +141,44 @@ export default function QuickCart({ onClose }: Props) {
     }
   };
 
+  const handlePanelTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    swipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  const handlePanelTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    const touch = e.changedTouches[0];
+    swipeStartRef.current = null;
+    if (!start || !touch) return;
+
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+
+    // Swipe right to close the right-side drawer.
+    if (dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.1) {
+      onClose();
+    }
+  };
+
   return (
     <>
       <div className="s-quickcart-75c969" onClick={onClose} />
 
-      <div className="s-quickcart-f483a8">
+      <div
+        className="s-quickcart-f483a8"
+        ref={panelRef}
+        onDoubleClick={onClose}
+        onTouchStart={handlePanelTouchStart}
+        onTouchEnd={handlePanelTouchEnd}
+        onTouchCancel={() => {
+          swipeStartRef.current = null;
+        }}
+      >
 
         {/* ── Header ── */}
         <div className="s-quickcart-f272f0">

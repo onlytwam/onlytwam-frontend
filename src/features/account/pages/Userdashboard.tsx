@@ -98,7 +98,7 @@ function StatCard({
             data-hovered={hovered ? "true" : "false"}
           />
         </div>
-        <div className="s-app-52dcac">
+        <div className="s-userdashboar-stat-copy">
           <div className="s-userdashboar-3d403b twam-font-heading">{value}</div>
           <div className="s-userdashboar-d961a8 twam-font-body">{label}</div>
         </div>
@@ -363,7 +363,7 @@ export default function UserDashboard() {
       </div>
 
       {/* ── Tab Navigation ── */}
-      <div className="dash-tab-bar s-userdashboar-2001f8 s-userdashboar-cc0420 s-userdashboar-6e829f">
+      <div className="dash-tab-bar s-userdashboar-2001f8 s-userdashboar-cc0420">
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -465,7 +465,7 @@ export default function UserDashboard() {
                         {TRACKING_STEPS.map((step, i) => (
                           <div
                             key={`${order.orderId}-${step}`}
-                            className="d-flex flex-column align-items-center s-app-52dcac"
+                            className="s-userdashboar-track-step"
                           >
                             <div
                               className="s-orderslist-bc2f44"

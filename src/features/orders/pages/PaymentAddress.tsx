@@ -18,6 +18,8 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import { useCartStore } from "@/features/cart/store/cartStore";
+import { clearBuyNowSession } from "@/shared/utils/checkoutSession";
 import {
   listAddress,
   createAddress,
@@ -44,6 +46,38 @@ const emptyForm = {
   isDefault: false,
 };
 type FormState = typeof emptyForm;
+
+const getProfileContact = (user?: {
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  phone?: string;
+} | null) => {
+  const name =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    user?.name?.trim() ||
+    "";
+  const phone = (user?.phoneNumber ?? user?.phone ?? "").trim();
+  return { name, phone };
+};
+
+const createDraftForm = (user?: Parameters<typeof getProfileContact>[0]) => ({
+  ...emptyForm,
+  ...getProfileContact(user),
+});
+
+const mergeContactIntoForm = (
+  form: FormState,
+  user?: Parameters<typeof getProfileContact>[0],
+): FormState => {
+  const contact = getProfileContact(user);
+  return {
+    ...form,
+    name: form.name.trim() ? form.name : contact.name,
+    phone: form.phone.trim() ? form.phone : contact.phone,
+  };
+};
 
 // ── Pincode lookup — India Post API ──────────────────────────────────────────
 interface PinData {
@@ -202,12 +236,11 @@ function AddressFormPanel({
       } else {
         setPinStatus("ok");
         clearErr("pinCode");
-        // Auto-fill only if field is still blank
         setForm((f) => ({
           ...f,
-          city: f.city || data.city,
-          state: f.state || data.state,
-          country: f.country || data.country,
+          city: data.city || f.city,
+          state: data.state || f.state,
+          country: data.country || f.country,
         }));
       }
     }, 600);
@@ -239,12 +272,12 @@ function AddressFormPanel({
         }
         setForm((f) => ({
           ...f,
-          addressLine: f.addressLine || geo.road,
-          locality: f.locality || geo.suburb,
-          city: f.city || geo.city,
-          state: f.state || geo.state,
-          country: f.country || geo.country || "India",
-          pinCode: f.pinCode || geo.postcode,
+          addressLine: geo.road || f.addressLine,
+          locality: geo.suburb || f.locality,
+          city: geo.city || f.city,
+          state: geo.state || f.state,
+          country: geo.country || f.country || "India",
+          pinCode: geo.postcode || f.pinCode,
         }));
         toast.success(
           "Location auto-filled! Please verify and add your house / flat number.",
@@ -617,9 +650,25 @@ export default function PaymentAddress() {
   const [searchParams] = useSearchParams();
   const isBuyNow = searchParams.get("buyNow") === "1";
   const qc = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const { getUserId, hasValidToken } = useAuthStore();
   const userId = getUserId();
   const isAuth = hasValidToken();
+  const clearCheckoutSelection = useCartStore(
+    (state) => state.clearCheckoutSelection,
+  );
+
+  useEffect(() => {
+    if (!isBuyNow) return;
+
+    const handlePopState = () => {
+      clearBuyNowSession();
+      clearCheckoutSelection();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [isBuyNow, clearCheckoutSelection]);
 
   // Auth
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
@@ -627,7 +676,7 @@ export default function PaymentAddress() {
   );
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState<FormState>({ ...emptyForm });
+  const [form, setForm] = useState<FormState>(() => createDraftForm(user));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Guest
@@ -642,7 +691,9 @@ export default function PaymentAddress() {
   const [resendTimer, setResendTimer] = useState(0);
 
   // Guest address form state
-  const [guestForm, setGuestForm] = useState<FormState>({ ...emptyForm });
+  const [guestForm, setGuestForm] = useState<FormState>(() =>
+    createDraftForm(user),
+  );
   const [guestErrors, setGuestErrors] = useState<Record<string, string>>({});
 
   // Fetch saved addresses
@@ -662,6 +713,15 @@ export default function PaymentAddress() {
   }, [addresses]);
 
   useEffect(() => {
+    setGuestForm((f) => mergeContactIntoForm(f, user));
+  }, [user]);
+
+  useEffect(() => {
+    if (!showForm || editItem) return;
+    setForm((f) => mergeContactIntoForm(f, user));
+  }, [showForm, editItem, user]);
+
+  useEffect(() => {
     if (resendTimer <= 0) return;
     const t = setTimeout(() => setResendTimer((r) => r - 1), 1000);
     return () => clearTimeout(t);
@@ -677,7 +737,7 @@ export default function PaymentAddress() {
       qc.invalidateQueries({ queryKey: ["addresses", userId] });
       setShowForm(false);
       setEditItem(null);
-      setForm({ ...emptyForm });
+      setForm(createDraftForm(user));
       setErrors({});
     },
     onError: (e: any) =>
@@ -812,6 +872,39 @@ export default function PaymentAddress() {
       .join(", ");
     saveMutation.mutate({ ...form, addressLine: fullLine });
   };
+
+  const mobileFooterAction = !isAuth
+    ? otpVerified
+      ? {
+          label: "Continue to Shipping",
+          onClick: handleGuestContinue,
+          disabled: false,
+          busy: false,
+        }
+      : null
+    : showForm
+      ? {
+          label: editItem ? "Update Address" : "Save Address",
+          onClick: handleSaveAddress,
+          disabled: false,
+          busy: saveMutation.isPending,
+        }
+      : {
+          label: "Continue to Shipping",
+          onClick: handleAuthContinue,
+          disabled: !selectedAddressId,
+          busy: false,
+        };
+
+  const mobileFooterBadge = !isAuth
+    ? "Delivery address"
+    : showForm
+      ? editItem
+        ? "Edit address"
+        : "New address"
+      : selectedAddressId
+        ? "Address selected"
+        : "Select address";
 
   const editAddress = (addr: any) => {
     setEditItem(addr);
@@ -1069,7 +1162,7 @@ export default function PaymentAddress() {
                 onClick={() => {
                   setShowForm(true);
                   setEditItem(null);
-                  setForm({ ...emptyForm });
+                  setForm(createDraftForm(user));
                   setErrors({});
                 }}
                 className="s-paymentaddre-4edcea s-paymentaddre-ffd8281d"
@@ -1115,7 +1208,7 @@ export default function PaymentAddress() {
                     )}
                   </div>
 
-                  <div className="s-app-52dcac">
+                  <div className="s-paymentaddre-card-body">
                     <div className="s-paymentaddre-87be9d">
                       <span className="s-adminsizes-5de088 s-paymentaddre-ffd02986">
                         {addr.name}
@@ -1176,6 +1269,7 @@ export default function PaymentAddress() {
                   onClick={() => {
                     setShowForm(false);
                     setEditItem(null);
+                    setForm(createDraftForm(user));
                     setErrors({});
                   }}
                   className="s-paymentaddre-2a22b3"
@@ -1194,6 +1288,7 @@ export default function PaymentAddress() {
                 onCancel={() => {
                   setShowForm(false);
                   setEditItem(null);
+                  setForm(createDraftForm(user));
                   setErrors({});
                 }}
                 showDefault
@@ -1216,6 +1311,34 @@ export default function PaymentAddress() {
             Continue to Shipping <i className="bi bi-arrow-right" />
           </button>
         </>
+      )}
+
+      {mobileFooterAction && (
+        <div
+          className="checkout-mobile-action-bar checkout-mobile-action-bar--address"
+          style={{ display: "none" }}
+        >
+          <div className="checkout-mobile-action-bar__meta">
+            <span className="checkout-mobile-action-bar__badge">
+              {mobileFooterBadge}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={mobileFooterAction.onClick}
+            disabled={mobileFooterAction.disabled || mobileFooterAction.busy}
+            className="checkout-mobile-action-bar__primary"
+          >
+            {mobileFooterAction.busy ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" />
+                Saving...
+              </>
+            ) : (
+              mobileFooterAction.label
+            )}
+          </button>
+        </div>
       )}
     </div>
   );

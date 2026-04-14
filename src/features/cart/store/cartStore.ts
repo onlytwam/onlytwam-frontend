@@ -31,6 +31,7 @@ interface CartState {
   getSelectedItemsCount: () => number;
   isCouponApplied: () => boolean;
   clearCart: () => void;
+  clearCheckoutSelection: () => void;
   /** Store selected items for Payment / PaymentAddress pages */
   setSelectedItems: (items: CartModel[]) => void;
   setSubTotal: (v: number) => void;
@@ -134,6 +135,16 @@ export const useCartStore = create<CartState>((set, get) => ({
       items: [], totalItems: 0, totalPrice: 0,
       appliedCoupon: null, couponDiscount: 0, selectedShipping: null,
       _selectedItems: [], _subTotal: 0, _taxAmount: 0,
+    }),
+
+  clearCheckoutSelection: () =>
+    set({
+      appliedCoupon: null,
+      couponDiscount: 0,
+      selectedShipping: null,
+      _selectedItems: [],
+      _subTotal: 0,
+      _taxAmount: 0,
     }),
 
   setSelectedItems: (items) => set({ _selectedItems: items }),

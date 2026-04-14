@@ -18,6 +18,38 @@ const emptyForm = {
   city: '', pinCode: '', stateId: null as number | null, addressType: 'Home', isDefault: false,
 };
 
+const getProfileContact = (user?: {
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  phone?: string;
+} | null) => {
+  const name =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+    user?.name?.trim() ||
+    '';
+  const phone = (user?.phoneNumber ?? user?.phone ?? '').trim();
+  return { name, phone };
+};
+
+const createDraftForm = (user?: Parameters<typeof getProfileContact>[0]) => ({
+  ...emptyForm,
+  ...getProfileContact(user),
+});
+
+const mergeContactIntoForm = (
+  form: typeof emptyForm,
+  user?: Parameters<typeof getProfileContact>[0],
+): typeof emptyForm => {
+  const contact = getProfileContact(user);
+  return {
+    ...form,
+    name: form.name.trim() ? form.name : contact.name,
+    phone: form.phone.trim() ? form.phone : contact.phone,
+  };
+};
+
 function TypeIcon({ typeId }: { typeId?: number }) {
   return typeId === 2
     ? <i className="bi bi-briefcase me-1" />
@@ -26,12 +58,13 @@ function TypeIcon({ typeId }: { typeId?: number }) {
 
 export default function AddressList() {
   const qc = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const { getUserId } = useAuthStore();
   const userId = getUserId();
 
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm]         = useState({ ...emptyForm });
+  const [form, setForm]         = useState(() => createDraftForm(user));
   const [errors, setErrors]     = useState<Record<string, string>>({});
   const [states, setStates]     = useState<any[]>([]);
   const [pinStatus, setPinStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
@@ -51,6 +84,11 @@ export default function AddressList() {
       .then((r) => setStates(r.data?.list ?? r.data ?? []))
       .catch(() => { /* states are optional */ });
   }, []);
+
+  useEffect(() => {
+    if (editItem) return;
+    setForm((f) => mergeContactIntoForm(f, user));
+  }, [editItem, user]);
 
   useEffect(() => {
     if (pinTimer.current) clearTimeout(pinTimer.current);
@@ -83,8 +121,8 @@ export default function AddressList() {
       const matchedStateId = resolveStateId(states, data.state);
       setForm((f) => ({
         ...f,
-        city: f.city || data.city,
-        stateId: f.stateId ?? matchedStateId,
+        city: data.city || f.city,
+        stateId: matchedStateId ?? f.stateId,
       }));
     }, 600);
 
@@ -113,10 +151,10 @@ export default function AddressList() {
         setForm((f) => ({
           ...f,
           addressLine: f.addressLine || geo.road,
-          locality: f.locality || geo.suburb,
-          city: f.city || geo.city,
-          stateId: f.stateId ?? matchedStateId,
-          pinCode: f.pinCode || geo.postcode,
+          locality: geo.suburb || f.locality,
+          city: geo.city || f.city,
+          stateId: matchedStateId ?? f.stateId,
+          pinCode: geo.postcode || f.pinCode,
         }));
         toast.success('Location auto-filled. Please verify the details.');
         setGeoLoading(false);
@@ -175,7 +213,7 @@ export default function AddressList() {
   const handleClose = () => {
     setShowForm(false);
     setEditItem(null);
-    setForm({ ...emptyForm });
+    setForm(createDraftForm(user));
     setErrors({});
     setPinStatus('idle');
   };

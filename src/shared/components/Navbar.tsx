@@ -551,7 +551,8 @@ export default function Navbar() {
             {/* Cart */}
             <button
               className="nb-icon-btn nb-icon-relative"
-              onClick={() => setShowQuickCart(true)}
+              onClick={() => setShowQuickCart((open) => !open)}
+              data-quickcart-trigger="true"
               aria-label="Cart"
             >
               <i className="bi bi-bag" />

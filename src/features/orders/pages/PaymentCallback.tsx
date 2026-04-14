@@ -17,10 +17,8 @@
  * On success the backend redirects straight to OrderConfirm, bypassing this page.
  */
 
-import { useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { useCartStore } from "@/features/cart/store/cartStore";
-import { useAuthStore } from "@/features/auth/store/authStore";
+import { getBuyNowSession } from "@/shared/utils/checkoutSession";
 
 const REASON_LABELS: Record<string, string> = {
   declined: "Your payment was declined by the bank.",
@@ -40,23 +38,13 @@ function friendlyReason(code: string | null, reason: string | null): string {
 
 export default function PaymentCallback() {
   const [params] = useSearchParams();
-  const { clearCart } = useCartStore();
-  const { setCartCount } = useAuthStore();
+  const isBuyNowRetry = !!getBuyNowSession()?.items?.length;
 
   const status = params.get("status"); // 'failed' | 'error'
   const orderId = params.get("orderId");
   const code = params.get("code");
   const reason = params.get("reason");
   const message = params.get("message");
-
-  // On failure we still clear any stale cart/session data
-  useEffect(() => {
-    clearCart();
-    setCartCount(0);
-    localStorage.removeItem("guestCart");
-    sessionStorage.removeItem("selectedAddressId");
-    sessionStorage.removeItem("guestAddress");
-  }, []);
 
   const heading =
     status === "error" ? "Something went wrong" : "Payment Failed";
@@ -102,7 +90,10 @@ export default function PaymentCallback() {
       <div className="d-flex gap-3 justify-content-center flex-wrap">
         {orderId ? (
           <>
-            <Link to="/user-products/payment" className="btn btn-dark px-4">
+            <Link
+              to={"/user-products/payment" + (isBuyNowRetry ? "?buyNow=1" : "")}
+              className="btn btn-dark px-4"
+            >
               <i className="bi bi-arrow-repeat me-2" />
               Retry Payment
             </Link>
@@ -115,7 +106,10 @@ export default function PaymentCallback() {
           </>
         ) : (
           <>
-            <Link to="/user-products/payment" className="btn btn-dark px-4">
+            <Link
+              to={"/user-products/payment" + (isBuyNowRetry ? "?buyNow=1" : "")}
+              className="btn btn-dark px-4"
+            >
               Back to Checkout
             </Link>
             <Link to="/" className="btn btn-outline-dark px-4">

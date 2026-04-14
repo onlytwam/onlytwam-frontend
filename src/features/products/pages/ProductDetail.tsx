@@ -23,6 +23,7 @@ import {
 import { addToCart } from "@/features/cart/api/cart.api";
 import { formatPrice, slugify, getImageUrl } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
+import { setBuyNowSession } from "@/shared/utils/checkoutSession";
 
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useBreadcrumb } from "@/shared/hooks/useBreadcrumb";
@@ -75,9 +76,20 @@ function PageNotification({
         : "bi-info-circle-fill";
   return (
     <div className="s-productdetai-5ab3e3">
-      <div className="s-productdetai-bb046e" style={{ background: bg }}>
+      <div
+        className={`s-productdetai-bb046e is-${notif.type}`}
+        style={{ background: bg }}
+      >
         <i className={`bi ${icon} s-quickshopmod-42031d`} />
         <span>{notif.message}</span>
+        <button
+          type="button"
+          onClick={onDone}
+          aria-label="Close"
+          className="pd-notif-close"
+        >
+          <i className="bi bi-x-lg" aria-hidden="true" />
+        </button>
       </div>
     </div>
   );
@@ -663,7 +675,11 @@ export default function ProductDetail() {
       const viewLeft = el.scrollLeft;
       const viewRight = viewLeft + el.clientWidth;
       if (itemLeft < viewLeft || itemRight > viewRight) {
-        thumbItem.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+        const targetLeft = Math.max(
+          0,
+          itemLeft - (el.clientWidth - thumbItem.clientWidth) / 2,
+        );
+        el.scrollTo({ left: targetLeft, behavior: "smooth" });
       }
     }
     checkMobileThumbScroll();
@@ -933,11 +949,14 @@ export default function ProductDetail() {
 
     const subTotal = (dispPrice || 0) * quantity;
     const taxAmount = Math.round(subTotal * 0.05);
+    setBuyNowSession([buyNowItem as any]);
+    const store = useCartStore.getState();
+    store.removeCoupon?.();
+    store.setShipping?.(null);
 
     if (hasValidToken()) {
       // Push ONLY the buy now item into the cart store (not the real cart),
       // then go straight to payment address with ?buyNow=1.
-      const store = useCartStore.getState();
       store.setSelectedItems?.([buyNowItem as any]);
       store.setSubTotal?.(subTotal);
       store.setTaxAmount?.(taxAmount);
@@ -947,9 +966,9 @@ export default function ProductDetail() {
       return;
     }
 
-    // Guest flow: save to a separate buyNow key so it doesn't mix with guestCart.
-    localStorage.setItem("guestBuyNow", JSON.stringify([buyNowItem]));
-    navigate("/user-products/payment-address?buyNow=1", { state: returnState });
+    navigate("/user-products/payment-address?buyNow=1", {
+      state: returnState,
+    });
   };
 
   const handleWishlist = () => {

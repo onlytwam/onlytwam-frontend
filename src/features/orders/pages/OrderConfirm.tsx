@@ -8,26 +8,50 @@
 //  ③ Removed unused navigate import
 
 import { useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOrderDetail } from "@/features/orders/api/orders.api";
 import { useCartStore } from "@/features/cart/store/cartStore";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { formatDate } from "@/shared/utils/helpers";
+import {
+  clearBuyNowSession,
+  getBuyNowSession,
+} from "@/shared/utils/checkoutSession";
 
 export default function OrderConfirm() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { clearCart } = useCartStore();
   const { setCartCount } = useAuthStore();
+  const qc = useQueryClient();
+  const isBuyNowOrder = !!getBuyNowSession()?.items?.length;
+  const paymentSucceeded = searchParams.get("payment") === "success";
 
-  // Clear cart on mount — order has been placed
+  // Clear cart only after the backend confirms payment success.
   useEffect(() => {
+    if (!paymentSucceeded) return;
+
     clearCart();
-    setCartCount(0);
-    localStorage.removeItem("guestCart");
+    if (isBuyNowOrder) {
+      clearBuyNowSession();
+    } else {
+      setCartCount(0);
+      localStorage.removeItem("guestCart");
+    }
+    localStorage.removeItem("guest_token");
     sessionStorage.removeItem("selectedAddressId");
     sessionStorage.removeItem("guestAddress");
-  }, []);
+    qc.invalidateQueries({ queryKey: ["cart"] });
+    qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+    qc.invalidateQueries({ queryKey: ["quick-cart"] });
+  }, [
+    paymentSucceeded,
+    isBuyNowOrder,
+    qc,
+    clearCart,
+    setCartCount,
+  ]);
 
   const { data: order } = useQuery({
     queryKey: ["order-confirm", id],

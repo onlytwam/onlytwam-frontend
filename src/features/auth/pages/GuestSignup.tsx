@@ -385,10 +385,14 @@ export default function GuestSignup() {
       return res.data;
     },
     onSuccess: (data: any) => {
-      GuestCart.clear();
-      localStorage.removeItem("guest_token");
-      toast.success("Order placed successfully! 🎉");
-      navigate(`/user-products/order-confirm/${data?.orderId ?? "new"}`);
+      if (data?.paymentProcessUrl) {
+        window.location.href = data.paymentProcessUrl;
+        return;
+      }
+
+      toast.error(
+        "Payment integration is not connected yet. The backend did not return a payment URL.",
+      );
     },
     onError: (e: any) => {
       toast.error(

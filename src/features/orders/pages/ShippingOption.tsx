@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useCartStore } from '@/features/cart/store/cartStore';
 import { listDeliveryCharges } from '@/features/cart/api/cart.api';
 import type { ShippingOption } from '@/shared/types';
+import { getBuyNowSession } from '@/shared/utils/checkoutSession';
 
 const FALLBACK_OPTION: ShippingOption = {
   deliveryChargeId: -1,
@@ -30,7 +31,20 @@ const parseEstimatedDays = (days: string | null | undefined) => {
 
 export default function ShippingOption() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isBuyNow = searchParams.get('buyNow') === '1';
   const { setShipping, selectedShipping, getSubTotal, getTaxAmount, couponDiscount } = useCartStore();
+  const buyNowSession = isBuyNow ? getBuyNowSession() : null;
+
+  useEffect(() => {
+    if (!isBuyNow) return;
+    const session = getBuyNowSession();
+    if (!session?.items?.length) return;
+    const store = useCartStore.getState();
+    store.setSelectedItems?.(session.items as any);
+    store.setSubTotal?.(session.subTotal);
+    store.setTaxAmount?.(session.taxAmount);
+  }, [isBuyNow]);
 
   const [selectedId, setSelectedId] = useState<number | null>(selectedShipping?.deliveryChargeId ?? null);
 
@@ -41,8 +55,8 @@ export default function ShippingOption() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const subTotal = getSubTotal();
-  const taxAmount = getTaxAmount();
+  const subTotal = buyNowSession?.subTotal ?? getSubTotal();
+  const taxAmount = buyNowSession?.taxAmount ?? getTaxAmount();
   const normalizedOptions: ShippingOption[] = ((shippingOptions as any[]) || []).map((opt: any) => {
     const minOrderValue = Number(opt.minOrderValue ?? 0) || null;
     const unlockAmount = minOrderValue ? Math.max(0, minOrderValue - Number(subTotal || 0)) : 0;
@@ -72,6 +86,10 @@ export default function ShippingOption() {
   const shippingCost = selectedOpt ? (selectedOpt.isFree ? 0 : Number(selectedOpt.deliveryCharges ?? 0)) : 0;
   const total = Math.max(0, Number(subTotal) + Number(taxAmount) + shippingCost - Number(couponDiscount || 0));
   const canChooseOption = (option: ShippingOption) => option.isEligible !== false;
+  const selectedLabel =
+    selectedOpt?.shippingType?.shippingType ??
+    selectedOpt?.description ??
+    "Shipping";
 
   const handleContinue = () => {
     if (!selectedId) {
@@ -112,7 +130,7 @@ export default function ShippingOption() {
       estimatedDays: parseEstimatedDays(option.days),
     });
 
-    navigate('/user-products/payment');
+    navigate('/user-products/payment' + (isBuyNow ? '?buyNow=1' : ''));
   };
 
   return (
@@ -135,11 +153,11 @@ export default function ShippingOption() {
                 <div className="s-shippingopti-e0801a" style={{ border: `2px solid ${selectedId === FALLBACK_OPTION.deliveryChargeId ? '#000000' : 'var(--brand)'}`, background: selectedId === FALLBACK_OPTION.deliveryChargeId ? '#000000' : '#fff' }}>
                   {selectedId === FALLBACK_OPTION.deliveryChargeId && <div className="s-payment-108f10" />}
                 </div>
-                <div className="s-app-52dcac">
+                <div className="s-shippingopti-content">
                   <p className="s-shippingopti-b1d3de">Standard Delivery</p>
                   <p className="s-userdashboar-bc8be4">5-7 business days</p>
                 </div>
-                <span className="s-shippingopti-f0f561">Rs.99</span>
+                <span className="s-shippingopti-f0f561 s-shippingopti-price">Rs.99</span>
               </div>
             </div>
           ) : (
@@ -168,7 +186,7 @@ export default function ShippingOption() {
                   >
                     {selectedId === opt.deliveryChargeId && <div className="s-payment-108f10" />}
                   </div>
-                  <div className="s-app-52dcac">
+                  <div className="s-shippingopti-content">
                     <p className="s-shippingopti-b1d3de">
                       {opt.shippingType?.shippingType ?? opt.description ?? 'Standard Delivery'}
                     </p>
@@ -182,7 +200,7 @@ export default function ShippingOption() {
                       </p>
                     )}
                   </div>
-                  <span className="s-shippingopti-d90d13" style={{ color: opt.isFree ? 'var(--brand)' : '#000000' }}>
+                  <span className="s-shippingopti-d90d13 s-shippingopti-price" style={{ color: opt.isFree ? 'var(--brand)' : '#000000' }}>
                     {opt.isFree ? 'FREE' : `Rs.${opt.deliveryCharges ?? 0}`}
                   </span>
                 </div>
@@ -209,14 +227,19 @@ export default function ShippingOption() {
               </div>
             ))}
             <hr className="s-shippingopti-b1485b" />
-            <div className="s-shippingopti-a11a00">
+            <div className="s-shippingopti-a11a00 checkout-summary-total">
               <span>Total</span>
               <span>Rs.{Math.max(0, total).toLocaleString('en-IN')}</span>
             </div>
           </div>
 
           <div className="s-addressform-be0342 checkout-actions">
-            <button onClick={() => navigate('/user-products/payment-address')} className="s-shippingopti-8d61d8">
+            <button
+              onClick={() =>
+                navigate('/user-products/payment-address' + (isBuyNow ? '?buyNow=1' : ''))
+              }
+              className="s-shippingopti-8d61d8"
+            >
               <i className="bi bi-arrow-left me-2" />Back
             </button>
             <button onClick={handleContinue} className="s-shippingopti-f6db1e">
@@ -225,6 +248,29 @@ export default function ShippingOption() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div
+        className="checkout-mobile-action-bar checkout-mobile-action-bar--shipping"
+        style={{ display: "none" }}
+      >
+        <div className="checkout-mobile-action-bar__meta">
+          <span className="checkout-mobile-action-bar__badge">
+            {selectedId ? selectedLabel : "Select shipping"}
+          </span>
+          <span className="checkout-mobile-action-bar__meta-dot">•</span>
+          <span className="checkout-mobile-action-bar__total">
+            Rs.{Math.max(0, total).toLocaleString("en-IN")}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!selectedId || selectedOpt?.isEligible === false}
+          className="checkout-mobile-action-bar__primary"
+        >
+          Continue to Payment
+        </button>
       </div>
     </div>
   );

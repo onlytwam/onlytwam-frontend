@@ -18,6 +18,7 @@ import {
 import { getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
+import { clearBuyNowSession } from "@/shared/utils/checkoutSession";
 
 const TAX_RATE = 0.05;
 
@@ -268,6 +269,7 @@ export default function Cart() {
       toast.error("Please select at least one item");
       return;
     }
+    clearBuyNowSession();
     const store = useCartStore.getState();
     store.setSelectedItems?.(selectedItems);
     store.setSubTotal?.(subTotal);
@@ -313,6 +315,10 @@ export default function Cart() {
 
   return (
     <>
+      <h1 className="cart-page-mobile-title" style={{ display: "none" }}>
+        Cart
+      </h1>
+
       <div className="container s-cart-2eb199">
         {/* ── Select All row ── */}
         <div className="s-cart-1fdbde">
@@ -530,7 +536,7 @@ export default function Cart() {
                 </div>
               )}
 
-              <div className="s-cart-5258c8">
+              <div className="s-cart-5258c8 checkout-summary-total">
                 <span className="s-cart-4d546e">Total</span>
                 <span className="s-cart-7977ea">
                   ₹{totalPayable.toLocaleString("en-IN")}
@@ -590,6 +596,34 @@ export default function Cart() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="cart-mobile-place-order" style={{ display: "none" }}>
+        <div className="cart-mobile-place-order__meta">
+          <span className="cart-mobile-place-order__count">
+            {selectedItems.length} item
+            {selectedItems.length !== 1 ? "s" : ""} selected
+          </span>
+          <span className="cart-mobile-place-order__meta-dot">•</span>
+          <span className="cart-mobile-place-order__count">
+            {selectedItems.reduce(
+              (s, i) => s + (i.processedQuantity || 1),
+              0,
+            )}{" "}
+            qty
+          </span>
+          <span className="cart-mobile-place-order__meta-dot">•</span>
+          <span className="cart-mobile-place-order__total">
+            ₹{totalPayable.toLocaleString("en-IN")}
+          </span>
+        </div>
+        <button
+          onClick={handleCheckout}
+          disabled={selectedItems.length === 0}
+          className="cart-mobile-place-order__btn"
+        >
+          Place Order
+        </button>
       </div>
     </>
   );
