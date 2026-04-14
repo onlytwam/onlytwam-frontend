@@ -5,13 +5,6 @@ import { formatDate } from '@/shared/utils/helpers';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 20;
-const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  'Open':        { bg: 'var(--ivory)', color: 'var(--brand)' },
-  'In Progress': { bg: 'var(--ivory)', color: 'var(--brand)' },
-  'Resolved':    { bg: 'var(--ivory)', color: 'var(--brand)' },
-  'Closed':      { bg: 'var(--ivory)', color: 'var(--heirloom)' },
-};
-
 export default function AdminSupportRequests() {
   const qc = useQueryClient();
   const [page, setPage]         = useState(1);
@@ -56,7 +49,6 @@ export default function AdminSupportRequests() {
             {isLoading ? <tr><td colSpan={6} className="s-adminbrands-3e0634">Loading…</td></tr>
             : requests.length === 0 ? <tr><td colSpan={6} className="s-adminbrands-3e0634">No requests found.</td></tr>
             : requests.map((r: any) => {
-              const sc = STATUS_COLOR[r.status] || { bg: 'var(--ivory)', color: 'var(--heirloom)' };
               return (
                 <tr key={r.supportRequestId} className="s-adminbrands-59d787">
                   <td className="s-admincategor-ec7211">#{r.supportRequestId}</td>

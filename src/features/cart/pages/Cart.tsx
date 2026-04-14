@@ -93,13 +93,8 @@ export default function Cart() {
     "/user-products/product-list";
   const qc = useQueryClient();
   const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
-  const {
-    appliedCoupon,
-    couponDiscount,
-    selectedShipping,
-    setCoupon,
-    removeCoupon,
-  } = useCartStore();
+  const { appliedCoupon, couponDiscount, setCoupon, removeCoupon } =
+    useCartStore();
 
   const isAuth = hasValidToken();
   const userId = getUserId();

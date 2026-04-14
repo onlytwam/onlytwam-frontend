@@ -1,7 +1,9 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
-
-const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
+import UserAvatar from '@/shared/components/UserAvatar';
+import { useProfileLeaveGuard, type ProfileLeaveGuardState } from '@/shared/components/profileLeaveGuard';
 
 const navItems = [
   { path: '/account/dashboard',       label: 'Dashboard',       icon: 'bi-grid-1x2' },
@@ -14,11 +16,46 @@ const navItems = [
   { path: '/account/change-password', label: 'Change Password',  icon: 'bi-lock' },
 ];
 
-function ProfileAvatar({ name, size = 48 }: { name: string; size?: number }) {
-  const initials = (name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+type LeavePromptProps = {
+  onSave: () => Promise<boolean>;
+  onDiscard: () => void;
+};
+
+function LeavePromptCard({ onSave, onDiscard }: LeavePromptProps) {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const ok = await onSave();
+      if (!ok) {
+        setIsSaving(false);
+      }
+    } catch {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    if (isSaving) return;
+    onDiscard();
+  };
+
   return (
-    <div className="s-profilelayou-8aef68" style={ {width: size, height: size, fontFamily: FONTS} }>
-      {initials}
+    <div className="s-profilelayou-leave-toast">
+      <div className="s-profilelayou-leave-toast-title">Do you want to keep your changes?</div>
+      <div className="s-profilelayou-leave-toast-copy">
+        Save them now or discard them and continue.
+      </div>
+      <div className="s-profilelayou-leave-toast-actions">
+        <button type="button" className="s-profilelayou-leave-toast-save" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save'}
+        </button>
+        <button type="button" className="s-profilelayou-leave-toast-discard" onClick={handleDiscard} disabled={isSaving}>
+          Don't Save
+        </button>
+      </div>
     </div>
   );
 }
@@ -27,7 +64,126 @@ export default function ProfileLayout() {
   const { getUserName, logout, user } = useAuthStore();
   const navigate = useNavigate();
   const name  = getUserName();
-  const email = (user as any)?.email || (user as any)?.emailId || '';
+  const profileImageUrl = (user as any)?.profileImageUrl || '';
+  const greeting = 'Hey Beautiful';
+  const [typedGreeting, setTypedGreeting] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    if (!isDeleting && typedGreeting.length < greeting.length) {
+      timer = setTimeout(() => {
+        setTypedGreeting(greeting.slice(0, typedGreeting.length + 1));
+      }, 110);
+    } else if (!isDeleting && typedGreeting.length === greeting.length) {
+      timer = setTimeout(() => {
+        setIsDeleting(true);
+      }, 5000);
+    } else if (isDeleting && typedGreeting.length > 0) {
+      timer = setTimeout(() => {
+        setTypedGreeting(greeting.slice(0, typedGreeting.length - 1));
+      }, 60);
+    } else if (isDeleting && typedGreeting.length === 0) {
+      timer = setTimeout(() => {
+        setIsDeleting(false);
+      }, 200);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [greeting, isDeleting, typedGreeting]);
+
+  const { guard } = useProfileLeaveGuard();
+  const location = useLocation();
+  const guardRef = useRef<ProfileLeaveGuardState | null>(null);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const leaveToastRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    guardRef.current = guard ?? null;
+  }, [guard]);
+
+  const dismissLeavePrompt = useCallback(() => {
+    if (leaveToastRef.current !== undefined) {
+      toast.dismiss(leaveToastRef.current);
+      leaveToastRef.current = undefined;
+    }
+  }, []);
+
+  const runPendingAction = useCallback(() => {
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    dismissLeavePrompt();
+    action?.();
+  }, [dismissLeavePrompt]);
+
+  const openLeavePrompt = useCallback((nextAction: () => void) => {
+    pendingActionRef.current = nextAction;
+    if (leaveToastRef.current !== undefined) return;
+
+    const toastId = toast.custom(
+      <LeavePromptCard
+        onSave={async () => {
+          const currentGuard = guardRef.current;
+          if (!currentGuard) return false;
+          const saved = await currentGuard.saveChanges();
+          if (saved) {
+            runPendingAction();
+          }
+          return saved;
+        }}
+        onDiscard={() => {
+          guardRef.current?.discardChanges();
+          runPendingAction();
+        }}
+      />,
+      {
+        duration: Infinity,
+        style: {
+          background: 'transparent',
+          boxShadow: 'none',
+          padding: 0,
+          border: 'none',
+        },
+      },
+    );
+
+    leaveToastRef.current = toastId;
+  }, [runPendingAction]);
+
+  const handleGuardedAction = useCallback((nextAction: () => void) => {
+    if (!guardRef.current?.isDirty) {
+      nextAction();
+      return;
+    }
+
+    openLeavePrompt(nextAction);
+  }, [openLeavePrompt]);
+
+  const handleNavClick = useCallback((event: MouseEvent<HTMLAnchorElement>, path: string) => {
+    if (location.pathname === path) return;
+    if (guardRef.current?.isDirty) {
+      event.preventDefault();
+      openLeavePrompt(() => navigate(path));
+    }
+  }, [location.pathname, navigate, openLeavePrompt]);
+
+  const handleSignOut = useCallback(() => {
+    handleGuardedAction(() => {
+      logout();
+      navigate('/');
+    });
+  }, [handleGuardedAction, logout, navigate]);
+
+  const handleSupportClick = useCallback(() => {
+    handleGuardedAction(() => navigate('/contact-us'));
+  }, [handleGuardedAction, navigate]);
+
+  useEffect(() => () => {
+    dismissLeavePrompt();
+  }, [dismissLeavePrompt]);
 
   return (
     <>
@@ -41,10 +197,16 @@ export default function ProfileLayout() {
             <div className="s-profilelayou-84a313">
               <div className="s-profilelayou-e33b62" />
               <div className="s-profilelayou-92f3ba">
-                <ProfileAvatar name={name} size={48} />
-                <div className="s-profilelayou-e10263">
-                  <p className="s-profilelayou-6b87f8 s-profilelayou-ff6baedf">{name}</p>
-                  {email && <p className="s-profilelayou-a4e138">{email}</p>}
+                <UserAvatar
+                  name={name}
+                  imageUrl={profileImageUrl}
+                  size={48}
+                  fallbackMode="initial"
+                  className="s-profilelayou-8aef68"
+                />
+                <div className="s-profilelayou-typing" aria-hidden="true">
+                  <span className="s-profilelayou-typing-text">{typedGreeting}</span>
+                  <span className="s-profilelayou-typing-cursor" />
                 </div>
               </div>
             </div>
@@ -52,16 +214,19 @@ export default function ProfileLayout() {
             {/* Nav */}
             <nav className="pl-nav s-profilelayou-4eec79">
               {navItems.map(item => (
-                <NavLink key={item.path} to={item.path}
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'11px 18px', textDecoration:'none', fontSize:'13.5px', color: isActive ? 'var(--brand)' : 'var(--heirloom)', background: isActive ? 'var(--ivory)' : 'transparent', borderLeft: isActive ? `3px solid var(--brand)` : '3px solid transparent', fontWeight: isActive ? 700 : 400, fontFamily: 'var(--font-body)', transition:'background .15s,color .15s' })}>
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={(event) => handleNavClick(event, item.path)}
+                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'11px 18px', textDecoration:'none', fontSize:'13.5px', color: isActive ? 'var(--brand)' : 'var(--heirloom)', background: isActive ? 'var(--ivory)' : 'transparent', borderLeft: isActive ? `3px solid var(--brand)` : '3px solid transparent', fontWeight: isActive ? 700 : 400, fontFamily: 'var(--font-body)', transition:'background .15s,color .15s' })}
+                >
                   <i className={`bi ${item.icon} s-profilelayou-40fc0e`} />
                   {item.label}
                 </NavLink>
               ))}
               <div className="s-profilelayou-a78377" />
-              <button onClick={() => { logout(); navigate('/'); }}
-                className="s-profilelayou-d3b202"
-                onMouseEnter={e=>(e.currentTarget.style.background='var(--ivory)')} onMouseLeave={e=>(e.currentTarget.style.background='none')}>
+              <button onClick={handleSignOut}
+                className="s-profilelayou-d3b202">
                 <i className="bi bi-box-arrow-right s-profilelayou-40fc0e" /> Sign Out
               </button>
             </nav>
@@ -71,7 +236,7 @@ export default function ProfileLayout() {
           <div className="s-profilelayou-e6f435">
             <p className="s-profilelayou-9e4e02 s-profilelayou-ff6baedf">Need help?</p>
             <p className="s-profilelayou-331eb0">Our support team is ready to help.</p>
-            <button onClick={() => navigate('/contact-us')}
+            <button onClick={handleSupportClick}
               className="s-profilelayou-a17955">
               Contact Support
             </button>

@@ -8,9 +8,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "@/features/products/api/products.api";
 import ProductCard from "@/features/products/components/ProductCard";
+import MobileProductCard from "@/features/products/components/MobileProductCard";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import ProductFilters, {
   ProductActiveFilters,
   getAppliedFilterCount,
@@ -164,6 +167,8 @@ const DEFAULT_FILTERS: ProductFilterState = {
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function GlobalSearch() {
+  const isMobile = useIsMobile();
+  const filterScrollY = useRef(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") || "";
@@ -179,6 +184,13 @@ export default function GlobalSearch() {
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Listen for sort button closing the filter
+  useEffect(() => {
+    const fn = () => setFilterOpen(false);
+    window.addEventListener("close-filter", fn);
+    return () => window.removeEventListener("close-filter", fn);
+  }, []);
   const [filters, setFilters] = useState<ProductFilterState>(DEFAULT_FILTERS);
   const [sortOption, setSortOption] = useState("");
 
@@ -191,11 +203,64 @@ export default function GlobalSearch() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
   useEffect(() => {
-    document.body.style.overflow = filterOpen ? "hidden" : "";
+    const btn = document.querySelector(".product-toolbar__filter-button");
+    if (btn) btn.classList.toggle("active", filterOpen);
+
+    if (!isMobile) {
+      document.body.style.overflow = filterOpen ? "hidden" : "";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+
+    if (filterOpen) {
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      const catbar = document.querySelector(
+        ".mcb-wrapper",
+      ) as HTMLElement | null;
+      const catWasHidden =
+        catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
+      const toolbarTop = toolbar?.style.top || "108px";
+      const toolbarBottom = toolbar
+        ? Math.round(toolbar.getBoundingClientRect().bottom)
+        : 152;
+      filterScrollY.current = window.scrollY;
+      (window as any).__drawerOpen = true;
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100%";
+      if (catWasHidden && catbar) catbar.classList.add("mcb-wrapper--hidden");
+      else if (!catWasHidden && catbar)
+        catbar.classList.remove("mcb-wrapper--hidden");
+      if (toolbar) {
+        toolbar.style.top = toolbarTop;
+        toolbar.style.zIndex = "1210";
+      }
+      const offset = `${toolbarBottom}px`;
+      const drawer = document.querySelector(".gs-drawer") as HTMLElement | null;
+      const backdrop = document.querySelector(
+        ".gs-backdrop",
+      ) as HTMLElement | null;
+      if (drawer) {
+        drawer.style.top = offset;
+        drawer.style.height = `calc(100% - ${offset})`;
+      }
+      if (backdrop) backdrop.style.top = offset;
+    } else {
+      (window as any).__drawerOpen = false;
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      if (toolbar) toolbar.style.zIndex = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
+    }
     return () => {
-      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
     };
-  }, [filterOpen]);
+  }, [filterOpen, isMobile]);
 
   const colorQuery = q.trim().split(/\s+/).length === 1 && isColorQuery(q);
   const anchorHex = colorQuery ? resolveHex(q) : null;
@@ -274,11 +339,13 @@ export default function GlobalSearch() {
         allVariants: variants,
         allColors: variants.map((v: any) => v.color).filter(Boolean),
       }))
-      .filter((product) =>
-        matchesVariantCollectionSizeAndCupFilters(
-          product.allVariants,
-          filters,
-        ) && matchesVariantCollectionPriceFilters(product.allVariants, filters),
+      .filter(
+        (product) =>
+          matchesVariantCollectionSizeAndCupFilters(
+            product.allVariants,
+            filters,
+          ) &&
+          matchesVariantCollectionPriceFilters(product.allVariants, filters),
       );
   }, [fuzzyFiltered, filters]);
 
@@ -336,7 +403,7 @@ export default function GlobalSearch() {
       {/* ══ Sticky toolbar (same layout as before — filter LEFT · sort CENTER · count RIGHT) ══ */}
       <div className="s-globalsearch-f4837a">
         <div className="container">
-                    {q && (
+          {q && (
             <ProductToolbar
               productCount={totalCards}
               appliedFilterCount={activeFilterCount}
@@ -372,6 +439,11 @@ export default function GlobalSearch() {
 
       {/* ══ Page body ══ */}
       <div className="container s-globalsearch-58358e s-globalsearch-ff9e69e4">
+        {isMobile && q && (
+          <p className="gs-result-label">
+            Results for <span className="gs-result-query">"{q}"</span>
+          </p>
+        )}
         {/* Color badge */}
         {q && colorQuery && anchorHex && (
           <div className="s-cart-1fdbde">
@@ -461,12 +533,19 @@ export default function GlobalSearch() {
             <div className="gs-grid s-globalsearch-fe6df2">
               {displayed.map((product: any) => (
                 <div key={`${product.productId}-${product.productVariantId}`}>
-                  <ProductCard
-                    product={product}
-                    onQuickShop={setQuickShopId}
-                    showColors={true}
-                    delayedDiscountReveal={true}
-                  />
+                  {isMobile ? (
+                    <MobileProductCard
+                      product={product}
+                      onQuickShop={setQuickShopId}
+                    />
+                  ) : (
+                    <ProductCard
+                      product={product}
+                      onQuickShop={setQuickShopId}
+                      showColors={true}
+                      delayedDiscountReveal={true}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -523,12 +602,3 @@ export default function GlobalSearch() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

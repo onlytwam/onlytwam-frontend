@@ -71,7 +71,7 @@ interface AuthState {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ── Improved Guest wishlist sync with deduplication and retry logic ──
-async function _syncGuestWishlistOnLogin(userId: string, token: string): Promise<boolean> {
+async function _syncGuestWishlistOnLogin(userId: string, _token: string): Promise<boolean> {
   const guestWl = getGuestWishlist();
   if (!guestWl.length) {
     console.log('✅ Wishlist sync: No guest items to sync');
@@ -170,7 +170,7 @@ async function _syncGuestWishlistOnLogin(userId: string, token: string): Promise
 }
 
 // ── Improved Guest cart sync with deduplication and retry logic ──
-async function _syncGuestCartOnLogin(userId: string, token: string): Promise<boolean> {
+async function _syncGuestCartOnLogin(userId: string, _token: string): Promise<boolean> {
   const guestCart: any[] = (() => {
     try { return JSON.parse(localStorage.getItem('guestCart') || '[]'); } catch { return []; }
   })();

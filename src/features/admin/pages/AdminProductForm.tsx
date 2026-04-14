@@ -48,17 +48,10 @@ const STATUS_ACTIONS: Record<string, string[]> = {
   Approved:                          ['Reject'],
   Rejected:                          ['Resubmit'],
 };
-const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  Approved:                         { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Created:                          { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Modified:                         { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Rejected:                         { bg: 'var(--ivory)', color: 'var(--brand)' },
-  'Submitted To Product Manager':   { bg: 'var(--ivory)', color: 'var(--brand)' },
-  'Submitted To Inventory Manager': { bg: 'var(--ivory)', color: 'var(--brand)' },
-};
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const lbl: React.CSSProperties = { fontSize: 13, fontWeight: 500, color: 'var(--heirloom)', display: 'block', marginBottom: 5 };
+const inp: React.CSSProperties = {};
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
@@ -138,7 +131,7 @@ export default function AdminProductForm() {
   };
 
   // Image state
-  const [imgFiles,      setImgFiles]      = useState<File[]>([]);
+  const [,              setImgFiles]      = useState<File[]>([]);
   const [imgPreviews,   setImgPreviews]   = useState<string[]>([]);
   const [uploadedPaths, setUploadedPaths] = useState<string[]>([]);
   const [uploading,     setUploading]     = useState(false);
@@ -384,7 +377,6 @@ export default function AdminProductForm() {
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
   const badge = (state: string | null) => {
-    const s = STATUS_COLOR[state || 'Created'] || { bg: 'var(--ivory)', color: 'var(--heirloom)' };
     return (
       <span className="s-adminproduct-2b277c s-adminproduct-69e3b0">
         {state || 'New'}

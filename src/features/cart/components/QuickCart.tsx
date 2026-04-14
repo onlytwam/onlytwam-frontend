@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listCart, deleteCartItem, updateCart } from '@/features/cart/api/cart.api';
-import { formatPrice, getImageUrl } from '@/shared/utils/helpers';
+import { getImageUrl } from '@/shared/utils/helpers';
 import { resolveHex } from '@/shared/utils/colorHelpers';
 import toast from 'react-hot-toast';
 

@@ -1,9 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listNotifications } from '@/features/orders/api/orders.api';
 
 export default function Notifications() {
-  const qc = useQueryClient();
   const { getUserId } = useAuthStore();
   const userId = getUserId();
 

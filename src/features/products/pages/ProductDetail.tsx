@@ -1,16 +1,19 @@
 /**
  * ProductDetail.tsx
  */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   useParams,
   Link,
   useNavigate,
+  useLocation,
   useSearchParams,
 } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import { useCartStore } from "@/features/cart/store/cartStore";
 import {
   getProductDetail,
   listUserReviews,
@@ -26,6 +29,7 @@ import { useBreadcrumb } from "@/shared/hooks/useBreadcrumb";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
+import MobileProductCard from "@/features/products/components/MobileProductCard";
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
@@ -56,7 +60,7 @@ function PageNotification({
   useEffect(() => {
     const t = setTimeout(onDone, 2400);
     return () => clearTimeout(t);
-  }, [notif]);
+  }, [notif, onDone]);
   const bg =
     notif.type === "error"
       ? "var(--blush)"
@@ -159,7 +163,7 @@ function ShippingBar() {
   );
 }
 
-/* ── ScrollableProductRow — real DOM smooth-scroll, matches Home ProductSlider ── */
+/* ── ScrollableProductRow — real DOM smooth-scroll ── */
 const ROW_GAP = 16;
 const ROW_VISIBLE = 4;
 
@@ -175,21 +179,38 @@ function ScrollableProductRow({
   const [cw, setCw] = useState(0);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(true);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false,
+  );
 
   const measure = useCallback(() => {
+    const mobile = window.innerWidth <= 768;
+    setIsMobile(mobile);
     if (!wrapRef.current) return;
-    const wrapWidth = wrapRef.current.clientWidth - 112;
-    const c = Math.floor(
-      (wrapWidth - ROW_GAP * (ROW_VISIBLE - 1)) / ROW_VISIBLE,
-    );
+    const visible = mobile ? 2 : ROW_VISIBLE;
+    const padding = mobile ? 0 : 112;
+    const wrapWidth = wrapRef.current.clientWidth - padding;
+    const c = Math.floor((wrapWidth - ROW_GAP * (visible - 1)) / visible);
     setCw(c > 0 ? c : 0);
   }, []);
 
   useEffect(() => {
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (wrapRef.current) ro.observe(wrapRef.current);
-    return () => ro.disconnect();
+    if (typeof window === "undefined") return;
+
+    const frame = window.requestAnimationFrame(measure);
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : null;
+
+    if (wrapRef.current && ro) ro.observe(wrapRef.current);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
+      ro?.disconnect();
+    };
   }, [measure]);
 
   const onScroll = useCallback(() => {
@@ -205,8 +226,9 @@ function ScrollableProductRow({
 
   const scrollByCards = (dir: 1 | -1) => {
     if (!scrollRef.current || !cw) return;
+    const visible = isMobile ? 2 : ROW_VISIBLE;
     scrollRef.current.scrollTo({
-      left: scrollRef.current.scrollLeft + dir * 2 * (cw + ROW_GAP),
+      left: scrollRef.current.scrollLeft + dir * visible * (cw + ROW_GAP),
       behavior: "smooth",
     });
   };
@@ -229,32 +251,33 @@ function ScrollableProductRow({
     if (Math.abs(dx) > 40) scrollByCards(dx > 0 ? 1 : -1);
   };
 
-  const arrowBtn = (
+  const arrowStyle = (
     enabled: boolean,
     dir: "left" | "right",
   ): React.CSSProperties => ({
     position: "absolute",
-    top: "45%",
+    top: "40%",
     transform: "translateY(-50%)",
-    [dir]: 0,
-    width: 42,
-    height: 42,
+    [dir]: isMobile ? 4 : 0,
+    width: isMobile ? 28 : 42,
+    height: isMobile ? 28 : 42,
     borderRadius: "50%",
-    background: enabled ? "var(--brand)" : "var(--ivory)",
+    background: enabled ? "var(--brand)" : "rgba(245,240,230,0.9)",
     border: "none",
     cursor: enabled ? "pointer" : "default",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: enabled ? "#fff" : "#c0ab99",
-    fontSize: 17,
+    fontSize: isMobile ? 13 : 17,
     boxShadow: enabled ? "0 4px 16px rgba(107,15,42,.30)" : "none",
     zIndex: 10,
     transition: "all .25s",
     opacity: enabled ? 1 : 0.45,
   });
 
-  const safeCw = cw > 0 ? cw : `calc(${100 / ROW_VISIBLE}% - ${ROW_GAP}px)`;
+  const visible = isMobile ? 2 : ROW_VISIBLE;
+  const safeCw = cw > 0 ? cw : `calc(${100 / visible}% - ${ROW_GAP}px)`;
 
   return (
     <div
@@ -265,7 +288,7 @@ function ScrollableProductRow({
       onTouchEnd={handleTouchEnd}
     >
       <button
-        style={arrowBtn(canLeft, "left") as React.CSSProperties}
+        style={arrowStyle(canLeft, "left")}
         onClick={() => scrollByCards(-1)}
         disabled={!canLeft}
       >
@@ -288,17 +311,21 @@ function ScrollableProductRow({
               minWidth: typeof safeCw === "number" ? safeCw : undefined,
             }}
           >
-            <ProductCard
-              product={p}
-              onQuickShop={onQuickShop}
-              showDiscountTag={false}
-            />
+            {isMobile ? (
+              <MobileProductCard product={p} onQuickShop={onQuickShop} />
+            ) : (
+              <ProductCard
+                product={p}
+                onQuickShop={onQuickShop}
+                showDiscountTag={false}
+              />
+            )}
           </div>
         ))}
       </div>
 
       <button
-        style={arrowBtn(canRight, "right") as React.CSSProperties}
+        style={arrowStyle(canRight, "right")}
         onClick={() => scrollByCards(1)}
         disabled={!canRight}
       >
@@ -312,6 +339,7 @@ function ScrollableProductRow({
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
@@ -321,9 +349,9 @@ export default function ProductDetail() {
   const [selCupId, setSelCupId] = useState<number | null>(null);
   const [selectedPVDId, setSelectedPVDId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<
-    "description" | "additional" | "reviews"
-  >("description");
+  const [activeTab, setActiveTab] = useState<"description" | "additional">(
+    "description",
+  );
   const [showForm, setShowForm] = useState(false);
   const [rForm, setRForm] = useState({
     displayName: "",
@@ -337,6 +365,7 @@ export default function ProductDetail() {
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
   const [pageNotif, setPageNotif] = useState<PageNotif | null>(null);
   const [showStockTip, setShowStockTip] = useState(false);
+  const activeTabRef = useRef(searchParams.get("tab"));
 
   /* ── Thumbnail Pagination & Scrolling Logic ── */
   const thumbScrollRef = useRef<HTMLDivElement>(null);
@@ -358,10 +387,117 @@ export default function ProductDetail() {
     el.scrollBy({ top: dir * amount, behavior: "smooth" });
   };
 
+  /* ── Mobile Horizontal Thumbnail Scroll ── */
+  const mobileThumbScrollRef = useRef<HTMLDivElement>(null);
+  const [canMobileThumbLeft, setCanMobileThumbLeft] = useState(false);
+  const [canMobileThumbRight, setCanMobileThumbRight] = useState(true);
+
+  const checkMobileThumbScroll = useCallback(() => {
+    const el = mobileThumbScrollRef.current;
+    if (!el) return;
+    setCanMobileThumbLeft(el.scrollLeft > 2);
+    setCanMobileThumbRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+  }, []);
+
+  const scrollMobileThumbs = (dir: 1 | -1) => {
+    const el = mobileThumbScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 130, behavior: "smooth" });
+  };
+
+  /* Touch swipe for mobile thumbnail strip */
+  const mobileThumbTouchX = useRef(0);
+  const handleMobileThumbTouchStart = (e: React.TouchEvent) => {
+    mobileThumbTouchX.current = e.touches[0].clientX;
+  };
+  const handleMobileThumbTouchEnd = (e: React.TouchEvent) => {
+    const dx = mobileThumbTouchX.current - e.changedTouches[0].clientX;
+    if (Math.abs(dx) > 30) scrollMobileThumbs(dx > 0 ? 1 : -1);
+  };
+
+  /* Swipe the main image on both desktop and mobile */
+  const mainImageSwipeRef = useRef<{
+    active: boolean;
+    pointerId: number | null;
+    startX: number;
+    startY: number;
+  }>({
+    active: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+  });
+
+  const resetMainImageSwipe = useCallback(() => {
+    mainImageSwipeRef.current.active = false;
+    mainImageSwipeRef.current.pointerId = null;
+    mainImageSwipeRef.current.startX = 0;
+    mainImageSwipeRef.current.startY = 0;
+  }, []);
+
+  const handleMainImagePointerDown = (
+    e: React.PointerEvent<HTMLImageElement>,
+  ) => {
+    if (images.length <= 1) return;
+    // preventDefault stops the browser from initiating a native drag operation,
+    // which would steal pointer events and break the swipe gesture on desktop.
+    e.preventDefault();
+    mainImageSwipeRef.current = {
+      active: true,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+    };
+    if (e.currentTarget.setPointerCapture) {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  // Prevent the browser from doing anything while the user is dragging (desktop).
+  const handleMainImagePointerMove = (
+    e: React.PointerEvent<HTMLImageElement>,
+  ) => {
+    if (mainImageSwipeRef.current.active) e.preventDefault();
+  };
+
+  const handleMainImagePointerUp = (
+    e: React.PointerEvent<HTMLImageElement>,
+  ) => {
+    const swipe = mainImageSwipeRef.current;
+    if (!swipe.active || swipe.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - swipe.startX;
+    const dy = e.clientY - swipe.startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (absX > 40 && absX > absY * 1.1) {
+      if (dx < 0) handleNext();
+      else handlePrev();
+    }
+
+    if (e.currentTarget.releasePointerCapture) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignore capture release errors from interrupted gestures.
+      }
+    }
+    resetMainImageSwipe();
+  };
+
   /* ── Auto-scroll ref: holds the setInterval handle ── */
   const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { inWishlist, toggle: toggleWishlist } = useWishlistToggle(currentVId);
+
+  useEffect(() => {
+    activeTabRef.current = searchParams.get("tab");
+  }, [searchParams]);
 
   useEffect(() => {
     const n = Number(id);
@@ -371,18 +507,17 @@ export default function ProductDetail() {
       setSelCupId(null);
       setSelectedPVDId(null);
       setActiveImg(0);
-      if (searchParams.get("tab") !== "reviews") {
+      if (activeTabRef.current !== "reviews") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     }
   }, [id]);
 
-  // Auto-open reviews tab when navigated from testimonials (?tab=reviews)
+  // Auto-scroll to reviews section when navigated from testimonials (?tab=reviews)
   useEffect(() => {
     if (searchParams.get("tab") === "reviews") {
-      setActiveTab("reviews");
       const timer = setTimeout(() => {
-        const el = document.getElementById("pd-tabs");
+        const el = document.getElementById("pd-reviews-section");
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 400);
       return () => clearTimeout(timer);
@@ -457,7 +592,7 @@ export default function ProductDetail() {
       allVariants: variants,
       allColors: variants.map((v: any) => v.color).filter(Boolean),
     }));
-    return grouped.sort(() => Math.random() - 0.5).slice(0, 12);
+    return grouped.slice(0, 12);
   }, [exploreRaw]);
 
   const reviews: any[] = reviewData?.list ?? [];
@@ -477,9 +612,12 @@ export default function ProductDetail() {
 
   /* Fire checkThumbScroll once images load so we know if we need arrows initially */
   useEffect(() => {
-    const t = setTimeout(checkThumbScroll, 100);
+    const t = setTimeout(() => {
+      checkThumbScroll();
+      checkMobileThumbScroll();
+    }, 100);
     return () => clearTimeout(t);
-  }, [images, checkThumbScroll]);
+  }, [images, checkThumbScroll, checkMobileThumbScroll]);
 
   /* ── Auto-scroll: start/restart the 6-second interval ── */
   const startAutoScroll = useCallback((imgCount: number) => {
@@ -498,7 +636,7 @@ export default function ProductDetail() {
     };
   }, [images.length, startAutoScroll]);
 
-  /* Make sure the active thumbnail is always scrolled into view */
+  /* Make sure the active thumbnail is always scrolled into view (desktop vertical) */
   useEffect(() => {
     const el = thumbScrollRef.current;
     if (!el) return;
@@ -508,12 +646,28 @@ export default function ProductDetail() {
       const itemBottom = itemTop + thumbItem.clientHeight;
       const viewTop = el.scrollTop;
       const viewBottom = viewTop + el.clientHeight;
-
       if (itemTop < viewTop || itemBottom > viewBottom) {
         thumbItem.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
     }
   }, [activeImg]);
+
+  /* Sync mobile horizontal thumb strip to active image */
+  useEffect(() => {
+    const el = mobileThumbScrollRef.current;
+    if (!el) return;
+    const thumbItem = el.children[activeImg] as HTMLElement;
+    if (thumbItem) {
+      const itemLeft = thumbItem.offsetLeft;
+      const itemRight = itemLeft + thumbItem.clientWidth;
+      const viewLeft = el.scrollLeft;
+      const viewRight = viewLeft + el.clientWidth;
+      if (itemLeft < viewLeft || itemRight > viewRight) {
+        thumbItem.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+      }
+    }
+    checkMobileThumbScroll();
+  }, [activeImg, checkMobileThumbScroll]);
 
   /* Manual thumbnail click — show that thumb, then resume countdown */
   const handleThumbClick = (i: number) => {
@@ -688,6 +842,41 @@ export default function ProductDetail() {
     },
   });
 
+  const persistGuestCart = (showToast = true) => {
+    const gc = JSON.parse(localStorage.getItem("guestCart") || "[]");
+    const key = `${currentVId}-${selectedPVDId}`;
+    const idx = gc.findIndex(
+      (x: any) => `${x.productVariantId}-${x.productVariantDetailId}` === key,
+    );
+    if (idx >= 0) {
+      gc[idx].quantity = (gc[idx].quantity || 1) + quantity;
+      gc[idx].processedQuantity = gc[idx].quantity;
+      if (selStock !== null) gc[idx].stockQuantity = selStock;
+    } else {
+      gc.push({
+        productId: product?.productId,
+        productVariantId: currentVId,
+        productVariantDetailId: selectedPVDId,
+        quantity,
+        processedQuantity: quantity,
+        finalPrice: dispPrice,
+        mrpPrice: dispMrp,
+        productName: product?.name,
+        image: images[0] || "",
+        imageURL: images[0] || "",
+        color: selectedColor || "",
+        size: selLabel || "",
+        cupSize: cupLabel || "",
+        isSelected: true,
+        stockQuantity: selStock ?? undefined,
+      });
+    }
+
+    localStorage.setItem("guestCart", JSON.stringify(gc));
+    window.dispatchEvent(new Event("guestCartUpdated"));
+    if (showToast) toast.success("Added to cart!");
+  };
+
   const handleAddToCart = () => {
     if (!validate()) return;
     if (hasValidToken()) {
@@ -700,37 +889,67 @@ export default function ProductDetail() {
         quantity,
       });
     } else {
-      const gc = JSON.parse(localStorage.getItem("guestCart") || "[]");
-      const key = `${currentVId}-${selectedPVDId}`;
-      const idx = gc.findIndex(
-        (x: any) => `${x.productVariantId}-${x.productVariantDetailId}` === key,
-      );
-      if (idx >= 0) {
-        gc[idx].quantity = (gc[idx].quantity || 1) + quantity;
-        gc[idx].processedQuantity = gc[idx].quantity;
-        if (selStock !== null) gc[idx].stockQuantity = selStock;
-      } else
-        gc.push({
-          productId: product?.productId,
-          productVariantId: currentVId,
-          productVariantDetailId: selectedPVDId,
-          quantity,
-          processedQuantity: quantity,
-          finalPrice: dispPrice,
-          mrpPrice: dispMrp,
-          productName: product?.name,
-          image: images[0] || "",
-          imageURL: images[0] || "",
-          color: selectedColor || "",
-          size: selLabel || "",
-          cupSize: cupLabel || "",
-          isSelected: true,
-          stockQuantity: selStock ?? undefined,
-        });
-      localStorage.setItem("guestCart", JSON.stringify(gc));
-      window.dispatchEvent(new Event("guestCartUpdated"));
-      toast.success("Added to cart!");
+      persistGuestCart();
     }
+  };
+
+  const handleBuyNow = () => {
+    if (!validate()) return;
+    const returnState = { from: location.pathname + location.search };
+
+    // Build a CartModel-shaped item for the Buy Now session.
+    // This does NOT touch the real cart — cart items are left untouched.
+    const buyNowItem = {
+      cartId: 0,
+      productId: product?.productId ?? null,
+      productVariantId: currentVId,
+      productVariantDetailId: selectedPVDId,
+      productCode: product?.productCode ?? null,
+      productName: product?.name ?? null,
+      name: product?.name ?? null,
+      productDescription: null,
+      brandName: product?.brandName ?? null,
+      categoryId: product?.categoryId ?? null,
+      brandId: null,
+      variantName: null,
+      variantDescription: null,
+      size: selLabel || null,
+      cupSize: cupLabel || null,
+      colorName: selectedColor || null,
+      colorHex: null,
+      color: selectedColor || null,
+      stockQuantity: selStock ?? null,
+      processedQuantity: quantity,
+      returnedQuantity: null,
+      discountPercent: discount || null,
+      mrpPrice: dispMrp || null,
+      finalPrice: dispPrice || null,
+      personalId: null,
+      userProfileId: getUserId() || null,
+      state: "Created",
+      image: images[0] || null,
+      isSelected: true,
+    };
+
+    const subTotal = (dispPrice || 0) * quantity;
+    const taxAmount = Math.round(subTotal * 0.05);
+
+    if (hasValidToken()) {
+      // Push ONLY the buy now item into the cart store (not the real cart),
+      // then go straight to payment address with ?buyNow=1.
+      const store = useCartStore.getState();
+      store.setSelectedItems?.([buyNowItem as any]);
+      store.setSubTotal?.(subTotal);
+      store.setTaxAmount?.(taxAmount);
+      navigate("/user-products/payment-address?buyNow=1", {
+        state: returnState,
+      });
+      return;
+    }
+
+    // Guest flow: save to a separate buyNow key so it doesn't mix with guestCart.
+    localStorage.setItem("guestBuyNow", JSON.stringify([buyNowItem]));
+    navigate("/user-products/payment-address?buyNow=1", { state: returnState });
   };
 
   const handleWishlist = () => {
@@ -764,7 +983,7 @@ export default function ProductDetail() {
   const { setCrumbs } = useBreadcrumbStore();
   useEffect(() => {
     if (detailCrumbs.length > 0) setCrumbs(detailCrumbs);
-  }, [detailCrumbs]);
+  }, [detailCrumbs, setCrumbs]);
 
   const btnStyle: React.CSSProperties = {
     background: "var(--brand)",
@@ -818,6 +1037,7 @@ export default function ProductDetail() {
               {/* ── Thumbnail column with Exactly 5 Visible + Arrows ── */}
               {images.length > 1 && (
                 <div
+                  className="pd-desktop-thumb-col"
                   style={{
                     display: "flex",
                     flexDirection: "column",
@@ -930,7 +1150,13 @@ export default function ProductDetail() {
                   <img
                     src={images[activeImg]}
                     alt={product.name}
-                    className="s-productdetai-20b6f1"
+                    className="s-productdetai-20b6f1 pd-main-image"
+                    draggable={false}
+                    onPointerDown={handleMainImagePointerDown}
+                    onPointerMove={handleMainImagePointerMove}
+                    onPointerUp={handleMainImagePointerUp}
+                    onPointerCancel={resetMainImageSwipe}
+                    onDragStart={(e) => e.preventDefault()}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
                         "/assets/category-bg.png";
@@ -978,6 +1204,52 @@ export default function ProductDetail() {
                   </>
                 )}
               </div>
+
+              {/* ── Mobile-only: horizontal thumbnail strip with arrows ── */}
+              {images.length > 1 && (
+                <div className="pd-mobile-thumb-strip">
+                  <button
+                    className="pd-mobile-thumb-arrow"
+                    onClick={() => scrollMobileThumbs(-1)}
+                    disabled={!canMobileThumbLeft}
+                    style={{ opacity: canMobileThumbLeft ? 1 : 0.3 }}
+                  >
+                    <i className="bi bi-chevron-left" />
+                  </button>
+                  <div
+                    ref={mobileThumbScrollRef}
+                    className="pd-mobile-thumb-scroll"
+                    onScroll={checkMobileThumbScroll}
+                    onTouchStart={handleMobileThumbTouchStart}
+                    onTouchEnd={handleMobileThumbTouchEnd}
+                  >
+                    {images.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img}
+                        alt=""
+                        onClick={() => handleThumbClick(i)}
+                        className="pd-mobile-thumb-img"
+                        style={{
+                          border: `2px solid ${activeImg === i ? "var(--brand)" : "transparent"}`,
+                          opacity: activeImg === i ? 1 : 0.65,
+                        }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    className="pd-mobile-thumb-arrow"
+                    onClick={() => scrollMobileThumbs(1)}
+                    disabled={!canMobileThumbRight}
+                    style={{ opacity: canMobileThumbRight ? 1 : 0.3 }}
+                  >
+                    <i className="bi bi-chevron-right" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1038,9 +1310,8 @@ export default function ProductDetail() {
                 <div
                   className="s-productdetai-088cf9"
                   onClick={() => {
-                    setActiveTab("reviews");
                     document
-                      .getElementById("pd-tabs")
+                      .getElementById("pd-reviews-section")
                       ?.scrollIntoView({ behavior: "smooth" });
                   }}
                 >
@@ -1396,33 +1667,31 @@ export default function ProductDetail() {
               );
             })()}
 
-            <button
-              onClick={handleAddToCart}
-              disabled={cartMutation.isPending || isOOS}
-              style={{
-                ...btnStyle,
-                width: "100%",
-                padding: "14px",
-                fontSize: 15,
-                marginBottom: 8,
-                opacity: cartMutation.isPending || isOOS ? 0.6 : 1,
-                justifyContent: "space-between",
-              }}
-            >
-              <span className="s-resetpasswor-6e6177">
+            {/* Primary actions */}
+            <div className="pd-action-row">
+              <button
+                onClick={handleAddToCart}
+                disabled={cartMutation.isPending || isOOS}
+                className="pd-action-btn pd-action-btn--cart"
+              >
                 {cartMutation.isPending ? (
                   <span className="spinner-border spinner-border-sm" />
                 ) : (
-                  <i className="bi bi-cart3 s-productdetai-92056c" />
+                  <i className="bi bi-cart3" />
                 )}
                 Add to Cart
-              </span>
-              <span className="s-productdetai-248a0d">
-                {formatPrice(dispPrice || product?.price || 0)}
-              </span>
-            </button>
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={cartMutation.isPending || isOOS}
+                className="pd-action-btn pd-action-btn--buy"
+              >
+                <i className="bi bi-bolt-fill" />
+                Buy Now
+              </button>
+            </div>
 
-            <div className="s-productdetai-684078">
+            <div className="s-productdetai-684078 pd-hide-mobile">
               <button
                 onClick={handleWishlist}
                 className="s-productdetai-c98011 s-productdetai-ff85a0a9"
@@ -1456,30 +1725,24 @@ export default function ProductDetail() {
         {/* ── Tabs ── */}
         <div id="pd-tabs" className="s-productdetai-478f1c">
           <div className="s-productdetai-3d764b">
-            {(["description", "additional", "reviews"] as const).map(
-              (tab, i) => {
-                const label = [
-                  "Description",
-                  "Additional Information",
-                  `Reviews (${totalReviews})`,
-                ][i];
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className="s-productdetai-227547"
-                    style={{
-                      fontWeight: activeTab === tab ? 700 : 400,
-                      color: activeTab === tab ? "#000000" : "var(--heirloom)",
-                      borderBottom: `3px solid ${activeTab === tab ? "var(--brand)" : "transparent"}`,
-                      fontFamily: FONTS,
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              },
-            )}
+            {(["description", "additional"] as const).map((tab, i) => {
+              const label = ["Description", "Additional Information"][i];
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className="s-productdetai-227547"
+                  style={{
+                    fontWeight: activeTab === tab ? 700 : 400,
+                    color: activeTab === tab ? "#000000" : "var(--heirloom)",
+                    borderBottom: `3px solid ${activeTab === tab ? "var(--brand)" : "transparent"}`,
+                    fontFamily: FONTS,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           {activeTab === "description" && (
@@ -1528,255 +1791,261 @@ export default function ProductDetail() {
               </tbody>
             </table>
           )}
+        </div>
 
-          {activeTab === "reviews" && (
-            <div id="reviews">
+        {/* ── Standalone Reviews Section (below Additional Information) ── */}
+        <div
+          id="pd-reviews-section"
+          className="s-productdetai-478f1c pd-reviews-standalone"
+        >
+          <div className="pd-reviews-header">
+            <h2
+              className="s-productdetai-8ef3c3 s-productdetai-ff85a0a9"
+              style={{ fontFamily: FONTS }}
+            >
+              Reviews{" "}
               {totalReviews > 0 && (
-                <div className="s-productdetai-07a510">
-                  <div className="s-adminnewslet-e2e1e0">
-                    <div className="s-productdetai-8ba13e s-productdetai-ff85a0a9">
-                      {avgRating.toFixed(1)}
-                    </div>
-                    <Stars rating={avgRating} size={18} />
-                    <p className="s-productdetai-485fe5 s-productdetai-ffe77190">
-                      {totalReviews} reviews
-                    </p>
-                  </div>
-                  <div className="s-userdashboar-6d7d28">
-                    {breakdown.map(({ star, count }) => (
-                      <div key={star} className="s-productdetai-9fc601">
-                        <span className="s-productdetai-dfdd5e s-productdetai-ffe77190">
-                          {star}★
-                        </span>
-                        <div className="s-productdetai-788842">
-                          <div
-                            className="s-productdetai-1c4975"
-                            style={{
-                              width: `${totalReviews ? (count / totalReviews) * 100 : 0}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="s-productdetai-701deb s-productdetai-ffe77190">
-                          {count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <span className="pd-reviews-count">({totalReviews})</span>
               )}
+            </h2>
+          </div>
 
-              {hasValidToken() ? (
-                <button
-                  onClick={() => {
-                    if (!showForm) {
-                      const u = useAuthStore.getState().user;
-                      setRForm((f) => ({
-                        ...f,
-                        displayName: u?.firstName
-                          ? `${u.firstName} ${u.lastName ?? ""}`.trim()
-                          : u?.name || "",
-                        email: u?.email || "",
-                      }));
-                    }
-                    setShowForm((v) => !v);
-                  }}
-                  style={{
-                    ...btnStyle,
-                    padding: "10px 22px",
-                    fontSize: 13,
-                    marginBottom: 20,
-                    width: "auto",
-                  }}
-                >
-                  <i className="bi bi-pencil" /> Write a Review
-                </button>
-              ) : (
-                <div className="s-productdetai-5e11d3">
-                  <i className="bi bi-lock s-productdetai-39554d" />
-                  Please{" "}
-                  <a href="/auth/login" className="s-productdetai-4ffa2d">
-                    sign in
-                  </a>{" "}
-                  to write a review
+          {totalReviews > 0 && (
+            <div className="s-productdetai-07a510">
+              <div className="s-adminnewslet-e2e1e0">
+                <div className="s-productdetai-8ba13e s-productdetai-ff85a0a9">
+                  {avgRating.toFixed(1)}
                 </div>
-              )}
-
-              {showForm && (
-                <div className="s-productdetai-55950f">
-                  <div className="row g-3">
-                    {[
-                      ["displayName", "Your Name", "text"],
-                      ["email", "Email", "email"],
-                    ].map(([k, l, t]) => (
-                      <div key={k} className="col-md-6">
-                        <label className="s-productdetai-149337 s-productdetai-ffe77190">
-                          {l}
-                        </label>
-                        <input
-                          className="form-control"
-                          type={t}
-                          value={(rForm as any)[k]}
-                          onChange={(e) =>
-                            setRForm((f) => ({ ...f, [k]: e.target.value }))
-                          }
-                        />
-                      </div>
-                    ))}
-                    <div className="col-12">
-                      <label className="s-productdetai-ce3a86 s-productdetai-ffe77190">
-                        Rating
-                      </label>
-                      <Stars
-                        rating={rForm.rating}
-                        size={28}
-                        interactive
-                        onRate={(n) => setRForm((f) => ({ ...f, rating: n }))}
-                      />
-                    </div>
-
-                    <div className="col-12">
-                      <label className="s-productdetai-149337 s-productdetai-ffe77190">
-                        Review
-                      </label>
-                      <textarea
-                        className="form-control"
-                        rows={4}
-                        value={rForm.comment}
-                        onChange={(e) =>
-                          setRForm((f) => ({ ...f, comment: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="col-12">
-                      <label className="s-productdetai-149337 s-productdetai-ffe77190">
-                        Photo{" "}
-                        <span className="s-productdetai-0f512b">
-                          (optional)
-                        </span>
-                      </label>
-                      <label className="s-productdetai-83019e">
-                        <i className="bi bi-camera s-productdetai-f407f6" />
-                        <span className="s-quickcart-08341f s-productdetai-ffe77190">
-                          {photoFile ? photoFile.name : "Upload a photo"}
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="s-addressform-8251cb"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] ?? null;
-                            setPhotoFile(f);
-                            setPhotoPreview(f ? URL.createObjectURL(f) : null);
-                          }}
-                        />
-                      </label>
-                      {photoPreview && (
-                        <div className="s-productdetai-ae794c">
-                          <img
-                            src={photoPreview}
-                            alt="preview"
-                            className="s-productdetai-6e1f7a"
-                          />
-                          <button
-                            onClick={() => {
-                              setPhotoFile(null);
-                              setPhotoPreview(null);
-                            }}
-                            className="s-productdetai-60f07a"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="col-12">
-                      <button
-                        onClick={() =>
-                          reviewMutation.mutate({
-                            productVariantId: currentVId,
-                            productId: product?.productId,
-                            userProfileId: getUserId(),
-                            rating: rForm.rating,
-                            name: rForm.displayName,
-                            email: rForm.email,
-                            comment: rForm.comment,
-                            state: "Active",
-                            photo: photoFile ?? undefined,
-                          })
-                        }
-                        disabled={reviewMutation.isPending}
+                <Stars rating={avgRating} size={18} />
+                <p className="s-productdetai-485fe5 s-productdetai-ffe77190">
+                  {totalReviews} reviews
+                </p>
+              </div>
+              <div className="s-userdashboar-6d7d28">
+                {breakdown.map(({ star, count }) => (
+                  <div key={star} className="s-productdetai-9fc601">
+                    <span className="s-productdetai-dfdd5e s-productdetai-ffe77190">
+                      {star}★
+                    </span>
+                    <div className="s-productdetai-788842">
+                      <div
+                        className="s-productdetai-1c4975"
                         style={{
-                          ...btnStyle,
-                          padding: "10px 22px",
-                          fontSize: 14,
-                          width: "auto",
-                          opacity: reviewMutation.isPending ? 0.7 : 1,
+                          width: `${totalReviews ? (count / totalReviews) * 100 : 0}%`,
                         }}
+                      />
+                    </div>
+                    <span className="s-productdetai-701deb s-productdetai-ffe77190">
+                      {count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasValidToken() ? (
+            <button
+              onClick={() => {
+                if (!showForm) {
+                  const u = useAuthStore.getState().user;
+                  setRForm((f) => ({
+                    ...f,
+                    displayName: u?.firstName
+                      ? `${u.firstName} ${u.lastName ?? ""}`.trim()
+                      : u?.name || "",
+                    email: u?.email || "",
+                  }));
+                }
+                setShowForm((v) => !v);
+              }}
+              style={{
+                ...btnStyle,
+                padding: "10px 22px",
+                fontSize: 13,
+                marginBottom: 20,
+                width: "auto",
+              }}
+            >
+              <i className="bi bi-pencil" /> Write a Review
+            </button>
+          ) : (
+            <div className="s-productdetai-5e11d3">
+              <i className="bi bi-lock s-productdetai-39554d" />
+              Please{" "}
+              <a href="/auth/login" className="s-productdetai-4ffa2d">
+                sign in
+              </a>{" "}
+              to write a review
+            </div>
+          )}
+
+          {showForm && (
+            <div className="s-productdetai-55950f">
+              <div className="row g-3">
+                {[
+                  ["displayName", "Your Name", "text"],
+                  ["email", "Email", "email"],
+                ].map(([k, l, t]) => (
+                  <div key={k} className="col-md-6">
+                    <label className="s-productdetai-149337 s-productdetai-ffe77190">
+                      {l}
+                    </label>
+                    <input
+                      className="form-control"
+                      type={t}
+                      value={(rForm as any)[k]}
+                      onChange={(e) =>
+                        setRForm((f) => ({ ...f, [k]: e.target.value }))
+                      }
+                    />
+                  </div>
+                ))}
+                <div className="col-12">
+                  <label className="s-productdetai-ce3a86 s-productdetai-ffe77190">
+                    Rating
+                  </label>
+                  <Stars
+                    rating={rForm.rating}
+                    size={28}
+                    interactive
+                    onRate={(n) => setRForm((f) => ({ ...f, rating: n }))}
+                  />
+                </div>
+                <div className="col-12">
+                  <label className="s-productdetai-149337 s-productdetai-ffe77190">
+                    Review
+                  </label>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    value={rForm.comment}
+                    onChange={(e) =>
+                      setRForm((f) => ({ ...f, comment: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="col-12">
+                  <label className="s-productdetai-149337 s-productdetai-ffe77190">
+                    Photo{" "}
+                    <span className="s-productdetai-0f512b">(optional)</span>
+                  </label>
+                  <label className="s-productdetai-83019e">
+                    <i className="bi bi-camera s-productdetai-f407f6" />
+                    <span className="s-quickcart-08341f s-productdetai-ffe77190">
+                      {photoFile ? photoFile.name : "Upload a photo"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="s-addressform-8251cb"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        setPhotoFile(f);
+                        setPhotoPreview(f ? URL.createObjectURL(f) : null);
+                      }}
+                    />
+                  </label>
+                  {photoPreview && (
+                    <div className="s-productdetai-ae794c">
+                      <img
+                        src={photoPreview}
+                        alt="preview"
+                        className="s-productdetai-6e1f7a"
+                      />
+                      <button
+                        onClick={() => {
+                          setPhotoFile(null);
+                          setPhotoPreview(null);
+                        }}
+                        className="s-productdetai-60f07a"
                       >
-                        {reviewMutation.isPending
-                          ? "Submitting…"
-                          : "Submit Review"}
+                        ✕
                       </button>
                     </div>
+                  )}
+                </div>
+                <div className="col-12">
+                  <button
+                    onClick={() =>
+                      reviewMutation.mutate({
+                        productVariantId: currentVId,
+                        productId: product?.productId,
+                        userProfileId: getUserId(),
+                        rating: rForm.rating,
+                        name: rForm.displayName,
+                        email: rForm.email,
+                        comment: rForm.comment,
+                        state: "Active",
+                        photo: photoFile ?? undefined,
+                      })
+                    }
+                    disabled={reviewMutation.isPending}
+                    style={{
+                      ...btnStyle,
+                      padding: "10px 22px",
+                      fontSize: 14,
+                      width: "auto",
+                      opacity: reviewMutation.isPending ? 0.7 : 1,
+                    }}
+                  >
+                    {reviewMutation.isPending ? "Submitting…" : "Submit Review"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {reviews.length === 0 ? (
+            <p className="s-productdetai-2959a9 s-productdetai-ffe77190">
+              No reviews yet. Be the first!
+            </p>
+          ) : (
+            reviews.map((r: any, i: number) => (
+              <div key={i} className="s-productdetai-e82d15">
+                <div className="s-paymentaddre-9998cf">
+                  <div className="s-addresslist-f8b697">
+                    {r.photo ? (
+                      <img
+                        src={
+                          r.photo.startsWith("http")
+                            ? r.photo
+                            : `${(import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${r.photo}`
+                        }
+                        alt="reviewer"
+                        className="s-productdetai-55b05c"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <i className="bi bi-person-circle s-productdetai-c0ad13" />
+                    )}
+                  </div>
+                  <div className="pd-review-content">
+                    <div className="pd-review-meta">
+                      <Stars rating={r.rating || 0} size={13} />
+                      <span className="s-productdetai-de8fb2 s-productdetai-ff85a0a9">
+                        {r.name || r.displayName || "Anonymous"}
+                      </span>
+                      <span className="s-adminnewslet-f01220 s-productdetai-ffe77190">
+                        {r.createdDate
+                          ? new Date(r.createdDate).toLocaleDateString("en-IN")
+                          : ""}
+                      </span>
+                    </div>
+                    {(r.title || r.reviewTitle) && (
+                      <p className="s-productdetai-c46b5b s-productdetai-ff85a0a9">
+                        {r.title || r.reviewTitle}
+                      </p>
+                    )}
+                    <p className="s-admindashboa-f39764 s-productdetai-ffe77190">
+                      {r.comment}
+                    </p>
                   </div>
                 </div>
-              )}
-
-              {reviews.length === 0 ? (
-                <p className="s-productdetai-2959a9 s-productdetai-ffe77190">
-                  No reviews yet. Be the first!
-                </p>
-              ) : (
-                reviews.map((r: any, i: number) => (
-                  <div key={i} className="s-productdetai-e82d15">
-                    <div className="s-paymentaddre-9998cf">
-                      <div className="s-addresslist-f8b697">
-                        {r.photo ? (
-                          <img
-                            src={
-                              r.photo.startsWith("http")
-                                ? r.photo
-                                : `${(import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${r.photo}`
-                            }
-                            alt="reviewer"
-                            className="s-productdetai-55b05c"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display =
-                                "none";
-                            }}
-                          />
-                        ) : (
-                          <i className="bi bi-person-circle s-productdetai-c0ad13" />
-                        )}
-                      </div>
-                      <div className="s-app-52dcac">
-                        <div className="s-adminblog-95277f">
-                          <Stars rating={r.rating || 0} size={13} />
-                          <span className="s-productdetai-de8fb2 s-productdetai-ff85a0a9">
-                            {r.name || r.displayName || "Anonymous"}
-                          </span>
-                          <span className="s-adminnewslet-f01220 s-productdetai-ffe77190">
-                            {r.createdDate
-                              ? new Date(r.createdDate).toLocaleDateString(
-                                  "en-IN",
-                                )
-                              : ""}
-                          </span>
-                        </div>
-                        {(r.title || r.reviewTitle) && (
-                          <p className="s-productdetai-c46b5b s-productdetai-ff85a0a9">
-                            {r.title || r.reviewTitle}
-                          </p>
-                        )}
-                        <p className="s-admindashboa-f39764 s-productdetai-ffe77190">
-                          {r.comment}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+              </div>
+            ))
           )}
         </div>
 

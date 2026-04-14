@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/api/axiosInstance';
 import { formatPrice } from '@/shared/utils/helpers';
 
-function StatCard({ title, value, icon, color, sub, onClick }: any) {
+function StatCard({ title, value, icon, color: _color, sub, onClick }: any) {
   return (
     <div onClick={onClick}
       className="s-admindashboa-2a5108" style={ {cursor: onClick ? 'pointer' : 'default'} }

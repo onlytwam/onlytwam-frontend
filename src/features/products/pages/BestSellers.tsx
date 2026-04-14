@@ -6,11 +6,13 @@
 //  ✅ type-only import for ProductFilterState
 
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "@/features/products/api/products.api";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
+import MobileProductCard from "@/features/products/components/MobileProductCard";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import ProductFilters, {
   ProductActiveFilters,
   getAppliedFilterCount,
@@ -33,11 +35,20 @@ const DEFAULT_FILTERS: ProductFilterState = {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BestSellers() {
+  const isMobile = useIsMobile();
+  const filterScrollY = useRef(0);
   const { setCrumbs } = useBreadcrumbStore();
 
   const [sortOption, setSortOption] = useState("rating");
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Listen for sort button closing the filter
+  useEffect(() => {
+    const fn = () => setFilterOpen(false);
+    window.addEventListener("close-filter", fn);
+    return () => window.removeEventListener("close-filter", fn);
+  }, []);
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
   const [filters, setFilters] = useState<ProductFilterState>(DEFAULT_FILTERS);
 
@@ -47,14 +58,67 @@ export default function BestSellers() {
   }, [setCrumbs]);
 
   // Disable body scroll when filter drawer is open
+  // Filter drawer: scroll lock + positioning (mobile only)
   useEffect(() => {
-    document.body.style.overflow = filterOpen ? "hidden" : "";
-    document.body.style.paddingRight = filterOpen ? "0px" : "";
+    const btn = document.querySelector(".product-toolbar__filter-button");
+    if (btn) btn.classList.toggle("active", filterOpen);
+
+    if (!isMobile) {
+      document.body.style.overflow = filterOpen ? "hidden" : "";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+
+    if (filterOpen) {
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      const catbar = document.querySelector(
+        ".mcb-wrapper",
+      ) as HTMLElement | null;
+      const catWasHidden =
+        catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
+      const toolbarTop = toolbar?.style.top || "108px";
+      const toolbarBottom = toolbar
+        ? Math.round(toolbar.getBoundingClientRect().bottom)
+        : 152;
+      filterScrollY.current = window.scrollY;
+      (window as any).__drawerOpen = true;
+      window.dispatchEvent(new Event("filter-opened"));
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100%";
+      if (catWasHidden && catbar) catbar.classList.add("mcb-wrapper--hidden");
+      else if (!catWasHidden && catbar)
+        catbar.classList.remove("mcb-wrapper--hidden");
+      if (toolbar) {
+        toolbar.style.top = toolbarTop;
+        toolbar.style.zIndex = "1210";
+      }
+      const offset = `${toolbarBottom}px`;
+      const drawer = document.querySelector(".gs-drawer") as HTMLElement | null;
+      const backdrop = document.querySelector(
+        ".gs-backdrop",
+      ) as HTMLElement | null;
+      if (drawer) {
+        drawer.style.top = offset;
+        drawer.style.height = `calc(100% - ${offset})`;
+      }
+      if (backdrop) backdrop.style.top = offset;
+    } else {
+      (window as any).__drawerOpen = false;
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      if (toolbar) toolbar.style.zIndex = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
+    }
     return () => {
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
     };
-  }, [filterOpen]);
+  }, [filterOpen, isMobile]);
 
   // ── Fetch all best-seller variants ────────────────────────────────────────
   const { data: rawData, isLoading } = useQuery({
@@ -188,7 +252,7 @@ export default function BestSellers() {
         src="/assets/categories/BestSellers.jpg"
         alt="Best Sellers"
         loading="lazy"
-        style={{ width: "100%", display: "block" }}
+        style={{ width: "100%", height: "auto", display: "block" }}
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.display = "none";
         }}
@@ -198,7 +262,7 @@ export default function BestSellers() {
       <ProductToolbar
         productCount={displayProducts.length}
         appliedFilterCount={appliedFilterCount}
-        onFilterClick={() => setFilterOpen(true)}
+        onFilterClick={() => setFilterOpen((o) => !o)}
         sortOption={sortOption}
         onSortChange={(val) => {
           setSortOption(val);
@@ -263,13 +327,20 @@ export default function BestSellers() {
                 .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
                 .map((product: any) => (
                   <div key={product.productVariantId} className="pl-card-anim">
-                    <ProductCard
-                      product={product}
-                      onQuickShop={setQuickShopId}
-                      showColors={true}
-                      singleColorOnly={true}
-                      delayedDiscountReveal={true}
-                    />
+                    {isMobile ? (
+                      <MobileProductCard
+                        product={product}
+                        onQuickShop={setQuickShopId}
+                      />
+                    ) : (
+                      <ProductCard
+                        product={product}
+                        onQuickShop={setQuickShopId}
+                        showColors={true}
+                        singleColorOnly={true}
+                        delayedDiscountReveal={true}
+                      />
+                    )}
                   </div>
                 ))}
             </div>
@@ -331,8 +402,3 @@ export default function BestSellers() {
     </div>
   );
 }
-
-
-
-
-

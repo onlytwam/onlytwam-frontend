@@ -8,16 +8,6 @@ import { getOrderDetail } from '@/features/orders/api/orders.api';
 import { formatDate, formatPrice, getImageUrl} from '@/shared/utils/helpers';
 
 
-const STATUS_STYLE: Record<string, React.CSSProperties> = {
-  Delivered:  { background: 'var(--ivory)', color: 'var(--brand)' },
-  Pending:    { background: 'var(--ivory)', color: 'var(--brand)' },
-  Cancelled:  { background: 'var(--ivory)', color: 'var(--brand)' },
-  Processing: { background: 'var(--ivory)', color: 'var(--brand)' },
-  Shipped:    { background: 'var(--ivory)', color: 'var(--brand)' },
-  Confirmed:  { background: 'var(--ivory)', color: 'var(--brand)' },
-  Refunded:   { background: 'var(--ivory)', color: 'var(--brand)' },
-};
-
 export default function OrderDetails() {
   const { id }       = useParams<{ id: string }>();
   const navigate     = useNavigate();
@@ -46,8 +36,7 @@ export default function OrderDetails() {
   );
 
   // FIX: backend uses 'state' not 'status'
-  const state       = order.state || 'Processing';
-  const statusStyle = STATUS_STYLE[state] || STATUS_STYLE.Processing;
+  const state = order.state || 'Processing';
 
   const STEPS = [
     { label: 'Order Placed', done: true,                                                     icon: 'bi-bag-check' },

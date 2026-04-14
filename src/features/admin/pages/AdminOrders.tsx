@@ -70,7 +70,6 @@ export default function AdminOrders() {
   const pages  = Math.ceil(total / PAGE_SIZE);
 
   const badge = (state: string) => {
-    const s = STATUS_COLOR[state] || { bg: 'var(--ivory)', color: 'var(--heirloom)' };
     return <span className="s-adminorders-3cbcde s-adminorders-28616f">{state || 'Pending'}</span>;
   };
 

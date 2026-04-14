@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/api/axiosInstance';
 import { formatPrice } from '@/shared/utils/helpers';
 
-function ReportCard({ title, value, icon, color, sub }: any) {
+function ReportCard({ title, value, icon, color: _color, sub }: any) {
   return (
     <div className="s-adminreports-ae3483">
       <div className="s-adminreports-b3de5e">

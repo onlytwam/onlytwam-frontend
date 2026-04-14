@@ -8,7 +8,7 @@
 //  ✅ CAT_IMAGE_MAP merged from both versions
 
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -17,6 +17,8 @@ import {
 } from "@/features/products/api/products.api";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
+import MobileProductCard from "@/features/products/components/MobileProductCard";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import ProductFilters, {
   ProductActiveFilters,
   getAppliedFilterCount,
@@ -91,6 +93,7 @@ const DEFAULT_FILTERS: ProductFilterState = {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ProductList() {
+  const isMobile = useIsMobile();
   const { categoryId } = useParams<{ categoryId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setCrumbs } = useBreadcrumbStore();
@@ -117,6 +120,14 @@ export default function ProductList() {
   const [isBestSeller, setIsBestSeller] = useState(urlBestSeller);
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Listen for sort button closing the filter
+  useEffect(() => {
+    const fn = () => setFilterOpen(false);
+    window.addEventListener("close-filter", fn);
+    return () => window.removeEventListener("close-filter", fn);
+  }, []);
+  const filterScrollY = useRef(0);
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
 
   // Safety-net: re-sync when URL params change while component stays mounted
@@ -126,15 +137,68 @@ export default function ProductList() {
     setSortOption(urlSort || "default");
   }, [urlSearch, urlBestSeller, urlSort]);
 
-  // Disable body scroll when filter drawer is open
+  // Filter drawer: scroll lock + positioning (mobile only)
   useEffect(() => {
-    document.body.style.overflow = filterOpen ? "hidden" : "";
-    document.body.style.paddingRight = filterOpen ? "0px" : "";
+    const btn = document.querySelector(".product-toolbar__filter-button");
+    if (btn) btn.classList.toggle("active", filterOpen);
+
+    if (!isMobile) {
+      // Desktop: simple body overflow lock
+      document.body.style.overflow = filterOpen ? "hidden" : "";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+
+    if (filterOpen) {
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      const catbar = document.querySelector(
+        ".mcb-wrapper",
+      ) as HTMLElement | null;
+      const catWasHidden =
+        catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
+      const toolbarTop = toolbar?.style.top || "108px";
+      const toolbarBottom = toolbar
+        ? Math.round(toolbar.getBoundingClientRect().bottom)
+        : 152;
+      filterScrollY.current = window.scrollY;
+      (window as any).__drawerOpen = true;
+      window.dispatchEvent(new Event("filter-opened"));
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100%";
+      if (catWasHidden && catbar) catbar.classList.add("mcb-wrapper--hidden");
+      else if (!catWasHidden && catbar)
+        catbar.classList.remove("mcb-wrapper--hidden");
+      if (toolbar) {
+        toolbar.style.top = toolbarTop;
+        toolbar.style.zIndex = "1210";
+      }
+      const offset = `${toolbarBottom}px`;
+      const drawer = document.querySelector(".gs-drawer") as HTMLElement | null;
+      const backdrop = document.querySelector(
+        ".gs-backdrop",
+      ) as HTMLElement | null;
+      if (drawer) {
+        drawer.style.top = offset;
+        drawer.style.height = `calc(100% - ${offset})`;
+      }
+      if (backdrop) backdrop.style.top = offset;
+    } else {
+      (window as any).__drawerOpen = false;
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      if (toolbar) toolbar.style.zIndex = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
+    }
     return () => {
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
     };
-  }, [filterOpen]);
+  }, [filterOpen, isMobile]);
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const { data: categoriesData } = useQuery({
@@ -289,16 +353,23 @@ export default function ProductList() {
   return (
     <div style={{ fontFamily: FONTS }}>
       {categoryImage && (
-        <div className="category-hero-banner">
-          <img src={categoryImage} alt={categoryName} loading="lazy" />
-        </div>
+        <img
+          src={categoryImage}
+          alt={categoryName}
+          loading="lazy"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+          }}
+        />
       )}
 
       {/* Toolbar: Filter button | Quick price | Sort dropdown | Product count */}
       <ProductToolbar
         productCount={groupedProducts.length}
         appliedFilterCount={appliedFilterCount}
-        onFilterClick={() => setFilterOpen(true)}
+        onFilterClick={() => setFilterOpen((o) => !o)}
         sortOption={sortOption}
         onSortChange={handleSortChange}
         onQuickPrice={handleQuickPrice}
@@ -328,7 +399,10 @@ export default function ProductList() {
       />
 
       {/* Product grid */}
-      <div className="container" style={{ padding: "40px 20px" }}>
+      <div
+        className="container"
+        style={{ padding: isMobile ? "0 14px" : "40px 20px" }}
+      >
         {productsLoading ? (
           <div
             style={{
@@ -378,21 +452,30 @@ export default function ProductList() {
               key={page}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: "30px",
-                marginBottom: "40px",
+                gridTemplateColumns: isMobile
+                  ? "repeat(2, 1fr)"
+                  : "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: isMobile ? "8px" : "30px",
+                marginBottom: isMobile ? "16px" : "40px",
               }}
             >
               {groupedProducts
                 .slice((page - 1) * pageSize, page * pageSize)
                 .map((product: any) => (
                   <div key={product.productId}>
-                    <ProductCard
-                      product={product}
-                      onQuickShop={setQuickShopId}
-                      showColors={true}
-                      delayedDiscountReveal={true}
-                    />
+                    {isMobile ? (
+                      <MobileProductCard
+                        product={product}
+                        onQuickShop={setQuickShopId}
+                      />
+                    ) : (
+                      <ProductCard
+                        product={product}
+                        onQuickShop={setQuickShopId}
+                        showColors={true}
+                        delayedDiscountReveal={true}
+                      />
+                    )}
                   </div>
                 ))}
             </div>
@@ -498,22 +581,8 @@ export default function ProductList() {
           0%   { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        .category-hero-banner {
-          width: 100%;
-          max-height: 300px;
-          overflow: hidden;
-        }
-        .category-hero-banner img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
+
       `}</style>
     </div>
   );
 }
-
-
-
-
-

@@ -13,6 +13,7 @@ import ProtectedRoute from "@/shared/components/ProtectedRoute";
 import AdminBar from "@/features/admin/components/AdminBar";
 import Breadcrumb from "@/shared/components/Breadcrumb";
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
+import { ProfileLeaveGuardProvider } from "@/shared/components/profileLeaveGuard";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -101,6 +102,14 @@ const BestSellers = lazy(() => import("@/features/products/pages/BestSellers"));
 function ProductListWithKey() {
   const { categoryId } = useParams<{ categoryId: string }>();
   return <ProductList key={categoryId ?? "all"} />;
+}
+
+function AccountLayoutWithGuard() {
+  return (
+    <ProfileLeaveGuardProvider>
+      <ProfileLayout />
+    </ProfileLeaveGuardProvider>
+  );
 }
 
 const ProductDetail = lazy(
@@ -359,18 +368,6 @@ const MainLayout = () => (
   </div>
 );
 
-// Simple layout wrapper for standalone pages that need Navbar/Footer but not ProfileLayout
-const SimpleLayout = () => (
-  <div className="s-app-22e1be">
-    <AdminBar />
-    <Navbar />
-    <main className="s-app-beb4d1">
-      <Outlet />
-    </main>
-    <Footer />
-  </div>
-);
-
 const PageLoader = () => (
   <div className="s-app-6f11a1">
     <div className="s-app-090d50" />
@@ -486,7 +483,7 @@ export default function App() {
 
           {/* ── Protected account pages ── */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/account" element={<ProfileLayout />}>
+            <Route path="/account" element={<AccountLayoutWithGuard />}>
               <Route
                 index
                 element={<Navigate to="/account/dashboard" replace />}

@@ -76,7 +76,7 @@ export default function AdminBlog() {
             {[['Title *','title'],['Author','author'],['Tags (comma-separated)','tags'],['Image URL','image']].map(([l,k]) => (
               <div key={k} className="s-adminblog-22a617"><label className="s-addressform-f1fb64">{l}</label><input value={modal[k] || ''} onChange={e => setModal({ ...modal, [k]: e.target.value })} className="inp-field" /></div>
             ))}
-            <div className="s-adminblog-22a617"><label className="s-addressform-f1fb64">Content *</label><textarea value={modal.content || ''} onChange={e => setModal({ ...modal, content: e.target.value })} rows={8} style={{ ...inp, resize: 'vertical' }} /></div>
+            <div className="s-adminblog-22a617"><label className="s-addressform-f1fb64">Content *</label><textarea value={modal.content || ''} onChange={e => setModal({ ...modal, content: e.target.value })} rows={8} style={{ resize: 'vertical' }} /></div>
             <div className="s-adminblog-19fd7a"><label className="s-adminblog-a07339"><input type="checkbox" checked={modal.isPublished || false} onChange={e => setModal({ ...modal, isPublished: e.target.checked })} />Published</label></div>
             <div className="s-adminblog-679e96">
               <button onClick={() => setModal(null)} className="s-adminblog-78f775">Cancel</button>

@@ -10,7 +10,7 @@ export default function ReturnOrder() {
   const navigate = useNavigate();
   const { getUserId } = useAuthStore();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['returnable-orders'],

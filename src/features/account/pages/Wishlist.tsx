@@ -2,7 +2,7 @@
 // Uses same ProductCard as Home page — no separate card component needed
 
 import { useState, useEffect } from "react";
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
@@ -21,20 +21,19 @@ import {
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
 import ProductCard from "@/features/products/components/ProductCard";
-const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
-const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
+import MobileProductCard from "@/features/products/components/MobileProductCard";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
 // ─── Product Slider (UPDATED) ────────────────────────────────────────────────
 
 /* ── Main Wishlist Page ───────────────────────────────────────────────────── */
 export default function Wishlist() {
+  const isMobile = useIsMobile();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
   const prevPath =
-    (location.state as any)?.from ||
-    sessionStorage.getItem("lastPage") ||
-    "/";
+    (location.state as any)?.from || sessionStorage.getItem("lastPage") || "/";
   const { getUserId, hasValidToken, setWishlistCount, wishlistCount } =
     useAuthStore();
   const { removeId: removeWishlistId, reset: resetWishlistStore } =
@@ -81,11 +80,7 @@ export default function Wishlist() {
         item.name ||
         "Product",
       image:
-        item.imageURL ||
-        item.imageurl ||
-        item.image ||
-        meta?.imageURL ||
-        "",
+        item.imageURL || item.imageurl || item.image || meta?.imageURL || "",
       hoverImage:
         item.hoverImage ||
         item.image2 ||
@@ -93,7 +88,10 @@ export default function Wishlist() {
         item.backImage ||
         meta?.hoverImage ||
         "",
-      images: Array.isArray(item.images) && item.images.length ? item.images : meta?.images || [],
+      images:
+        Array.isArray(item.images) && item.images.length
+          ? item.images
+          : meta?.images || [],
       price: item.finalPrice || item.finalprice || item.price || 0,
       oldPrice: item.mrpPrice || item.mrpprice || item.oldPrice || 0,
       rating:
@@ -123,11 +121,7 @@ export default function Wishlist() {
         meta?.colorName ||
         "",
       colorHex:
-        item.colorHex ||
-        item.colourHex ||
-        item.hexCode ||
-        meta?.colorHex ||
-        "",
+        item.colorHex || item.colourHex || item.hexCode || meta?.colorHex || "",
       brandName:
         item.brandName ||
         item.brand ||
@@ -174,90 +168,97 @@ export default function Wishlist() {
         <div>
           <h1 className="s-wishlist-b993f0 s-wishlist-ffaa1fea">
             <i className="bi bi-heart-fill s-wishlist-9d41a6" />
-              My Wishlist
-            </h1>
-            <p className="s-wishlist-4735d5">
-              {displayItems.length === 0
-                ? "Your wishlist is empty"
-                : `${displayItems.length} saved item${displayItems.length !== 1 ? "s" : ""}`}
-              {isGuest && <span className="s-wishlist-a22f7a">Guest</span>}
-            </p>
-          </div>
-          {displayItems.length > 0 && (
-            <button
-              onClick={() => navigate(prevPath)}
-              className="s-wishlist-693b7a s-wishlist-ffaa1fea"
-            >
-              <i className="bi bi-arrow-left" /> Continue Shopping
-            </button>
-          )}
+            My Wishlist
+          </h1>
+          <p className="s-wishlist-4735d5">
+            {displayItems.length === 0
+              ? "Your wishlist is empty"
+              : `${displayItems.length} saved item${displayItems.length !== 1 ? "s" : ""}`}
+            {isGuest && <span className="s-wishlist-a22f7a">Guest</span>}
+          </p>
         </div>
-
-        {/* Sync banner */}
-        {!isGuest && guestItems.length > 0 && (
-          <div className="s-wishlist-73d46c">
-            <span className="s-wishlist-19ae95">
-              <strong>{guestItems.length}</strong> item
-              {guestItems.length !== 1 ? "s" : ""} saved before signing in.
-            </span>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="s-wishlist-7c0503 s-wishlist-ffaa1fea"
-            >
-              {syncing ? "Syncing…" : "Sync to account"}
-            </button>
-          </div>
+        {displayItems.length > 0 && (
+          <button
+            onClick={() => navigate(prevPath)}
+            className="s-wishlist-693b7a s-wishlist-ffaa1fea"
+          >
+            <i className="bi bi-arrow-left" /> Continue Shopping
+          </button>
         )}
+      </div>
 
-        {/* Sign-in nudge for guests */}
-        {isGuest && displayItems.length > 0 && (
-          <div className="s-wishlist-73d46c">
-            <span className="s-wishlist-19ae95">
-              <strong>Sign in</strong> to save your wishlist across devices.
-            </span>
-            <button
-              onClick={() => navigate("/login")}
-              className="s-wishlist-7c0503 s-wishlist-ffaa1fea"
-            >
-              Sign In
-            </button>
+      {/* Sync banner */}
+      {!isGuest && guestItems.length > 0 && (
+        <div className="s-wishlist-73d46c">
+          <span className="s-wishlist-19ae95">
+            <strong>{guestItems.length}</strong> item
+            {guestItems.length !== 1 ? "s" : ""} saved before signing in.
+          </span>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="s-wishlist-7c0503 s-wishlist-ffaa1fea"
+          >
+            {syncing ? "Syncing…" : "Sync to account"}
+          </button>
+        </div>
+      )}
+
+      {/* Sign-in nudge for guests */}
+      {isGuest && displayItems.length > 0 && (
+        <div className="s-wishlist-73d46c">
+          <span className="s-wishlist-19ae95">
+            <strong>Sign in</strong> to save your wishlist across devices.
+          </span>
+          <button
+            onClick={() => navigate("/login")}
+            className="s-wishlist-7c0503 s-wishlist-ffaa1fea"
+          >
+            Sign In
+          </button>
+        </div>
+      )}
+
+      {/* Loading */}
+      {isLoading && !isGuest && (
+        <div className="s-wishlist-444f00">
+          <div className="s-wishlist-037958" />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && displayItems.length === 0 && (
+        <div className="s-wishlist-9466fd">
+          <div className="s-wishlist-1540d2">
+            <i className="bi bi-heart s-wishlist-cc38d3" />
           </div>
-        )}
+          <h3 className="s-wishlist-25a118 s-wishlist-ffaa1fea">
+            Your wishlist is empty
+          </h3>
+          <p className="s-wishlist-6c13a8">
+            Save items you love by clicking the heart icon on any product.
+          </p>
+          <button
+            onClick={() => navigate(prevPath)}
+            className="s-wishlist-dbc514 s-wishlist-ffaa1fea"
+          >
+            <i className="bi bi-arrow-left" /> Continue Shopping
+          </button>
+        </div>
+      )}
 
-        {/* Loading */}
-        {isLoading && !isGuest && (
-          <div className="s-wishlist-444f00">
-            <div className="s-wishlist-037958" />
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!isLoading && displayItems.length === 0 && (
-          <div className="s-wishlist-9466fd">
-            <div className="s-wishlist-1540d2">
-              <i className="bi bi-heart s-wishlist-cc38d3" />
-            </div>
-            <h3 className="s-wishlist-25a118 s-wishlist-ffaa1fea">
-              Your wishlist is empty
-            </h3>
-            <p className="s-wishlist-6c13a8">
-              Save items you love by clicking the heart icon on any product.
-            </p>
-            <button
-              onClick={() => navigate(prevPath)}
-              className="s-wishlist-dbc514 s-wishlist-ffaa1fea"
-            >
-              <i className="bi bi-arrow-left" /> Continue Shopping
-            </button>
-          </div>
-        )}
-
-        {/* Product grid — same card as Home */}
-        {!isLoading && displayItems.length > 0 && (
-          <>
-            <div className="wl-grid s-wishlist-7d2408">
-              {displayItems.map((item: any) => (
+      {/* Product grid — same card as Home */}
+      {!isLoading && displayItems.length > 0 && (
+        <>
+          <div className="wl-grid s-wishlist-7d2408">
+            {displayItems.map((item: any) =>
+              isMobile ? (
+                <MobileProductCard
+                  key={item.productVariantId}
+                  product={item}
+                  onQuickShop={setQuickShopId}
+                />
+              ) : (
                 <ProductCard
                   key={item.productVariantId}
                   product={item}
@@ -274,50 +275,50 @@ export default function Wishlist() {
                           }),
                         )
                         .catch(() => toast.error("Could not remove"));
-                      // Update store so Navbar badge decrements instantly
                       removeWishlistId(item.productVariantId);
                       setWishlistCount(Math.max(0, wishlistCount - 1));
                     }
                     toast("Removed from wishlist", { icon: "💔" });
                   }}
                 />
-              ))}
-            </div>
-            <div className="s-wishlist-4b3d6a">
-              <button
-                onClick={() => {
-                  if (isGuest) clearGuestWishlist();
-                  else {
-                    Promise.all(
-                      authItems.map((i: any) =>
-                        deleteWishlistVariant(i.productVariantId),
-                      ),
-                    )
-                      .then(() => {
-                        qc.invalidateQueries({
-                          queryKey: ["wishlist", userId],
-                        });
-                        resetWishlistStore();
-                        setWishlistCount(0);
-                      })
-                      .catch(() => toast.error("Could not clear wishlist"));
-                  }
-                  toast.success("Wishlist cleared");
-                }}
-                className="s-wishlist-e1731e s-wishlist-ff77776b"
-              >
-                <i className="bi bi-trash3" /> Clear wishlist
-              </button>
-            </div>
-          </>
-        )}
+              ),
+            )}
+          </div>
+          <div className="s-wishlist-4b3d6a">
+            <button
+              onClick={() => {
+                if (isGuest) clearGuestWishlist();
+                else {
+                  Promise.all(
+                    authItems.map((i: any) =>
+                      deleteWishlistVariant(i.productVariantId),
+                    ),
+                  )
+                    .then(() => {
+                      qc.invalidateQueries({
+                        queryKey: ["wishlist", userId],
+                      });
+                      resetWishlistStore();
+                      setWishlistCount(0);
+                    })
+                    .catch(() => toast.error("Could not clear wishlist"));
+                }
+                toast.success("Wishlist cleared");
+              }}
+              className="s-wishlist-e1731e s-wishlist-ff77776b"
+            >
+              <i className="bi bi-trash3" /> Clear wishlist
+            </button>
+          </div>
+        </>
+      )}
 
-        {quickShopId > 0 && (
-          <QuickShopModal
-            productVariantId={quickShopId}
-            onClose={() => setQuickShopId(0)}
-          />
-        )}
-      </div>
+      {quickShopId > 0 && (
+        <QuickShopModal
+          productVariantId={quickShopId}
+          onClose={() => setQuickShopId(0)}
+        />
+      )}
+    </div>
   );
 }

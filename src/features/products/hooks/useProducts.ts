@@ -90,7 +90,7 @@ export function useAddToWishlist() {
       userProfileId: string;
       state?: string;
     }) => createWishlist(data),
-    onSuccess: (_data: any, variables: { userProfileId: string }) => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: productKeys.wishlist(variables.userProfileId) });
     },
   });

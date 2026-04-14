@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import UserAvatar from "@/shared/components/UserAvatar";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
 import { useMenuStore } from "@/shared/store/menuStore";
 import { getCategories } from "@/features/auth/api/auth.api";
@@ -8,6 +9,9 @@ import type { CategoryMenu } from "@/shared/types";
 import QuickCart from "@/features/cart/components/QuickCart";
 import { getGuestWishlistCount } from "@/shared/utils/guestWishlist";
 import toast from "react-hot-toast";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
+import MobileNavbar from "@/shared/components/MobileNavbar";
+import MobileCategoryBar from "@/shared/components/MobileCategoryBar";
 
 const TEXTS = [
   "Hello, Beautiful.",
@@ -73,10 +77,19 @@ function AssetImg({
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, getUserName, logout, cartCount, hasValidToken } =
-    useAuthStore();
+  const {
+    isAuthenticated,
+    getUserName,
+    logout,
+    cartCount,
+    hasValidToken,
+    user,
+  } = useAuthStore();
   const { serverIds: wishlistServerIds } = useWishlistStore();
   const { menus, setMenus } = useMenuStore();
+
+  // On mobile: delegate to MobileNavbar + MobileCategoryBar
+  const isMobile = useIsMobile();
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -135,6 +148,8 @@ export default function Navbar() {
   const displayWishlistCount = hasValidToken()
     ? wishlistServerIds.size
     : guestWishlistCount;
+  const userName = getUserName();
+  const profileImageUrl = (user as any)?.profileImageUrl || "";
 
   /* ── body scroll lock when sidebar open ────────────────── */
   useEffect(() => {
@@ -202,7 +217,7 @@ export default function Navbar() {
     if (searchOpen) setTimeout(() => searchInput.current?.focus(), 60);
   }, [searchOpen]);
 
-  /* ── load menus ─────────────────────────────────────────── */
+  /* ── load menus — runs on both mobile and desktop ─────── */
   useEffect(() => {
     const cached = sessionStorage.getItem("menus");
     if (cached) {
@@ -220,6 +235,16 @@ export default function Navbar() {
       })
       .catch(() => {});
   }, []);
+
+  // Mobile: render dedicated mobile components, skip desktop render
+  if (isMobile) {
+    return (
+      <>
+        <MobileNavbar />
+        <MobileCategoryBar menus={menus} />
+      </>
+    );
+  }
 
   /* ── typing hint ────────────────────────────────────────── */
   useEffect(() => {
@@ -326,6 +351,8 @@ export default function Navbar() {
   /* ══════════════════════════════════════════════════════════
       RENDER
   ══════════════════════════════════════════════════════════ */
+
+  /* ── Desktop layout ─────────────────────────────────────────────────────── */
   return (
     <>
       <header
@@ -359,7 +386,7 @@ export default function Navbar() {
           >
             <AssetImg
               names={[
-                "/assets/Twam-Logo-Black.png",
+                "/assets/Twam-Logo-Burgundy.png",
                 "/assets/TWAM.png",
                 "/assets/twam-logo.png",
               ]}
@@ -373,7 +400,7 @@ export default function Navbar() {
             </p>
           </Link>
 
-          {/* Search Box - Expands relative to remaining space */}
+          {/* Search Box */}
           <div
             ref={searchRef}
             className={`nb-search-region${searchOpen ? " nb-search-region--open" : ""}`}
@@ -465,89 +492,51 @@ export default function Navbar() {
                 onClick={() => navigate("/login")}
                 aria-label="Sign in"
               >
-                <i className="bi bi-person-circle" />
-                <span className="nb-login-text">Sign In</span>
+                <i className="bi bi-person" />
               </button>
             ) : (
               <div ref={userMenuRef} className="nb-user-wrap">
                 <button
                   className="nb-icon-btn nb-user-btn"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    navigate("/account/dashboard");
-                  }}
+                  onClick={() => setIsUserMenuOpen((open) => !open)}
                   aria-label="Account"
+                  aria-expanded={isUserMenuOpen}
+                  aria-haspopup="menu"
                 >
-                  <span className="nb-avatar">
-                    {getUserName()?.charAt(0)?.toUpperCase() || "?"}
-                  </span>
-                  <span className="nb-user-name">{getUserName()}</span>
+                  <UserAvatar
+                    name={userName}
+                    imageUrl={profileImageUrl}
+                    size={48}
+                    fallbackMode="initial"
+                    className="nb-avatar"
+                    style={{
+                      background: "var(--brand)",
+                      color: "var(--white)",
+                      border: "none",
+                      boxShadow: "none",
+                    }}
+                  />
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="nb-user-dropdown">
-                    <div className="nb-user-dropdown__head">
-                      <p className="nb-user-dropdown__name">{getUserName()}</p>
-                      <p className="nb-user-dropdown__sub">My Account</p>
-                    </div>
-                    <ul className="nb-user-menu">
-                      {[
-                        {
-                          icon: "bi-grid-1x2",
-                          label: "Dashboard",
-                          path: "/account/dashboard",
-                        },
-                        {
-                          icon: "bi-person",
-                          label: "My Profile",
-                          path: "/account/update-profile",
-                        },
-                        {
-                          icon: "bi-bag",
-                          label: "My Orders",
-                          path: "/account/orders-list",
-                        },
-                        {
-                          icon: "bi-heart",
-                          label: "Wishlist",
-                          path: "/account/wishlist",
-                        },
-                        {
-                          icon: "bi-geo-alt",
-                          label: "Addresses",
-                          path: "/account/address-list",
-                        },
-                        {
-                          icon: "bi-ticket-perforated",
-                          label: "Coupons",
-                          path: "/account/coupons-list",
-                        },
-                        {
-                          icon: "bi-bell",
-                          label: "Notifications",
-                          path: "/account/notifications",
-                        },
-                        {
-                          icon: "bi-lock",
-                          label: "Change Password",
-                          path: "/account/change-password",
-                        },
-                      ].map((item) => (
-                        <li key={item.path}>
-                          <button
-                            className="nb-user-menu__item"
-                            onClick={() => {
-                              navigate(item.path);
-                              setIsUserMenuOpen(false);
-                            }}
-                          >
-                            <i className={`bi ${item.icon}`} /> {item.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="nb-user-dropdown__footer">
+                  <div
+                    className="nb-user-dropdown"
+                    role="menu"
+                    aria-label="Account options"
+                  >
+                    <div className="nb-user-menu">
                       <button
+                        type="button"
+                        className="nb-user-menu__item"
+                        onClick={() => {
+                          navigate("/account/dashboard");
+                          setIsUserMenuOpen(false);
+                        }}
+                      >
+                        <i className="bi bi-grid-1x2" /> User Dashboard
+                      </button>
+                      <button
+                        type="button"
                         className="nb-user-menu__signout"
                         onClick={handleLogout}
                       >
@@ -604,11 +593,21 @@ export default function Navbar() {
             {/* Account header shown at top if authenticated */}
             {isAuthenticated && (
               <div className="nb-drawer__account">
-                <span className="nb-drawer__avatar">
-                  {getUserName()?.charAt(0)?.toUpperCase()}
-                </span>
+                <UserAvatar
+                  name={userName}
+                  imageUrl={profileImageUrl}
+                  size={38}
+                  fallbackMode="initial"
+                  className="nb-drawer__avatar"
+                  style={{
+                    background: "rgba(255, 255, 255, 0.22)",
+                    color: "var(--white)",
+                    border: "1px solid rgba(255, 255, 255, 0.22)",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)",
+                  }}
+                />
                 <div>
-                  <p className="nb-drawer__username">{getUserName()}</p>
+                  <p className="nb-drawer__username">{userName}</p>
                   <button
                     className="nb-drawer__view-account"
                     onClick={() => {

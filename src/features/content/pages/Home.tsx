@@ -1,3 +1,5 @@
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
+import MobileProductCard from "@/features/products/components/MobileProductCard";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -44,7 +46,6 @@ function ProductSlider({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number | null>(null);
   const pausedRef = useRef(false);
   const isJumping = useRef(false);
   const navigate = useNavigate();
@@ -81,7 +82,9 @@ function ProductSlider({
 
   const measure = useCallback(() => {
     const sw = window.innerWidth;
-    const v = sw < 640 ? 1 : sw < 1024 ? 2 : 6;
+    // Mobile (<640px): 2 cards visible (standard for fashion apps — Zivame/Myntra)
+    // Tablet (<1024px): 3 cards  |  Desktop: 6 cards
+    const v = sw < 640 ? 2 : sw < 1024 ? 3 : 6;
     const wrapWidth = wrapRef.current?.clientWidth ?? sw;
     const trackWidth = showArrows ? wrapWidth - 88 : wrapWidth;
     const c = Math.floor((trackWidth - GAP * (v - 1)) / v);
@@ -129,28 +132,24 @@ function ProductSlider({
 
   useEffect(() => {
     if (!shouldScroll || singleW === 0) return;
-    let lastTime = 0;
-    const PX_PER_MS = 0.04;
-    const tick = (now: number) => {
-      if (
-        !pausedRef.current &&
-        !document.body.dataset.qsPaused &&
-        scrollRef.current
-      ) {
-        const delta = now - lastTime;
-        scrollRef.current.scrollLeft += PX_PER_MS * delta;
-      }
-      lastTime = now;
-      rafRef.current = requestAnimationFrame(tick);
+
+    // Step scroll: advance by (vis) cards every 5 seconds, then pause.
+    // This matches standard e-commerce carousel UX (Zivame, Myntra, Clovia).
+    const INTERVAL_MS = 5000;
+
+    const step = () => {
+      if (pausedRef.current || !scrollRef.current) return;
+      // Scroll forward by exactly `vis` card widths
+      const stepPx = vis * (cw + GAP);
+      scrollRef.current.scrollTo({
+        left: scrollRef.current.scrollLeft + stepPx,
+        behavior: "smooth",
+      });
     };
-    rafRef.current = requestAnimationFrame((now) => {
-      lastTime = now;
-      tick(now);
-    });
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [shouldScroll, singleW]);
+
+    const id = setInterval(step, INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [shouldScroll, singleW, vis, cw]);
 
   const pause = () => {
     pausedRef.current = true;
@@ -398,6 +397,218 @@ function BrandsSection({ logos: _logos }: { logos: any[] }) {
   );
 }
 
+// ─── Mobile Product Slider ───────────────────────────────────────────────────
+function MobileProductSlider({
+  title,
+  products,
+  onQuickShop,
+  viewAllPath,
+  variant = "twam",
+}: {
+  title: string;
+  products: any[];
+  onQuickShop: (id: number) => void;
+  viewAllPath?: string;
+  variant?: "twam" | "bestsellers" | "new";
+}) {
+  const navigate = useNavigate();
+  const [index, setIndex] = useState(0);
+
+  // Touch swipe state
+  const touchStartX = useRef(0);
+  const touchDeltaX = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  };
+  const handleTouchEnd = () => {
+    if (touchDeltaX.current < -40) next();
+    else if (touchDeltaX.current > 40) prev();
+    touchDeltaX.current = 0;
+  };
+
+  // Typing animation state
+  const [typed, setTyped] = useState("");
+  const [phase, setPhase] = useState<"typing" | "wait" | "erasing">("typing");
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+    if (phase === "typing") {
+      if (typed.length < title.length) {
+        timeout = setTimeout(
+          () => setTyped(title.slice(0, typed.length + 1)),
+          80,
+        );
+      } else {
+        timeout = setTimeout(() => setPhase("wait"), 4000);
+      }
+    } else if (phase === "wait") {
+      timeout = setTimeout(() => setPhase("erasing"), 100);
+    } else {
+      if (typed.length > 0) {
+        timeout = setTimeout(
+          () => setTyped(title.slice(0, typed.length - 1)),
+          50,
+        );
+      } else {
+        timeout = setTimeout(() => setPhase("typing"), 300);
+      }
+    }
+    return () => clearTimeout(timeout);
+  }, [typed, phase, title]);
+
+  const uniqueProducts = useMemo(() => {
+    const seen = new Set<number>();
+    return products.filter((p) => {
+      if (seen.has(p.productVariantId)) return false;
+      seen.add(p.productVariantId);
+      return true;
+    });
+  }, [products]);
+
+  const total = uniqueProducts.length;
+  if (!total) return null;
+
+  const prev = () => setIndex((i) => (i - 2 + total) % total);
+  const next = () => setIndex((i) => (i + 2) % total);
+
+  const card0 = uniqueProducts[index % total];
+  const card1 = uniqueProducts[(index + 1) % total];
+
+  const bgSrc =
+    variant === "twam"
+      ? "/assets/twam-featured.png"
+      : variant === "bestsellers"
+        ? "/assets/best-sellers.png"
+        : variant === "new"
+          ? "/assets/new-arrivals.png"
+          : null;
+
+  return (
+    <div className={`mpsl-outer mpsl-outer--${variant}`}>
+      {bgSrc && (
+        <img src={bgSrc} alt="" aria-hidden="true" className="mpsl-bg-img" />
+      )}
+      <div className={`mpsl-wrap mpsl-wrap--${variant}`}>
+        {/* Section header — variant-aware */}
+        {variant === "twam" && (
+          <div className="mpsl-header mpsl-header--twam">
+            <div className="mpsl-title-wrap">
+              <div className="mpsl-eyebrow">Our Selection</div>
+              <span className="mpsl-title-text">
+                {typed}
+                <span className="mpsl-cursor">|</span>
+              </span>
+              <div className="mpsl-title-underline" />
+            </div>
+            {viewAllPath && (
+              <button
+                className="mpsl-view-all"
+                onClick={() => navigate(viewAllPath)}
+              >
+                View All →
+              </button>
+            )}
+          </div>
+        )}
+        {variant === "bestsellers" && (
+          <div className="mpsl-header mpsl-header--bs">
+            <div className="mpsl-title-wrap">
+              <div className="mpsl-ghost-star">★</div>
+              <span className="mpsl-title-text mpsl-title-text--bs">
+                {typed}
+                <span className="mpsl-cursor mpsl-cursor--bs">|</span>
+              </span>
+              <div className="mpsl-title-underline mpsl-title-underline--bs" />
+            </div>
+            {viewAllPath && (
+              <button
+                className="mpsl-view-all mpsl-view-all--bs"
+                onClick={() => navigate(viewAllPath)}
+              >
+                View All →
+              </button>
+            )}
+          </div>
+        )}
+        {variant === "new" && (
+          <div className="mpsl-header mpsl-header--new">
+            <div className="mpsl-title-wrap">
+              <div className="mpsl-eyebrow mpsl-eyebrow--new">Just Dropped</div>
+              <span className="mpsl-title-text mpsl-title-text--new">
+                {typed}
+                <span className="mpsl-cursor mpsl-cursor--new">|</span>
+              </span>
+              <div className="mpsl-title-underline mpsl-title-underline--new" />
+            </div>
+            {viewAllPath && (
+              <button
+                className="mpsl-view-all mpsl-view-all--new"
+                onClick={() => navigate(viewAllPath)}
+              >
+                View All →
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Cards: staggered, arrows overlaid left/right, swipe to navigate */}
+        <div
+          className="mpsl-track"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Left arrow — overlaid on left edge */}
+          <button
+            className="mpsl-arrow mpsl-arrow--left"
+            onClick={prev}
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+
+          <div className="mpsl-cards">
+            {/* Card 0: top */}
+            <div className="mpsl-card mpsl-card--top">
+              <MobileProductCard product={card0} onQuickShop={onQuickShop} />
+            </div>
+            {/* Card 1: bottom-right, offset down */}
+            {card1 && (
+              <div className="mpsl-card mpsl-card--bottom">
+                <MobileProductCard product={card1} onQuickShop={onQuickShop} />
+              </div>
+            )}
+          </div>
+
+          {/* Right arrow — overlaid on right edge */}
+          <button
+            className="mpsl-arrow mpsl-arrow--right"
+            onClick={next}
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
+
+        {/* Dots */}
+        <div className="mpsl-dots">
+          {Array.from({ length: Math.ceil(total / 2) }).map((_, i) => (
+            <span
+              key={i}
+              className={`mpsl-dot${Math.floor(index / 2) === i ? " mpsl-dot--active" : ""}`}
+              onClick={() => setIndex(i * 2)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── TWAM Featured Section ───────────────────────────────────────────────────
 function TwamFeaturedSection({
   products,
@@ -406,18 +617,267 @@ function TwamFeaturedSection({
   products: any[];
   onQuickShop: (id: number) => void;
 }) {
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const TWAM_PATH = "/global-search?q=TWAM";
+
+  if (isMobile) {
+    return (
+      <MobileProductSlider
+        title="TWAM Featured"
+        products={products}
+        onQuickShop={onQuickShop}
+        viewAllPath={TWAM_PATH}
+        variant="twam"
+      />
+    );
+  }
   return (
-    <section className="best-sellers" style={{ background: "#fff" }}>
-      <div className="container">
-        <SectionTitle title="TWAM Featured" />
+    <section
+      className="best-sellers"
+      style={{
+        background: "var(--ivory)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Background image — contained, no crop */}
+      <img
+        src="/assets/twam-featured.png"
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          objectPosition: "right center",
+          opacity: 0.08,
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
+      <div className="container" style={{ position: "relative", zIndex: 1 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 4,
+          }}
+        >
+          <SectionTitle title="TWAM Featured" />
+          <button
+            onClick={() => navigate(TWAM_PATH)}
+            className="s-home-54af6d"
+            style={{ marginBottom: 12 }}
+          >
+            View All →
+          </button>
+        </div>
         <ProductSlider products={products} onQuickShop={onQuickShop} />
       </div>
     </section>
   );
 }
 
+// ─── Mobile Testimonial ──────────────────────────────────────────────────────
+function MobileTestimonial({
+  reviews,
+  navigate,
+}: {
+  reviews: any[];
+  navigate: (path: string) => void;
+}) {
+  const [idx, setIdx] = useState(0);
+  const touchStartX = useRef(0);
+  const touchDeltaX = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const total = reviews.length;
+
+  const next = useCallback(() => setIdx((i) => (i + 1) % total), [total]);
+  const prev = () => setIdx((i) => (i - 1 + total) % total);
+
+  // Auto-scroll every 5s
+  useEffect(() => {
+    if (total < 2) return;
+    timerRef.current = setInterval(next, 5000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [next, total]);
+
+  const resetTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(next, 5000);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  };
+  const handleTouchEnd = () => {
+    if (touchDeltaX.current < -40) {
+      next();
+      resetTimer();
+    } else if (touchDeltaX.current > 40) {
+      prev();
+      resetTimer();
+    }
+    touchDeltaX.current = 0;
+  };
+
+  if (!total) return null;
+  const r = reviews[idx];
+  const canNav = !!r.productVariantId;
+
+  return (
+    <section
+      className="mob-testimonial-card"
+      style={{
+        background: "#fff",
+        padding: "28px 22px 24px",
+        borderTop: "0.5px solid rgba(107,15,42,0.1)",
+      }}
+    >
+      {/* Eyebrow */}
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "#9e6070",
+          marginBottom: 16,
+          fontFamily: '"Trebuchet MS","Gill Sans",Arial,sans-serif',
+        }}
+      >
+        What women say
+      </div>
+
+      {/* Swipeable quote area */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => {
+          if (canNav)
+            navigate(
+              `/user-products/product-detail/${r.productVariantId}/${(r.productName || "product").toLowerCase().replace(/\s+/g, "-")}?tab=reviews`,
+            );
+        }}
+        style={{ cursor: canNav ? "pointer" : "default", minHeight: 120 }}
+      >
+        {/* Stars */}
+        <div style={{ display: "flex", gap: 3, marginBottom: 14 }}>
+          {Array.from({ length: 5 }).map((_, j) => (
+            <span
+              key={j}
+              style={{
+                fontSize: 12,
+                color: j < (r.rating ?? 5) ? "#6b0f2a" : "#f5f0e6",
+              }}
+            >
+              ★
+            </span>
+          ))}
+        </div>
+
+        {/* Quote */}
+        <p
+          style={{
+            fontFamily: '"Palatino Linotype",Palatino,Georgia,serif',
+            fontSize: 16,
+            fontWeight: 700,
+            color: "#000",
+            lineHeight: 1.4,
+            marginBottom: 16,
+          }}
+        >
+          &ldquo;{r.comment}&rdquo;
+        </p>
+
+        {/* Rule */}
+        <div
+          style={{
+            height: 0.5,
+            background: "rgba(107,15,42,0.12)",
+            marginBottom: 12,
+          }}
+        />
+
+        {/* Attribution */}
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "#9e6070",
+            fontFamily: '"Trebuchet MS","Gill Sans",Arial,sans-serif',
+          }}
+        >
+          {r.name || r.displayName}
+        </div>
+        {r.productName && (
+          <div
+            style={{
+              fontSize: 8,
+              color: "rgba(107,15,42,0.4)",
+              marginTop: 2,
+              fontWeight: 600,
+              fontFamily: '"Trebuchet MS","Gill Sans",Arial,sans-serif',
+            }}
+          >
+            {r.productName}
+          </div>
+        )}
+      </div>
+
+      {/* Dot indicators */}
+      {total > 1 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 5,
+            marginTop: 18,
+            justifyContent: "center",
+          }}
+        >
+          {reviews.map((_, i) => (
+            <span
+              key={i}
+              onClick={() => {
+                setIdx(i);
+                resetTimer();
+              }}
+              style={{
+                width: i === idx ? 18 : 6,
+                height: 6,
+                borderRadius: i === idx ? 3 : "50%",
+                background: i === idx ? "#6b0f2a" : "rgba(107,15,42,0.15)",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                display: "inline-block",
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ─── Main Home Component ─────────────────────────────────────────────────────
 export default function Home() {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { menus, setMenus } = useMenuStore();
   const [selectedCategoryId, setSelectedCategoryId] = useState(0);
@@ -636,14 +1096,16 @@ export default function Home() {
 
   return (
     <div className="s-home-bcf04f">
-      {/* TWAM Banner */}
+      {/* TWAM Banner — mobile uses mobile-banner.png */}
       <section className="product-offers" aria-label="TWAM Banner">
         <img
-          src="/assets/40-offer.png"
+          src={isMobile ? "/assets/mobile-banner.png" : "106802.png"}
           className="img-fluid"
           alt="TWAM Banner"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = "/assets/40-offer.jpg";
+            (e.target as HTMLImageElement).src = isMobile
+              ? "/assets/mobile-banner.jpg"
+              : "/assets/106802.png";
           }}
         />
       </section>
@@ -654,62 +1116,197 @@ export default function Home() {
         products={twamFeaturedProducts}
         onQuickShop={setQuickShopId}
       />
+
+      {/* Testimonials — mobile only: right below TWAM Featured */}
+      {isMobile && reviews.length > 0 && (
+        <MobileTestimonial reviews={reviews} navigate={navigate} />
+      )}
+
       <div className="section-gap" />
 
-      <section className="best-sellers best-sellers-bg best-sellers-bg-1 s-home-42eb71">
-        <div className="container">
-          <SectionTitle title="Best Sellers" highlight />
-          <ProductSlider
-            products={products}
-            onQuickShop={setQuickShopId}
-            viewAllPath="/best-sellers"
-          />
-        </div>
-      </section>
-      <div className="section-gap" />
-
-      <section className="best-sellers s-home-51e4ca">
-        <div className="container">
-          <SectionTitle title="New Arrivals" highlight />
-          <ProductSlider
-            products={newArrivals}
-            onQuickShop={setQuickShopId}
-            viewAllPath="/new-arrivals"
-          />
-        </div>
-      </section>
-      <div className="section-gap" />
-
-      <section className="s-home-7af910">
-        <div className="container">
-          <SectionTitle title="Shop by Category" highlight />
-          <div className="category-buttons s-home-5e0218">
-            {menus.map((cat: CategoryMenu) => (
-              <button
-                key={cat.categoryId}
-                onClick={() => handleCategorySelect(cat)}
-                className={`${selectedCategoryId === cat.categoryId ? "active" : ""} s-home-2574d7`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-          {categoryProducts === null ? (
-            <div className="s-home-0b4322">
-              <div className="s-home-0349cd" />
-            </div>
-          ) : categoryProducts.length > 0 ? (
+      {isMobile ? (
+        <MobileProductSlider
+          title="Best Sellers"
+          products={products}
+          onQuickShop={setQuickShopId}
+          viewAllPath="/best-sellers"
+          variant="bestsellers"
+        />
+      ) : (
+        <section className="best-sellers best-sellers-bg best-sellers-bg-1 s-home-42eb71">
+          <div className="container">
+            <SectionTitle title="Best Sellers" highlight />
             <ProductSlider
-              products={categoryProducts}
+              products={products}
               onQuickShop={setQuickShopId}
+              viewAllPath="/best-sellers"
             />
-          ) : (
-            <p className="s-home-374f3d">No products in this category yet.</p>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
+      <div className="section-gap" />
 
-      {reviews.length > 0 && (
+      {isMobile ? (
+        <MobileProductSlider
+          title="New Arrivals"
+          products={newArrivals}
+          onQuickShop={setQuickShopId}
+          viewAllPath="/new-arrivals"
+          variant="new"
+        />
+      ) : (
+        <section className="best-sellers s-home-51e4ca">
+          <div className="container">
+            <SectionTitle title="New Arrivals" highlight />
+            <ProductSlider
+              products={newArrivals}
+              onQuickShop={setQuickShopId}
+              viewAllPath="/new-arrivals"
+            />
+          </div>
+        </section>
+      )}
+      <div className="section-gap" />
+
+      {isMobile ? (
+        /* ── V2 Brand Promise — Pure White, mobile only ── */
+        <section
+          className="mob-promise-card"
+          style={{
+            background: "#ffffff",
+            padding: "34px 22px 30px",
+            borderTop: "0.5px solid rgba(0,0,0,0.07)",
+            borderBottom: "0.5px solid rgba(0,0,0,0.07)",
+          }}
+        >
+          {/* Eyebrow */}
+          <div style={{ marginBottom: 16 }}>
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.24em",
+                textTransform: "uppercase",
+                color: "#9e6070",
+                fontFamily: '"Trebuchet MS","Gill Sans",Arial,sans-serif',
+                marginBottom: 5,
+              }}
+            >
+              The TWAM Promise
+            </p>
+            <div
+              style={{
+                height: 2,
+                width: 52,
+                background: "#9e6070",
+                borderRadius: 1,
+                opacity: 0.5,
+              }}
+            />
+          </div>
+
+          {/* Top rule */}
+          <div
+            style={{
+              height: 0.5,
+              background: "#000",
+              opacity: 0.08,
+              marginBottom: 22,
+            }}
+          />
+
+          {/* Serif quote */}
+          <p
+            style={{
+              fontFamily: '"Palatino Linotype",Palatino,Georgia,serif',
+              fontSize: 20,
+              fontWeight: 700,
+              color: "#000",
+              lineHeight: 1.28,
+              marginBottom: 8,
+            }}
+          >
+            &ldquo;You deserve comfort without compromise.&rdquo;
+          </p>
+
+          {/* Attribution */}
+          <p
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "#9e6070",
+              marginBottom: 26,
+              fontFamily: '"Trebuchet MS","Gill Sans",Arial,sans-serif',
+            }}
+          >
+            — Designed for every woman
+          </p>
+
+          {/* Bottom rule */}
+          <div
+            style={{
+              height: 0.5,
+              background: "#000",
+              opacity: 0.08,
+              marginBottom: 22,
+            }}
+          />
+
+          {/* Primary CTA — burgundy */}
+          <button
+            onClick={() => navigate("/user-products/product-list")}
+            style={{
+              width: "100%",
+              padding: "14px 0",
+              background: "#6b0f2a",
+              border: "none",
+              borderRadius: 10,
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#fff",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              fontFamily: '"Trebuchet MS","Gill Sans",Arial,sans-serif',
+            }}
+          >
+            Shop Full Collection
+          </button>
+        </section>
+      ) : (
+        /* ── Shop by Category — desktop unchanged ── */
+        <section className="s-home-7af910">
+          <div className="container">
+            <SectionTitle title="Shop by Category" highlight />
+            <div className="category-buttons s-home-5e0218">
+              {menus.map((cat: CategoryMenu) => (
+                <button
+                  key={cat.categoryId}
+                  onClick={() => handleCategorySelect(cat)}
+                  className={`${selectedCategoryId === cat.categoryId ? "active" : ""} s-home-2574d7`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            {categoryProducts === null ? (
+              <div className="s-home-0b4322">
+                <div className="s-home-0349cd" />
+              </div>
+            ) : categoryProducts.length > 0 ? (
+              <ProductSlider
+                products={categoryProducts}
+                onQuickShop={setQuickShopId}
+              />
+            ) : (
+              <p className="s-home-374f3d">No products in this category yet.</p>
+            )}
+          </div>
+        </section>
+      )}
+      {reviews.length > 0 && !isMobile && (
         <>
           <div className="section-gap" />
           <section className="testimonial-section">

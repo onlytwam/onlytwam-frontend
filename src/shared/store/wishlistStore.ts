@@ -9,7 +9,7 @@
  */
 
 import { create } from 'zustand';
-import { getGuestWishlist, isInGuestWishlist } from '@/shared/utils/guestWishlist';
+import { isInGuestWishlist } from '@/shared/utils/guestWishlist';
 
 interface WishlistStoreState {
   /** Set of productVariantIds the logged-in user has wishlisted */

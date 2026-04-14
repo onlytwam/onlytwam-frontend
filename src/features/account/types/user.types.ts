@@ -6,8 +6,10 @@ export interface User {
   email: string;
   name: string;
   firstName?: string;
+  middleName?: string;
   lastName?: string;
   phoneNumber?: string;
+  profileImageUrl?: string;
   roleId: number;
 }
 

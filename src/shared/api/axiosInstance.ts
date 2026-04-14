@@ -3,18 +3,26 @@
 //      so Zustand in-memory state is cleared (not just localStorage).
 //      Lazy import avoids circular dependency.
 
-import axios from "axios";
+import axios, { AxiosHeaders } from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api",
-  headers: { "Content-Type": "application/json" },
   timeout: 30000,
 });
 
 // ── Request: attach JWT ────────────────────────────────────────────────────
 api.interceptors.request.use((config) => {
+  const headers = AxiosHeaders.from(config.headers);
   const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  // Ensure browser sets multipart boundary correctly for file uploads.
+  if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+    headers.delete("Content-Type");
+    headers.delete("content-type");
+  }
+
+  config.headers = headers;
   return config;
 });
 

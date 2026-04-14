@@ -1,11 +1,12 @@
 // Fixed: removed unused useQuery import (ts6133 warning)
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { createAddress, updateAddress, listAddress } from '@/features/orders/api/orders.api';
 import api from '@/shared/api/axiosInstance';
+import { lookupPincode, reverseGeocode, resolveStateId } from '@/shared/utils/addressLocation';
 
 const emptyForm = {
   name: '', phone: '', addressLine: '', locality: '',
@@ -25,6 +26,9 @@ export default function AddressForm() {
   const [form, setForm]     = useState({ ...emptyForm });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<any[]>([]);
+  const [pinStatus, setPinStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
+  const [geoLoading, setGeoLoading] = useState(false);
+  const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load states from MDM (public endpoint — no auth needed)
   useEffect(() => {
@@ -54,6 +58,87 @@ export default function AddressForm() {
     });
   }, [id, isEdit, userId]);
 
+  useEffect(() => {
+    if (pinTimer.current) clearTimeout(pinTimer.current);
+    const pin = form.pinCode.trim();
+    if (pin.length < 6) {
+      if (pin.length > 0) setPinStatus('idle');
+      return;
+    }
+    if (!/^\d{6}$/.test(pin)) {
+      setPinStatus('error');
+      return;
+    }
+
+    setPinStatus('loading');
+    pinTimer.current = setTimeout(async () => {
+      const data = await lookupPincode(pin);
+      if (!data) {
+        setPinStatus('error');
+        setErrors((e) => ({ ...e, pinCode: 'Please enter a valid pincode' }));
+        return;
+      }
+
+      setPinStatus('ok');
+      setErrors((e) => {
+        const next = { ...e };
+        delete next.pinCode;
+        return next;
+      });
+
+      const matchedStateId = resolveStateId(states, data.state);
+      setForm((f) => ({
+        ...f,
+        city: f.city || data.city,
+        stateId: f.stateId ?? matchedStateId,
+      }));
+    }, 600);
+
+    return () => {
+      if (pinTimer.current) clearTimeout(pinTimer.current);
+    };
+  }, [form.pinCode, states]);
+
+  const handleGeoFill = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const geo = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+        if (!geo) {
+          toast.error('Could not fetch location details. Please fill manually.');
+          setGeoLoading(false);
+          return;
+        }
+
+        const matchedStateId = resolveStateId(states, geo.state);
+        setForm((f) => ({
+          ...f,
+          addressLine: f.addressLine || geo.road,
+          locality: f.locality || geo.suburb,
+          city: f.city || geo.city,
+          stateId: f.stateId ?? matchedStateId,
+          pinCode: f.pinCode || geo.postcode,
+        }));
+        toast.success('Location auto-filled. Please verify the details.');
+        setGeoLoading(false);
+      },
+      (err) => {
+        setGeoLoading(false);
+        if (err.code === 1) {
+          toast.error('Location access denied. Enable location or fill address manually.');
+        } else {
+          toast.error('Could not detect location. Please fill manually.');
+        }
+      },
+      { timeout: 10000, enableHighAccuracy: true },
+    );
+  };
+
   const saveMutation = useMutation({
     mutationFn: () =>
       isEdit
@@ -77,12 +162,22 @@ export default function AddressForm() {
     if (!form.city.trim())        e.city        = 'City is required';
     if (!form.pinCode.trim())     e.pinCode     = 'Pincode is required';
     else if (!/^\d{6}$/.test(form.pinCode)) e.pinCode = '6-digit pincode required';
+    if (states.length > 0 && !form.stateId) e.stateId = 'State is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const set = (field: string, val: any) =>
     setForm(f => ({ ...f, [field]: val }));
+
+  const clearError = (...keys: string[]) =>
+    setErrors((e) => {
+      const next = { ...e };
+      keys.forEach((k) => delete next[k]);
+      return next;
+    });
+
+  const pinBorder = pinStatus === 'ok' || pinStatus === 'error' ? 'var(--brand)' : 'var(--ivory)';
 
   return (
     <>
@@ -99,6 +194,29 @@ export default function AddressForm() {
       </div>
 
       <div className="s-addressform-b04dc9">
+        <div className="s-paymentaddre-12ca4c" style={{ marginBottom: 18 }}>
+          <span className="s-paymentaddre-786faa s-paymentaddre-ffd8281d">
+            <i className="bi bi-geo-alt s-paymentaddre-21c065" />
+            Auto-fill your city, state and area from your current location
+          </span>
+          <button
+            type="button"
+            onClick={handleGeoFill}
+            disabled={geoLoading}
+            className="s-paymentaddre-8db409"
+            style={{
+              background: geoLoading ? 'var(--ivory)' : 'var(--brand)',
+              color: geoLoading ? 'var(--brand)' : '#fff',
+              fontFamily: '"Trebuchet MS", Arial, sans-serif',
+              cursor: geoLoading ? 'wait' : 'pointer',
+            }}
+          >
+            {geoLoading
+              ? <><span className="s-paymentaddre-eb8efd" /> Detecting...</>
+              : <><i className="bi bi-geo-alt-fill s-couponslist-030edf" /> Use My Location</>
+            }
+          </button>
+        </div>
 
         {/* Full name */}
         <div>
@@ -135,19 +253,47 @@ export default function AddressForm() {
             {errors.city && <p className="auth-err-text">{errors.city}</p>}
           </div>
           <div>
-            <label className="s-addressform-f1fb64">Pincode *</label>
-            <input value={form.pinCode} onChange={e => set('pinCode', e.target.value)} className="inp-field" placeholder="6-digit pincode" maxLength={6} />
-            {errors.pinCode && <p className="auth-err-text">{errors.pinCode}</p>}
+            <label className="s-addressform-f1fb64">
+              Pincode *
+              {pinStatus === 'loading' && (
+                <span className="s-paymentaddre-2afd25">
+                  <span className="s-paymentaddre-981cc0" />
+                  Verifying...
+                </span>
+              )}
+              {pinStatus === 'ok' && (
+                <span className="s-paymentaddre-b0868f">
+                  <i className="bi bi-check-circle-fill" /> Valid
+                </span>
+              )}
+            </label>
+            <input
+              value={form.pinCode}
+              onChange={e => {
+                const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+                set('pinCode', v);
+                if (v.length < 6) setPinStatus('idle');
+                clearError('pinCode');
+              }}
+              className="inp-field"
+              placeholder="6-digit pincode"
+              maxLength={6}
+              style={{ borderColor: pinBorder }}
+            />
+            {errors.pinCode && pinStatus === 'error' && <p className="auth-err-text">{errors.pinCode}</p>}
           </div>
         </div>
 
         {/* State */}
         {states.length > 0 && (
           <div>
-            <label className="s-addressform-f1fb64">State</label>
+            <label className="s-addressform-f1fb64">State *</label>
             <select
               value={form.stateId ?? ''}
-              onChange={e => set('stateId', e.target.value ? Number(e.target.value) : null)}
+              onChange={e => {
+                set('stateId', e.target.value ? Number(e.target.value) : null);
+                clearError('stateId');
+              }}
               className="inp-field s-addressform-ebd15a"
             >
               <option value="">Select State</option>
@@ -155,6 +301,7 @@ export default function AddressForm() {
                 <option key={s.stateId} value={s.stateId}>{s.stateName || s.name}</option>
               ))}
             </select>
+            {errors.stateId && <p className="auth-err-text">{errors.stateId}</p>}
           </div>
         )}
 
@@ -197,7 +344,7 @@ export default function AddressForm() {
           </button>
           <button
             onClick={() => { if (validate()) saveMutation.mutate(); }}
-            disabled={saveMutation.isPending}
+            disabled={saveMutation.isPending || pinStatus === 'loading'}
             className="s-addressform-54d247" style={ {opacity: saveMutation.isPending ? 0.7 : 1} }>
             {saveMutation.isPending ? 'Saving…' : isEdit ? 'Update Address' : 'Save Address'}
           </button>

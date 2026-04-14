@@ -45,7 +45,7 @@ function StatusBadge({ status }: { status: string }) {
 function TrackingStep({ label, done, active }: { label: string; done: boolean; active: boolean }) {
   return (
     <div className="d-flex flex-column align-items-center s-app-52dcac">
-      <div className="s-orderslist-bc2f44" style={ {background: done || active ? '#000000' : 'var(--ivory)', color: done || active ? '#fff' : 'var(--heirloom)'} }>
+      <div className="s-orderslist-bc2f44" style={ {background: done || active ? 'var(--brand)' : 'var(--ivory)', color: done || active ? '#fff' : 'var(--heirloom)'} }>
         {done ? <i className="bi bi-check" /> : ''}
       </div>
       <span className="s-orderslist-e909eb" style={ {color: active ? '#000000' : 'var(--heirloom)', fontWeight: active ? 600 : 400} }>
@@ -161,7 +161,7 @@ export default function OrdersList() {
                   {!['Cancelled', 'Failed', 'Refunded'].includes(state) && (
                     <div className="mb-4">
                       <div className="d-flex align-items-center position-relative">
-                        <div className="s-orderslist-2a0d32" style={ {background: stepIdx >= 1 ? '#000000' : 'var(--ivory)'} } />
+                        <div className="s-orderslist-2a0d32" style={ {background: stepIdx >= 1 ? 'var(--brand)' : 'var(--ivory)'} } />
                         {TRACKING_STEPS.map((step, i) => (
                           <TrackingStep key={step} label={step} done={i < stepIdx} active={i === stepIdx} />
                         ))}

@@ -396,10 +396,6 @@ export default function AdminBulkUpload() {
                           }
                         </td>
                         {preview.columns.map((col, ci) => {
-                          // Map column label back to field key
-                          const fieldKey = Object.keys(row).find(k =>
-                            k !== '_row' && k !== '_errors' && ci < preview.columns.length
-                          );
                           const fields = Object.keys(row).filter(k => k !== '_row' && k !== '_errors');
                           const val = fields[ci] ? row[fields[ci]] : '';
                           return (

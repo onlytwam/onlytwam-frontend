@@ -14,8 +14,284 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listOrders } from '@/features/orders/api/orders.api';
+import { formatPrice, getImageUrl, slugify } from '@/shared/utils/helpers';
 import api from '@/shared/api/axiosInstance';
 import { resolveHex } from '@/shared/utils/colorHelpers';
+
+const ORDER_PAGE_SIZE = 10;
+
+const ORDER_SORT_OPTIONS = [
+  { value: 'latest', label: 'Latest' },
+  { value: 'oldest', label: 'Oldest' },
+  { value: 'amount_desc', label: 'Amount: High to Low' },
+  { value: 'amount_asc', label: 'Amount: Low to High' },
+];
+
+const ORDER_STATUS_TONES: Record<
+  string,
+  { background: string; color: string; borderColor: string }
+> = {
+  Delivered: { background: 'var(--ivory)', color: 'var(--brand)', borderColor: 'var(--brand)' },
+  Shipped: { background: 'var(--brand)', color: 'var(--white)', borderColor: 'var(--brand)' },
+  Processing: { background: 'var(--blush)', color: 'var(--white)', borderColor: 'var(--blush)' },
+  Confirmed: { background: 'var(--heirloom)', color: 'var(--white)', borderColor: 'var(--heirloom)' },
+  Pending: { background: 'var(--ivory)', color: 'var(--heirloom)', borderColor: 'var(--heirloom)' },
+  Cancelled: { background: 'var(--brand)', color: 'var(--white)', borderColor: 'var(--brand)' },
+  Refunded: { background: 'var(--heirloom)', color: 'var(--white)', borderColor: 'var(--heirloom)' },
+  Returned: { background: 'var(--ivory)', color: 'var(--heirloom)', borderColor: 'var(--heirloom)' },
+  'Return Initiated': { background: 'var(--ivory)', color: 'var(--brand)', borderColor: 'var(--brand)' },
+  Failed: { background: 'var(--blush)', color: 'var(--white)', borderColor: 'var(--blush)' },
+};
+
+function getOrderItemsList(order: any): any[] {
+  return order?.orderItems || order?.orderDetails || order?.items || [];
+}
+
+function getOrderDateValue(order: any): string | Date | undefined {
+  return order?.orderDate || order?.createdDate || order?.createdAt;
+}
+
+function formatOrderDateTime(value: string | Date | undefined): string {
+  if (!value) return 'No date available';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'No date available';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(parsed);
+}
+
+function getOrderStatusTone(state: string) {
+  return ORDER_STATUS_TONES[state] || ORDER_STATUS_TONES.Pending;
+}
+
+function getBuyAgainHref(item: any): string {
+  const variantId = item?.productVariantId || item?.productVariantDetailId;
+  const name = item?.productName || item?.name || 'product';
+
+  if (variantId) {
+    return `/user-products/product-detail/${variantId}/${slugify(name)}`;
+  }
+
+  return '/user-products/product-list';
+}
+
+function OrderSummaryCard({ order }: { order: any }) {
+  const items = getOrderItemsList(order);
+  const firstItem = items[0] || {};
+  const state = order?.state || 'Pending';
+  const orderNumber = order?.orderNumber || String(order?.orderId || '').slice(-8);
+  const placedOn = formatOrderDateTime(getOrderDateValue(order));
+  const productName = firstItem.productName || firstItem.name || 'Order item';
+  const productImage = firstItem.productImage || firstItem.image || firstItem.imageURL || '';
+  const imageSrc = getImageUrl(productImage, '/assets/category-bg.png');
+  const qty = Number(firstItem.quantity || 1);
+  const unitPrice = Number(firstItem.price || 0);
+  const meta = [
+    firstItem.color ? `Color ${firstItem.color}` : '',
+    firstItem.size ? `Size ${firstItem.size}` : '',
+    firstItem.cupSize ? `Cup ${firstItem.cupSize}` : '',
+  ].filter(Boolean);
+  const moreItems = items.length > 1
+    ? `+${items.length - 1} more item${items.length - 1 === 1 ? '' : 's'}`
+    : '';
+  const statusTone = getOrderStatusTone(state);
+
+  return (
+    <article className="orders-card">
+      <div className="orders-card__top">
+        <div className="orders-card__top-left">
+          <span
+            className="orders-status-pill"
+            style={{
+              background: statusTone.background,
+              color: statusTone.color,
+              borderColor: statusTone.borderColor,
+            }}
+          >
+            {state}
+          </span>
+          <span className="orders-card__placed">Placed on {placedOn}</span>
+        </div>
+
+        <div className="orders-card__number">Order No: {orderNumber}</div>
+      </div>
+
+      <div className="orders-card__body">
+        <div className="orders-card__thumb">
+          {productImage ? (
+            <img
+              src={imageSrc}
+              alt={productName}
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.endsWith('/assets/category-bg.png')) {
+                  target.src = '/assets/category-bg.png';
+                }
+              }}
+            />
+          ) : (
+            <i className="bi bi-bag orders-card__thumb-placeholder" />
+          )}
+        </div>
+
+        <div className="orders-card__info">
+          <h3 className="orders-card__title">{productName}</h3>
+
+          <div className="orders-card__meta">
+            {meta.map((value) => (
+              <span key={value}>{value}</span>
+            ))}
+            <span>
+              {items.length} item{items.length !== 1 ? 's' : ''}
+            </span>
+            {moreItems && <span>{moreItems}</span>}
+          </div>
+
+          <div className="orders-card__price">
+            <span>{formatPrice(unitPrice)}</span>
+            <span className="orders-card__price-qty">Qty {qty}</span>
+          </div>
+        </div>
+
+        <div className="orders-card__actions">
+          <Link to={getBuyAgainHref(firstItem)} className="orders-card__button orders-card__button--primary">
+            Buy it again
+          </Link>
+          <Link to={`/order-details/${order.orderId}`} className="orders-card__button orders-card__button--secondary">
+            View details
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default function OrdersList() {
+  const { getUserId } = useAuthStore();
+  const userId = getUserId();
+  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'amount_desc' | 'amount_asc'>('latest');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['orders', userId, page],
+    queryFn: () =>
+      listOrders({
+        userProfileId: userId,
+        pageNumber: page,
+        pageSize: ORDER_PAGE_SIZE,
+      }),
+    enabled: !!userId,
+  });
+
+  const orders = Array.isArray(data?.list) ? data.list : [];
+  const totalCount = data?.count ?? orders.length;
+
+  const sortedOrders = [...orders].sort((a: any, b: any) => {
+    const aTime = new Date(getOrderDateValue(a) || 0).getTime();
+    const bTime = new Date(getOrderDateValue(b) || 0).getTime();
+    const aAmount = Number(a?.totalAmount || a?.subTotal || 0);
+    const bAmount = Number(b?.totalAmount || b?.subTotal || 0);
+
+    switch (sortBy) {
+      case 'oldest':
+        return aTime - bTime;
+      case 'amount_desc':
+        return bAmount - aAmount;
+      case 'amount_asc':
+        return aAmount - bAmount;
+      case 'latest':
+      default:
+        return bTime - aTime;
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="orders-page__loading">
+        <div className="spinner-border" style={{ color: 'var(--brand)' }} />
+      </div>
+    );
+  }
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / ORDER_PAGE_SIZE));
+
+  return (
+    <div className="orders-page">
+      <div className="orders-page__header">
+        <h2 className="orders-page__title">My Orders</h2>
+
+        <div className="orders-page__sort">
+          <label htmlFor="orders-sort" className="orders-page__sort-label">
+            Sort by
+          </label>
+          <select
+            id="orders-sort"
+            className="orders-page__select"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value as typeof sortBy);
+              setPage(1);
+            }}
+          >
+            {ORDER_SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {sortedOrders.length === 0 ? (
+        <div className="orders-empty">
+          <div className="orders-empty__icon">
+            <i className="bi bi-bag-x" />
+          </div>
+          <h3 className="orders-empty__title">No orders found</h3>
+          <p className="orders-empty__text">Your order history will appear here.</p>
+          <Link to="/user-products/product-list" className="orders-card__button orders-card__button--primary">
+            Start shopping
+          </Link>
+        </div>
+      ) : (
+        <div className="orders-page__list">
+          {sortedOrders.map((order: any) => (
+            <OrderSummaryCard key={order.orderId} order={order} />
+          ))}
+        </div>
+      )}
+
+      {totalCount > ORDER_PAGE_SIZE && (
+        <div className="orders-pagination">
+          <button
+            type="button"
+            className="orders-pagination__button"
+            disabled={page === 1}
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+          >
+            <i className="bi bi-chevron-left" />
+          </button>
+          <button type="button" className="orders-pagination__button orders-pagination__button--active">
+            {page}
+          </button>
+          <button
+            type="button"
+            className="orders-pagination__button"
+            disabled={page >= totalPages}
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+          >
+            <i className="bi bi-chevron-right" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const ORDER_FILTERS = [
   'All', 'Pending', 'Confirmed', 'Processing',
@@ -45,7 +321,7 @@ function StatusBadge({ status }: { status: string }) {
 function TrackingStep({ label, done, active }: { label: string; done: boolean; active: boolean }) {
   return (
     <div className="d-flex flex-column align-items-center s-app-52dcac">
-      <div className="s-orderslist-bc2f44" style={ {background: done || active ? '#000000' : 'var(--ivory)', color: done || active ? '#fff' : 'var(--heirloom)'} }>
+      <div className="s-orderslist-bc2f44" style={ {background: done || active ? 'var(--brand)' : 'var(--ivory)', color: done || active ? '#fff' : 'var(--heirloom)'} }>
         {done ? <i className="bi bi-check" /> : ''}
       </div>
       <span className="s-orderslist-e909eb" style={ {color: active ? '#000000' : 'var(--heirloom)', fontWeight: active ? 600 : 400} }>
@@ -55,7 +331,7 @@ function TrackingStep({ label, done, active }: { label: string; done: boolean; a
   );
 }
 
-export default function OrdersList() {
+export function LegacyOrdersListExpanded() {
   const navigate  = useNavigate();
   const qc        = useQueryClient();
   const { getUserId } = useAuthStore();
@@ -91,17 +367,30 @@ export default function OrdersList() {
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to cancel order'),
   });
 
-  const orders     = data?.list ?? [];
+  const orders     = Array.isArray(data?.list) ? data.list : [];
   const totalCount = data?.count ?? orders.length;
 
   const fmt = (d: string) => d
-    ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    ? new Date(d).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })
     : '—';
   const price = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
   if (isLoading) return (
     <div className="d-flex justify-content-center py-5"><div className="spinner-border text-secondary" /></div>
   );
+
+  const sortedOrders = [...orders].sort((a: any, b: any) => {
+    const aTime = new Date(a.orderDate || a.createdDate || a.createdAt || 0).getTime();
+    const bTime = new Date(b.orderDate || b.createdDate || b.createdAt || 0).getTime();
+    return bTime - aTime;
+  });
 
   return (
     <>
@@ -122,14 +411,14 @@ export default function OrdersList() {
         ))}
       </div>
 
-      {orders.length === 0 ? (
+      {sortedOrders.length === 0 ? (
         <div className="text-center py-5">
           <i className="bi bi-bag-x s-orderslist-94e3bd" />
           <p className="text-muted">No orders found.</p>
           <Link to="/user-products/product-list" className="btn btn-dark btn-sm">Start Shopping</Link>
         </div>
       ) : (
-        orders.map((order: any) => {
+        sortedOrders.map((order: any) => {
           const isExpanded = expandedId === order.orderId;
           // FIX: use order.state not order.status
           const state     = order.state || 'Pending';
@@ -146,7 +435,7 @@ export default function OrdersList() {
                     Order #{order.orderNumber || String(order.orderId).slice(-8)}
                   </span>
                   <span className="text-muted ms-3 s-couponslist-030edf">
-                    {fmt(order.orderDate)}
+                    {fmt(order.orderDate || order.createdDate || order.createdAt)}
                   </span>
                 </div>
                 <div className="d-flex align-items-center gap-3">
@@ -162,7 +451,7 @@ export default function OrdersList() {
                   {!['Cancelled', 'Failed', 'Refunded'].includes(state) && (
                     <div className="mb-4">
                       <div className="d-flex align-items-center position-relative">
-                        <div className="s-orderslist-2a0d32" style={ {background: stepIdx >= 1 ? '#000000' : 'var(--ivory)'} } />
+                        <div className="s-orderslist-2a0d32" style={ {background: stepIdx >= 1 ? 'var(--brand)' : 'var(--ivory)'} } />
                         {TRACKING_STEPS.map((step, i) => (
                           <TrackingStep key={step} label={step} done={i < stepIdx} active={i === stepIdx} />
                         ))}

@@ -341,7 +341,8 @@ function hasCupSizeOption(source: any): boolean {
 
   if (readPositiveId(source, CUP_SIZE_ID_KEYS) !== null) return true;
 
-  if (Array.isArray(source?.cupSizes) && source.cupSizes.length > 0) return true;
+  if (Array.isArray(source?.cupSizes) && source.cupSizes.length > 0)
+    return true;
 
   return CUP_SIZE_LABEL_KEYS.some((key) => {
     const value = source?.[key];
@@ -504,11 +505,11 @@ export function ProductActiveFilters({
   );
   const allSizes = useMemo(
     () =>
-      normalizeOptionList(sizesData?.list || [], ["sizeId", "id"], [
-        "sizeLabel",
-        "label",
-        "name",
-      ]),
+      normalizeOptionList(
+        sizesData?.list || [],
+        ["sizeId", "id"],
+        ["sizeLabel", "label", "name"],
+      ),
     [sizesData],
   );
   const allCupSizes = useMemo(
@@ -560,7 +561,9 @@ export function ProductActiveFilters({
                 className="bi bi-x s-globalsearch-7b6f74"
                 onClick={() =>
                   updateFilters({
-                    colorFamilies: filters.colorFamilies.filter((x) => x !== fam),
+                    colorFamilies: filters.colorFamilies.filter(
+                      (x) => x !== fam,
+                    ),
                     colors: filters.colors.filter(
                       (color) => !familyColors.includes(color),
                     ),
@@ -723,11 +726,11 @@ export default function ProductFilters({
   const colorGroups = useMemo(() => groupColors(allColors), [allColors]);
   const allSizes = useMemo(
     () =>
-      normalizeOptionList(sizesData?.list || [], ["sizeId", "id"], [
-        "sizeLabel",
-        "label",
-        "name",
-      ]),
+      normalizeOptionList(
+        sizesData?.list || [],
+        ["sizeId", "id"],
+        ["sizeLabel", "label", "name"],
+      ),
     [sizesData],
   );
   const allCupSizes = useMemo(
@@ -1112,7 +1115,8 @@ export default function ProductFilters({
                     hoveredSliderValue !== null ? " active" : ""
                   }`}
                 >
-                  Rs.{(hoveredSliderValue ?? PRICE_FLOOR).toLocaleString("en-IN")}
+                  Rs.
+                  {(hoveredSliderValue ?? PRICE_FLOOR).toLocaleString("en-IN")}
                 </div>
                 {/* Track */}
                 <div

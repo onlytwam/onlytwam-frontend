@@ -1,28 +1,23 @@
-// src/features/orders/api/orders.api.ts — Fixed
+// src/features/orders/api/orders.api.ts
 //
-// Fixes:
-//   1. listAddress: returns normalised list (handles both {list:[]} and [])
-//   2. createAddress / updateAddress: correct field names matching backend schema
-//   3. trackShipment: calls correct Ekart tracking URL
-//   4. createOrder: full payload including shippingAddressId
-//   5. getOrderDetail: included
-//   6. Admin: Ekart config CRUD
+// FIXES APPLIED:
+//   1. 'Order.Property': 'orderDate' (was 'OrderDate' — wrong PascalCase)
+//      Python getattr(Orders, 'OrderDate') returns None → no sort applied → stale order of results
+//   2. All other code unchanged — no UI impact
 
-import api from '@/shared/api/axiosInstance';
-import type { OrderModel } from '@/shared/types';
-
+import api from "@/shared/api/axiosInstance";
 // Helper: build Filters JSON string
-const toFilters = (kvs: Record<string, any>, op = 'eq'): string =>
+const toFilters = (kvs: Record<string, any>, op = "eq"): string =>
   JSON.stringify(
     Object.entries(kvs)
-      .filter(([, v]) => v !== undefined && v !== null && v !== '')
-      .map(([property, value]) => ({ property, comparison: op, value }))
+      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([property, value]) => ({ property, comparison: op, value })),
   );
 
 // ── Orders ────────────────────────────────────────────────────────────────────
 
 export const createOrder = async (data: any) => {
-  const response = await api.post('/Orders', data);
+  const response = await api.post("/Orders", data);
   return response.data;
 };
 
@@ -37,26 +32,43 @@ export const listOrders = async (params?: {
   pageNumber?: number;
   pageSize?: number;
 }) => {
-  const filters: Array<{ property: string; comparison: string; value: any }> = [];
+  const filters: Array<{ property: string; comparison: string; value: any }> =
+    [];
   if (params?.userProfileId)
-    filters.push({ property: 'userProfileId', comparison: 'eq', value: params.userProfileId });
+    filters.push({
+      property: "userProfileId",
+      comparison: "eq",
+      value: params.userProfileId,
+    });
   if (params?.status)
-    filters.push({ property: 'state', comparison: 'eq', value: params.status });
+    filters.push({ property: "state", comparison: "eq", value: params.status });
 
-  const response = await api.get('/Orders', {
+  const response = await api.get("/Orders", {
     params: {
       ...(filters.length ? { Filters: JSON.stringify(filters) } : {}),
-      'Page.Index': params?.pageNumber ?? 1,
-      'Page.Size': params?.pageSize ?? 10,
-      'Order.Property': 'OrderDate',
-      'Order.Ascending': false,
+      "Page.Index": params?.pageNumber ?? 1,
+      "Page.Size": params?.pageSize ?? 10,
+      // FIX: SQLAlchemy model attribute is camelCase 'orderDate', not PascalCase 'OrderDate'
+      // getattr(Orders, 'OrderDate') returns None → ordering silently skipped
+      "Order.Property": "orderDate",
+      "Order.Ascending": false,
     },
   });
   return response.data;
 };
 
 export const getOrderTracking = async (orderId: number) => {
-  const response = await api.post('/Orders/order-tracking', { orderId });
+  const response = await api.post("/Orders/order-tracking", { orderId });
+  return response.data;
+};
+
+export const cancelOrder = async (data: {
+  orderId: number;
+  isRefund: boolean;
+  reason: string;
+  platform?: string;
+}) => {
+  const response = await api.post("/Orders/CancelOrder", data);
   return response.data;
 };
 
@@ -80,14 +92,14 @@ export const listAddress = async (params?: { userProfileId?: string }) => {
   // NOTE: Backend auto-filters by authenticated user's userProfileId for non-staff.
   // We still send it so the query key is unique per user.
   const q: Record<string, any> = {
-    'Page.Size': 50,
-    'Order.Property': 'CreatedDate',
-    'Order.Ascending': false,
+    "Page.Size": 50,
+    "Order.Property": "CreatedDate",
+    "Order.Ascending": false,
   };
   if (params?.userProfileId) {
     q.Filters = toFilters({ userProfileId: params.userProfileId });
   }
-  const response = await api.get('/Address', { params: q });
+  const response = await api.get("/Address", { params: q });
   // Return the list array directly
   return normaliseAddressList(response.data);
 };
@@ -99,7 +111,7 @@ export const getAddressById = async (id: number) => {
 
 export const createAddress = async (data: any) => {
   const payload = buildAddressPayload(data);
-  const response = await api.post('/Address', payload);
+  const response = await api.post("/Address", payload);
   return response.data;
 };
 
@@ -117,39 +129,38 @@ export const deleteAddress = async (id: number) => {
 // Build address payload — matches backend AddressCreate/AddressUpdate schema
 function buildAddressPayload(data: any) {
   return {
-    name:             data.name,
-    phone:            data.phone ?? data.mobileNumber ?? '',
-    addressLine:      buildAddressLine(data),
-    locality:         data.locality ?? '',
-    city:             data.city ?? '',
-    pinCode:          data.pinCode ?? data.pincode ?? '',
-    stateId:          data.stateId ?? null,
-    countryId:        data.countryId ?? 1,
-    typeId:           data.addressType === 'Work' ? 2 : 1,
-    isDefault:        data.isDefault ?? false,
+    name: data.name,
+    phone: data.phone ?? data.mobileNumber ?? "",
+    addressLine: buildAddressLine(data),
+    locality: data.locality ?? "",
+    city: data.city ?? "",
+    pinCode: data.pinCode ?? data.pincode ?? "",
+    stateId: data.stateId ?? null,
+    countryId: data.countryId ?? 1,
+    typeId: data.addressType === "Work" ? 2 : 1,
+    isDefault: data.isDefault ?? false,
     isBillingAddress: data.isBillingAddress ?? false,
-    userProfileId:    data.userProfileId ?? '',
-    personalId:       0,
+    userProfileId: data.userProfileId ?? "",
+    personalId: 0,
   };
 }
 
 function buildAddressLine(data: any): string {
-  const parts = [
-    data.houseNo || '',
-    data.addressLine || data.address || '',
-  ]
+  const parts = [data.houseNo || "", data.addressLine || data.address || ""]
     .map((s) => s.trim())
     .filter(Boolean);
-  return parts.join(', ');
+  return parts.join(", ");
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 
-export const listNotifications = async (params?: { userProfileId?: string }) => {
+export const listNotifications = async (params?: {
+  userProfileId?: string;
+}) => {
   const q: Record<string, any> = {};
   if (params?.userProfileId)
     q.Filters = toFilters({ userProfileId: params.userProfileId });
-  const response = await api.get('/Notification', { params: q });
+  const response = await api.get("/Notification", { params: q });
   return response.data;
 };
 
@@ -159,24 +170,27 @@ export const listUserCoupons = async (params?: { userProfileId?: string }) => {
   const q: Record<string, any> = {};
   if (params?.userProfileId)
     q.Filters = toFilters({ userProfileId: params.userProfileId });
-  const response = await api.get('/Coupons/UserList', { params: q });
+  const response = await api.get("/Coupons/UserList", { params: q });
   return response.data;
 };
 
 // ── Admin: Ekart Config ───────────────────────────────────────────────────────
 
 export const getEkartConfig = async () => {
-  const response = await api.get('/Ekart/Config');
+  const response = await api.get("/Ekart/Config");
   return response.data;
 };
 
-export const updateEkartConfig = async (configId: number, data: Record<string, any>) => {
+export const updateEkartConfig = async (
+  configId: number,
+  data: Record<string, any>,
+) => {
   const response = await api.put(`/Ekart/Config/${configId}`, data);
   return response.data;
 };
 
 export const getEkartReadiness = async () => {
-  const response = await api.get('/Ekart/Readiness');
+  const response = await api.get("/Ekart/Readiness");
   return response.data;
 };
 
@@ -184,7 +198,7 @@ export const createEkartShipment = async (payload: {
   order_id: number;
   manual_tracking_id?: string;
 }) => {
-  const response = await api.post('/Ekart/CreateShipment', payload);
+  const response = await api.post("/Ekart/CreateShipment", payload);
   return response.data;
 };
 
@@ -194,6 +208,6 @@ export const updateOrderStatusAdmin = async (payload: {
   tracking_id?: string;
   remarks?: string;
 }) => {
-  const response = await api.post('/Ekart/UpdateStatus', payload);
+  const response = await api.post("/Ekart/UpdateStatus", payload);
   return response.data;
 };
