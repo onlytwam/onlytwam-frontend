@@ -5,6 +5,7 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import { listCart, deleteCartItem, updateCart } from '@/features/cart/api/cart.api';
 import { getImageUrl } from '@/shared/utils/helpers';
 import { resolveHex } from '@/shared/utils/colorHelpers';
+import { useOverlayBackDismiss } from '@/shared/hooks/useOverlayBackDismiss';
 import toast from 'react-hot-toast';
 
 interface Props { onClose: () => void; }
@@ -15,11 +16,12 @@ export default function QuickCart({ onClose }: Props) {
   const prevPath = location.pathname + location.search;
   const qc       = useQueryClient();
   const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
+  const { dismiss, dismissThen } = useOverlayBackDismiss(onClose);
   const panelRef = useRef<HTMLDivElement>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    const fn = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const fn = (e: KeyboardEvent) => e.key === 'Escape' && dismiss();
     document.addEventListener('keydown', fn);
     const handlePointerDown = (event: PointerEvent) => {
       const panel = panelRef.current;
@@ -29,7 +31,7 @@ export default function QuickCart({ onClose }: Props) {
       if (target && !panel.contains(target)) {
         event.preventDefault();
         event.stopPropagation();
-        onClose();
+        dismiss();
       }
     };
     document.addEventListener('pointerdown', handlePointerDown, true);
@@ -40,7 +42,7 @@ export default function QuickCart({ onClose }: Props) {
       document.removeEventListener('pointerdown', handlePointerDown, true);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [dismiss]);
 
   const { data: cartData, isLoading } = useQuery({
     queryKey: ['quick-cart', getUserId()],
@@ -161,18 +163,18 @@ export default function QuickCart({ onClose }: Props) {
 
     // Swipe right to close the right-side drawer.
     if (dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.1) {
-      onClose();
+      dismiss();
     }
   };
 
   return (
     <>
-      <div className="s-quickcart-75c969" onClick={onClose} />
+      <div className="s-quickcart-75c969" onClick={dismiss} />
 
       <div
         className="s-quickcart-f483a8"
         ref={panelRef}
-        onDoubleClick={onClose}
+        onDoubleClick={dismiss}
         onTouchStart={handlePanelTouchStart}
         onTouchEnd={handlePanelTouchEnd}
         onTouchCancel={() => {
@@ -189,7 +191,7 @@ export default function QuickCart({ onClose }: Props) {
               <span className="s-quickcart-ea3ac8">{items.length}</span>
             )}
           </div>
-          <button onClick={onClose}
+          <button onClick={dismiss}
             className="s-adminsupport-40536d">×</button>
         </div>
 
@@ -204,7 +206,7 @@ export default function QuickCart({ onClose }: Props) {
               <i className="bi bi-cart-x s-quickcart-78b615" />
               <h4 className="s-quickcart-14d4fb">Your cart is empty</h4>
               <p className="s-addresslist-92985e">Add items to get started</p>
-              <button onClick={() => { navigate(prevPath); onClose(); }}
+              <button onClick={() => dismissThen(() => navigate(prevPath))}
                 className="s-quickcart-552d28">
                 Continue Shopping
               </button>
@@ -228,7 +230,7 @@ export default function QuickCart({ onClose }: Props) {
 
                 {/* Image */}
                 <div className="s-quickcart-2c6bd4"
-                  onClick={() => { navigate(`/user-products/product-detail/${item.productVariantId}/product`); onClose(); }}>
+                  onClick={() => dismissThen(() => navigate(`/user-products/product-detail/${item.productVariantId}/product`))}>
                   <img src={img} alt={name}
                     className="s-quickcart-2b92d4"
                     onError={e => { (e.target as HTMLImageElement).src = '/assets/category-bg.png'; }} />
@@ -239,7 +241,7 @@ export default function QuickCart({ onClose }: Props) {
 
                   {/* Name */}
                   <h5 className="s-quickcart-e5f653"
-                    onClick={() => { navigate(`/user-products/product-detail/${item.productVariantId}/product`); onClose(); }}>
+                    onClick={() => dismissThen(() => navigate(`/user-products/product-detail/${item.productVariantId}/product`))}>
                     {name}
                     {(item.brandName || item.brand)
                       ? <span className="s-quickcart-a94e44">({item.brandName || item.brand})</span>
@@ -344,11 +346,11 @@ export default function QuickCart({ onClose }: Props) {
             </div>
             <div className="s-adminblog-b43398">
               <button
-                onClick={() => { navigate('/user-products/cart', { state: { from: location.pathname + location.search } }); onClose(); }}
+                onClick={() => dismissThen(() => navigate('/user-products/cart', { state: { from: location.pathname + location.search } }))}
                 className="s-quickcart-febadd">
                 View Cart & Checkout
               </button>
-              <button onClick={onClose}
+              <button onClick={dismiss}
                 className="s-quickcart-ec24cf">
                 Continue Shopping
               </button>

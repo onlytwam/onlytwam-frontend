@@ -4,24 +4,22 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import UserAvatar from '@/shared/components/UserAvatar';
 import { useProfileLeaveGuard, type ProfileLeaveGuardState } from '@/shared/components/profileLeaveGuard';
-
-const navItems = [
-  { path: '/account/dashboard',       label: 'Dashboard',       icon: 'bi-grid-1x2' },
-  { path: '/account/update-profile',  label: 'My Profile',      icon: 'bi-person' },
-  { path: '/account/orders-list',     label: 'My Orders',       icon: 'bi-bag' },
-  { path: '/account/wishlist',        label: 'Wishlist',         icon: 'bi-heart' },
-  { path: '/account/address-list',    label: 'Addresses',        icon: 'bi-geo-alt' },
-  { path: '/account/coupons-list',    label: 'Coupons',          icon: 'bi-ticket-perforated' },
-  { path: '/account/notifications',   label: 'Notifications',    icon: 'bi-bell' },
-  { path: '/account/change-password', label: 'Change Password',  icon: 'bi-lock' },
-];
+import { accountNavItems, getAccountPageTitle } from '@/features/account/accountNav';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 type LeavePromptProps = {
   onSave: () => Promise<boolean>;
   onDiscard: () => void;
+  onClose: () => void;
+  isMobile: boolean;
 };
 
-function LeavePromptCard({ onSave, onDiscard }: LeavePromptProps) {
+function LeavePromptCard({
+  onSave,
+  onDiscard,
+  onClose,
+  isMobile,
+}: LeavePromptProps) {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -41,6 +39,27 @@ function LeavePromptCard({ onSave, onDiscard }: LeavePromptProps) {
     if (isSaving) return;
     onDiscard();
   };
+
+  if (isMobile) {
+    return (
+      <div className="s-profilelayou-leave-toast s-profilelayou-leave-toast--mobile">
+        <button
+          type="button"
+          className="s-profilelayou-leave-toast-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <i className="bi bi-x-lg" />
+        </button>
+        <div className="s-profilelayou-leave-toast-title">
+          Save changes before leaving
+        </div>
+        <div className="s-profilelayou-leave-toast-copy">
+          Close this message, save your changes, then continue.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="s-profilelayou-leave-toast">
@@ -63,8 +82,11 @@ function LeavePromptCard({ onSave, onDiscard }: LeavePromptProps) {
 export default function ProfileLayout() {
   const { getUserName, logout, user } = useAuthStore();
   const navigate = useNavigate();
-  const name  = getUserName();
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const name = getUserName();
   const profileImageUrl = (user as any)?.profileImageUrl || '';
+  const mobilePageTitle = getAccountPageTitle(location.pathname);
   const greeting = 'Hey Beautiful';
   const [typedGreeting, setTypedGreeting] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -96,10 +118,14 @@ export default function ProfileLayout() {
   }, [greeting, isDeleting, typedGreeting]);
 
   const { guard } = useProfileLeaveGuard();
-  const location = useLocation();
   const guardRef = useRef<ProfileLeaveGuardState | null>(null);
   const pendingActionRef = useRef<(() => void) | null>(null);
   const leaveToastRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    window.scrollTo(0, 0);
+  }, [isMobile, location.pathname]);
 
   useEffect(() => {
     guardRef.current = guard ?? null;
@@ -138,6 +164,11 @@ export default function ProfileLayout() {
           guardRef.current?.discardChanges();
           runPendingAction();
         }}
+        onClose={() => {
+          pendingActionRef.current = null;
+          dismissLeavePrompt();
+        }}
+        isMobile={isMobile}
       />,
       {
         duration: Infinity,
@@ -151,7 +182,7 @@ export default function ProfileLayout() {
     );
 
     leaveToastRef.current = toastId;
-  }, [runPendingAction]);
+  }, [dismissLeavePrompt, isMobile, runPendingAction]);
 
   const handleGuardedAction = useCallback((nextAction: () => void) => {
     if (!guardRef.current?.isDirty) {
@@ -181,9 +212,44 @@ export default function ProfileLayout() {
     handleGuardedAction(() => navigate('/contact-us'));
   }, [handleGuardedAction, navigate]);
 
+  const handleMobileBack = useCallback(() => {
+    handleGuardedAction(() => {
+      if (window.history.length > 2) {
+        navigate(-1);
+        return;
+      }
+      navigate('/');
+    });
+  }, [handleGuardedAction, navigate]);
+
   useEffect(() => () => {
     dismissLeavePrompt();
   }, [dismissLeavePrompt]);
+
+  if (isMobile) {
+    return (
+      <div className="pl-mobile-shell">
+        <div className="pl-mobile-topbar">
+          <button
+            type="button"
+            onClick={handleMobileBack}
+            className="pl-mobile-back"
+            aria-label="Go back"
+          >
+            <i className="bi bi-chevron-left" />
+            <span>Back</span>
+          </button>
+          <h1 className="pl-mobile-title twam-font-heading">
+            {mobilePageTitle}
+          </h1>
+        </div>
+
+        <main className="pl-mobile-content">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -213,7 +279,7 @@ export default function ProfileLayout() {
 
             {/* Nav */}
             <nav className="pl-nav s-profilelayou-4eec79">
-              {navItems.map(item => (
+              {accountNavItems.map(item => (
                 <NavLink
                   key={item.path}
                   to={item.path}

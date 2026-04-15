@@ -20,6 +20,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import UserAvatar from "@/shared/components/UserAvatar";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
 import QuickCart from "@/features/cart/components/QuickCart";
+import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 import { getGuestWishlistCount } from "@/shared/utils/guestWishlist";
 import toast from "react-hot-toast";
 
@@ -87,6 +88,7 @@ function AssetImg({
 // ── Full-screen search overlay ────────────────────────────────────────────────
 function SearchOverlay({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const { dismiss, dismissThen } = useOverlayBackDismiss(onClose);
   const [searchText, setSearchText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [typedText, setTypedText] = useState("");
@@ -141,8 +143,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
   const onSearch = () => {
     const q = searchText.trim();
     if (!q) return;
-    onClose();
-    navigate(`/global-search?q=${encodeURIComponent(q)}`);
+    dismissThen(() => navigate(`/global-search?q=${encodeURIComponent(q)}`));
   };
 
   const startVoice = (e: React.MouseEvent) => {
@@ -177,8 +178,9 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
       const t = ev.results[0][0].transcript.trim();
       setSearchText(t);
       setTimeout(() => {
-        onClose();
-        navigate(`/global-search?q=${encodeURIComponent(t)}`);
+        dismissThen(() =>
+          navigate(`/global-search?q=${encodeURIComponent(t)}`),
+        );
       }, 300);
     };
     recRef.current = rec;
@@ -187,7 +189,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 
   return (
     /* Full-screen backdrop — click anywhere to close */
-    <div className="mso-overlay" onClick={onClose}>
+    <div className="mso-overlay" onClick={dismiss}>
       {/* Search bar row — stops propagation so tapping bar doesn't close */}
       <div className="mso-bar" onClick={(e) => e.stopPropagation()}>
         {/* Full-width pill: [🎤 | input | 🔍] */}
@@ -199,7 +201,9 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
             aria-label={isListening ? "Stop" : "Voice search"}
           >
             <i
-              className={`bi ${isListening ? "bi-stop-circle-fill" : "bi-mic-fill"}`}
+              className={`bi ${
+                isListening ? "bi-stop-circle-fill" : "bi-mic-fill"
+              }`}
             />
           </button>
 
@@ -207,7 +211,9 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
           <div className="mso-input-wrap">
             {!searchText && (
               <span
-                className={`mso-hint${isListening ? " mso-hint--listening" : ""}`}
+                className={`mso-hint${
+                  isListening ? " mso-hint--listening" : ""
+                }`}
               >
                 {isListening ? "Listening…" : typedText}
                 <span className="mso-cursor" />
@@ -220,7 +226,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") onSearch();
-                if (e.key === "Escape") onClose();
+                if (e.key === "Escape") dismiss();
               }}
               placeholder=""
               autoComplete="off"
@@ -236,7 +242,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         {/* X close — outside right edge of search bar */}
         <button
           className="mso-close"
-          onClick={onClose}
+          onClick={dismiss}
           aria-label="Close search"
         >
           <i className="bi bi-x-lg" />
@@ -382,7 +388,9 @@ export default function MobileNavbar() {
               className="mnb-logo"
             />
             <p
-              className={`mnb-tagline ${sloganPhase === "in" ? "is-visible" : "is-hidden"}`}
+              className={`mnb-tagline ${
+                sloganPhase === "in" ? "is-visible" : "is-hidden"
+              }`}
             >
               {TEXTS[sloganIdx]}
             </p>
@@ -434,26 +442,34 @@ export default function MobileNavbar() {
                   />
                 </button>
                 {isUserMenuOpen && (
-                  <div className="mnb-user-dropdown">
-                    <button
-                      className="mnb-user-menu__item"
-                      onClick={() => {
-                        navigate("/account/dashboard");
-                        setIsUserMenuOpen(false);
-                      }}
-                    >
-                      <i className="bi bi-grid-1x2" /> Dashboard
-                    </button>
-                    <button
-                      className="mnb-user-menu__item"
-                      onClick={() => {
-                        logout();
-                        setIsUserMenuOpen(false);
-                        navigate("/");
-                      }}
-                    >
-                      <i className="bi bi-box-arrow-right" /> Sign Out
-                    </button>
+                  <div
+                    className="mnb-user-dropdown"
+                    role="menu"
+                    aria-label="Account options"
+                  >
+                    <div className="mnb-user-menu">
+                      <button
+                        type="button"
+                        className="mnb-user-menu__item"
+                        onClick={() => {
+                          navigate("/account");
+                          setIsUserMenuOpen(false);
+                        }}
+                      >
+                        <i className="bi bi-person" /> Account
+                      </button>
+                      <button
+                        type="button"
+                        className="mnb-user-menu__signout"
+                        onClick={() => {
+                          logout();
+                          setIsUserMenuOpen(false);
+                          navigate("/");
+                        }}
+                      >
+                        <i className="bi bi-box-arrow-right" /> Sign Out
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

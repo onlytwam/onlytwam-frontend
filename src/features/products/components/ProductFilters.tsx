@@ -29,6 +29,7 @@ import {
   listSizes,
   listCupSizes,
 } from "@/features/products/api/products.api";
+import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ProductFilterState {
@@ -825,6 +826,7 @@ export default function ProductFilters({
   const minPct = ((sliderMin - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100;
   const maxPct = ((sliderMax - PRICE_FLOOR) / (PRICE_CEIL - PRICE_FLOOR)) * 100;
   const isMinHandleOverlap = sliderMin >= sliderMax - 500;
+  const { dismiss } = useOverlayBackDismiss(onClose, isOpen);
 
   const commitPriceMin = (value: number) =>
     updateFilters({
@@ -905,7 +907,7 @@ export default function ProductFilters({
   return (
     <>
       {/* Backdrop */}
-      <div className="gs-backdrop" onClick={onClose} />
+      <div className="gs-backdrop" onClick={dismiss} />
 
       {/* Drawer — same markup pattern as GlobalSearch */}
       <div className="gs-drawer">
@@ -920,7 +922,7 @@ export default function ProductFilters({
               <span className="s-globalsearch-c0a778">{activeFilterCount}</span>
             )}
           </div>
-          <button onClick={onClose} className="s-globalsearch-a3af62">
+          <button onClick={dismiss} className="s-globalsearch-a3af62">
             <i className="bi bi-x-lg" />
           </button>
         </div>
@@ -1218,7 +1220,7 @@ export default function ProductFilters({
             </button>
           )}
           <button
-            onClick={onClose}
+            onClick={dismiss}
             className="s-globalsearch-8a02af s-globalsearch-ff9e69e4"
           >
             Show {productCount} Products

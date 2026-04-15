@@ -107,6 +107,90 @@ function StatCard({
   );
 }
 
+function TypingGreeting({ text }: { text: string }) {
+  const [displayText, setDisplayText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    if (!isDeleting && displayText.length < text.length) {
+      timer = setTimeout(() => {
+        setDisplayText(text.slice(0, displayText.length + 1));
+      }, 110);
+    } else if (!isDeleting && displayText.length === text.length) {
+      timer = setTimeout(() => {
+        setIsDeleting(true);
+      }, 2200);
+    } else if (isDeleting && displayText.length > 0) {
+      timer = setTimeout(() => {
+        setDisplayText(text.slice(0, displayText.length - 1));
+      }, 55);
+    } else if (isDeleting && displayText.length === 0) {
+      timer = setTimeout(() => {
+        setIsDeleting(false);
+      }, 160);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [displayText, isDeleting, text]);
+
+  return (
+    <span
+      className="s-profilelayou-typing s-userdashboar-mobile-greeting-pill"
+      aria-live="polite"
+    >
+      <span className="s-profilelayou-typing-text">{displayText}</span>
+      <span
+        className="s-profilelayou-typing-cursor"
+        aria-hidden="true"
+      />
+    </span>
+  );
+}
+
+function MobileDashboardHero({
+  userName,
+  profileImageUrl,
+  mobileGreeting,
+}: {
+  userName: string;
+  profileImageUrl: string;
+  mobileGreeting: string;
+}) {
+  return (
+    <section className="fade-in s-userdashboar-mobile-hero">
+      <div className="s-userdashboar-mobile-hero__glow" />
+      <div className="s-userdashboar-mobile-hero__row">
+        <UserAvatar
+          name={userName || "User"}
+          imageUrl={profileImageUrl}
+          size={56}
+          fallbackMode="initial"
+          className="s-userdashboar-mobile-hero__avatar"
+          style={{
+            boxShadow: "none",
+            background: "var(--ivory)",
+            border: "1px solid rgba(107, 15, 42, 0.1)",
+            color: "var(--brand)",
+          }}
+        />
+        <div className="s-userdashboar-mobile-hero__copy">
+          <p className="s-userdashboar-mobile-hero__eyebrow">Welcome back</p>
+          <h2 className="s-userdashboar-mobile-hero__title twam-font-heading twam-brand">
+            {userName || "Guest"}
+          </h2>
+          <div className="s-userdashboar-mobile-hero__tagline">
+            <TypingGreeting text={mobileGreeting} />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function UserDashboard() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -124,6 +208,12 @@ export default function UserDashboard() {
   const [orderFilter, setOrderFilter] = useState("All");
   const [orderPage, setOrderPage] = useState(1);
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
+  const mobileGreeting = "Hey Beautiful";
+
+  useEffect(() => {
+    if (!isMobile) return;
+    window.scrollTo(0, 0);
+  }, [isMobile]);
 
   const { data: ordersData } = useQuery({
     queryKey: ["dashboard-orders", userId, orderFilter, orderPage],
@@ -297,6 +387,152 @@ export default function UserDashboard() {
       icon: "bi-heart",
     },
   ];
+
+  if (isMobile) {
+    return (
+      <div className="s-userdashboar-e04c1b twam-font-body s-userdashboar-mobile-page s-userdashboar-mobile-dashboard">
+        <MobileDashboardHero
+          userName={userName}
+          profileImageUrl={profileImageUrl}
+          mobileGreeting={mobileGreeting}
+        />
+
+        <div className="stats-grid fade-in s-userdashboar-87744d">
+          <StatCard
+            icon="bi-bag-check-fill"
+            label="Total Orders"
+            value={totalOrders || 0}
+            onClick={() => navigate("/account/orders-list")}
+          />
+          <StatCard
+            icon="bi-heart-fill"
+            label="Wishlist Items"
+            value={wishlistItems.length}
+            onClick={() => navigate("/account/wishlist")}
+          />
+          <StatCard
+            icon="bi-ticket-perforated-fill"
+            label="Active Coupons"
+            value={activeCoupons.length}
+            onClick={() => navigate("/account/coupons-list")}
+          />
+          <StatCard
+            icon="bi-geo-alt-fill"
+            label="Saved Addresses"
+            value={(Array.isArray(addresses) ? addresses : []).length}
+            onClick={() => navigate("/account/address-list")}
+          />
+        </div>
+
+        <div className="fade-in s-userdashboar-a66e26 s-userdashboar-cc0420">
+          <div className="s-userdashboar-465608 s-userdashboar-4cf32e">
+            <h3 className="s-userdashboar-87c84b twam-font-heading twam-brand">
+              <i className="bi bi-truck s-userdashboar-060ee3" />
+              Orders In Transit
+            </h3>
+            <button
+              onClick={() => navigate("/account/orders-list")}
+              className="s-userdashboar-d098ef"
+            >
+              View All <i className="bi bi-arrow-right" />
+            </button>
+          </div>
+          {transitOrders.length === 0 ? (
+            <div className="s-userdashboar-9326e9">
+              <i className="bi bi-truck s-userdashboar-d4db73" />
+              <p className="s-userdashboar-46bc26">No orders in transit</p>
+            </div>
+          ) : (
+            transitOrders.map((order: any) => {
+              const status = getOrderStatus(order);
+              const items = getOrderItems(order);
+              const firstImg = items[0]?.productImage || items[0]?.image;
+              const stepIdx = getTrackingStepIndex(status);
+              return (
+                <div
+                  key={order.orderId}
+                  className="s-userdashboar-0d6b2e s-userdashboar-4cf32e"
+                  onClick={() => navigate(`/order-details/${order.orderId}`)}
+                >
+                  <div className="s-userdashboar-e71c31 s-userdashboar-cc0420">
+                    {firstImg ? (
+                      <img
+                        src={
+                          firstImg.startsWith("http")
+                            ? firstImg
+                            : `${((import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${firstImg}`
+                        }
+                        alt=""
+                        className="s-userdashboar-4ebae2"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display =
+                            "none";
+                        }}
+                      />
+                    ) : (
+                      <div className="s-userdashboar-d44f74">
+                        <i className="bi bi-box s-userdashboar-dcc11e" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="s-userdashboar-7aa8c4">
+                    <div className="s-userdashboar-8c79a2">
+                      <span className="s-userdashboar-2efcea twam-font-body twam-brand">
+                        Order #
+                        {order.orderNumber || String(order.orderId).slice(-6)}
+                      </span>
+                      <span className="s-userdashboar-30766a s-userdashboar-8cb9f1">
+                        {status}
+                      </span>
+                    </div>
+                    <div className="s-userdashboar-0df734">
+                      {items.length} item{items.length !== 1 ? "s" : ""} ·{" "}
+                      {formatOrderValue(
+                        order.subTotal || order.totalAmount || 0,
+                      )}
+                    </div>
+                    {(order.orderDate || order.createdDate) && (
+                      <div className="s-userdashboar-f42419">
+                        {formatOrderDate(
+                          order.orderDate || order.createdDate,
+                        )}
+                      </div>
+                    )}
+                    <div className="d-flex align-items-center position-relative mt-3">
+                      <div
+                        className="s-orderslist-2a0d32"
+                        data-active={stepIdx >= 1 ? "true" : "false"}
+                      />
+                      {TRACKING_STEPS.map((step, i) => (
+                        <div
+                          key={`${order.orderId}-${step}`}
+                          className="s-userdashboar-track-step"
+                        >
+                          <div
+                            className="s-orderslist-bc2f44"
+                            data-complete={i <= stepIdx ? "true" : "false"}
+                          >
+                            {i < stepIdx ? <i className="bi bi-check" /> : ""}
+                          </div>
+                          <span
+                            className="s-orderslist-e909eb"
+                            data-current={i === stepIdx ? "true" : "false"}
+                          >
+                            {step}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <i className="bi bi-chevron-right s-userdashboar-dd2c58" />
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="s-userdashboar-e04c1b twam-font-body">

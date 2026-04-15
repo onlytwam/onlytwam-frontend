@@ -34,6 +34,9 @@ import MobileProductCard from "@/features/products/components/MobileProductCard"
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
+const MOBILE_STICKY_CTA_HIDE_MARGIN = 96;
+const DOUBLE_TAP_MAX_DELAY = 320;
+const DOUBLE_TAP_MAX_DISTANCE = 24;
 
 /* ── Alpha-size override (same as QuickShopModal) ────────────────────────── */
 const ALPHA_SIZE_KEYWORDS = [
@@ -66,14 +69,14 @@ function PageNotification({
     notif.type === "error"
       ? "var(--blush)"
       : notif.type === "warn"
-        ? "var(--heirloom)"
-        : "var(--brand)";
+      ? "var(--heirloom)"
+      : "var(--brand)";
   const icon =
     notif.type === "error"
       ? "bi-exclamation-circle-fill"
       : notif.type === "warn"
-        ? "bi-exclamation-triangle-fill"
-        : "bi-info-circle-fill";
+      ? "bi-exclamation-triangle-fill"
+      : "bi-info-circle-fill";
   return (
     <div className="s-productdetai-5ab3e3">
       <div
@@ -119,7 +122,9 @@ function Stars({
         return (
           <i
             key={i}
-            className={`bi ${on ? "bi-star-fill" : half ? "bi-star-half" : "bi-star"}`}
+            className={`bi ${
+              on ? "bi-star-fill" : half ? "bi-star-half" : "bi-star"
+            }`}
             style={{
               fontSize: size,
               color: on || half ? "var(--brand)" : "var(--ivory)",
@@ -377,7 +382,19 @@ export default function ProductDetail() {
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
   const [pageNotif, setPageNotif] = useState<PageNotif | null>(null);
   const [showStockTip, setShowStockTip] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false,
+  );
+  const [showStickyActions, setShowStickyActions] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false,
+  );
   const activeTabRef = useRef(searchParams.get("tab"));
+  const actionRowRef = useRef<HTMLDivElement>(null);
+  const lastMainImageTapRef = useRef<{
+    time: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   /* ── Thumbnail Pagination & Scrolling Logic ── */
   const thumbScrollRef = useRef<HTMLDivElement>(null);
@@ -450,7 +467,6 @@ export default function ProductDetail() {
   const handleMainImagePointerDown = (
     e: React.PointerEvent<HTMLImageElement>,
   ) => {
-    if (images.length <= 1) return;
     // preventDefault stops the browser from initiating a native drag operation,
     // which would steal pointer events and break the swipe gesture on desktop.
     e.preventDefault();
@@ -486,10 +502,32 @@ export default function ProductDetail() {
     const dy = e.clientY - swipe.startY;
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
+    const isTap = absX < 10 && absY < 10;
 
-    if (absX > 40 && absX > absY * 1.1) {
+    if (images.length > 1 && absX > 40 && absX > absY * 1.1) {
       if (dx < 0) handleNext();
       else handlePrev();
+    } else if (isTap) {
+      const now = Date.now();
+      const lastTap = lastMainImageTapRef.current;
+      const isDoubleTap =
+        !!lastTap &&
+        now - lastTap.time <= DOUBLE_TAP_MAX_DELAY &&
+        Math.hypot(lastTap.x - e.clientX, lastTap.y - e.clientY) <=
+          DOUBLE_TAP_MAX_DISTANCE;
+
+      if (isDoubleTap) {
+        lastMainImageTapRef.current = null;
+        handleWishlist(true);
+      } else {
+        lastMainImageTapRef.current = {
+          time: now,
+          x: e.clientX,
+          y: e.clientY,
+        };
+      }
+    } else {
+      lastMainImageTapRef.current = null;
     }
 
     if (e.currentTarget.releasePointerCapture) {
@@ -505,7 +543,23 @@ export default function ProductDetail() {
   /* ── Auto-scroll ref: holds the setInterval handle ── */
   const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { inWishlist, toggle: toggleWishlist } = useWishlistToggle(currentVId);
+  const {
+    inWishlist,
+    toggle: toggleWishlist,
+    isPending: isWishlistBusy,
+  } = useWishlistToggle(currentVId);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateViewport = () => {
+      setIsMobileViewport(window.innerWidth <= 768);
+    };
+
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
 
   useEffect(() => {
     activeTabRef.current = searchParams.get("tab");
@@ -524,6 +578,11 @@ export default function ProductDetail() {
       }
     }
   }, [id]);
+
+  useEffect(() => {
+    lastMainImageTapRef.current = null;
+    resetMainImageSwipe();
+  }, [currentVId, resetMainImageSwipe]);
 
   // Auto-scroll to reviews section when navigated from testimonials (?tab=reviews)
   useEffect(() => {
@@ -612,8 +671,8 @@ export default function ProductDetail() {
     product?.images?.length
       ? product.images
       : product?.image
-        ? [product.image]
-        : []
+      ? [product.image]
+      : []
   ).map(getImageUrl);
   const colors: any[] = product?.colors ?? [];
   const selectedColorSwatch = colors.find(
@@ -621,6 +680,34 @@ export default function ProductDetail() {
   );
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
+
+  useEffect(() => {
+    if (!isMobileViewport) {
+      setShowStickyActions(false);
+      return;
+    }
+
+    const el = actionRowRef.current;
+    if (!el) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setShowStickyActions(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowStickyActions(!entry.isIntersecting);
+      },
+      {
+        threshold: 0,
+        rootMargin: `0px 0px -${MOBILE_STICKY_CTA_HIDE_MARGIN}px 0px`,
+      },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isMobileViewport, product?.productId]);
 
   /* Fire checkThumbScroll once images load so we know if we need arrows initially */
   useEffect(() => {
@@ -754,14 +841,14 @@ export default function ProductDetail() {
   const selStock =
     selPvdRow?.stock ??
     (selBandId && !hasCupSize
-      ? (allSizes.find((s: any) => s.sizeId === selBandId)?.stock ?? null)
+      ? allSizes.find((s: any) => s.sizeId === selBandId)?.stock ?? null
       : null);
   const isOOS = selStock !== null && selStock <= 0;
   const selLabel = selBandId
-    ? (allSizes.find((s: any) => s.sizeId === selBandId)?.sizeLabel ?? "")
+    ? allSizes.find((s: any) => s.sizeId === selBandId)?.sizeLabel ?? ""
     : "";
   const cupLabel = selCupId
-    ? (allCupSizes.find((c: any) => c.cupSizeId === selCupId)?.sizeLabel ?? "")
+    ? allCupSizes.find((c: any) => c.cupSizeId === selCupId)?.sizeLabel ?? ""
     : "";
 
   const onBand = (s: any) => {
@@ -971,7 +1058,9 @@ export default function ProductDetail() {
     });
   };
 
-  const handleWishlist = () => {
+  const handleWishlist = (forceAdd = false) => {
+    if (isWishlistBusy) return;
+    if (forceAdd && inWishlist) return;
     toggleWishlist({
       productId: product?.productId,
       productVariantId: currentVId,
@@ -1116,7 +1205,9 @@ export default function ProductDetail() {
                         onClick={() => handleThumbClick(i)}
                         className="s-productdetai-81ffd3"
                         style={{
-                          border: `2px solid ${activeImg === i ? "var(--brand)" : "var(--ivory)"}`,
+                          border: `2px solid ${
+                            activeImg === i ? "var(--brand)" : "var(--ivory)"
+                          }`,
                           opacity: activeImg === i ? 1 : 0.65,
                           flexShrink: 0,
                           width: "72px",
@@ -1250,7 +1341,9 @@ export default function ProductDetail() {
                         onClick={() => handleThumbClick(i)}
                         className="pd-mobile-thumb-img"
                         style={{
-                          border: `2px solid ${activeImg === i ? "var(--brand)" : "transparent"}`,
+                          border: `2px solid ${
+                            activeImg === i ? "var(--brand)" : "transparent"
+                          }`,
                           opacity: activeImg === i ? 1 : 0.65,
                         }}
                         onError={(e) => {
@@ -1289,7 +1382,7 @@ export default function ProductDetail() {
               <div className="s-productdetai-121533">
                 <div className="s-adminproduct-6209be">
                   <button
-                    onClick={handleWishlist}
+                    onClick={() => handleWishlist()}
                     title={
                       inWishlist ? "Remove from wishlist" : "Save to wishlist"
                     }
@@ -1298,7 +1391,9 @@ export default function ProductDetail() {
                       background: inWishlist
                         ? "linear-gradient(135deg, rgba(107,15,42,0.12) 0%, rgba(168,76,107,0.08) 100%)"
                         : "linear-gradient(135deg, #fff 0%, #f5f0e6 100%)",
-                      border: `1.5px solid ${inWishlist ? "var(--brand)" : "rgba(158,96,112,0.3)"}`,
+                      border: `1.5px solid ${
+                        inWishlist ? "var(--brand)" : "rgba(158,96,112,0.3)"
+                      }`,
                       color: inWishlist ? "var(--brand)" : "var(--heirloom)",
                     }}
                     onMouseEnter={(e) => {
@@ -1309,7 +1404,9 @@ export default function ProductDetail() {
                     }}
                   >
                     <i
-                      className={`bi ${inWishlist ? "bi-heart-fill" : "bi-heart"}`}
+                      className={`bi ${
+                        inWishlist ? "bi-heart-fill" : "bi-heart"
+                      }`}
                     />
                   </button>
                   <button
@@ -1401,14 +1498,20 @@ export default function ProductDetail() {
                         if (c.productVariantId !== currentVId) {
                           setCurrentVId(c.productVariantId);
                           navigate(
-                            `/user-products/product-detail/${c.productVariantId}/${slugify(product?.name || "product")}`,
+                            `/user-products/product-detail/${
+                              c.productVariantId
+                            }/${slugify(product?.name || "product")}`,
                           );
                         }
                       }}
                       title={c.colorName ?? c.color ?? ""}
                       className="s-productdetai-e37fda"
                       style={{
-                        border: `2.5px solid ${c.productVariantId === currentVId ? "var(--brand)" : "transparent"}`,
+                        border: `2.5px solid ${
+                          c.productVariantId === currentVId
+                            ? "var(--brand)"
+                            : "transparent"
+                        }`,
                       }}
                     >
                       <img
@@ -1419,7 +1522,9 @@ export default function ProductDetail() {
                           const img = e.target as HTMLImageElement;
                           img.style.display = "none";
                           const d = document.createElement("div");
-                          d.style.cssText = `width:64px;height:78px;border-radius:6px;background:${resolveHex(c.colorHex ?? c.color)}`;
+                          d.style.cssText = `width:64px;height:78px;border-radius:6px;background:${resolveHex(
+                            c.colorHex ?? c.color,
+                          )}`;
                           img.parentElement?.appendChild(d);
                         }}
                       />
@@ -1495,7 +1600,9 @@ export default function ProductDetail() {
                         onClick={() => onBand(s)}
                         className="s-productdetai-a9a160"
                         style={{
-                          border: `2px solid ${sel ? "var(--brand)" : "var(--heirloom)"}`,
+                          border: `2px solid ${
+                            sel ? "var(--brand)" : "var(--heirloom)"
+                          }`,
                           background: sel ? "var(--brand)" : "#fff",
                           color: sel ? "#fff" : "#000000",
                           fontFamily: FONT_UI,
@@ -1549,7 +1656,9 @@ export default function ProductDetail() {
                         onClick={() => onCup(cs.cupSizeId)}
                         className="s-productdetai-83f876"
                         style={{
-                          border: `2px solid ${sel ? "var(--brand)" : "var(--heirloom)"}`,
+                          border: `2px solid ${
+                            sel ? "var(--brand)" : "var(--heirloom)"
+                          }`,
                           background: sel ? "var(--brand)" : "#fff",
                           color: sel ? "#fff" : "#000000",
                           fontFamily: FONT_UI,
@@ -1594,7 +1703,9 @@ export default function ProductDetail() {
                     <div
                       className="s-productdetai-dbae90"
                       style={{
-                        border: `1.5px solid ${qtyLocked ? "var(--ivory)" : "var(--ivory)"}`,
+                        border: `1.5px solid ${
+                          qtyLocked ? "var(--ivory)" : "var(--ivory)"
+                        }`,
                         background: qtyLocked ? "var(--ivory)" : "#fff",
                       }}
                     >
@@ -1651,6 +1762,18 @@ export default function ProductDetail() {
                         +
                       </button>
                     </div>
+                    {isMobileViewport && (
+                      <div className="pd-mobile-qty-price" aria-live="polite">
+                        <span className="pd-mobile-qty-price__label">
+                          Price
+                        </span>
+                        <span className="pd-mobile-qty-price__value">
+                          {formatPrice(
+                            (dispPrice || product?.price || 0) * quantity,
+                          )}
+                        </span>
+                      </div>
+                    )}
                     {showStockTip && selStock !== null && (
                       <div className="s-productdetai-0f3955">
                         {selStock} available
@@ -1671,15 +1794,15 @@ export default function ProductDetail() {
                         color: isOOS
                           ? "var(--brand)"
                           : selStock <= 3
-                            ? "var(--brand)"
-                            : "var(--brand)",
+                          ? "var(--brand)"
+                          : "var(--brand)",
                       }}
                     >
                       {isOOS
                         ? "🚫 Out of stock"
                         : selStock <= 3
-                          ? `⚠️ Only ${selStock} left!`
-                          : "✓ In stock"}
+                        ? `⚠️ Only ${selStock} left!`
+                        : "✓ In stock"}
                     </p>
                   )}
                 </div>
@@ -1687,7 +1810,7 @@ export default function ProductDetail() {
             })()}
 
             {/* Primary actions */}
-            <div className="pd-action-row">
+            <div className="pd-action-row" ref={actionRowRef}>
               <button
                 onClick={handleAddToCart}
                 disabled={cartMutation.isPending || isOOS}
@@ -1710,9 +1833,41 @@ export default function ProductDetail() {
               </button>
             </div>
 
+            {isMobileViewport && (
+              <div
+                className={`pd-sticky-action-shell${
+                  showStickyActions ? " is-visible" : ""
+                }`}
+                aria-hidden={!showStickyActions}
+              >
+                <div className="pd-action-row pd-sticky-action-row">
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={cartMutation.isPending || isOOS}
+                    className="pd-action-btn pd-action-btn--cart"
+                  >
+                    {cartMutation.isPending ? (
+                      <span className="spinner-border spinner-border-sm" />
+                    ) : (
+                      <i className="bi bi-cart3" />
+                    )}
+                    Add to Cart
+                  </button>
+                  <button
+                    onClick={handleBuyNow}
+                    disabled={cartMutation.isPending || isOOS}
+                    className="pd-action-btn pd-action-btn--buy"
+                  >
+                    <i className="bi bi-bolt-fill" />
+                    Buy Now
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="s-productdetai-684078 pd-hide-mobile">
               <button
-                onClick={handleWishlist}
+                onClick={() => handleWishlist()}
                 className="s-productdetai-c98011 s-productdetai-ff85a0a9"
               >
                 <i
@@ -1754,7 +1909,9 @@ export default function ProductDetail() {
                   style={{
                     fontWeight: activeTab === tab ? 700 : 400,
                     color: activeTab === tab ? "#000000" : "var(--heirloom)",
-                    borderBottom: `3px solid ${activeTab === tab ? "var(--brand)" : "transparent"}`,
+                    borderBottom: `3px solid ${
+                      activeTab === tab ? "var(--brand)" : "transparent"
+                    }`,
                     fontFamily: FONTS,
                   }}
                 >
@@ -1850,7 +2007,9 @@ export default function ProductDetail() {
                       <div
                         className="s-productdetai-1c4975"
                         style={{
-                          width: `${totalReviews ? (count / totalReviews) * 100 : 0}%`,
+                          width: `${
+                            totalReviews ? (count / totalReviews) * 100 : 0
+                          }%`,
                         }}
                       />
                     </div>
@@ -2029,7 +2188,10 @@ export default function ProductDetail() {
                         src={
                           r.photo.startsWith("http")
                             ? r.photo
-                            : `${(import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${r.photo}`
+                            : `${(
+                                import.meta.env.VITE_API_BASE_URL ||
+                                "http://127.0.0.1:8000/api"
+                              ).replace(/\/api$/, "")}${r.photo}`
                         }
                         alt="reviewer"
                         className="s-productdetai-55b05c"

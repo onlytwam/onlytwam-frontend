@@ -524,6 +524,21 @@ export default function Navbar() {
                     role="menu"
                     aria-label="Account options"
                   >
+                    <div className="nb-user-dropdown__head">
+                      <UserAvatar
+                        name={userName}
+                        imageUrl={profileImageUrl}
+                        size={40}
+                        fallbackMode="initial"
+                        className="nb-user-dropdown__avatar"
+                      />
+                      <div className="nb-user-dropdown__copy">
+                        <p className="nb-user-dropdown__name">{userName}</p>
+                        <p className="nb-user-dropdown__sub">
+                          Minimal account shortcuts
+                        </p>
+                      </div>
+                    </div>
                     <div className="nb-user-menu">
                       <button
                         type="button"

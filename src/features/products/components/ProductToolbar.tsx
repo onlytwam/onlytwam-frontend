@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
+import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 
 interface ProductToolbarProps {
   productCount: number;
@@ -37,6 +38,7 @@ function SortSidebar({
   onClose: () => void;
 }) {
   const drawerRef = useRef<HTMLDivElement>(null);
+  const { dismiss } = useOverlayBackDismiss(onClose);
 
   useEffect(() => {
     const toolbar = document.querySelector(
@@ -60,15 +62,15 @@ function SortSidebar({
     return () => document.removeEventListener("mousedown", fn);
   }, [onClose]);
 
-  return ReactDOM.createPortal(
+    return ReactDOM.createPortal(
     <>
-      <div className="sort-backdrop" onClick={onClose} />
+      <div className="sort-backdrop" onClick={dismiss} />
       <div className="sort-drawer" ref={drawerRef}>
         <div className="sort-drawer__header">
           <span className="sort-drawer__title">Sort By</span>
           <button
             className="sort-drawer__close"
-            onClick={onClose}
+            onClick={dismiss}
             aria-label="Close"
           >
             <i className="bi bi-x-lg" />

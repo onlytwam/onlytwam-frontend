@@ -2,10 +2,12 @@
 //
 // FIXES APPLIED:
 //   1. 'Order.Property': 'orderDate' (was 'OrderDate' — wrong PascalCase)
-//      Python getattr(Orders, 'OrderDate') returns None → no sort applied → stale order of results
-//   2. All other code unchanged — no UI impact
+//   2. getPaymentStatus() added — used by Payment.tsx on APK to poll
+//      /api/Payment/Status/{orderId} after in-app browser opens PayG.
+//   All other code unchanged.
 
 import api from "@/shared/api/axiosInstance";
+
 // Helper: build Filters JSON string
 const toFilters = (kvs: Record<string, any>, op = "eq"): string =>
   JSON.stringify(
@@ -49,7 +51,6 @@ export const listOrders = async (params?: {
       "Page.Index": params?.pageNumber ?? 1,
       "Page.Size": params?.pageSize ?? 10,
       // FIX: SQLAlchemy model attribute is camelCase 'orderDate', not PascalCase 'OrderDate'
-      // getattr(Orders, 'OrderDate') returns None → ordering silently skipped
       "Order.Property": "orderDate",
       "Order.Ascending": false,
     },
@@ -76,6 +77,28 @@ export const cancelOrder = async (data: {
 export const trackShipment = async (trackingId: string) => {
   const response = await api.get(`/Shipment/TrackShipment/${trackingId}`);
   return response.data;
+};
+
+/**
+ * Poll payment status for APK in-app browser flow.
+ *
+ * Calls GET /api/Payment/Status/{orderId}.
+ * Returns { orderId, orderNumber, state, paymentMethod, ... }
+ * where state is one of: "Pending" | "Confirmed" | "Failed" | "Cancelled"
+ *
+ * Used only by Payment.tsx on Capacitor native — web uses redirect as before.
+ */
+export const getPaymentStatus = async (orderId: number) => {
+  const response = await api.get(`/Payment/Status/${orderId}`);
+  return response.data as {
+    orderId: number;
+    orderNumber: string | null;
+    state: string;
+    paymentMethod: string | null;
+    paymentTransactionId: string | null;
+    paymentResponseCode: number | null;
+    paygStatus: string | null;
+  };
 };
 
 // ── Address ───────────────────────────────────────────────────────────────────

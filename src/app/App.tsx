@@ -147,6 +147,7 @@ const ReturnConfirm = lazy(
 
 // ── Account pages ─────────────────────────────────────────────────────────────
 const ProfileLayout = lazy(() => import("@/shared/components/ProfileLayout"));
+const AccountHome = lazy(() => import("@/features/account/pages/AccountHome"));
 const UserDashboard = lazy(
   () => import("@/features/account/pages/Userdashboard"),
 );
@@ -484,10 +485,7 @@ export default function App() {
           {/* ── Protected account pages ── */}
           <Route element={<ProtectedRoute />}>
             <Route path="/account" element={<AccountLayoutWithGuard />}>
-              <Route
-                index
-                element={<Navigate to="/account/dashboard" replace />}
-              />
+              <Route index element={<AccountHome />} />
               <Route path="dashboard" element={<UserDashboard />} />
               <Route path="update-profile" element={<UpdateProfile />} />
               <Route path="change-password" element={<UpdateProfile />} />

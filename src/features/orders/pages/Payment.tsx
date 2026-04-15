@@ -1,21 +1,31 @@
 // src/features/orders/pages/Payment.tsx
 //
-// FIX APPLIED:
-//   productVariantId: i.productVariantId ?? null  added to orderItems map
-//   Without this, OrderItems.ProductVariantId is stored as NULL in DB,
-//   which breaks the SKU lookup in Ekart shipment creation and hides
-//   color/size info in the orders list view.
-//   All UI code is completely unchanged.
+// FIXES APPLIED (APK payment redirect):
+//   - Detects Capacitor native platform vs browser
+//   - On APK: opens PayG in @capacitor/browser in-app browser
+//   - Polls /api/Payment/Status/{orderId} every 2 s until Confirmed/Failed
+//   - On browser redirect matching frontend domain: closes browser + navigates
+//   - On web: unchanged (window.location.href = paymentProcessUrl)
+//   - productVariantId fix from previous session is preserved
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getImageUrl } from "@/shared/utils/helpers";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useCartStore } from "@/features/cart/store/cartStore";
-import { createOrder, listAddress } from "@/features/orders/api/orders.api";
+import {
+  createOrder,
+  getPaymentStatus,
+  listAddress,
+} from "@/features/orders/api/orders.api";
 import { getBuyNowSession } from "@/shared/utils/checkoutSession";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
+
+// ── Constants ──────────────────────────────────────────────────────────────
 
 const PAYMENT_METHOD = {
   id: "online",
@@ -24,10 +34,19 @@ const PAYMENT_METHOD = {
   desc: "UPI, Credit/Debit Card, Net Banking",
 };
 
+/** How often to poll the backend for payment status (ms) */
+const POLL_INTERVAL_MS = 2000;
+/** Stop polling after this many ms even if still Pending */
+const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+// ── Component ──────────────────────────────────────────────────────────────
+
 export default function Payment() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const isBuyNow = searchParams.get("buyNow") === "1";
+
   const { getUserId } = useAuthStore();
   const {
     getSelectedItems,
@@ -37,9 +56,22 @@ export default function Payment() {
     couponDiscount,
     appliedCoupon,
   } = useCartStore();
+
   const userId = getUserId();
   const buyNowSession = isBuyNow ? getBuyNowSession() : null;
   const buyNowItems = buyNowSession?.items?.length ? buyNowSession.items : [];
+
+  // Ref to hold the polling interval so we can clear it from anywhere
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stop polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isBuyNow) return;
@@ -90,11 +122,124 @@ export default function Payment() {
 
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
 
+  // ── Native in-app browser payment handler ────────────────────────────────
+
+  /**
+   * Opens the PayG URL inside @capacitor/browser (an in-app overlay browser).
+   * The React WebView stays alive underneath — we can poll the backend and
+   * navigate back into the app as soon as payment completes.
+   *
+   * @param paymentProcessUrl  URL returned by /Orders (PayG checkout page)
+   * @param orderId            Our DB order ID — used to poll /Payment/Status
+   */
+  const handleNativePayment = async (
+    paymentProcessUrl: string,
+    orderId: number,
+  ) => {
+    // Clear any stale polls
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+
+    /** Navigate to order confirm and tear down all listeners */
+    const finish = async (success: boolean) => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+      pollRef.current = null;
+      pollTimeoutRef.current = null;
+
+      try {
+        await Browser.removeAllListeners();
+        await Browser.close();
+      } catch {
+        // Browser may already be closed — safe to ignore
+      }
+
+      if (success) {
+        navigate(`/user-products/order-confirm/${orderId}?payment=success`, {
+          replace: true,
+        });
+      } else {
+        navigate(`/user-products/payment-callback?status=failed`, {
+          replace: true,
+        });
+      }
+    };
+
+    /** Check the backend for payment status and resolve if done */
+    const checkStatus = async (): Promise<boolean> => {
+      try {
+        const status = await getPaymentStatus(orderId);
+        const state: string = (status?.state ?? "").toLowerCase();
+        if (state === "confirmed") {
+          await finish(true);
+          return true;
+        }
+        if (state === "failed" || state === "cancelled") {
+          await finish(false);
+          return true;
+        }
+      } catch {
+        // Network hiccup — keep polling
+      }
+      return false;
+    };
+
+    // Listen for URL changes inside the in-app browser.
+    // When PayG redirects back to our Azure frontend, we catch it here
+    // and immediately check the backend — no need to wait for the poll tick.
+    await Browser.addListener("browserPageLoaded", async () => {
+      await checkStatus();
+    });
+
+    // When the user manually closes the browser (back button / swipe)
+    // do a final status check so we don't leave them stranded.
+    await Browser.addListener("browserFinished", async () => {
+      const done = await checkStatus();
+      if (!done) {
+        // Payment still pending — let them know and stop polling
+        if (pollRef.current) clearInterval(pollRef.current);
+        if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+        toast.error(
+          "Payment not completed. Please try again if you were charged.",
+          {
+            duration: 6000,
+          },
+        );
+      }
+    });
+
+    // Open the payment page in the in-app browser overlay
+    await Browser.open({ url: paymentProcessUrl, windowName: "_blank" });
+
+    // Start polling every POLL_INTERVAL_MS as a safety net
+    // (browserPageLoaded alone is not always reliable on all Android versions)
+    pollRef.current = setInterval(async () => {
+      await checkStatus();
+    }, POLL_INTERVAL_MS);
+
+    // Hard timeout — stop polling after POLL_TIMEOUT_MS
+    pollTimeoutRef.current = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      toast.error(
+        "Payment verification timed out. Check your orders page for status.",
+        { duration: 8000 },
+      );
+    }, POLL_TIMEOUT_MS);
+  };
+
+  // ── Order mutation ───────────────────────────────────────────────────────
+
   const orderMutation = useMutation({
     mutationFn: (payload: any) => createOrder(payload),
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       if (data?.paymentProcessUrl) {
-        window.location.href = data.paymentProcessUrl;
+        if (Capacitor.isNativePlatform()) {
+          // APK: open in-app browser and poll for status
+          await handleNativePayment(data.paymentProcessUrl, data.orderId);
+        } else {
+          // Web: existing behaviour — full-page redirect to PayG
+          window.location.href = data.paymentProcessUrl;
+        }
         return;
       }
       toast.error(
@@ -108,6 +253,8 @@ export default function Payment() {
           "Failed to start payment. Please try again.",
       ),
   });
+
+  // ── Submit helpers ───────────────────────────────────────────────────────
 
   const submitPayment = (whatsappUpdates: boolean) => {
     setWhatsappOptIn(whatsappUpdates);
@@ -134,7 +281,6 @@ export default function Payment() {
       orderItems: selectedItems.map((i: any) => ({
         productId: i.productId,
         // FIX: include productVariantId so OrderItems.ProductVariantId is stored in DB.
-        // Without this it saves NULL, breaking Ekart SKU lookup and hiding color/size in orders list.
         productVariantId: i.productVariantId ?? null,
         productVariantDetailId: i.productVariantDetailId,
         quantity: i.processedQuantity || 1,
@@ -220,27 +366,27 @@ export default function Payment() {
                 <i className="bi bi-chat-dots" />
                 WhatsApp updates
               </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 800,
-                color: "var(--brand)",
-                lineHeight: 1.35,
-              }}
-            >
-              Do you need WhatsApp updates?
-            </p>
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: 13,
-                lineHeight: 1.5,
-                color: "#6f5e64",
-              }}
-            >
-              We can send your order status and delivery updates there.
-            </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: "var(--brand)",
+                  lineHeight: 1.35,
+                }}
+              >
+                Do you need WhatsApp updates?
+              </p>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: "#6f5e64",
+                }}
+              >
+                We can send your order status and delivery updates there.
+              </p>
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
@@ -313,6 +459,10 @@ export default function Payment() {
     }
 
     if (!whatsappOptIn) {
+      if (isMobile) {
+        submitPayment(false);
+        return;
+      }
       showWhatsappPrompt();
       return;
     }
@@ -322,6 +472,8 @@ export default function Payment() {
 
   const mobileFooterDisabled =
     orderMutation.isPending || selectedItems.length === 0;
+
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="container s-orderdetails-c93f0f checkout-shell checkout-shell--payment">
@@ -336,7 +488,8 @@ export default function Payment() {
                 <button
                   onClick={() =>
                     navigate(
-                      "/user-products/payment-address" + (isBuyNow ? "?buyNow=1" : ""),
+                      "/user-products/payment-address" +
+                        (isBuyNow ? "?buyNow=1" : ""),
                     )
                   }
                   className="btn btn-sm btn-link p-0 text-dark"
@@ -482,7 +635,9 @@ export default function Payment() {
                 padding: "12px 14px",
                 borderRadius: 10,
                 background: whatsappOptIn ? "#f0fdf4" : "var(--ivory)",
-                border: `1.5px solid ${whatsappOptIn ? "#22c55e" : "var(--ivory)"}`,
+                border: `1.5px solid ${
+                  whatsappOptIn ? "#22c55e" : "var(--ivory)"
+                }`,
                 transition: "all 0.2s",
               }}
             >
@@ -506,15 +661,15 @@ export default function Payment() {
                 <strong>Keep me updated on my order via WhatsApp</strong>
                 <br />
                 <span style={{ color: "#666", fontSize: 12 }}>
-                  Get real-time shipping & delivery updates on WhatsApp instead
-                  of SMS
+                  Get real-time shipping &amp; delivery updates on WhatsApp
+                  instead of SMS
                 </span>
               </span>
             </label>
 
-              <button
-                onClick={handleProceedToPayment}
-                disabled={orderMutation.isPending || selectedItems.length === 0}
+            <button
+              onClick={handleProceedToPayment}
+              disabled={orderMutation.isPending || selectedItems.length === 0}
               className="btn btn-dark w-100 d-flex align-items-center justify-content-center gap-2 s-payment-702916"
               style={{ opacity: orderMutation.isPending ? 0.7 : 1 }}
             >

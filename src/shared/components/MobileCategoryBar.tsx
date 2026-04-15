@@ -10,6 +10,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import ReactDOM from "react-dom";
 import type { CategoryMenu } from "@/shared/types";
+import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 
 interface Props {
   menus: CategoryMenu[];
@@ -26,6 +27,7 @@ function ZaraDropdown({
   onNavigate: (c: CategoryMenu) => void;
 }) {
   const dropRef = useRef<HTMLDivElement>(null);
+  const { dismiss, dismissThen } = useOverlayBackDismiss(onClose);
 
   useEffect(() => {
     // Catbar is always visible when user taps a pill (can't tap hidden catbar)
@@ -40,15 +42,15 @@ function ZaraDropdown({
     return () => document.removeEventListener("mousedown", fn);
   }, [onClose]);
 
-  return ReactDOM.createPortal(
+    return ReactDOM.createPortal(
     <>
-      <div className="mcb-backdrop" onClick={onClose} />
+      <div className="mcb-backdrop" onClick={dismiss} />
       <div className="mcb-dropdown" ref={dropRef}>
         <div className="mcb-dropdown__header">
           <span className="mcb-dropdown__cat-name">{cat.name}</span>
           <button
             className="mcb-dropdown__close"
-            onClick={onClose}
+            onClick={dismiss}
             aria-label="Close"
           >
             <i className="bi bi-x-lg" />
@@ -56,7 +58,7 @@ function ZaraDropdown({
         </div>
         <button
           className="mcb-dropdown__all-btn"
-          onClick={() => onNavigate(cat)}
+          onClick={() => dismissThen(() => onNavigate(cat))}
         >
           Shop all {cat.name} →
         </button>
@@ -65,7 +67,7 @@ function ZaraDropdown({
             <button
               key={sub.categoryId}
               className="mcb-dropdown__item"
-              onClick={() => onNavigate(sub)}
+              onClick={() => dismissThen(() => onNavigate(sub))}
             >
               {sub.name}
             </button>
