@@ -12,7 +12,6 @@ steps:
     inputs:
       versionSpec: '20.x'
 
-  # ✅ FIX 1: ignore-scripts stops sharp from trying to compile libvips
   - script: npm install --ignore-scripts
     displayName: Install dependencies
     env:
@@ -20,17 +19,18 @@ steps:
       npm_config_platform: linux
       npm_config_arch: x64
 
-  - script: npx vite build
+  # ✅ Use npm run build, not npx vite build
+  - script: npm run build
     displayName: Build frontend
     env:
       VITE_API_BASE_URL: $(VITE_API_BASE_URL)
       VITE_APP_NAME: $(VITE_APP_NAME)
+      NODE_OPTIONS: --max-old-space-size=4096  # ← prevents memory issues
 
-  # ✅ FIX 2: app_location = source root, output_location = dist
   - task: AzureStaticWebApp@0
     displayName: Deploy to Static Web Apps
     inputs:
-      app_location: '/'               # ← root of your repo
-      output_location: 'dist'         # ← where vite builds to
+      app_location: '/'
+      output_location: 'dist'
       skip_app_build: true
       azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)
