@@ -7,10 +7,15 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-  - task: NodeTool@1
+  # ✅ FIX: Use NodeTool@0 instead of NodeTool@1
+  - task: NodeTool@0
     displayName: Install Node.js
     inputs:
       versionSpec: '20.x'
+
+  # ✅ Verify Node version (add this to confirm it's actually 20)
+  - script: node --version
+    displayName: Verify Node version
 
   - script: npm install --ignore-scripts
     displayName: Install dependencies
@@ -19,13 +24,12 @@ steps:
       npm_config_platform: linux
       npm_config_arch: x64
 
-  # ✅ Use npm run build, not npx vite build
   - script: npm run build
     displayName: Build frontend
     env:
       VITE_API_BASE_URL: $(VITE_API_BASE_URL)
       VITE_APP_NAME: $(VITE_APP_NAME)
-      NODE_OPTIONS: --max-old-space-size=4096  # ← prevents memory issues
+      NODE_OPTIONS: --max-old-space-size=4096
 
   - task: AzureStaticWebApp@0
     displayName: Deploy to Static Web Apps
