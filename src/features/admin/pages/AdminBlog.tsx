@@ -4,99 +4,263 @@ import api from '@/shared/api/axiosInstance';
 import { formatDate } from '@/shared/utils/helpers';
 import toast from 'react-hot-toast';
 
+const BASE_URL = "http://localhost:8000";
 const PAGE_SIZE = 15;
-const emptyPost = { title: '', content: '', author: '', tags: '', isPublished: false, image: '' };
+
+const emptyPost = {
+  title: '',
+  content: '',
+  description: '',
+  image: null,
+  isPublished: false,
+};
 
 export default function AdminBlog() {
   const qc = useQueryClient();
-  const [page, setPage]       = useState(1);
-  const [modal, setModal]     = useState<any>(null);
-  const [confirm, setConfirm] = useState<any>(null);
+  const [page, setPage]             = useState(1);
+  const [modal, setModal]           = useState<any>(null);
+  const [confirm, setConfirm]       = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-blog', page],
-    queryFn: () => api.get('/Blog', { params: { 'Page.Index': page, 'Page.Size': PAGE_SIZE, 'Order.Property': 'CreatedDate', 'Order.Ascending': false } }).then(r => r.data),
+    queryFn: () =>
+      api.get('/Blog', {
+        params: {
+          'Page.Index': page,
+          'Page.Size': PAGE_SIZE,
+          'Order.Property': 'CreatedDate',
+          'Order.Ascending': false,
+        },
+      }).then(r => r.data),
   });
 
   const saveMutation = useMutation({
-    mutationFn: (form: any) => form.blogId ? api.put(`/Blog/${form.blogId}`, form) : api.post('/Blog', form),
-    onSuccess: () => { toast.success('Saved!'); qc.invalidateQueries({ queryKey: ['admin-blog'] }); setModal(null); },
+    mutationFn: (form: any) => {
+      const fd = new FormData();
+      fd.append('blogTitle',   form.title);
+      fd.append('blogContent', form.content);
+      fd.append('description', form.description ?? '');
+      fd.append('isPublished', String(form.isPublished ?? false));
+      if (form.image) fd.append('image', form.image);
+      return form.blogId
+        ? api.put(`/Blog/${form.blogId}`, fd)
+        : api.post('/Blog/', fd);
+    },
+    onSuccess: () => { toast.success('Saved!'); setModal(null); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['admin-blog'] }),
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Save failed'),
   });
 
+  const handleSave = (form: any) => {
+    if (!form.title)                 return toast.error('Title is required');
+    if (!form.content)               return toast.error('Content is required');
+    if (!form.blogId && !form.image) return toast.error('Image is required');
+    saveMutation.mutate(form);
+  };
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/Blog/${id}`),
-    onSuccess: () => { toast.success('Deleted'); qc.invalidateQueries({ queryKey: ['admin-blog'] }); setConfirm(null); },
+    onSuccess: () => { toast.success('Deleted'); setConfirm(null); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['admin-blog'] }),
     onError: () => toast.error('Delete failed'),
   });
 
-  const posts = data?.list ?? [];
-  const total = data?.count ?? 0;
-  const pages = Math.ceil(total / PAGE_SIZE);
+  const rawPosts = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : [];
+  const total    = data?.count ?? rawPosts.length;
+  const pages    = Math.ceil(total / PAGE_SIZE);
+
+  const posts = rawPosts.filter((p: any) =>
+    (p.blogTitle ?? p.title ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.description ?? '').toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   return (
-    <div>
-      <div className="s-adminblog-fe4afb">
-        <div><h2 className="s-adminblog-91c675">Blog Posts</h2><p className="s-adminblog-1c2c10">{total} posts</p></div>
-        <button onClick={() => setModal({ ...emptyPost })} className="s-adminblog-c47ae7">+ New Post</button>
-      </div>
+    <>
+  
+      <div className="ab-wrap">
 
-      {isLoading
-        ? <p className="s-adminblog-e88902">Loading…</p>
-        : posts.length === 0
-          ? <div className="s-adminblog-b331d5">No blog posts yet.</div>
-          : (
-            <div className="s-adminblog-b43398">
-              {posts.map((post: any) => (
-                <div key={post.blogId} className="s-adminblog-d566ef">
-                  <div className="s-app-52dcac">
-                    <div className="s-adminblog-95277f">
-                      <h3 className="s-adminblog-ffb607">{post.title}</h3>
-                      <span className="s-adminblog-c06b52" style={ {background: post.isPublished ? 'var(--ivory)' : 'var(--ivory)', color: post.isPublished ? 'var(--brand)' : 'var(--heirloom)'} }>{post.isPublished ? 'Published' : 'Draft'}</span>
+        {/* Header */}
+        <div className="ab-header">
+          <div>
+            <h2 className="ab-heading">Blog Posts</h2>
+            <p className="ab-subtext">{total} post{total !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="ab-controls">
+            <input
+              className="ab-search"
+              type="text"
+              placeholder="Search blogs…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            <button className="ab-btn-new" onClick={() => setModal({ ...emptyPost })}>
+              + New Post
+            </button>
+          </div>
+        </div>
+
+        {/* List */}
+        {isLoading ? (
+          <div className="ab-empty">Loading…</div>
+        ) : posts.length === 0 ? (
+          <div className="ab-empty">
+            {searchTerm ? 'No matching posts found.' : 'No blog posts yet.'}
+          </div>
+        ) : (
+          <div className="ab-list">
+            {posts.map((post: any) => {
+              const title     = post.blogTitle   ?? post.title   ?? '';
+              const content   = post.blogContent ?? post.content ?? '';
+              const published = post.isPublished ?? false;
+              const imageUrl  = post.imageUrl
+                ? `${BASE_URL}${post.imageUrl}`
+                : post.image ?? '';
+
+              return (
+                <div key={post.blogId} className="ab-card">
+                  {imageUrl
+                    ? <img src={imageUrl} alt={title} className="ab-thumb" />
+                    : <div className="ab-thumb-placeholder">📝</div>
+                  }
+
+                  <div className="ab-body">
+                    <div className="ab-title-row">
+                      <h3 className="ab-title">{title}</h3>
+                      <span className={`ab-badge ${published ? 'ab-badge-published' : 'ab-badge-draft'}`}>
+                        {published ? 'Published' : 'Draft'}
+                      </span>
                     </div>
-                    <p className="s-adminblog-f625dc">{post.content}</p>
-                    <p className="s-adminblog-033b4e">By {post.author || 'TWAM'} · {formatDate(post.createdDate)}</p>
+                    {post.description && (
+                      <p className="ab-desc">{post.description}</p>
+                    )}
+                    {content && (
+                      <p className="ab-preview">{content}</p>
+                    )}
+                    <p className="ab-meta">
+                      By {post.author || 'TWAM'} · {formatDate(post.createdDate)}
+                    </p>
                   </div>
-                  <div className="s-adminblog-f27ef1">
-                    <button onClick={() => setModal(post)} className="s-adminblog-f0d4e1">Edit</button>
-                    <button onClick={() => setConfirm(post)} className="s-adminblog-f0d4e1">Delete</button>
+
+                  <div className="ab-actions">
+                    <button
+                      className="ab-btn-edit"
+                      onClick={() => setModal({
+                        blogId: post.blogId, title, content,
+                        description: post.description ?? '',
+                        image: null, isPublished: published,
+                      })}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="ab-btn-del"
+                      onClick={() => setConfirm({ ...post, title })}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )
-      }
+              );
+            })}
+          </div>
+        )}
 
-      {pages > 1 && <div className="s-adminblog-213a15">{Array.from({ length: Math.min(pages,10) }, (_, i) => <button key={i} onClick={() => setPage(i+1)} className="s-adminblog-5b8395" style={ {borderColor: page===i+1?'var(--brand)':'var(--ivory)', background: page===i+1?'var(--brand)':'#fff', color: page===i+1?'#fff':'#000000'} }>{i+1}</button>)}</div>}
-
-      {modal && (
-        <div className="s-adminblog-6d52e4">
-          <div className="s-adminblog-eb6085">
-            <h3 className="s-adminblog-e6371f">{modal.blogId ? 'Edit' : 'New'} Post</h3>
-            {[['Title *','title'],['Author','author'],['Tags (comma-separated)','tags'],['Image URL','image']].map(([l,k]) => (
-              <div key={k} className="s-adminblog-22a617"><label className="s-addressform-f1fb64">{l}</label><input value={modal[k] || ''} onChange={e => setModal({ ...modal, [k]: e.target.value })} className="inp-field" /></div>
+        {/* Pagination */}
+        {pages > 1 && (
+          <div className="ab-pages">
+            {Array.from({ length: Math.min(pages, 10) }, (_, i) => (
+              <button
+                key={i}
+                className={`ab-page-btn ${page === i + 1 ? 'active' : ''}`}
+                onClick={() => setPage(i + 1)}
+              >
+                {i + 1}
+              </button>
             ))}
-            <div className="s-adminblog-22a617"><label className="s-addressform-f1fb64">Content *</label><textarea value={modal.content || ''} onChange={e => setModal({ ...modal, content: e.target.value })} rows={8} style={{ resize: 'vertical' }} /></div>
-            <div className="s-adminblog-19fd7a"><label className="s-adminblog-a07339"><input type="checkbox" checked={modal.isPublished || false} onChange={e => setModal({ ...modal, isPublished: e.target.checked })} />Published</label></div>
-            <div className="s-adminblog-679e96">
-              <button onClick={() => setModal(null)} className="s-adminblog-78f775">Cancel</button>
-              <button onClick={() => saveMutation.mutate(modal)} disabled={!modal.title || !modal.content} className="s-adminblog-c47ae7" style={ {opacity: !modal.title || !modal.content ? 0.5 : 1} }>{saveMutation.isPending ? 'Saving…' : 'Save'}</button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {confirm && (
-        <div className="s-adminblog-0bb39a">
-          <div className="s-adminblog-69ab70">
-            <h3 className="s-adminblog-caf79d">Delete "{confirm.title}"?</h3>
-            <div className="s-adminblog-679e96">
-              <button onClick={() => setConfirm(null)} className="s-adminblog-ed2456">Cancel</button>
-              <button onClick={() => deleteMutation.mutate(confirm.blogId)} className="s-adminblog-1e5083">{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</button>
+        {/* Create / Edit Modal */}
+        {modal && (
+          <div className="ab-overlay" onClick={() => setModal(null)}>
+            <div className="ab-modal" onClick={e => e.stopPropagation()}>
+              <h3 className="ab-modal-title">{modal.blogId ? 'Edit Post' : 'New Post'}</h3>
+
+              <div className="ab-field">
+                <label className="ab-label">Title *</label>
+                <input className="ab-input" value={modal.title || ''} placeholder="Blog title"
+                  onChange={e => setModal({ ...modal, title: e.target.value })} />
+              </div>
+              <div className="ab-field">
+                <label className="ab-label">Description</label>
+                <input className="ab-input" value={modal.description || ''} placeholder="Short description"
+                  onChange={e => setModal({ ...modal, description: e.target.value })} />
+              </div>
+              <div className="ab-field">
+                <label className="ab-label">Content *</label>
+                <textarea className="ab-textarea" value={modal.content || ''} placeholder="Full blog content…"
+                  onChange={e => setModal({ ...modal, content: e.target.value })} />
+              </div>
+              <div className="ab-field">
+                <label className="ab-label">
+                  Image {!modal.blogId && <span style={{color:'#c0392b'}}>*</span>}
+                  {!modal.blogId && !modal.image && (
+                    <span style={{color:'#c0392b', fontWeight:400, marginLeft:8, fontSize:'0.78rem'}}>Required</span>
+                  )}
+                </label>
+                <input
+                  className="ab-input"
+                  type="file"
+                  accept="image/*"
+                  style={{borderColor: !modal.blogId && !modal.image ? '#c0392b' : ''}}
+                  onChange={(e: any) => setModal({ ...modal, image: e.target.files?.[0] || null })}
+                />
+              </div>
+              <div className="ab-field">
+                <label className="ab-check-row">
+                  <input type="checkbox" checked={modal.isPublished || false}
+                    onChange={e => setModal({ ...modal, isPublished: e.target.checked })} />
+                  Mark as Published
+                </label>
+              </div>
+
+              <div className="ab-modal-footer">
+                <button className="ab-btn-cancel" onClick={() => setModal(null)}>Cancel</button>
+                <button
+                  className="ab-btn-save"
+                  onClick={() => handleSave(modal)}
+                  disabled={saveMutation.isPending}
+                >
+                  {saveMutation.isPending ? 'Saving…' : modal.blogId ? 'Update' : 'Create'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* Delete Confirm */}
+        {confirm && (
+          <div className="ab-overlay" onClick={() => setConfirm(null)}>
+            <div className="ab-confirm-modal" onClick={e => e.stopPropagation()}>
+              <div className="ab-confirm-icon">🗑️</div>
+              <h3 className="ab-confirm-title">Delete this post?</h3>
+              <p className="ab-confirm-sub">"{confirm.title}" will be permanently removed.</p>
+              <div className="ab-modal-footer" style={{ justifyContent: 'center' }}>
+                <button className="ab-btn-cancel" onClick={() => setConfirm(null)}>Cancel</button>
+                <button
+                  className="ab-btn-danger"
+                  onClick={() => deleteMutation.mutate(confirm.blogId)}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </>
   );
 }
