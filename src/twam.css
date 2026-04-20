@@ -4114,8 +4114,6 @@ button {
 }
 
 .pc-discount-flap {
-  background:
-    linear-gradient(138deg,
   background: linear-gradient(
       138deg,
       rgba(245, 240, 230, 0.08) 0%,
@@ -4382,36 +4380,20 @@ button {
 
   88% {
     opacity: 1;
-<<<<<<< Updated upstream
-    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
-    box-shadow:
-      -2px -2px 0 rgba(245, 240, 230, 0.22),
-      -6px -5px 14px rgba(0, 0, 0, 0.14),
-      3px 4px 10px rgba(0, 0, 0, 0.14),
-=======
     transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg)
       scale(1);
     box-shadow: -2px -2px 0 rgba(245, 240, 230, 0.22),
       -6px -5px 14px rgba(0, 0, 0, 0.14), 3px 4px 10px rgba(0, 0, 0, 0.14),
->>>>>>> Stashed changes
       inset 2px 2px 5px rgba(245, 240, 230, 0.62),
       inset -4px -4px 8px rgba(0, 0, 0, 0.16);
   }
 
   100% {
     opacity: 0;
-<<<<<<< Updated upstream
-    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
-    box-shadow:
-      -2px -2px 0 rgba(245, 240, 230, 0.22),
-      -6px -5px 14px rgba(0, 0, 0, 0.14),
-      3px 4px 10px rgba(0, 0, 0, 0.14),
-=======
     transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg)
       scale(1);
     box-shadow: -2px -2px 0 rgba(245, 240, 230, 0.22),
       -6px -5px 14px rgba(0, 0, 0, 0.14), 3px 4px 10px rgba(0, 0, 0, 0.14),
->>>>>>> Stashed changes
       inset 2px 2px 5px rgba(245, 240, 230, 0.62),
       inset -4px -4px 8px rgba(0, 0, 0, 0.16);
   }
