@@ -21492,26 +21492,23 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   opacity: 0.5;
 }
 /* ══════════════════════════════════════════════════════════════════════════════
-   1. SCROLL PAUSE — Strictly no hover effects during scroll + 2s cooldown.
-      JS adds "home-scrolling" to body on any scroll.
-      Removes it exactly 2 seconds after scrolling stops.
-      No scrolling = transitions work completely normally on mouse hover.
+   SCROLL PAUSE — freeze all card transitions during + 2s after any scroll.
+   JS adds "home-scrolling" on slider scroll OR page scroll,
+   removes it exactly 2 seconds after scrolling stops.
+   No hover transitions fire until 2s of stillness after the last scroll event.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* Disable pointer events on all cards — no hover can fire during scroll */
 body.home-scrolling .pc-wrap,
 body.home-scrolling .pc-card {
   pointer-events: none !important;
 }
 
-/* Kill every transition and animation on cards and all child elements */
 body.home-scrolling .pc-card,
 body.home-scrolling .pc-card * {
   transition: none !important;
   animation: none !important;
 }
 
-/* Freeze all visual states at resting position */
 body.home-scrolling .pc-card {
   transform: none !important;
   box-shadow: 0 8px 24px rgba(107, 15, 42, 0.06) !important;
