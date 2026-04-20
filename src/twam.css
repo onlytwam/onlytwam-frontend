@@ -4114,13 +4114,8 @@ button {
 }
 
 .pc-discount-flap {
-<<<<<<< Updated upstream
-  background:
-    linear-gradient(138deg,
-=======
   background: linear-gradient(
       138deg,
->>>>>>> Stashed changes
       rgba(245, 240, 230, 0.08) 0%,
       rgba(245, 240, 230, 0) 42%,
       rgba(0, 0, 0, 0.08) 100%),
@@ -4385,36 +4380,22 @@ button {
 
   88% {
     opacity: 1;
-<<<<<<< Updated upstream
     transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
     box-shadow:
       -2px -2px 0 rgba(245, 240, 230, 0.22),
       -6px -5px 14px rgba(0, 0, 0, 0.14),
       3px 4px 10px rgba(0, 0, 0, 0.14),
-=======
-    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg)
-      scale(1);
-    box-shadow: -2px -2px 0 rgba(245, 240, 230, 0.22),
-      -6px -5px 14px rgba(0, 0, 0, 0.14), 3px 4px 10px rgba(0, 0, 0, 0.14),
->>>>>>> Stashed changes
       inset 2px 2px 5px rgba(245, 240, 230, 0.62),
       inset -4px -4px 8px rgba(0, 0, 0, 0.16);
   }
 
   100% {
     opacity: 0;
-<<<<<<< Updated upstream
     transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
     box-shadow:
       -2px -2px 0 rgba(245, 240, 230, 0.22),
       -6px -5px 14px rgba(0, 0, 0, 0.14),
       3px 4px 10px rgba(0, 0, 0, 0.14),
-=======
-    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg)
-      scale(1);
-    box-shadow: -2px -2px 0 rgba(245, 240, 230, 0.22),
-      -6px -5px 14px rgba(0, 0, 0, 0.14), 3px 4px 10px rgba(0, 0, 0, 0.14),
->>>>>>> Stashed changes
       inset 2px 2px 5px rgba(245, 240, 230, 0.62),
       inset -4px -4px 8px rgba(0, 0, 0, 0.16);
   }
@@ -19183,9 +19164,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   height: auto;
 }
 
-<<<<<<< Updated upstream
-.s-home-62280e {}
-=======
 .s-home-685bdd .pc-card {
   border: 1px solid rgba(107, 15, 42, 0.16);
   box-shadow: none;
@@ -19206,7 +19184,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 
 .s-home-62280e {
 }
->>>>>>> Stashed changes
 
 .s-home-d35c85 {}
 
@@ -20963,7 +20940,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   margin-bottom: 4px;
 }
 
-<<<<<<< Updated upstream
 /* Admin blog */
 
 .ab-wrap {
@@ -21406,219 +21382,3 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 .ab-btn-danger:disabled {
   opacity: 0.5;
 }
-=======
-/* ══════════════════════════════════════════════════════════════════════════════
-   1. SCROLL PAUSE — Strictly no hover effects during scroll + 2s cooldown.
-      JS adds "home-scrolling" to body on any scroll.
-      Removes it exactly 2 seconds after scrolling stops.
-      No scrolling = transitions work completely normally on mouse hover.
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/* Disable pointer events on all cards — no hover can fire during scroll */
-body.home-scrolling .pc-wrap,
-body.home-scrolling .pc-card {
-  pointer-events: none !important;
-}
-
-/* Kill every transition and animation on cards and all child elements */
-body.home-scrolling .pc-card,
-body.home-scrolling .pc-card * {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* Freeze all visual states at resting position */
-body.home-scrolling .pc-card {
-  transform: none !important;
-  box-shadow: 0 8px 24px rgba(107, 15, 42, 0.06) !important;
-  border-color: rgba(107, 15, 42, 0.12) !important;
-}
-body.home-scrolling .pc-img-primary {
-  opacity: 1 !important;
-  transform: scale(1) !important;
-}
-body.home-scrolling .pc-img-hover {
-  opacity: 0 !important;
-}
-body.home-scrolling .pc-name {
-  background-size: 0% 1.5px !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   2. TWAM FEATURED — Non-center cards (near, corner, side):
-      No zoom-in, no hover image, no name underline on hover.
-      Resting scale values preserved so hover causes no visible jump.
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/* No card lift for non-center featured cards */
-.home-featured-card--near .pc-card:not(.pc-card--tear-away):hover,
-.home-featured-card--corner .pc-card:not(.pc-card--tear-away):hover,
-.home-featured-card--side .pc-card:not(.pc-card--tear-away):hover {
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-/* Preserve each tier's resting image scale on hover — no zoom-in jump */
-.home-featured-card--near
-  .pc-card:not(.pc-card--tear-away):hover
-  .pc-img-primary {
-  opacity: 1 !important;
-  transform: scale(1.05) !important;
-}
-.home-featured-card--corner
-  .pc-card:not(.pc-card--tear-away):hover
-  .pc-img-primary {
-  opacity: 1 !important;
-  transform: scale(1) !important;
-}
-.home-featured-card--side
-  .pc-card:not(.pc-card--tear-away):hover
-  .pc-img-primary {
-  opacity: 1 !important;
-  transform: scale(1.03) !important;
-}
-
-/* Hide hover image entirely for non-center featured cards */
-.home-featured-card--near .pc-img-hover,
-.home-featured-card--corner .pc-img-hover,
-.home-featured-card--side .pc-img-hover {
-  display: none !important;
-}
-
-/* No name underline for non-center featured cards */
-.home-featured-card--near .pc-card:not(.pc-card--tear-away):hover .pc-name,
-.home-featured-card--corner .pc-card:not(.pc-card--tear-away):hover .pc-name,
-.home-featured-card--side .pc-card:not(.pc-card--tear-away):hover .pc-name {
-  background-size: 0% 1.5px !important;
-  transition: none !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   TWAM LOADING OVERLAY
-   Transparent frosted-glass layer that sits on top of the page while loading.
-   User can see the page rendering behind it — makes loading feel fast.
-
-   Home page:  spinner + logo + typing text  (twam-overlay)
-   Other pages: spinner only               (twam-overlay + --simple content)
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-.twam-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Transparent so page renders visibly behind */
-  background: rgba(253, 248, 243, 0.78);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  opacity: 1;
-  transition: opacity 0.4s ease;
-}
-
-.twam-overlay--exit {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ── Content — full page, no box, no restrictions ── */
-.twam-overlay__content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  width: 100%;
-  padding: 0 24px;
-}
-
-/* Simple variant — spinner only */
-.twam-overlay__content--simple {
-  gap: 0;
-  padding: 0;
-}
-
-/* ── Spinner ── */
-.twam-overlay__spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(107, 15, 42, 0.14);
-  border-top-color: var(--brand);
-  border-radius: 50%;
-  animation: spin 0.75s linear infinite;
-  flex-shrink: 0;
-}
-
-/* ── Logo ── */
-.twam-overlay__logo {
-  width: 120px;
-  height: auto;
-  object-fit: contain;
-}
-
-/* ── Static tagline text ── */
-.twam-overlay__text {
-  font-family: var(--font-heading);
-  font-size: clamp(13px, 1.4vw, 17px);
-  font-weight: 400;
-  color: var(--brand);
-  letter-spacing: 0.06em;
-  text-align: center;
-  margin: 0;
-  opacity: 0.8;
-}
-
-/* ── Desktop home section background images ──────────────────────────────────
-   Positioned on the right side of the section.
-   Starts from halfway through the last product card, spans full section height.
-   Fades in from left so it blends with the product cards naturally.          */
-
-.desktop-section-bg {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  height: 100%;
-  width: 40%;
-  object-fit: contain;
-  object-position: right center;
-  pointer-events: none;
-  z-index: 0;
-  /* Fade in from left (card area side) so it starts mid-last-card */
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(0, 0, 0, 0.6) 30%,
-    black 60%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(0, 0, 0, 0.6) 30%,
-    black 60%
-  );
-  opacity: 0.55;
-}
-
-.desktop-section-bg--twam {
-  object-position: right top;
-  opacity: 0.5;
-}
-
-.desktop-section-bg--bs {
-  object-position: right center;
-  opacity: 0.5;
-}
-
-.desktop-section-bg--new {
-  object-position: right bottom;
-  opacity: 0.5;
-}
-
-/* Hide on mobile — mobile uses its own mpsl-bg-img */
-@media (max-width: 768px) {
-  .desktop-section-bg {
-    display: none !important;
-  }
-}
->>>>>>> Stashed changes
