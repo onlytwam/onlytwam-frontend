@@ -1,4 +1,4 @@
-Set-Content azure-pipelines.yml -Value @"
+$yaml = @"
 trigger:
   branches:
     include:
@@ -29,3 +29,4 @@ steps:
       skip_app_build: true
       azure_static_web_apps_api_token: `$(SWA_DEPLOYMENT_TOKEN)
 "@
+[System.IO.File]::WriteAllText("azure-pipelines.yml", $yaml, [System.Text.UTF8Encoding]::new($false))
