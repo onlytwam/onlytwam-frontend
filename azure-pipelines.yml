@@ -1,3 +1,4 @@
+Set-Content azure-pipelines.yml -Value @"
 trigger:
   branches:
     include:
@@ -7,44 +8,24 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-  # ✅ FIX: Use NodeTool@0 instead of NodeTool@1
-  - task: NodeTool@0
+  - task: NodeTool@1
     displayName: Install Node.js
     inputs:
-      versionSpec: "20.x"
+      versionSpec: '20.x'
 
-  # ✅ Verify Node version (add this to confirm it's actually 20)
-  - script: node --version
-    displayName: Verify Node version
-<<<<<<< Updated upstream
-
-  - script: npm install --ignore-scripts
+  - script: npm install
     displayName: Install dependencies
-    env:
-      SHARP_IGNORE_GLOBAL_LIBVIPS: 1
-      npm_config_platform: linux
-      npm_config_arch: x64
 
-=======
-
-  - script: npm install --ignore-scripts
-    displayName: Install dependencies
-    env:
-      SHARP_IGNORE_GLOBAL_LIBVIPS: 1
-      npm_config_platform: linux
-      npm_config_arch: x64
-
->>>>>>> Stashed changes
-  - script: npm run build
+  - script: npx vite build
     displayName: Build frontend
     env:
-      VITE_API_BASE_URL: $(VITE_API_BASE_URL)
-      VITE_APP_NAME: $(VITE_APP_NAME)
-      NODE_OPTIONS: --max-old-space-size=4096
+      VITE_API_BASE_URL: `$(VITE_API_BASE_URL)
+      VITE_APP_NAME: `$(VITE_APP_NAME)
 
   - task: AzureStaticWebApp@0
     displayName: Deploy to Static Web Apps
     inputs:
-      app_location: "dist"
+      app_location: 'dist'
       skip_app_build: true
-      azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)
+      azure_static_web_apps_api_token: `$(SWA_DEPLOYMENT_TOKEN)
+"@
