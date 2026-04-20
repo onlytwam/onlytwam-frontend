@@ -20,7 +20,7 @@ const CATEGORIES = [
 export default function MobileHome() {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
-  const [quickShopId, setQuickShopId] = useState<number | null>(null);
+  const [quickShopId, setQuickShopId] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -44,14 +44,14 @@ export default function MobileHome() {
 
   const products = Array.from(
     (productsData?.list ?? [])
-      .reduce((map, variant) => {
+      .reduce((map: Map<number, any>, variant: any) => {
         if (!map.has(variant.productId)) {
           map.set(variant.productId, { ...variant, allVariants: [variant] });
         }
         return map;
-      }, new Map())
+      }, new Map<number, any>())
       .values(),
-  ).slice(0, 10);
+  ).slice(0, 10) as any[];
 
   useEffect(() => {
     if (!carouselRef.current || products.length <= 1) return;
@@ -81,7 +81,7 @@ export default function MobileHome() {
 
   const getCategoryIdBySlug = (slug: string) => {
     if (!categoriesData?.list) return null;
-    const category = categoriesData.list.find((cat) =>
+    const category = categoriesData.list.find((cat: any) =>
       cat.name.toLowerCase().includes(slug.toLowerCase()),
     );
     return category?.categoryId || null;
@@ -134,20 +134,22 @@ export default function MobileHome() {
         ) : (
           <>
             <div className="mobile-carousel" ref={carouselRef}>
-              {products.map((product) => (
+              {products.map((product: any) => (
                 <MobileProductCard
                   key={product.productVariantId}
                   product={product}
-                  onQuickAdd={setQuickShopId}
+                  onQuickShop={setQuickShopId}
                 />
               ))}
             </div>
 
             <div className="mobile-carousel-dots">
-              {products.map((_, index) => (
+              {products.map((_: any, index: number) => (
                 <button
                   key={index}
-                  className={`mobile-dot ${currentSlide === index ? "active" : ""}`}
+                  className={`mobile-dot ${
+                    currentSlide === index ? "active" : ""
+                  }`}
                   onClick={() => setCurrentSlide(index)}
                   aria-label={`Go to slide ${index + 1}`}
                 />
@@ -170,10 +172,10 @@ export default function MobileHome() {
         </svg>
       </button>
 
-      {quickShopId && (
+      {quickShopId > 0 && (
         <QuickShopModal
           productVariantId={quickShopId}
-          onClose={() => setQuickShopId(null)}
+          onClose={() => setQuickShopId(0)}
         />
       )}
 
