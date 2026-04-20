@@ -13,6 +13,7 @@
     "@capacitor/android": "^8.3.0",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.3.0",
+    "@capacitor/geolocation": "^8.2.0",
     "@fontsource-variable/geist": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
     "@react-three/drei": "^10.7.7",

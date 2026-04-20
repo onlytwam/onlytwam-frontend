@@ -41,6 +41,8 @@ interface Props {
   compact?: boolean;
   /** Reveal the discount by tearing away the paper flap after 3 seconds. */
   delayedDiscountReveal?: boolean;
+  /** Disable hover image swap/zoom for contexts that want a static card image. */
+  enableHoverImageTransition?: boolean;
 }
 
 export default function ProductCard({
@@ -52,6 +54,7 @@ export default function ProductCard({
   singleColorOnly = false,
   compact = false,
   delayedDiscountReveal = false,
+  enableHoverImageTransition = true,
 }: Props) {
   const navigate = useNavigate();
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
@@ -531,7 +534,7 @@ export default function ProductCard({
 
   // pc-image-wrap--has-hover enables the fade transition; without it we still
   // get the zoom-in animation via CSS (pc-img-primary on hover).
-  const imageWrapClass = `pc-image-wrap${hoverLoaded ? " pc-image-wrap--has-hover" : ""}`;
+  const imageWrapClass = `pc-image-wrap${enableHoverImageTransition && hoverLoaded ? " pc-image-wrap--has-hover" : ""}`;
 
   const hasDiscount = Boolean(oldPrice && oldPrice > price);
   const discountPct = hasDiscount
@@ -699,7 +702,7 @@ export default function ProductCard({
   return (
     <div className={`pc-wrap${isRemovableCard ? " pc-wrap--wishlist" : ""}`}>
       <div
-        className={`pc-card${isRemovableCard ? " pc-card--wishlist" : ""}`}
+        className={`pc-card${isRemovableCard ? " pc-card--wishlist" : ""}${!enableHoverImageTransition ? " pc-card--hover-image-disabled" : ""}`}
         onClick={goToDetail}
       >
         <div className="pc-card-solid-bg" />
@@ -748,7 +751,7 @@ export default function ProductCard({
                 (e.target as HTMLImageElement).src = "/assets/category-bg.png";
               }}
             />
-            {hoverImgSrc && (
+            {enableHoverImageTransition && hoverImgSrc && (
               <img
                 className="pc-img-hover"
                 src={hoverImgSrc}

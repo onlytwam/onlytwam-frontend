@@ -315,9 +315,16 @@ export default function Cart() {
 
   return (
     <>
-      <h1 className="cart-page-mobile-title" style={{ display: "none" }}>
-        Cart
-      </h1>
+      <div className="checkout-mobile-header" style={{ display: "none" }}>
+        <button
+          className="checkout-mobile-back"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+        >
+          <i className="bi bi-chevron-left" />
+        </button>
+        <h1 className="cart-page-mobile-title">Cart</h1>
+      </div>
 
       <div className="container s-cart-2eb199">
         {/* ── Select All row ── */}
@@ -357,7 +364,9 @@ export default function Cart() {
                   alt={item.productName || item.name || ""}
                   onClick={() =>
                     navigate(
-                      `/user-products/product-detail/${item.productVariantId}/${slugify(item.productName || item.name || "")}`,
+                      `/user-products/product-detail/${
+                        item.productVariantId
+                      }/${slugify(item.productName || item.name || "")}`,
                     )
                   }
                   className="s-cart-c9a7a1"
@@ -606,10 +615,7 @@ export default function Cart() {
           </span>
           <span className="cart-mobile-place-order__meta-dot">•</span>
           <span className="cart-mobile-place-order__count">
-            {selectedItems.reduce(
-              (s, i) => s + (i.processedQuantity || 1),
-              0,
-            )}{" "}
+            {selectedItems.reduce((s, i) => s + (i.processedQuantity || 1), 0)}{" "}
             qty
           </span>
           <span className="cart-mobile-place-order__meta-dot">•</span>

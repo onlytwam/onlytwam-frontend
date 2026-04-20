@@ -47,13 +47,15 @@ const emptyForm = {
 };
 type FormState = typeof emptyForm;
 
-const getProfileContact = (user?: {
-  name?: string;
-  firstName?: string;
-  lastName?: string;
-  phoneNumber?: string;
-  phone?: string;
-} | null) => {
+const getProfileContact = (
+  user?: {
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    phone?: string;
+  } | null,
+) => {
   const name =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
     user?.name?.trim() ||
@@ -300,8 +302,8 @@ function AddressFormPanel({
     pinStatus === "ok"
       ? "var(--brand)"
       : pinStatus === "error"
-        ? "var(--brand)"
-        : "var(--ivory)";
+      ? "var(--brand)"
+      : "var(--ivory)";
 
   return (
     <div>
@@ -369,7 +371,9 @@ function AddressFormPanel({
             <span
               className="s-paymentaddre-6d49e8"
               style={{
-                border: `1.5px solid ${errors.phone ? "var(--brand)" : "var(--ivory)"}`,
+                border: `1.5px solid ${
+                  errors.phone ? "var(--brand)" : "var(--ivory)"
+                }`,
                 fontFamily: FONT_UI,
               }}
             >
@@ -573,7 +577,9 @@ function AddressFormPanel({
                 onClick={() => upd("addressType")(t)}
                 className="s-paymentaddre-dedd1d"
                 style={{
-                  border: `1.5px solid ${form.addressType === t ? "var(--brand)" : "var(--ivory)"}`,
+                  border: `1.5px solid ${
+                    form.addressType === t ? "var(--brand)" : "var(--ivory)"
+                  }`,
                   background:
                     form.addressType === t ? `var(--brand)10` : "#fff",
                   color:
@@ -583,7 +589,9 @@ function AddressFormPanel({
                 }}
               >
                 <i
-                  className={`bi bi-${t === "Home" ? "house" : "briefcase"} s-addresslist-9eec06`}
+                  className={`bi bi-${
+                    t === "Home" ? "house" : "briefcase"
+                  } s-addresslist-9eec06`}
                 />
                 {t}
               </button>
@@ -824,8 +832,8 @@ export default function PaymentAddress() {
         typeof detail === "string"
           ? detail
           : typeof detail === "object"
-            ? (detail?.message ?? "Invalid OTP")
-            : "Invalid OTP. Try again.",
+          ? detail?.message ?? "Invalid OTP"
+          : "Invalid OTP. Try again.",
       );
     } finally {
       setOtpLoading(false);
@@ -883,28 +891,28 @@ export default function PaymentAddress() {
         }
       : null
     : showForm
-      ? {
-          label: editItem ? "Update Address" : "Save Address",
-          onClick: handleSaveAddress,
-          disabled: false,
-          busy: saveMutation.isPending,
-        }
-      : {
-          label: "Continue to Shipping",
-          onClick: handleAuthContinue,
-          disabled: !selectedAddressId,
-          busy: false,
-        };
+    ? {
+        label: editItem ? "Update Address" : "Save Address",
+        onClick: handleSaveAddress,
+        disabled: false,
+        busy: saveMutation.isPending,
+      }
+    : {
+        label: "Continue to Shipping",
+        onClick: handleAuthContinue,
+        disabled: !selectedAddressId,
+        busy: false,
+      };
 
   const mobileFooterBadge = !isAuth
     ? "Delivery address"
     : showForm
-      ? editItem
-        ? "Edit address"
-        : "New address"
-      : selectedAddressId
-        ? "Address selected"
-        : "Select address";
+    ? editItem
+      ? "Edit address"
+      : "New address"
+    : selectedAddressId
+    ? "Address selected"
+    : "Select address";
 
   const editAddress = (addr: any) => {
     setEditItem(addr);
@@ -934,9 +942,18 @@ export default function PaymentAddress() {
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="s-paymentaddre-2e2509 s-paymentaddre-ffd8281d checkout-shell checkout-shell--address">
-      <h4 className="s-paymentaddre-e0ad90 s-paymentaddre-ffd02986 checkout-page-title">
-        Delivery Address
-      </h4>
+      <div className="checkout-mobile-header">
+        <button
+          className="checkout-mobile-back"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+        >
+          <i className="bi bi-chevron-left" />
+        </button>
+        <h4 className="s-paymentaddre-e0ad90 s-paymentaddre-ffd02986 checkout-page-title">
+          Delivery Address
+        </h4>
+      </div>
 
       {/* ════════════════ GUEST FLOW ════════════════ */}
       {!isAuth && (
@@ -1013,8 +1030,8 @@ export default function PaymentAddress() {
                   {otpLoading
                     ? "Sending…"
                     : otpSent
-                      ? "Change email"
-                      : "Send OTP"}
+                    ? "Change email"
+                    : "Send OTP"}
                 </button>
               </div>
 
@@ -1070,7 +1087,9 @@ export default function PaymentAddress() {
                     disabled={resendTimer > 0}
                     className="s-paymentaddre-3e995d"
                     style={{
-                      border: `1.5px solid ${resendTimer > 0 ? "var(--ivory)" : "var(--brand)"}`,
+                      border: `1.5px solid ${
+                        resendTimer > 0 ? "var(--ivory)" : "var(--brand)"
+                      }`,
                       color:
                         resendTimer > 0 ? "var(--heirloom)" : "var(--brand)",
                       fontFamily: FONT_UI,
@@ -1078,7 +1097,9 @@ export default function PaymentAddress() {
                     }}
                   >
                     {resendTimer > 0 ? (
-                      `Resend in ${Math.floor(resendTimer / 60)}:${String(resendTimer % 60).padStart(2, "0")}`
+                      `Resend in ${Math.floor(resendTimer / 60)}:${String(
+                        resendTimer % 60,
+                      ).padStart(2, "0")}`
                     ) : (
                       <>
                         <i className="bi bi-arrow-clockwise" /> Resend OTP
@@ -1184,7 +1205,11 @@ export default function PaymentAddress() {
                 className="pa-addr-card s-paymentaddre-2e14df"
                 onClick={() => setSelectedAddressId(addr.addressId)}
                 style={{
-                  border: `2px solid ${selectedAddressId === addr.addressId ? "var(--brand)" : "var(--ivory)"}`,
+                  border: `2px solid ${
+                    selectedAddressId === addr.addressId
+                      ? "var(--brand)"
+                      : "var(--ivory)"
+                  }`,
                   background:
                     selectedAddressId === addr.addressId
                       ? `var(--brand)05`
@@ -1196,7 +1221,11 @@ export default function PaymentAddress() {
                   <div
                     className="s-paymentaddre-4e0051"
                     style={{
-                      border: `2px solid ${selectedAddressId === addr.addressId ? "var(--brand)" : "var(--ivory)"}`,
+                      border: `2px solid ${
+                        selectedAddressId === addr.addressId
+                          ? "var(--brand)"
+                          : "var(--ivory)"
+                      }`,
                       background:
                         selectedAddressId === addr.addressId
                           ? "var(--brand)"
@@ -1215,7 +1244,9 @@ export default function PaymentAddress() {
                       </span>
                       <span className="s-paymentaddre-5dd002">
                         <i
-                          className={`bi bi-${addr.typeId === 2 ? "briefcase" : "house"} s-paymentaddre-0bc507`}
+                          className={`bi bi-${
+                            addr.typeId === 2 ? "briefcase" : "house"
+                          } s-paymentaddre-0bc507`}
                         />
                         {addr.typeId === 2 ? "Work" : "Home"}
                       </span>

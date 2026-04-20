@@ -236,8 +236,9 @@ export default function ProfileLayout() {
             className="pl-mobile-back"
             aria-label="Go back"
           >
-            <i className="bi bi-chevron-left" />
-            <span>Back</span>
+            <span className="pl-mobile-back__icon" aria-hidden="true">
+              {"<"}
+            </span>
           </button>
           <h1 className="pl-mobile-title twam-font-heading">
             {mobilePageTitle}

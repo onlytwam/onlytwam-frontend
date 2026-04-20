@@ -34,7 +34,6 @@ import MobileProductCard from "@/features/products/components/MobileProductCard"
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
-const MOBILE_STICKY_CTA_HIDE_MARGIN = 96;
 const DOUBLE_TAP_MAX_DELAY = 320;
 const DOUBLE_TAP_MAX_DISTANCE = 24;
 
@@ -205,7 +204,8 @@ function ScrollableProductRow({
     setIsMobile(mobile);
     if (!wrapRef.current) return;
     const visible = mobile ? 2 : ROW_VISIBLE;
-    const padding = mobile ? 0 : 112;
+    // mobile: subtract 24px (CSS padding: 0 12px on scroll container)
+    const padding = mobile ? 24 : 112;
     const wrapWidth = wrapRef.current.clientWidth - padding;
     const c = Math.floor((wrapWidth - ROW_GAP * (visible - 1)) / visible);
     setCw(c > 0 ? c : 0);
@@ -230,22 +230,49 @@ function ScrollableProductRow({
     };
   }, [measure]);
 
+  // ── Snap refs defined first so onScroll can reference them ──────────────
+  const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSnapping = useRef(false);
+
+  const snapToNearest = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || !isMobile) return;
+    isSnapping.current = true;
+    // card step = card width (50vw-15px) + gap(10px) = 50vw - 5px
+    const cardStep = window.innerWidth / 2 - 5;
+    const nearest = Math.round(el.scrollLeft / cardStep) * cardStep;
+    el.scrollTo({ left: nearest, behavior: "smooth" });
+    setTimeout(() => {
+      isSnapping.current = false;
+    }, 400);
+  }, [isMobile]);
+
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     setCanLeft(el.scrollLeft > 1);
     setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
-  }, []);
+    // Debounce snap: fires 200ms after momentum fully stops
+    if (isMobile && !isSnapping.current) {
+      if (snapTimer.current) clearTimeout(snapTimer.current);
+      snapTimer.current = setTimeout(snapToNearest, 200);
+    }
+  }, [isMobile, snapToNearest]);
 
   useEffect(() => {
     onScroll();
   }, [cw, products, onScroll]);
 
   const scrollByCards = (dir: 1 | -1) => {
-    if (!scrollRef.current || !cw) return;
-    const visible = isMobile ? 2 : ROW_VISIBLE;
+    if (!scrollRef.current) return;
+    if (isMobile) {
+      const amount = scrollRef.current.clientWidth;
+      scrollRef.current.scrollBy({ left: dir * amount, behavior: "smooth" });
+      return;
+    }
+    if (!cw) return;
     scrollRef.current.scrollTo({
-      left: scrollRef.current.scrollLeft + dir * visible * (cw + ROW_GAP),
+      left: scrollRef.current.scrollLeft + dir * ROW_VISIBLE * (cw + ROW_GAP),
       behavior: "smooth",
     });
   };
@@ -262,10 +289,10 @@ function ScrollableProductRow({
   const touchStartX = useRef(0);
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    if (snapTimer.current) clearTimeout(snapTimer.current);
   };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const dx = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(dx) > 40) scrollByCards(dx > 0 ? 1 : -1);
+  const handleTouchEnd = (_e: React.TouchEvent) => {
+    // CSS-free: onScroll debounce handles snap after momentum stops
   };
 
   const arrowStyle = (
@@ -316,17 +343,23 @@ function ScrollableProductRow({
         ref={scrollRef}
         onScroll={onScroll}
         className="s-productdetai-3283d7 s-productdetai-e7ff84"
-        style={{ gap: ROW_GAP }}
+        style={isMobile ? {} : { gap: ROW_GAP }}
       >
         {products.map((p: any) => (
           <div
             key={p.productVariantId}
             className="s-productdetai-88ed30 s-productdetai-cb6468"
-            style={{
-              flex: `0 0 ${safeCw}${typeof safeCw === "number" ? "px" : ""}`,
-              width: typeof safeCw === "number" ? safeCw : undefined,
-              minWidth: typeof safeCw === "number" ? safeCw : undefined,
-            }}
+            style={
+              isMobile
+                ? {}
+                : {
+                    flex: `0 0 ${safeCw}${
+                      typeof safeCw === "number" ? "px" : ""
+                    }`,
+                    width: typeof safeCw === "number" ? safeCw : undefined,
+                    minWidth: typeof safeCw === "number" ? safeCw : undefined,
+                  }
+            }
           >
             {isMobile ? (
               <MobileProductCard product={p} onQuickShop={onQuickShop} />
@@ -697,12 +730,16 @@ export default function ProductDetail() {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setShowStickyActions(!entry.isIntersecting);
+        if (entry.isIntersecting) {
+          // The actual Add to Cart / Buy Now row is on screen — hide sticky
+          setShowStickyActions(false);
+        } else if (entry.boundingClientRect.top > 0) {
+          // Buttons are below the viewport — user hasn't reached them — show sticky
+          setShowStickyActions(true);
+        }
+        // If top < 0: buttons are above (user scrolled past them) — keep hidden
       },
-      {
-        threshold: 0,
-        rootMargin: `0px 0px -${MOBILE_STICKY_CTA_HIDE_MARGIN}px 0px`,
-      },
+      { threshold: 0 },
     );
 
     observer.observe(el);

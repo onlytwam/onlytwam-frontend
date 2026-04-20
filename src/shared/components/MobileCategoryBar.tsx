@@ -16,6 +16,10 @@ interface Props {
   menus: CategoryMenu[];
 }
 
+const MOBILE_HEADER_HEIGHT = 48;
+const MOBILE_CATBAR_HEIGHT = 40;
+const MOBILE_HEADER_WITH_CATBAR = MOBILE_HEADER_HEIGHT + MOBILE_CATBAR_HEIGHT;
+
 // ── Zara-style 2-panel dropdown ──────────────────────────────────────────────
 function ZaraDropdown({
   cat,
@@ -33,7 +37,7 @@ function ZaraDropdown({
     // Catbar is always visible when user taps a pill (can't tap hidden catbar)
     // Catbar: top=64px, height=44px → bottom=108px always
     const drop = dropRef.current;
-    if (drop) drop.style.top = "108px";
+    if (drop) drop.style.top = `${MOBILE_HEADER_WITH_CATBAR}px`;
     const fn = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (!t.closest(".mcb-dropdown") && !t.closest(".mcb-pill")) onClose();
@@ -42,7 +46,7 @@ function ZaraDropdown({
     return () => document.removeEventListener("mousedown", fn);
   }, [onClose]);
 
-    return ReactDOM.createPortal(
+  return ReactDOM.createPortal(
     <>
       <div className="mcb-backdrop" onClick={dismiss} />
       <div className="mcb-dropdown" ref={dropRef}>
@@ -104,7 +108,11 @@ export default function MobileCategoryBar({ menus }: Props) {
     const toolbar = document.querySelector(
       ".product-toolbar",
     ) as HTMLElement | null;
-    if (toolbar) toolbar.style.top = catVisible ? "108px" : "64px";
+    if (toolbar) {
+      toolbar.style.top = catVisible
+        ? `${MOBILE_HEADER_WITH_CATBAR}px`
+        : `${MOBILE_HEADER_HEIGHT}px`;
+    }
   };
 
   useEffect(() => {
@@ -210,7 +218,11 @@ export default function MobileCategoryBar({ menus }: Props) {
             {cat.name}
             {cat.children?.length > 0 && (
               <i
-                className={`bi bi-chevron-down mcb-pill-chevron${openCat?.categoryId === cat.categoryId ? " mcb-pill-chevron--open" : ""}`}
+                className={`bi bi-chevron-down mcb-pill-chevron${
+                  openCat?.categoryId === cat.categoryId
+                    ? " mcb-pill-chevron--open"
+                    : ""
+                }`}
               />
             )}
           </button>

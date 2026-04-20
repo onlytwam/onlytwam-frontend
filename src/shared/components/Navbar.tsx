@@ -90,6 +90,15 @@ export default function Navbar() {
 
   // On mobile: delegate to MobileNavbar + MobileCategoryBar
   const isMobile = useIsMobile();
+  const showMobileSearchHeader =
+    location.pathname === "/" ||
+    location.pathname === "/home" ||
+    location.pathname.startsWith("/user-products/product-list") ||
+    location.pathname.startsWith("/user-products/product-detail");
+  const showMobileCategoryBar =
+    location.pathname === "/" ||
+    location.pathname === "/home" ||
+    location.pathname.startsWith("/user-products/product-list");
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -240,8 +249,8 @@ export default function Navbar() {
   if (isMobile) {
     return (
       <>
-        <MobileNavbar />
-        <MobileCategoryBar menus={menus} />
+        <MobileNavbar showSearchHeader={showMobileSearchHeader} />
+        {showMobileCategoryBar && <MobileCategoryBar menus={menus} />}
       </>
     );
   }

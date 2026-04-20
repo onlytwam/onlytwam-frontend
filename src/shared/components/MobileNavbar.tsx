@@ -1,52 +1,11 @@
-/**
- * MobileNavbar.tsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Mobile-only header:
- *   LEFT:   search icon → opens full-screen dim overlay
- *   CENTER: TWAM logo + rotating tagline
- *   RIGHT:  wishlist · account · cart
- *
- * Search overlay:
- *   - Full screen dims to dark
- *   - TWAM logo glows faintly in center
- *   - Search bar at top with typing animation + voice
- *   - Submit → /global-search?q=...
- *   - Tap backdrop or back arrow → close, stay on page
- */
-
-import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import UserAvatar from "@/shared/components/UserAvatar";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
 import QuickCart from "@/features/cart/components/QuickCart";
-import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 import { getGuestWishlistCount } from "@/shared/utils/guestWishlist";
 import toast from "react-hot-toast";
-
-const TEXTS = [
-  "Hello, Beautiful.",
-  "Welcome, Gorgeous.",
-  "You Are That.",
-  "Step In, Shine On.",
-  "Confidence Looks Good On You.",
-  "Ready to Find Your Perfect Fit?",
-  "Hello, Radiance.",
-  "Welcome to Comfort, Welcome to Confidence.",
-  "You Belong Here.",
-  "Your Journey to Comfort Starts Now.",
-  "Celebrate Yourself Today.",
-  "Uncover the Real You.",
-  "Find What Makes You Feel Amazing.",
-  "Beauty Begins Here.",
-  "Embrace Your Everyday Magic.",
-  "Welcome to TWAM, Where You Are That.",
-  "Only TWAM — Confidence Starts Here.",
-  "Step Into Comfort, Step Into TWAM.",
-  "You Are TWAM. You Are Enough.",
-  "Be Bold. Be Beautiful. Be TWAM.",
-  "TWAM: The Real You, Unfiltered.",
-];
 
 const SEARCH_HINTS = [
   "Amante",
@@ -72,7 +31,9 @@ function AssetImg({
 }) {
   const [idx, setIdx] = useState(0);
   const [failed, setFailed] = useState(false);
+
   if (failed) return null;
+
   return (
     <img
       src={names[idx]}
@@ -85,239 +46,25 @@ function AssetImg({
   );
 }
 
-// ── Full-screen search overlay ────────────────────────────────────────────────
-function SearchOverlay({ onClose }: { onClose: () => void }) {
+export default function MobileNavbar({
+  showSearchHeader = true,
+}: {
+  showSearchHeader?: boolean;
+}) {
   const navigate = useNavigate();
-  const { dismiss, dismissThen } = useOverlayBackDismiss(onClose);
+  const location = useLocation();
+  const { isAuthenticated, cartCount, hasValidToken, user, getUserName } =
+    useAuthStore();
+  const { serverIds: wishlistServerIds } = useWishlistStore();
+
   const [searchText, setSearchText] = useState("");
+  const [showQuickCart, setShowQuickCart] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [typedText, setTypedText] = useState("");
   const [hintIdx, setHintIdx] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<any>(null);
-
-  useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 80);
-  }, []);
-
-  // Scroll lock — position:fixed works in Capacitor WebView where overflow:hidden alone fails
-  useEffect(() => {
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY); // restore scroll position
-    };
-  }, []);
-
-  // Typing hint animation — same logic as desktop navbar
-  useEffect(() => {
-    if (searchText || isListening) {
-      setTypedText("");
-      return;
-    }
-    const word = SEARCH_HINTS[hintIdx];
-    const speed = isDeleting ? 60 : 110;
-    const t = setTimeout(() => {
-      if (!isDeleting && typedText.length < word.length)
-        setTypedText(word.slice(0, typedText.length + 1));
-      else if (!isDeleting && typedText.length === word.length)
-        setTimeout(() => setIsDeleting(true), 1400);
-      else if (isDeleting && typedText.length > 0)
-        setTypedText(word.slice(0, typedText.length - 1));
-      else {
-        setIsDeleting(false);
-        setHintIdx((i) => (i + 1) % SEARCH_HINTS.length);
-      }
-    }, speed);
-    return () => clearTimeout(t);
-  }, [typedText, isDeleting, hintIdx, searchText, isListening]);
-
-  const onSearch = () => {
-    const q = searchText.trim();
-    if (!q) return;
-    dismissThen(() => navigate(`/global-search?q=${encodeURIComponent(q)}`));
-  };
-
-  const startVoice = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isListening && recRef.current) {
-      recRef.current.stop();
-      recRef.current = null;
-      setIsListening(false);
-      return;
-    }
-    const SR =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      toast("Voice search not supported");
-      return;
-    }
-    const rec = new SR();
-    rec.lang = "en-IN";
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.onstart = () => setIsListening(true);
-    rec.onend = () => {
-      setIsListening(false);
-      recRef.current = null;
-    };
-    rec.onerror = () => {
-      setIsListening(false);
-      recRef.current = null;
-    };
-    rec.onresult = (ev: any) => {
-      const t = ev.results[0][0].transcript.trim();
-      setSearchText(t);
-      setTimeout(() => {
-        dismissThen(() =>
-          navigate(`/global-search?q=${encodeURIComponent(t)}`),
-        );
-      }, 300);
-    };
-    recRef.current = rec;
-    rec.start();
-  };
-
-  return (
-    /* Full-screen backdrop — click anywhere to close */
-    <div className="mso-overlay" onClick={dismiss}>
-      {/* Search bar row — stops propagation so tapping bar doesn't close */}
-      <div className="mso-bar" onClick={(e) => e.stopPropagation()}>
-        {/* Full-width pill: [🎤 | input | 🔍] */}
-        <div className="mso-field-wrap">
-          {/* Mic — inside left of search bar */}
-          <button
-            className={`mso-mic${isListening ? " mso-mic--active" : ""}`}
-            onClick={startVoice}
-            aria-label={isListening ? "Stop" : "Voice search"}
-          >
-            <i
-              className={`bi ${
-                isListening ? "bi-stop-circle-fill" : "bi-mic-fill"
-              }`}
-            />
-          </button>
-
-          {/* Input + typing hint */}
-          <div className="mso-input-wrap">
-            {!searchText && (
-              <span
-                className={`mso-hint${
-                  isListening ? " mso-hint--listening" : ""
-                }`}
-              >
-                {isListening ? "Listening…" : typedText}
-                <span className="mso-cursor" />
-              </span>
-            )}
-            <input
-              ref={inputRef}
-              className="mso-input"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onSearch();
-                if (e.key === "Escape") dismiss();
-              }}
-              placeholder=""
-              autoComplete="off"
-            />
-          </div>
-
-          {/* Search submit — inside right of search bar */}
-          <button className="mso-submit" onClick={onSearch} aria-label="Search">
-            <i className="bi bi-search" />
-          </button>
-        </div>
-
-        {/* X close — outside right edge of search bar */}
-        <button
-          className="mso-close"
-          onClick={dismiss}
-          aria-label="Close search"
-        >
-          <i className="bi bi-x-lg" />
-        </button>
-      </div>
-
-      {/* Ghost logo — barely visible in background */}
-      <div className="mso-logo-center">
-        <AssetImg
-          names={[
-            "/assets/Twam-Logo-Burgundy.png",
-            "/assets/Twam-Logo-Black.png",
-            "/assets/TWAM.png",
-            "/assets/twam-logo.png",
-          ]}
-          alt="TWAM"
-          className="mso-logo-ghost"
-        />
-      </div>
-    </div>
-  );
-}
-
-// ── MobileNavbar ──────────────────────────────────────────────────────────────
-export default function MobileNavbar() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const {
-    isAuthenticated,
-    getUserName,
-    logout,
-    cartCount,
-    hasValidToken,
-    user,
-  } = useAuthStore();
-  const { serverIds: wishlistServerIds } = useWishlistStore();
-
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [showQuickCart, setShowQuickCart] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [sloganIdx, setSloganIdx] = useState(0);
-  const [sloganPhase, setSloganPhase] = useState<"in" | "out">("in");
-  const userMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSloganPhase("in");
-    const t1 = setTimeout(() => setSloganPhase("out"), 4000);
-    const t2 = setTimeout(() => {
-      setSloganIdx((i) => (i + 1) % TEXTS.length);
-      setSloganPhase("in");
-    }, 4700);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [sloganIdx]);
-
-  useEffect(() => {
-    const fn = () => setIsScrolled(window.scrollY > 2);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-
-  useEffect(() => {
-    const fn = (e: MouseEvent) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      )
-        setIsUserMenuOpen(false);
-    };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, []);
 
   const [guestCartCount, setGuestCartCount] = useState(() => {
     try {
@@ -326,8 +73,19 @@ export default function MobileNavbar() {
       return 0;
     }
   });
+
+  const [guestWishlistCount, setGuestWishlistCount] = useState(
+    getGuestWishlistCount,
+  );
+
   useEffect(() => {
-    const fn = () => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 2);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const syncGuestCart = () => {
       try {
         setGuestCartCount(
           JSON.parse(localStorage.getItem("guestCart") || "[]").length,
@@ -336,161 +94,332 @@ export default function MobileNavbar() {
         setGuestCartCount(0);
       }
     };
-    window.addEventListener("guestCartUpdated", fn);
-    return () => window.removeEventListener("guestCartUpdated", fn);
+    window.addEventListener("guestCartUpdated", syncGuestCart);
+    return () => window.removeEventListener("guestCartUpdated", syncGuestCart);
   }, []);
 
-  const [guestWishlistCount, setGuestWishlistCount] = useState(
-    getGuestWishlistCount,
-  );
   useEffect(() => {
-    const fn = () => setGuestWishlistCount(getGuestWishlistCount());
-    window.addEventListener("wishlistUpdated", fn);
-    return () => window.removeEventListener("wishlistUpdated", fn);
+    const syncGuestWishlist = () =>
+      setGuestWishlistCount(getGuestWishlistCount());
+    window.addEventListener("wishlistUpdated", syncGuestWishlist);
+    return () =>
+      window.removeEventListener("wishlistUpdated", syncGuestWishlist);
   }, []);
+
+  useEffect(() => {
+    if (location.pathname === "/global-search") {
+      const q = new URLSearchParams(location.search).get("q") || "";
+      setSearchText(q);
+      return;
+    }
+    setSearchText("");
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (searchText || isListening) {
+      setTypedText("");
+      return;
+    }
+
+    const word = SEARCH_HINTS[hintIdx];
+    const speed = isDeleting ? 60 : 110;
+    const timer = setTimeout(() => {
+      if (!isDeleting && typedText.length < word.length) {
+        setTypedText(word.slice(0, typedText.length + 1));
+        return;
+      }
+      if (!isDeleting && typedText.length === word.length) {
+        setTimeout(() => setIsDeleting(true), 1400);
+        return;
+      }
+      if (isDeleting && typedText.length > 0) {
+        setTypedText(word.slice(0, typedText.length - 1));
+        return;
+      }
+      setIsDeleting(false);
+      setHintIdx((index) => (index + 1) % SEARCH_HINTS.length);
+    }, speed);
+
+    return () => clearTimeout(timer);
+  }, [typedText, isDeleting, hintIdx, searchText, isListening]);
 
   const displayCartCount = hasValidToken() ? cartCount : guestCartCount;
   const displayWishlistCount = hasValidToken()
     ? wishlistServerIds.size
     : guestWishlistCount;
-  const userName = getUserName();
-  const profileImageUrl = (user as any)?.profileImageUrl || "";
+
+  const goHome = () => {
+    if (location.pathname === "/" || location.pathname === "/home") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    navigate("/");
+  };
+
+  const goWishlist = () => {
+    navigate("/wishlist", {
+      state: { from: location.pathname + location.search },
+    });
+  };
+
+  const goNotifications = () => {
+    navigate(isAuthenticated ? "/account/notifications" : "/login");
+  };
+
+  const goAccount = () => {
+    navigate(isAuthenticated ? "/account" : "/login");
+  };
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const q = searchText.trim();
+    if (!q) return;
+    navigate(`/global-search?q=${encodeURIComponent(q)}`);
+  };
+
+  const startVoice = () => {
+    if (isListening) {
+      recRef.current?.stop();
+      recRef.current = null;
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognitionApi =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionApi) {
+      toast.error("Voice search not supported on this device");
+      return;
+    }
+
+    const recognition = new SpeechRecognitionApi();
+    recognition.lang = "en-IN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recRef.current = null;
+    };
+
+    recognition.onerror = (event: any) => {
+      setIsListening(false);
+      recRef.current = null;
+      if (event.error === "no-speech" || event.error === "aborted") return;
+      toast.error("Voice search failed. Please try again.");
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript.trim();
+      setSearchText(transcript);
+      setTimeout(() => {
+        navigate(`/global-search?q=${encodeURIComponent(transcript)}`);
+      }, 250);
+    };
+
+    recRef.current = recognition;
+    recognition.start();
+  };
+
+  const isHomeActive =
+    location.pathname === "/" || location.pathname === "/home";
+  const isWishlistActive =
+    location.pathname === "/wishlist" ||
+    location.pathname === "/account/wishlist";
+  const isNotificationsActive = location.pathname === "/account/notifications";
+  const isUserActive =
+    location.pathname.startsWith("/account") && !isNotificationsActive;
 
   return (
     <>
-      <header
-        className={`mnb-header${isScrolled ? " mnb-header--scrolled" : ""}`}
-      >
-        <div className="mnb-row">
-          <div className="mnb-left">
-            <button
-              className="mnb-icon-btn"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search"
+      {showSearchHeader && (
+        <header
+          className={`mnb-header${isScrolled ? " mnb-header--scrolled" : ""}`}
+        >
+          <div className="mnb-row">
+            <form
+              className="mnb-search-shell"
+              onSubmit={handleSearchSubmit}
+              role="search"
             >
-              <i className="bi bi-search" />
-            </button>
-          </div>
+              <span className="mnb-search-logo-wrap" aria-hidden="true">
+                <AssetImg
+                  names={[
+                    "/assets/mobile-logo.png",
+                    "/assets/Twam-Logo-Burgundy.png",
+                    "/assets/Twam-Logo-Black.png",
+                    "/assets/TWAM.png",
+                  ]}
+                  alt="TWAM"
+                  className="mnb-search-logo"
+                />
+              </span>
 
-          <Link
-            to="/"
-            className="mnb-logo-wrap"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          >
-            <AssetImg
-              names={[
-                "/assets/Twam-Logo-Burgundy.png",
-                "/assets/Twam-Logo-Black.png",
-                "/assets/TWAM.png",
-                "/assets/twam-logo.png",
-              ]}
-              alt="TWAM"
-              className="mnb-logo"
-            />
-            <p
-              className={`mnb-tagline ${
-                sloganPhase === "in" ? "is-visible" : "is-hidden"
-              }`}
-            >
-              {TEXTS[sloganIdx]}
-            </p>
-          </Link>
-
-          <div className="mnb-right">
-            <button
-              className="mnb-icon-btn mnb-icon-relative"
-              onClick={() =>
-                navigate("/wishlist", {
-                  state: { from: location.pathname + location.search },
-                })
-              }
-              aria-label="Wishlist"
-            >
-              <i className="bi bi-heart" />
-              {displayWishlistCount > 0 && (
-                <span className="mnb-badge">{displayWishlistCount}</span>
-              )}
-            </button>
-
-            {!isAuthenticated ? (
-              <button
-                className="mnb-icon-btn mnb-signin-btn"
-                onClick={() => navigate("/login")}
-                aria-label="Sign in"
-              >
-                <i className="bi bi-person" />
-              </button>
-            ) : (
-              <div ref={userMenuRef} className="mnb-user-wrap">
+              <div className="mnb-search-form">
                 <button
-                  className="mnb-icon-btn"
-                  onClick={() => setIsUserMenuOpen((o) => !o)}
-                  aria-label="Account"
+                  type="button"
+                  className={`mnb-search-mic${
+                    isListening ? " is-listening" : ""
+                  }`}
+                  onClick={startVoice}
+                  aria-label={
+                    isListening ? "Stop voice search" : "Voice search"
+                  }
                 >
-                  <UserAvatar
-                    name={userName}
-                    imageUrl={profileImageUrl}
-                    size={30}
-                    fallbackMode="initial"
-                    className="mnb-avatar"
-                    style={{
-                      background: "var(--brand)",
-                      color: "var(--white)",
-                      border: "none",
-                      boxShadow: "none",
-                    }}
+                  <i
+                    className={`bi ${
+                      isListening ? "bi-stop-circle-fill" : "bi-mic-fill"
+                    }`}
                   />
                 </button>
-                {isUserMenuOpen && (
-                  <div
-                    className="mnb-user-dropdown"
-                    role="menu"
-                    aria-label="Account options"
-                  >
-                    <div className="mnb-user-menu">
-                      <button
-                        type="button"
-                        className="mnb-user-menu__item"
-                        onClick={() => {
-                          navigate("/account");
-                          setIsUserMenuOpen(false);
-                        }}
-                      >
-                        <i className="bi bi-person" /> Account
-                      </button>
-                      <button
-                        type="button"
-                        className="mnb-user-menu__signout"
-                        onClick={() => {
-                          logout();
-                          setIsUserMenuOpen(false);
-                          navigate("/");
-                        }}
-                      >
-                        <i className="bi bi-box-arrow-right" /> Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
+
+                <div className="mnb-search-input-wrap">
+                  {!searchText && (
+                    <span
+                      className={`mnb-search-hint${
+                        isListening ? " is-listening" : ""
+                      }`}
+                    >
+                      {isListening ? "Listening..." : typedText}
+                      {!isListening && <span className="mnb-search-cursor" />}
+                    </span>
+                  )}
+
+                  <input
+                    type="search"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="mnb-search-input"
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder=""
+                    aria-label="Search products"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="mnb-search-submit"
+                  aria-label="Search"
+                >
+                  <i className="bi bi-search" />
+                </button>
               </div>
-            )}
+            </form>
 
-            <button
-              className="mnb-icon-btn mnb-icon-relative"
-              onClick={() => setShowQuickCart((open) => !open)}
-              data-quickcart-trigger="true"
-              aria-label="Cart"
-            >
-              <i className="bi bi-bag" />
-              {displayCartCount > 0 && (
-                <span className="mnb-badge">{displayCartCount}</span>
-              )}
-            </button>
+            <div className="mnb-header-actions">
+              <button
+                className="mnb-icon-btn mnb-icon-relative"
+                onClick={() => setShowQuickCart((open) => !open)}
+                data-quickcart-trigger="true"
+                aria-label="Cart"
+              >
+                <i className="bi bi-bag" />
+                {displayCartCount > 0 && (
+                  <span className="mnb-badge">{displayCartCount}</span>
+                )}
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
+      <nav className="mnb-bottom-nav" aria-label="Mobile navigation">
+        <button
+          type="button"
+          className={`mnb-bottom-nav__item${isHomeActive ? " is-active" : ""}`}
+          onClick={goHome}
+          aria-current={isHomeActive ? "page" : undefined}
+        >
+          <span className="mnb-bottom-nav__icon">
+            <i
+              className={`bi ${
+                isHomeActive ? "bi-house-door-fill" : "bi-house-door"
+              }`}
+            />
+          </span>
+          <span className="mnb-bottom-nav__label">Home</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mnb-bottom-nav__item${
+            isWishlistActive ? " is-active" : ""
+          }`}
+          onClick={goWishlist}
+          aria-current={isWishlistActive ? "page" : undefined}
+        >
+          <span className="mnb-bottom-nav__icon mnb-bottom-nav__icon--badge">
+            <i
+              className={`bi ${
+                isWishlistActive ? "bi-heart-fill" : "bi-heart"
+              }`}
+            />
+            {displayWishlistCount > 0 && (
+              <span className="mnb-bottom-nav__badge">
+                {displayWishlistCount}
+              </span>
+            )}
+          </span>
+          <span className="mnb-bottom-nav__label">Wishlist</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mnb-bottom-nav__item${
+            isNotificationsActive ? " is-active" : ""
+          }`}
+          onClick={goNotifications}
+          aria-current={isNotificationsActive ? "page" : undefined}
+        >
+          <span className="mnb-bottom-nav__icon">
+            <i
+              className={`bi ${
+                isNotificationsActive ? "bi-bell-fill" : "bi-bell"
+              }`}
+            />
+          </span>
+          <span className="mnb-bottom-nav__label">Alerts</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mnb-bottom-nav__item${isUserActive ? " is-active" : ""}`}
+          onClick={goAccount}
+          aria-current={isUserActive ? "page" : undefined}
+        >
+          <span className="mnb-bottom-nav__icon">
+            {isAuthenticated ? (
+              <UserAvatar
+                name={getUserName()}
+                imageUrl={(user as any)?.profileImageUrl || ""}
+                size={20}
+                fallbackMode="initial"
+                className="mnb-bottom-avatar"
+                style={{
+                  background: "var(--brand)",
+                  color: "var(--white)",
+                  border: "none",
+                  boxShadow: "none",
+                }}
+              />
+            ) : (
+              <i className="bi bi-person" />
+            )}
+          </span>
+          <span className="mnb-bottom-nav__label">
+            {isAuthenticated ? "Account" : "Login"}
+          </span>
+        </button>
+      </nav>
+
       {showQuickCart && <QuickCart onClose={() => setShowQuickCart(false)} />}
     </>
   );

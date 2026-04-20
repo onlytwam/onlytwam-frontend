@@ -477,7 +477,16 @@ export default function Payment() {
 
   return (
     <div className="container s-orderdetails-c93f0f checkout-shell checkout-shell--payment">
-      <h4 className="checkout-page-title">Payment</h4>
+      <div className="checkout-mobile-header">
+        <button
+          className="checkout-mobile-back"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+        >
+          <i className="bi bi-chevron-left" />
+        </button>
+        <h4 className="checkout-page-title">Payment</h4>
+      </div>
 
       <div className="row g-4">
         <div className="col-lg-8">

@@ -39,20 +39,33 @@ function ProductSlider({
   products,
   onQuickShop,
   viewAllPath,
+  variant = "default",
+  autoScrollIntervalMs,
+  pauseAutoScrollOnHover = false,
 }: {
   products: any[];
   onQuickShop: (id: number) => void;
   viewAllPath?: string;
+  variant?: "default" | "twam-featured";
+  autoScrollIntervalMs?: number;
+  pauseAutoScrollOnHover?: boolean;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const pausedRef = useRef(false);
   const isJumping = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const didDragRef = useRef(false);
+  const dragResetTimerRef = useRef<number | null>(null);
+  const snapTimeoutRef = useRef<number | null>(null);
+  const autoScrollPausedRef = useRef(false);
   const navigate = useNavigate();
 
   const [cw, setCw] = useState(0);
   const [vis, setVis] = useState(4);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [centerIndex, setCenterIndex] = useState(0);
 
   // ── Fix 3: Deduplicate products by productVariantId ──────────────────────
   const uniqueProducts = useMemo(() => {
@@ -68,6 +81,7 @@ function ProductSlider({
   const numProducts = uniqueProducts.length;
   const shouldScroll = numProducts > vis;
   const showArrows = shouldScroll;
+  const featuredSpotlightEnabled = variant === "twam-featured" && vis >= 5;
 
   const tripled = useMemo(() => {
     return shouldScroll
@@ -80,11 +94,36 @@ function ProductSlider({
     return numProducts * (cw + GAP);
   }, [cw, numProducts]);
 
+  const updateCenterIndex = useCallback(
+    (scrollLeft: number) => {
+      if (!numProducts) {
+        setCenterIndex(0);
+        return;
+      }
+
+      const visibleCount = Math.min(vis, numProducts);
+      const centerOffset = Math.max(0, Math.floor(visibleCount / 2));
+
+      if (!featuredSpotlightEnabled || !shouldScroll || !cw || singleW === 0) {
+        setCenterIndex(Math.min(centerOffset, numProducts - 1));
+        return;
+      }
+
+      const normalizedScrollLeft = ((scrollLeft % singleW) + singleW) % singleW;
+      const startIndex =
+        Math.round(normalizedScrollLeft / (cw + GAP)) %
+        Math.max(numProducts, 1);
+
+      setCenterIndex((startIndex + centerOffset) % numProducts);
+    },
+    [cw, featuredSpotlightEnabled, numProducts, shouldScroll, singleW, vis],
+  );
+
   const measure = useCallback(() => {
     const sw = window.innerWidth;
     // Mobile (<640px): 2 cards visible (standard for fashion apps — Zivame/Myntra)
-    // Tablet (<1024px): 3 cards  |  Desktop: 6 cards
-    const v = sw < 640 ? 2 : sw < 1024 ? 3 : 6;
+    // Tablet (<1024px): 3 cards  |  Desktop: 5 cards
+    const v = sw < 640 ? 2 : sw < 1024 ? 3 : 5;
     const wrapWidth = wrapRef.current?.clientWidth ?? sw;
     const trackWidth = showArrows ? wrapWidth - 88 : wrapWidth;
     const c = Math.floor((trackWidth - GAP * (v - 1)) / v);
@@ -100,63 +139,111 @@ function ProductSlider({
   }, [measure]);
 
   useEffect(() => {
-    if (!shouldScroll || !scrollRef.current || singleW === 0) return;
+    return () => {
+      if (dragResetTimerRef.current !== null) {
+        window.clearTimeout(dragResetTimerRef.current);
+      }
+      if (snapTimeoutRef.current !== null) {
+        window.clearTimeout(snapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoScrollIntervalMs || !shouldScroll || !scrollRef.current || !cw) {
+      return;
+    }
+
+    const id = window.setInterval(() => {
+      if (
+        autoScrollPausedRef.current ||
+        isDraggingRef.current ||
+        !scrollRef.current
+      ) {
+        return;
+      }
+
+      // twam-featured: scroll 1 card at a time; others: 2
+      const step = variant === "twam-featured" ? 1 : 2;
+      scrollRef.current.scrollTo({
+        left: scrollRef.current.scrollLeft + step * (cw + GAP),
+        behavior: "smooth",
+      });
+    }, autoScrollIntervalMs);
+
+    return () => window.clearInterval(id);
+  }, [autoScrollIntervalMs, cw, shouldScroll]);
+
+  useEffect(() => {
+    if (!numProducts) {
+      setCenterIndex(0);
+      return;
+    }
+
+    if (!shouldScroll || !scrollRef.current || singleW === 0) {
+      updateCenterIndex(0);
+      return;
+    }
+
     isJumping.current = true;
     scrollRef.current.scrollLeft = singleW;
+    updateCenterIndex(singleW);
     requestAnimationFrame(() => {
       isJumping.current = false;
     });
-  }, [singleW, shouldScroll]);
+  }, [numProducts, shouldScroll, singleW, updateCenterIndex]);
 
   const onScrollHandler = useCallback(() => {
     if (!shouldScroll) return;
     if (isJumping.current || !scrollRef.current || singleW === 0) return;
-    const sl = scrollRef.current.scrollLeft;
+    const { current } = scrollRef;
+    let sl = current.scrollLeft;
     if (sl >= singleW * 2) {
       isJumping.current = true;
-      scrollRef.current.scrollLeft = sl - singleW;
+      current.scrollLeft = sl - singleW;
       requestAnimationFrame(() => {
         isJumping.current = false;
       });
     } else if (sl < singleW * 0.5) {
       isJumping.current = true;
-      scrollRef.current.scrollLeft = sl + singleW;
+      current.scrollLeft = sl + singleW;
       requestAnimationFrame(() => {
         isJumping.current = false;
       });
     }
-    const idx =
-      Math.round((sl % singleW) / (cw + GAP)) % Math.max(numProducts, 1);
-    setActiveIndex(idx);
-  }, [singleW, cw, numProducts, shouldScroll]);
+    sl = current.scrollLeft;
+    updateCenterIndex(sl);
+    if (!isDraggingRef.current) {
+      if (snapTimeoutRef.current !== null) {
+        window.clearTimeout(snapTimeoutRef.current);
+      }
+      snapTimeoutRef.current = window.setTimeout(() => {
+        snapTimeoutRef.current = null;
+        snapToNearestCard();
+      }, 120);
+    }
+  }, [shouldScroll, singleW, updateCenterIndex]);
 
-  useEffect(() => {
-    if (!shouldScroll || singleW === 0) return;
+  const snapToNearestCard = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      if (!scrollRef.current || !cw || !shouldScroll) return;
+      const step = cw + GAP;
+      const snappedLeft =
+        Math.round(scrollRef.current.scrollLeft / step) * step;
+      scrollRef.current.scrollTo({ left: snappedLeft, behavior });
+    },
+    [cw, shouldScroll],
+  );
 
-    // Step scroll: advance by (vis) cards every 5 seconds, then pause.
-    // This matches standard e-commerce carousel UX (Zivame, Myntra, Clovia).
-    const INTERVAL_MS = 5000;
-
-    const step = () => {
-      if (pausedRef.current || !scrollRef.current) return;
-      // Scroll forward by exactly `vis` card widths
-      const stepPx = vis * (cw + GAP);
-      scrollRef.current.scrollTo({
-        left: scrollRef.current.scrollLeft + stepPx,
-        behavior: "smooth",
-      });
-    };
-
-    const id = setInterval(step, INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [shouldScroll, singleW, vis, cw]);
-
-  const pause = () => {
-    pausedRef.current = true;
-  };
-  const resume = () => {
-    pausedRef.current = false;
-  };
+  const scheduleSnapToNearestCard = useCallback(() => {
+    if (snapTimeoutRef.current !== null) {
+      window.clearTimeout(snapTimeoutRef.current);
+    }
+    snapTimeoutRef.current = window.setTimeout(() => {
+      snapTimeoutRef.current = null;
+      snapToNearestCard();
+    }, 120);
+  }, [snapToNearestCard]);
 
   const scrollBy = (dir: 1 | -1) => {
     if (!scrollRef.current || !cw) return;
@@ -166,12 +253,57 @@ function ProductSlider({
     });
   };
 
-  const scrollToCard = (index: number) => {
-    if (!scrollRef.current || !cw) return;
-    const target = shouldScroll
-      ? singleW + index * (cw + GAP)
-      : index * (cw + GAP);
-    scrollRef.current.scrollTo({ left: target, behavior: "smooth" });
+  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!shouldScroll || !scrollRef.current || e.button !== 0) return;
+    e.preventDefault();
+    isDraggingRef.current = true;
+    didDragRef.current = false;
+    dragStartXRef.current = e.clientX;
+    dragStartScrollLeftRef.current = scrollRef.current.scrollLeft;
+    setIsDragging(true);
+  };
+
+  const handleDragMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || !scrollRef.current) return;
+    e.preventDefault();
+    const deltaX = e.clientX - dragStartXRef.current;
+    if (Math.abs(deltaX) > 6) {
+      didDragRef.current = true;
+    }
+    scrollRef.current.scrollLeft = dragStartScrollLeftRef.current - deltaX;
+  };
+
+  const handleDragEnd = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    if (dragResetTimerRef.current !== null) {
+      window.clearTimeout(dragResetTimerRef.current);
+    }
+    dragResetTimerRef.current = window.setTimeout(() => {
+      didDragRef.current = false;
+      dragResetTimerRef.current = null;
+    }, 0);
+    scheduleSnapToNearestCard();
+  };
+
+  const suppressDraggedClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!didDragRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleWrapMouseEnter = () => {
+    if (pauseAutoScrollOnHover) {
+      autoScrollPausedRef.current = true;
+    }
+  };
+
+  const handleWrapMouseLeave = () => {
+    handleDragEnd();
+    if (pauseAutoScrollOnHover) {
+      autoScrollPausedRef.current = false;
+    }
   };
 
   const safeCw = cw > 0 ? cw : 280;
@@ -183,7 +315,12 @@ function ProductSlider({
     // Fix 1: outer column wrapper so View All sits above the slider track
     <div className="s-home-slider-outer">
       {viewAllPath && (
-        <div className="s-home-slider-header">
+        <div
+          className={`s-home-slider-header${
+            variant === "twam-featured" ? " s-home-slider-header--tight" : ""
+          }`}
+          style={{ paddingRight: showArrows ? 48 : 4 }}
+        >
           <button
             onClick={() => navigate(viewAllPath)}
             className="s-home-54af6d"
@@ -195,8 +332,9 @@ function ProductSlider({
       <div
         ref={wrapRef}
         className="s-home-1e81b6"
-        onMouseEnter={pause}
-        onMouseLeave={resume}
+        onMouseEnter={handleWrapMouseEnter}
+        onMouseLeave={handleWrapMouseLeave}
+        onMouseUp={handleDragEnd}
       >
         {showArrows && (
           <>
@@ -212,10 +350,33 @@ function ProductSlider({
         <div
           ref={scrollRef}
           onScroll={onScrollHandler}
-          className="s-home-4ec7f1"
+          onMouseDown={
+            variant === "twam-featured" ? undefined : handleDragStart
+          }
+          onMouseMove={variant === "twam-featured" ? undefined : handleDragMove}
+          onMouseUp={variant === "twam-featured" ? undefined : handleDragEnd}
+          onMouseLeave={variant === "twam-featured" ? undefined : handleDragEnd}
+          onClickCapture={
+            variant === "twam-featured" ? undefined : suppressDraggedClick
+          }
+          onDragStart={(e) => e.preventDefault()}
+          className={`s-home-4ec7f1${
+            isDragging ? " s-home-4ec7f1--dragging" : ""
+          }`}
           style={{
             gap: GAP,
-            overflowX: shouldScroll ? "auto" : "hidden",
+            overflowX:
+              shouldScroll && variant !== "twam-featured"
+                ? "auto"
+                : variant === "twam-featured"
+                ? "hidden"
+                : "hidden",
+            cursor:
+              shouldScroll && variant !== "twam-featured"
+                ? isDragging
+                  ? "grabbing"
+                  : "grab"
+                : "default",
             // Give the track enough top breathing room so that the card's
             // hover translateY(-6px) + scale(1.015) are never clipped.
             // NOTE: setting overflow-x:auto implicitly clips overflow-y,
@@ -226,43 +387,48 @@ function ProductSlider({
             ...(showArrows ? { marginLeft: 44, marginRight: 44 } : {}),
           }}
         >
-          {tripled.map((p, i) => (
-            <div
-              key={`${p.productVariantId}-${i}`}
-              className="s-home-685bdd"
-              style={{
-                flex: `0 0 ${safeCw}px`,
-                width: safeCw,
-                minWidth: safeCw,
-              }}
-            >
-              <ProductCard
-                product={p}
-                onQuickShop={onQuickShop}
-                showDiscountTag={false}
-                singleColorOnly={true}
-                compact={true}
-              />
-            </div>
-          ))}
-        </div>
+          {tripled.map((p, i) => {
+            const productIndex = numProducts > 0 ? i % numProducts : 0;
+            // 3-tier distance from center: 0=center, 1=near, 2+=corner
+            const rawDist = Math.abs(productIndex - centerIndex);
+            const distFromCenter =
+              numProducts > 0
+                ? Math.min(rawDist, numProducts - rawDist)
+                : rawDist;
+            const featuredTierClass = !featuredSpotlightEnabled
+              ? ""
+              : distFromCenter === 0
+              ? " home-featured-card--center"
+              : distFromCenter === 1
+              ? " home-featured-card--near"
+              : " home-featured-card--corner";
 
-        {showArrows && uniqueProducts.length > 0 && (
-          <div className="s-home-78e566">
-            {uniqueProducts.map((_, i) => (
-              <span
-                key={i}
-                onClick={() => scrollToCard(i)}
-                className="s-home-9bff23"
+            return (
+              <div
+                key={`${p.productVariantId}-${i}`}
+                className={`s-home-685bdd${
+                  featuredSpotlightEnabled ? " home-featured-card" : ""
+                }${featuredTierClass}`}
                 style={{
-                  width: activeIndex === i ? 20 : 7,
-                  background:
-                    activeIndex === i ? "var(--brand)" : "var(--heirloom)",
+                  flex: `0 0 ${safeCw}px`,
+                  width: safeCw,
+                  minWidth: safeCw,
                 }}
-              />
-            ))}
-          </div>
-        )}
+              >
+                <ProductCard
+                  product={p}
+                  onQuickShop={onQuickShop}
+                  showDiscountTag={false}
+                  singleColorOnly={true}
+                  compact={true}
+                  enableHoverImageTransition={
+                    !featuredSpotlightEnabled || distFromCenter === 0
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -414,12 +580,13 @@ function MobileProductSlider({
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
 
-  // Touch swipe state
+  // Touch swipe — smooth swipe left/right to change pair
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
   };
   const handleTouchMove = (e: React.TouchEvent) => {
     touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
@@ -482,10 +649,10 @@ function MobileProductSlider({
     variant === "twam"
       ? "/assets/twam-featured.png"
       : variant === "bestsellers"
-        ? "/assets/best-sellers.png"
-        : variant === "new"
-          ? "/assets/new-arrivals.png"
-          : null;
+      ? "/assets/best-sellers.png"
+      : variant === "new"
+      ? "/assets/new-arrivals.png"
+      : null;
 
   return (
     <div className={`mpsl-outer mpsl-outer--${variant}`}>
@@ -555,14 +722,13 @@ function MobileProductSlider({
           </div>
         )}
 
-        {/* Cards: staggered, arrows overlaid left/right, swipe to navigate */}
+        {/* Cards: staggered layout, swipe or arrows to navigate */}
         <div
           className="mpsl-track"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Left arrow — overlaid on left edge */}
           <button
             className="mpsl-arrow mpsl-arrow--left"
             onClick={prev}
@@ -572,11 +738,9 @@ function MobileProductSlider({
           </button>
 
           <div className="mpsl-cards">
-            {/* Card 0: top */}
             <div className="mpsl-card mpsl-card--top">
               <MobileProductCard product={card0} onQuickShop={onQuickShop} />
             </div>
-            {/* Card 1: bottom-right, offset down */}
             {card1 && (
               <div className="mpsl-card mpsl-card--bottom">
                 <MobileProductCard product={card1} onQuickShop={onQuickShop} />
@@ -584,7 +748,6 @@ function MobileProductSlider({
             )}
           </div>
 
-          {/* Right arrow — overlaid on right edge */}
           <button
             className="mpsl-arrow mpsl-arrow--right"
             onClick={next}
@@ -599,8 +762,10 @@ function MobileProductSlider({
           {Array.from({ length: Math.ceil(total / 2) }).map((_, i) => (
             <span
               key={i}
-              className={`mpsl-dot${Math.floor(index / 2) === i ? " mpsl-dot--active" : ""}`}
               onClick={() => setIndex(i * 2)}
+              className={`mpsl-dot${
+                Math.floor(index / 2) === i ? " mpsl-dot--active" : ""
+              }`}
             />
           ))}
         </div>
@@ -634,52 +799,33 @@ function TwamFeaturedSection({
   }
   return (
     <section
-      className="best-sellers"
-      style={{
-        background: "var(--ivory)",
-        position: "relative",
-        overflow: "hidden",
-      }}
+      className="best-sellers home-product-section home-product-section--ivory"
+      style={{ position: "relative", overflow: "hidden" }}
     >
-      {/* Background image — contained, no crop */}
+      {/* Background image — fades in from right half of last card */}
       <img
         src="/assets/twam-featured.png"
         alt=""
         aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          objectPosition: "right center",
-          opacity: 0.08,
-          pointerEvents: "none",
-          userSelect: "none",
-        }}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
+        className="desktop-section-bg desktop-section-bg--twam"
       />
       <div className="container" style={{ position: "relative", zIndex: 1 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 4,
-          }}
+        <SectionTitle title="TWAM Featured" highlight />
+        <button
+          onClick={() => navigate(TWAM_PATH)}
+          className="s-home-54af6d"
+          style={{ display: "none" }}
         >
-          <SectionTitle title="TWAM Featured" />
-          <button
-            onClick={() => navigate(TWAM_PATH)}
-            className="s-home-54af6d"
-            style={{ marginBottom: 12 }}
-          >
-            View All →
-          </button>
-        </div>
-        <ProductSlider products={products} onQuickShop={onQuickShop} />
+          View All →
+        </button>
+        <ProductSlider
+          products={products}
+          onQuickShop={onQuickShop}
+          viewAllPath={TWAM_PATH}
+          variant="twam-featured"
+          autoScrollIntervalMs={10000}
+          pauseAutoScrollOnHover={true}
+        />
       </div>
     </section>
   );
@@ -770,7 +916,11 @@ function MobileTestimonial({
         onClick={() => {
           if (canNav)
             navigate(
-              `/user-products/product-detail/${r.productVariantId}/${(r.productName || "product").toLowerCase().replace(/\s+/g, "-")}?tab=reviews`,
+              `/user-products/product-detail/${r.productVariantId}/${(
+                r.productName || "product"
+              )
+                .toLowerCase()
+                .replace(/\s+/g, "-")}?tab=reviews`,
             );
         }}
         style={{ cursor: canNav ? "pointer" : "default", minHeight: 120 }}
@@ -927,7 +1077,9 @@ export default function Home() {
         const center = rect.top + rect.height / 2;
         const offset = (center - vh / 2) / (vh / 2);
         const clamped = Math.max(-1, Math.min(1, offset));
-        el.style.transform = `perspective(900px) rotateX(${clamped * -6}deg) translateY(${clamped * 10}px)`;
+        el.style.transform = `perspective(900px) rotateX(${
+          clamped * -6
+        }deg) translateY(${clamped * 10}px)`;
         el.style.opacity = String(1 - Math.abs(clamped) * 0.18);
       });
     };
@@ -951,6 +1103,27 @@ export default function Home() {
     };
   }, []);
 
+  // ── Pause hover image transitions while scrolling ──────────────────────────
+  // Adds "home-scrolling" class to body during scroll.
+  // Removed 2s after scroll stops — CSS uses this to block hover transitions.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      document.body.classList.add("home-scrolling");
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        document.body.classList.remove("home-scrolling");
+      }, 2000);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (scrollTimer) clearTimeout(scrollTimer);
+      document.body.classList.remove("home-scrolling");
+    };
+  }, []);
+
   // ── Best Sellers — same API as ProductList so field names match ProductCard ─
   // Deduplicate by productId (API returns one row per colour variant).
   const dedupeByProductId = (d: any) => {
@@ -962,7 +1135,7 @@ export default function Home() {
     });
   };
 
-  const { data: bestSellersProducts = [] } = useQuery({
+  const { data: bestSellersProducts = [], isSuccess: bsReady } = useQuery({
     queryKey: ["home-best-sellers"],
     queryFn: () => listProducts({ isBestSeller: true, pageSize: 40 }),
     select: dedupeByProductId,
@@ -970,7 +1143,7 @@ export default function Home() {
   });
 
   // ── New Arrivals — products added in the last 6 months (server-side date filter) ─
-  const { data: newArrivalsProducts = [] } = useQuery({
+  const { data: newArrivalsProducts = [], isSuccess: naReady } = useQuery({
     queryKey: ["home-new-arrivals"],
     queryFn: () => listNewArrivals({ pageSize: 40 }),
     select: dedupeByProductId,
@@ -999,13 +1172,22 @@ export default function Home() {
   }, [brandsData]);
 
   // ── Fetch TWAM brand products for the featured slider ────────────────────
-  const { data: twamFeaturedProducts = [] } = useQuery({
+  const { data: twamFeaturedProducts = [], isSuccess: tfReady } = useQuery({
     queryKey: ["home-twam-featured", twamBrandId],
     enabled: twamBrandId != null,
     queryFn: () => listProducts({ brandIds: twamBrandId, pageSize: 40 }),
     select: dedupeByProductId,
     staleTime: 5 * 60 * 1000,
   });
+
+  // ── Signal splash: dispatch when all critical product data is loaded ─────
+  // Uses a global flag so HomeSplash catches it even if event fired before listener attached
+  useEffect(() => {
+    if (bsReady && naReady && tfReady) {
+      (window as any).__twamHomeReady = true;
+      window.dispatchEvent(new Event("twam-home-ready"));
+    }
+  }, [bsReady, naReady, tfReady]);
 
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],
@@ -1094,6 +1276,10 @@ export default function Home() {
     loadCategoryProducts(cat.categoryId);
   };
 
+  const selectedCategoryPath = selectedCategoryId
+    ? `/user-products/product-list/${selectedCategoryId}`
+    : "/user-products/product-list";
+
   return (
     <div className="s-home-bcf04f">
       {/* TWAM Banner — mobile uses mobile-banner.png */}
@@ -1133,8 +1319,20 @@ export default function Home() {
           variant="bestsellers"
         />
       ) : (
-        <section className="best-sellers best-sellers-bg best-sellers-bg-1 s-home-42eb71">
-          <div className="container">
+        <section
+          className="best-sellers home-product-section home-product-section--white s-home-42eb71"
+          style={{ position: "relative", overflow: "hidden" }}
+        >
+          <img
+            src="/assets/best-sellers.png"
+            alt=""
+            aria-hidden="true"
+            className="desktop-section-bg desktop-section-bg--bs"
+          />
+          <div
+            className="container"
+            style={{ position: "relative", zIndex: 1 }}
+          >
             <SectionTitle title="Best Sellers" highlight />
             <ProductSlider
               products={products}
@@ -1155,13 +1353,27 @@ export default function Home() {
           variant="new"
         />
       ) : (
-        <section className="best-sellers s-home-51e4ca">
-          <div className="container">
+        <section
+          className="best-sellers home-product-section home-product-section--ivory s-home-51e4ca"
+          style={{ position: "relative", overflow: "hidden" }}
+        >
+          <img
+            src="/assets/new-arrivals.png"
+            alt=""
+            aria-hidden="true"
+            className="desktop-section-bg desktop-section-bg--new"
+          />
+          <div
+            className="container"
+            style={{ position: "relative", zIndex: 1 }}
+          >
             <SectionTitle title="New Arrivals" highlight />
             <ProductSlider
               products={newArrivals}
               onQuickShop={setQuickShopId}
               viewAllPath="/new-arrivals"
+              autoScrollIntervalMs={6000}
+              pauseAutoScrollOnHover={true}
             />
           </div>
         </section>
@@ -1277,7 +1489,7 @@ export default function Home() {
         </section>
       ) : (
         /* ── Shop by Category — desktop unchanged ── */
-        <section className="s-home-7af910">
+        <section className="home-product-section home-product-section--white s-home-7af910">
           <div className="container">
             <SectionTitle title="Shop by Category" highlight />
             <div className="category-buttons s-home-5e0218">
@@ -1285,11 +1497,24 @@ export default function Home() {
                 <button
                   key={cat.categoryId}
                   onClick={() => handleCategorySelect(cat)}
-                  className={`${selectedCategoryId === cat.categoryId ? "active" : ""} s-home-2574d7`}
+                  className={`${
+                    selectedCategoryId === cat.categoryId ? "active" : ""
+                  } s-home-2574d7`}
                 >
                   {cat.name}
                 </button>
               ))}
+            </div>
+            <div
+              className="s-home-slider-header s-home-slider-header--tight"
+              style={{ marginTop: -14 }}
+            >
+              <button
+                onClick={() => navigate(selectedCategoryPath)}
+                className="s-home-54af6d"
+              >
+                View All
+              </button>
             </div>
             {categoryProducts === null ? (
               <div className="s-home-0b4322">
@@ -1318,7 +1543,11 @@ export default function Home() {
                   const handleTestimonialClick = () => {
                     if (!canNav) return;
                     navigate(
-                      `/user-products/product-detail/${r.productVariantId}/${slugify(r.productName || r.name || "product")}?tab=reviews`,
+                      `/user-products/product-detail/${
+                        r.productVariantId
+                      }/${slugify(
+                        r.productName || r.name || "product",
+                      )}?tab=reviews`,
                     );
                   };
                   const hasUserPhoto = !!r.photo;

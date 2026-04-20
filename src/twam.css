@@ -207,9 +207,7 @@ button {
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
-  transition:
-    border-color 0.2s,
-    color 0.2s;
+  transition: border-color 0.2s, color 0.2s;
 }
 
 .header-contact-btn:hover {
@@ -336,9 +334,7 @@ button {
   box-shadow: 0 2px 8px rgba(107, 15, 42, 0.15);
   color: var(--text-secondary);
   font-size: 15px;
-  transition:
-    background 0.2s,
-    color 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
 .product_action li a:hover,
@@ -1129,9 +1125,7 @@ button {
   border-radius: 50%;
   cursor: pointer;
   border: 2.5px solid transparent;
-  transition:
-    border-color 0.15s,
-    transform 0.15s;
+  transition: border-color 0.15s, transform 0.15s;
   position: relative;
   display: flex;
   align-items: center;
@@ -1976,9 +1970,7 @@ button {
   pointer-events: none;
   transform: scaleX(0.9);
   transform-origin: right center;
-  transition:
-    opacity 0.25s ease,
-    transform 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .nb-inline-search__submit:hover {
@@ -2055,9 +2047,7 @@ button {
   color: var(--brand);
   font-size: 15px;
   flex-shrink: 0;
-  transition:
-    background 0.2s,
-    transform 0.2s ease;
+  transition: background 0.2s, transform 0.2s ease;
 }
 
 .nb-mic-btn:hover {
@@ -2157,11 +2147,8 @@ button {
   background: linear-gradient(180deg, #fff 0%, #faf6ef 100%) !important;
   border: 1px solid rgba(107, 15, 42, 0.12) !important;
   box-sizing: border-box;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
+    border-color 0.18s ease, background 0.18s ease;
   gap: 0;
   width: 48px !important;
   min-width: 48px !important;
@@ -2212,8 +2199,7 @@ button {
   border-radius: 22px;
   min-width: 234px;
   padding: 12px;
-  box-shadow:
-    0 20px 45px rgba(107, 15, 42, 0.12),
+  box-shadow: 0 20px 45px rgba(107, 15, 42, 0.12),
     0 8px 18px rgba(0, 0, 0, 0.06);
   z-index: 9999;
   animation: nb-user-panel-in 0.18s ease-out;
@@ -2280,10 +2266,7 @@ button {
   gap: 10px;
   font-size: 13px;
   font-weight: 600;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    transform 0.15s,
+  transition: background 0.15s, border-color 0.15s, transform 0.15s,
     box-shadow 0.15s;
 }
 
@@ -2520,9 +2503,7 @@ button {
   padding-right: 14px;
   color: var(--heirloom);
   font-size: 12px;
-  transition:
-    transform 0.2s,
-    color 0.15s;
+  transition: transform 0.2s, color 0.15s;
   display: flex;
   align-items: center;
 }
@@ -2688,9 +2669,7 @@ button {
   margin-bottom: 16px;
   width: 100%;
   text-align: left;
-  transition:
-    background 0.15s,
-    color 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
 .nb-subcats-panel__view-all:hover {
@@ -2722,9 +2701,7 @@ button {
   font-weight: 700;
   color: var(--black);
   border-radius: 6px;
-  transition:
-    background 0.15s,
-    color 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
 .nb-subcat-group__title:hover {
@@ -2754,9 +2731,7 @@ button {
   color: var(--heirloom);
   border-radius: 4px;
   display: block;
-  transition:
-    background 0.12s,
-    color 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 
 .nb-subcat-item:hover {
@@ -2785,8 +2760,7 @@ button {
   /* 3D Box Effect styling */
   margin: 40px 24px 24px;
   border-radius: 20px;
-  box-shadow:
-    0 24px 50px rgba(107, 15, 42, 0.08),
+  box-shadow: 0 24px 50px rgba(107, 15, 42, 0.08),
     0 6px 16px rgba(107, 15, 42, 0.04);
   overflow: hidden;
 }
@@ -3052,9 +3026,7 @@ button {
   text-align: left;
   font-family: var(--font-body);
   display: block;
-  transition:
-    color 0.15s,
-    opacity 0.15s;
+  transition: color 0.15s, opacity 0.15s;
 }
 
 .footer-link-btn:hover {
@@ -3261,9 +3233,7 @@ button {
   height: 7px;
   border-radius: 4px;
   background: var(--heirloom);
-  transition:
-    width 0.3s,
-    background 0.3s;
+  transition: width 0.3s, background 0.3s;
   cursor: pointer;
 }
 
@@ -3375,8 +3345,7 @@ button {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation:
-    twam-shimmer 3s linear infinite,
+  animation: twam-shimmer 3s linear infinite,
     twam-pulse 3.5s ease-in-out infinite;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -3443,18 +3412,14 @@ button {
   background: var(--white);
   border-radius: 14px;
   overflow: hidden;
-  box-shadow:
-    0 8px 32px rgba(107, 15, 42, 0.08),
+  box-shadow: 0 8px 32px rgba(107, 15, 42, 0.08),
     0 0 20px rgba(107, 15, 42, 0.05);
   border: 1.5px solid var(--border);
-  transition:
-    box-shadow 0.25s,
-    transform 0.25s;
+  transition: box-shadow 0.25s, transform 0.25s;
 }
 
 .twam-orbit-card:hover {
-  box-shadow:
-    0 20px 56px rgba(107, 15, 42, 0.15),
+  box-shadow: 0 20px 56px rgba(107, 15, 42, 0.15),
     0 0 32px rgba(107, 15, 42, 0.1);
   transform: scale(1.07);
 }
@@ -3603,9 +3568,7 @@ button {
 
 .testimonial-card.clickable {
   cursor: pointer;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .testimonial-card.clickable:hover {
@@ -3798,14 +3761,10 @@ button {
   font-family: var(--font-body);
   background: transparent;
   border: 1.5px solid rgba(158, 96, 112, 0.35);
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.18),
-    0 4px 12px rgba(0, 0, 0, 0.1),
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.1),
     0 1px 3px rgba(107, 15, 42, 0.08);
-  transition:
-    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.4s ease,
-    border-color 0.4s ease;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.4s ease, border-color 0.4s ease;
   transform-style: preserve-3d;
   will-change: transform, opacity, box-shadow, filter;
   overflow: visible;
@@ -3846,10 +3805,8 @@ button {
 .pc-card:hover:not(.pc-card--tear-away) {
   transform: translateY(-8px) scale(1.02);
   border-color: rgba(107, 15, 42, 0.55);
-  box-shadow:
-    0 32px 64px rgba(107, 15, 42, 0.22),
-    0 14px 28px rgba(0, 0, 0, 0.14),
-    0 4px 8px rgba(107, 15, 42, 0.1);
+  box-shadow: 0 32px 64px rgba(107, 15, 42, 0.22),
+    0 14px 28px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(107, 15, 42, 0.1);
 }
 
 .pc-card-solid-bg {
@@ -3895,10 +3852,7 @@ button {
 .pc-card--tear-away .pc-content-wrapper {
   animation: pc-card-sheet-tear var(--pc-card-fly-duration, 1450ms) cubic-bezier(0.22, 1, 0.36, 1) forwards;
   transform-origin: 14% 12%;
-  will-change:
-    clip-path,
-    -webkit-clip-path,
-    filter;
+  will-change: clip-path, -webkit-clip-path, filter;
 }
 
 /* -- Image area ----------------------------------------------------------- */
@@ -3988,12 +3942,10 @@ button {
   clip-path: var(--pc-discount-cut-shape);
   -webkit-clip-path: var(--pc-discount-cut-shape);
   background: #f5f0e6;
-  box-shadow:
-    inset 10px 5px 18px rgba(0, 0, 0, 0.3),
+  box-shadow: inset 10px 5px 18px rgba(0, 0, 0, 0.3),
     inset 6px 0 10px rgba(0, 0, 0, 0.16),
     inset -4px -4px 10px rgba(245, 240, 230, 0.52),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.12),
-    0 1px 0 rgba(245, 240, 230, 0.34);
+    inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 1px 0 rgba(245, 240, 230, 0.34);
   opacity: 1;
   pointer-events: none;
 }
@@ -4005,8 +3957,13 @@ button {
   z-index: 0;
   clip-path: var(--pc-discount-cut-shape);
   -webkit-clip-path: var(--pc-discount-cut-shape);
+<<<<<<< Updated upstream
   background:
     radial-gradient(130% 130% at 0 0,
+=======
+  background: radial-gradient(
+      130% 130% at 0 0,
+>>>>>>> Stashed changes
       rgba(245, 240, 230, 0.52) 0%,
       rgba(245, 240, 230, 0.08) 34%,
       rgba(245, 240, 230, 0) 58%),
@@ -4066,10 +4023,8 @@ button {
   gap: 1px;
   padding: 6px 4px 4px 6px;
   background: #f5f0e6;
-  box-shadow:
-    inset 0 1px 0 rgba(245, 240, 230, 0.56),
-    inset 1px 0 0 rgba(245, 240, 230, 0.42),
-    inset 0 4px 6px rgba(0, 0, 0, 0.04),
+  box-shadow: inset 0 1px 0 rgba(245, 240, 230, 0.56),
+    inset 1px 0 0 rgba(245, 240, 230, 0.42), inset 0 4px 6px rgba(0, 0, 0, 0.04),
     inset 4px 0 6px rgba(0, 0, 0, 0.05);
   color: var(--brand);
   isolation: isolate;
@@ -4164,23 +4119,22 @@ button {
 }
 
 .pc-discount-flap {
+<<<<<<< Updated upstream
   background:
     linear-gradient(138deg,
+=======
+  background: linear-gradient(
+      138deg,
+>>>>>>> Stashed changes
       rgba(245, 240, 230, 0.08) 0%,
       rgba(245, 240, 230, 0) 42%,
       rgba(0, 0, 0, 0.08) 100%),
     var(--pc-tear-image);
-  background-size:
-    100% 100%,
-    var(--pc-tear-image-size);
-  background-position:
-    0 0,
-    var(--pc-tear-image-position);
+  background-size: 100% 100%, var(--pc-tear-image-size);
+  background-position: 0 0, var(--pc-tear-image-position);
   background-repeat: no-repeat, no-repeat;
-  box-shadow:
-    -2px -2px 0 rgba(245, 240, 230, 0.22),
-    -6px -5px 14px rgba(0, 0, 0, 0.14),
-    3px 4px 10px rgba(0, 0, 0, 0.14),
+  box-shadow: -2px -2px 0 rgba(245, 240, 230, 0.22),
+    -6px -5px 14px rgba(0, 0, 0, 0.14), 3px 4px 10px rgba(0, 0, 0, 0.14),
     inset 2px 2px 5px rgba(245, 240, 230, 0.62),
     inset -4px -4px 8px rgba(0, 0, 0, 0.16);
   transform-origin: top left;
@@ -4241,8 +4195,7 @@ button {
   position: relative;
   z-index: 1;
   line-height: 1;
-  text-shadow:
-    0 1px 0 rgba(245, 240, 230, 0.72),
+  text-shadow: 0 1px 0 rgba(245, 240, 230, 0.72),
     0 0 6px rgba(245, 240, 230, 0.16);
 }
 
@@ -4257,8 +4210,7 @@ button {
 @media (min-width: 769px) {
   .pc-discount-cutout-pct {
     color: #d12a68;
-    text-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.82),
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.82),
       0 0 5px rgba(255, 255, 255, 0.18);
   }
 }
@@ -4438,22 +4390,36 @@ button {
 
   88% {
     opacity: 1;
+<<<<<<< Updated upstream
     transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
     box-shadow:
       -2px -2px 0 rgba(245, 240, 230, 0.22),
       -6px -5px 14px rgba(0, 0, 0, 0.14),
       3px 4px 10px rgba(0, 0, 0, 0.14),
+=======
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg)
+      scale(1);
+    box-shadow: -2px -2px 0 rgba(245, 240, 230, 0.22),
+      -6px -5px 14px rgba(0, 0, 0, 0.14), 3px 4px 10px rgba(0, 0, 0, 0.14),
+>>>>>>> Stashed changes
       inset 2px 2px 5px rgba(245, 240, 230, 0.62),
       inset -4px -4px 8px rgba(0, 0, 0, 0.16);
   }
 
   100% {
     opacity: 0;
+<<<<<<< Updated upstream
     transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
     box-shadow:
       -2px -2px 0 rgba(245, 240, 230, 0.22),
       -6px -5px 14px rgba(0, 0, 0, 0.14),
       3px 4px 10px rgba(0, 0, 0, 0.14),
+=======
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg)
+      scale(1);
+    box-shadow: -2px -2px 0 rgba(245, 240, 230, 0.22),
+      -6px -5px 14px rgba(0, 0, 0, 0.14), 3px 4px 10px rgba(0, 0, 0, 0.14),
+>>>>>>> Stashed changes
       inset 2px 2px 5px rgba(245, 240, 230, 0.62),
       inset -4px -4px 8px rgba(0, 0, 0, 0.16);
   }
@@ -4662,8 +4628,7 @@ button {
   object-fit: cover;
   object-position: center top;
   display: block;
-  transition:
-    opacity 1s cubic-bezier(0.4, 0, 0.2, 1),
+  transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1),
     transform 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -4696,6 +4661,23 @@ button {
   transform: scale(1);
 }
 
+.pc-card--hover-image-disabled:hover:not(.pc-card--tear-away)
+  .pc-image-wrap--has-hover
+  .pc-img-primary,
+.pc-card--hover-image-disabled:hover:not(.pc-card--tear-away)
+  .pc-image-wrap:not(.pc-image-wrap--has-hover)
+  .pc-img-primary {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pc-card--hover-image-disabled:hover:not(.pc-card--tear-away)
+  .pc-image-wrap--has-hover
+  .pc-img-hover {
+  opacity: 0;
+  transform: scale(1.08);
+}
+
 /* Ensure the action buttons don't take forever to appear */
 .pc-actions {
   position: absolute;
@@ -4707,9 +4689,7 @@ button {
   z-index: 5;
   opacity: 0;
   transform: translateX(10px);
-  transition:
-    opacity 0.4s ease,
-    transform 0.4s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .pc-card:hover:not(.pc-card--tear-away) .pc-actions {
@@ -4730,10 +4710,7 @@ button {
   font-size: 12px;
   color: var(--brand);
   box-shadow: 0 2px 8px rgba(107, 15, 42, 0.14);
-  transition:
-    background 0.2s,
-    color 0.2s,
-    transform 0.2s;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
 }
 
 .pc-action-btn:hover,
@@ -4800,9 +4777,7 @@ button {
   border-radius: 50%;
   border: 1.5px solid rgba(0, 0, 0, 0.12);
   cursor: pointer;
-  transition:
-    transform 0.15s,
-    box-shadow 0.15s;
+  transition: transform 0.15s, box-shadow 0.15s;
   display: block;
   flex-shrink: 0;
   /* Prevents the browser from squishing them into ovals */
@@ -4816,9 +4791,7 @@ button {
 .pc-swatch-dot.selected {
   border-color: var(--brand);
   transform: scale(1.25);
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 3.5px var(--brand);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--brand);
 }
 
 /* The clean, minimal right arrow */
@@ -4956,8 +4929,7 @@ button {
   font-family: var(--font-body);
   font-weight: 600;
   flex-shrink: 0;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 2px 6px rgba(107, 15, 42, 0.08);
 }
 
@@ -5030,10 +5002,7 @@ button {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    color 0.2s ease,
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease,
     transform 0.2s ease;
 }
 
@@ -5230,12 +5199,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition:
-    background 0.22s ease,
-    border-color 0.22s ease,
-    color 0.22s ease,
-    box-shadow 0.22s ease,
-    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: background 0.22s ease, border-color 0.22s ease, color 0.22s ease,
+    box-shadow 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   user-select: none;
 }
 
@@ -5271,10 +5236,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 0 8px;
-  transition:
-    background 0.22s ease,
-    border-color 0.22s ease,
-    color 0.22s ease,
+  transition: background 0.22s ease, border-color 0.22s ease, color 0.22s ease,
     transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -11024,11 +10986,7 @@ button {
   gap: 7px;
   font-family: var(--font-body);
   white-space: nowrap;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    border-color 0.2s,
-    opacity 0.2s,
+  transition: background 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s,
     transform 0.2s;
 }
 
@@ -12022,8 +11980,7 @@ button {
   background: linear-gradient(180deg, #fff 0%, #fbf8f2 100%);
   border: 1px solid rgba(107, 15, 42, 0.08);
   border-radius: 20px;
-  box-shadow:
-    0 12px 26px rgba(107, 15, 42, 0.08),
+  box-shadow: 0 12px 26px rgba(107, 15, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
@@ -12060,8 +12017,7 @@ button {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(107, 15, 42, 0.08);
-  box-shadow:
-    0 4px 12px rgba(107, 15, 42, 0.05),
+  box-shadow: 0 4px 12px rgba(107, 15, 42, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   overflow: visible;
   flex-shrink: 0;
@@ -12108,8 +12064,7 @@ button {
   word-break: break-word;
   line-height: 1.08;
   letter-spacing: 0.01em;
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.8),
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8),
     0 1px 2px rgba(107, 15, 42, 0.08);
 }
 
@@ -14777,9 +14732,7 @@ button {
   font-weight: 600;
   font-family: var(--font-heading);
   box-shadow: 0 2px 16px rgba(107, 15, 42, 0.1);
-  transition:
-    background 0.2s,
-    color 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
 .s-home-54af6d:hover {
@@ -14792,7 +14745,7 @@ button {
   display: flex;
   flex-direction: column;
   width: 100%;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* Right-aligned header row that holds the View All button */
@@ -14801,6 +14754,10 @@ button {
   justify-content: flex-end;
   align-items: center;
   padding-right: 4px;
+}
+
+.s-home-slider-header--tight {
+  margin-bottom: -2px;
 }
 
 .s-home-edfe26 {
@@ -14851,14 +14808,19 @@ button {
   scrollbar-width: none;
   overflow-x: auto;
   overflow-y: visible;
+  cursor: grab;
+  scroll-snap-type: x mandatory;
+}
+
+.s-home-4ec7f1--dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .s-home-9bff23 {
   height: 7px;
   border-radius: 4px;
-  transition:
-    width 0.3s,
-    background 0.3s;
+  transition: width 0.3s, background 0.3s;
   cursor: pointer;
 }
 
@@ -14994,8 +14956,7 @@ button {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation:
-    twam-shimmer 3s linear infinite,
+  animation: twam-shimmer 3s linear infinite,
     twam-pulse 3.5s ease-in-out infinite;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -15042,9 +15003,7 @@ button {
   background: rgba(255, 255, 255, 0.97);
   border-radius: 14px;
   overflow: hidden;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.45),
-    0 0 20px rgba(107, 15, 42, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(107, 15, 42, 0.3);
   border: 1.5px solid rgba(107, 15, 42, 0.18);
 }
 
@@ -15065,26 +15024,29 @@ button {
   color: var(--heirloom);
 }
 
+.home-product-section {
+  position: relative;
+}
+
+.home-product-section--ivory {
+  background: var(--ivory);
+}
+
+.home-product-section--white {
+  background: #fff;
+}
+
 .s-home-42eb71 {
-  background-image: url(/assets/home/best-sellers1.jpg);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-image: none;
 }
 
 .s-home-51e4ca {
-  background-image: url(/assets/home/new-arrival.jpg);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-image: none;
 }
 
 .s-home-7af910 {
   padding: 0 0 30px;
-  background-image: url(/assets/home/category-model1.jpg);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-image: none;
 }
 
 .s-home-0349cd {
@@ -15112,9 +15074,7 @@ button {
 }
 
 .s-home-dce984 {
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .s-home-f49f79 {
@@ -15966,8 +15926,7 @@ button {
       var(--ivory) 55%,
       var(--ivory));
   border: 1.5px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.35),
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35),
     inset 0 1px 2px rgba(255, 255, 255, 0.9),
     inset 0 -1px 2px rgba(0, 0, 0, 0.15);
   cursor: pointer;
@@ -15978,16 +15937,13 @@ button {
   font-size: 12px;
   font-weight: 800;
   padding: 0;
-  transition:
-    transform 0.1s,
-    box-shadow 0.1s;
+  transition: transform 0.1s, box-shadow 0.1s;
   color: var(--brand);
 }
 
 .pd-notif-close:hover {
   transform: scale(1.12);
-  box-shadow:
-    0 5px 12px rgba(0, 0, 0, 0.4),
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4),
     inset 0 1px 2px rgba(255, 255, 255, 0.9),
     inset 0 -1px 2px rgba(0, 0, 0, 0.15);
 }
@@ -16101,9 +16057,7 @@ button {
   border: none;
   cursor: pointer;
   padding: 0px;
-  transition:
-    width 0.3s ease,
-    background 0.3s ease;
+  transition: width 0.3s ease, background 0.3s ease;
 }
 
 .s-productdetai-a025fe {
@@ -16124,9 +16078,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    0 4px 12px rgba(107, 15, 42, 0.1),
-    0 1px 3px rgba(0, 0, 0, 0.06),
+  box-shadow: 0 4px 12px rgba(107, 15, 42, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   transition: all 0.2s ease;
 }
@@ -16143,9 +16095,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    0 4px 12px rgba(107, 15, 42, 0.1),
-    0 1px 3px rgba(0, 0, 0, 0.06),
+  box-shadow: 0 4px 12px rgba(107, 15, 42, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   transition: all 0.2s ease;
 }
@@ -16159,10 +16109,8 @@ button {
   border-radius: 20px;
   padding: 4px 10px;
   cursor: pointer;
-  box-shadow:
-    0 2px 8px rgba(107, 15, 42, 0.1),
-    0 1px 2px rgba(107, 15, 42, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(107, 15, 42, 0.1),
+    0 1px 2px rgba(107, 15, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .s-productdetai-cf3f7f {
@@ -16826,8 +16774,8 @@ button {
   border-bottom: 1px solid var(--ivory);
   background: #fff;
   position: sticky;
-  top: 0;
-  z-index: 10;
+  top: 110px; /* sits flush below the desktop navbar (min-height: 110px) */
+  z-index: 100; /* above product cards, below navbar (z-index: 1000) */
   padding: 12px 0;
 }
 
@@ -17117,9 +17065,7 @@ button {
   color: var(--heirloom);
   font-size: 12px;
   font-weight: 500;
-  transition:
-    color 0.18s ease,
-    font-weight 0.18s ease;
+  transition: color 0.18s ease, font-weight 0.18s ease;
 }
 
 .gs-filter-color-label.active {
@@ -17430,8 +17376,7 @@ button {
       var(--ivory) 55%,
       rgba(245, 240, 230, 0.3));
   border: 1.5px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.3),
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3),
     inset 0 1px 2px rgba(255, 255, 255, 0.9),
     inset 0 -1px 2px rgba(0, 0, 0, 0.15);
   cursor: pointer;
@@ -17502,15 +17447,15 @@ button {
   color: var(--black);
   font-weight: 700;
   font-family: var(--font-body);
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s,
-    transform 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
 }
 
 .s-profilelayou-d3b202:hover {
-  background: linear-gradient(180deg, rgba(107, 15, 42, 0.08) 0%, rgba(107, 15, 42, 0.12) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(107, 15, 42, 0.08) 0%,
+    rgba(107, 15, 42, 0.12) 100%
+  );
   border-color: rgba(107, 15, 42, 0.18);
   color: #fff;
   transform: translateY(-1px);
@@ -17605,12 +17550,8 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   font-weight: 600;
   background: linear-gradient(180deg, #fff 0%, var(--ivory) 100%);
   box-shadow: 0 4px 12px rgba(107, 15, 42, 0.07);
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease,
+    box-shadow 0.18s ease, transform 0.18s ease;
   white-space: nowrap;
 }
 
@@ -17640,9 +17581,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   height: 24px;
   border-radius: 50%;
   cursor: pointer;
-  transition:
-    transform 0.18s,
-    box-shadow 0.18s;
+  transition: transform 0.18s, box-shadow 0.18s;
   flex-shrink: 0;
   position: relative;
 }
@@ -17652,9 +17591,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 }
 
 .gs-color-swatch.active {
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 3px var(--brand);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--brand);
   transform: scale(1.04);
 }
 
@@ -17703,12 +17640,8 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   cursor: pointer;
   font-family: inherit;
   background: linear-gradient(180deg, #fff 0%, var(--ivory) 100%);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    background 0.18s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
+    border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
   color: var(--heirloom);
   letter-spacing: 0.02em;
   box-shadow: 0 2px 6px rgba(107, 15, 42, 0.06);
@@ -17954,9 +17887,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease;
+  transition: opacity 0.16s ease, transform 0.16s ease;
   z-index: 7;
   left: var(--gs-hover-pct, 0%);
 }
@@ -18143,9 +18074,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   font-size: 13.5px;
   color: var(--heirloom);
   border-left: 3px solid transparent;
-  transition:
-    background 0.15s,
-    color 0.15s;
+  transition: background 0.15s, color 0.15s;
   font-family: var(--font-body);
 }
 
@@ -18375,9 +18304,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   font-family: var(--font-heading);
   color: var(--brand);
   background: var(--ivory);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .otp-box:focus {
@@ -18398,9 +18325,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 .pw-strength-bar {
   height: 4px;
   border-radius: 2px;
-  transition:
-    background 0.3s,
-    width 0.3s;
+  transition: background 0.3s, width 0.3s;
 }
 
 .pw-strength-step {
@@ -18755,11 +18680,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    border-color 0.2s,
-    transform 0.2s,
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s,
     box-shadow 0.2s;
 }
 
@@ -18851,10 +18772,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   background: var(--ivory);
   color: var(--black);
   font-weight: 700;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    border-color 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .orders-pagination__button:hover:not(:disabled) {
@@ -18934,9 +18852,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   text-decoration: none;
   font-size: 13.5px;
   border-left: 3px solid transparent;
-  transition:
-    background 0.15s,
-    color 0.15s;
+  transition: background 0.15s, color 0.15s;
   font-family: var(--font-body);
 }
 
@@ -18997,12 +18913,8 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease,
+    border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .s-profilelayou-leave-toast-save {
@@ -19184,6 +19096,91 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 
 .s-home-685bdd {
   overflow: visible;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.home-featured-card {
+  transform-origin: center center;
+  transition: transform 0.28s ease, opacity 0.28s ease, filter 0.28s ease;
+}
+
+.home-featured-card .pc-image-wrap {
+  transform: none;
+}
+
+.home-featured-card .pc-img-primary,
+.home-featured-card .pc-img-hover {
+  transform-origin: center center;
+}
+
+/* ── tier 1: immediate left/right of center ── */
+.home-featured-card--near {
+  transform: scale(0.93);
+  opacity: 0.82;
+}
+.home-featured-card--near .pc-card {
+  border-color: rgba(107, 15, 42, 0.14);
+}
+.home-featured-card--near .pc-card:hover:not(.pc-card--tear-away) {
+  border-color: rgba(107, 15, 42, 0.2);
+}
+.home-featured-card--near .pc-img-primary,
+.home-featured-card--near .pc-img-hover {
+  transform: scale(1.05);
+}
+
+/* ── tier 2: corner cards (2+ away from center) ── */
+.home-featured-card--corner {
+  transform: scale(0.82);
+  opacity: 0.48;
+}
+.home-featured-card--corner .pc-card {
+  border-color: rgba(107, 15, 42, 0.07);
+}
+.home-featured-card--corner .pc-card:hover:not(.pc-card--tear-away) {
+  border-color: rgba(107, 15, 42, 0.12);
+}
+.home-featured-card--corner .pc-img-primary,
+.home-featured-card--corner .pc-img-hover {
+  transform: scale(1);
+}
+
+/* ── removed: old --side class replaced by --near and --corner ── */
+.home-featured-card--side {
+  transform: scale(0.93);
+  opacity: 0.82;
+}
+.home-featured-card--side .pc-card {
+  border-color: rgba(107, 15, 42, 0.14);
+}
+.home-featured-card--side .pc-card:hover:not(.pc-card--tear-away) {
+  border-color: rgba(107, 15, 42, 0.14);
+}
+.home-featured-card--side .pc-img-primary,
+.home-featured-card--side .pc-img-hover {
+  transform: scale(1.03);
+}
+
+/* ── center card ── */
+.home-featured-card--center {
+  transform: scale(1.06);
+  opacity: 1;
+  z-index: 2;
+}
+.home-featured-card--center .pc-card {
+  border-color: rgba(107, 15, 42, 0.28);
+}
+.home-featured-card--center .pc-card:hover:not(.pc-card--tear-away) {
+  border-color: rgba(107, 15, 42, 0.32);
+}
+.home-featured-card--center .pc-img-primary,
+.home-featured-card--center .pc-img-hover {
+  transform: scale(1.12);
+}
+
+.s-home-685bdd .pc-wrap {
+  perspective: none;
 }
 
 .s-home-685bdd .pc-wrap,
@@ -19191,7 +19188,30 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   height: auto;
 }
 
+<<<<<<< Updated upstream
 .s-home-62280e {}
+=======
+.s-home-685bdd .pc-card {
+  border: 1px solid rgba(107, 15, 42, 0.16);
+  box-shadow: none;
+  transform: none;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.s-home-685bdd .pc-card::before,
+.s-home-685bdd .pc-card::after {
+  content: none;
+}
+
+.s-home-685bdd .pc-card:hover:not(.pc-card--tear-away) {
+  transform: none;
+  border-color: rgba(107, 15, 42, 0.24);
+  box-shadow: none;
+}
+
+.s-home-62280e {
+}
+>>>>>>> Stashed changes
 
 .s-home-d35c85 {}
 
@@ -19341,16 +19361,11 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 }
 
 .twam-orbit-card {
-  transition:
-    box-shadow 0.25s,
-    filter 0.25s,
-    transform 0.25s;
+  transition: box-shadow 0.25s, filter 0.25s, transform 0.25s;
 }
 
 .twam-orbit-card:hover {
-  box-shadow:
-    0 20px 56px rgba(0, 0, 0, 0.65),
-    0 0 32px rgba(107, 15, 42, 0.65) !important;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.65), 0 0 32px rgba(107, 15, 42, 0.65) !important;
   filter: brightness(1.1);
   transform: scale(1.07);
 }
@@ -20368,8 +20383,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
       var(--ivory) 55%,
       var(--ivory));
   border: 1.5px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.35),
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35),
     inset 0 1px 2px rgba(255, 255, 255, 0.9),
     inset 0 -1px 2px rgba(0, 0, 0, 0.15);
   cursor: pointer;
@@ -20379,16 +20393,13 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 800;
-  transition:
-    transform 0.1s,
-    box-shadow 0.1s;
+  transition: transform 0.1s, box-shadow 0.1s;
   padding: 0;
 }
 
 .qsm-notif-close:hover {
   transform: scale(1.12);
-  box-shadow:
-    0 5px 12px rgba(0, 0, 0, 0.4),
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4),
     inset 0 1px 2px rgba(255, 255, 255, 0.9),
     inset 0 -1px 2px rgba(0, 0, 0, 0.15);
 }
@@ -20630,7 +20641,11 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   border-radius: 14px;
   border-top: none;
   border: 1px solid rgba(107, 15, 42, 0.08);
-  background: linear-gradient(180deg, rgba(255, 250, 240, 0.96) 0%, rgba(248, 237, 219, 0.96) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 250, 240, 0.96) 0%,
+    rgba(248, 237, 219, 0.96) 100%
+  );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
@@ -20834,9 +20849,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 .checkout-shell--shipping .s-shippingopti-b63dfb,
 .checkout-shell--shipping .s-shippingopti-8cc11b {
   margin-bottom: 14px;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
     border-color 0.18s ease;
 }
 
@@ -20955,6 +20968,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   margin-bottom: 4px;
 }
 
+<<<<<<< Updated upstream
 /* Admin blog */
 
 .ab-wrap {
@@ -21397,3 +21411,219 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 .ab-btn-danger:disabled {
   opacity: 0.5;
 }
+=======
+/* ══════════════════════════════════════════════════════════════════════════════
+   1. SCROLL PAUSE — Strictly no hover effects during scroll + 2s cooldown.
+      JS adds "home-scrolling" to body on any scroll.
+      Removes it exactly 2 seconds after scrolling stops.
+      No scrolling = transitions work completely normally on mouse hover.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Disable pointer events on all cards — no hover can fire during scroll */
+body.home-scrolling .pc-wrap,
+body.home-scrolling .pc-card {
+  pointer-events: none !important;
+}
+
+/* Kill every transition and animation on cards and all child elements */
+body.home-scrolling .pc-card,
+body.home-scrolling .pc-card * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Freeze all visual states at resting position */
+body.home-scrolling .pc-card {
+  transform: none !important;
+  box-shadow: 0 8px 24px rgba(107, 15, 42, 0.06) !important;
+  border-color: rgba(107, 15, 42, 0.12) !important;
+}
+body.home-scrolling .pc-img-primary {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+}
+body.home-scrolling .pc-img-hover {
+  opacity: 0 !important;
+}
+body.home-scrolling .pc-name {
+  background-size: 0% 1.5px !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   2. TWAM FEATURED — Non-center cards (near, corner, side):
+      No zoom-in, no hover image, no name underline on hover.
+      Resting scale values preserved so hover causes no visible jump.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* No card lift for non-center featured cards */
+.home-featured-card--near .pc-card:not(.pc-card--tear-away):hover,
+.home-featured-card--corner .pc-card:not(.pc-card--tear-away):hover,
+.home-featured-card--side .pc-card:not(.pc-card--tear-away):hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Preserve each tier's resting image scale on hover — no zoom-in jump */
+.home-featured-card--near
+  .pc-card:not(.pc-card--tear-away):hover
+  .pc-img-primary {
+  opacity: 1 !important;
+  transform: scale(1.05) !important;
+}
+.home-featured-card--corner
+  .pc-card:not(.pc-card--tear-away):hover
+  .pc-img-primary {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+}
+.home-featured-card--side
+  .pc-card:not(.pc-card--tear-away):hover
+  .pc-img-primary {
+  opacity: 1 !important;
+  transform: scale(1.03) !important;
+}
+
+/* Hide hover image entirely for non-center featured cards */
+.home-featured-card--near .pc-img-hover,
+.home-featured-card--corner .pc-img-hover,
+.home-featured-card--side .pc-img-hover {
+  display: none !important;
+}
+
+/* No name underline for non-center featured cards */
+.home-featured-card--near .pc-card:not(.pc-card--tear-away):hover .pc-name,
+.home-featured-card--corner .pc-card:not(.pc-card--tear-away):hover .pc-name,
+.home-featured-card--side .pc-card:not(.pc-card--tear-away):hover .pc-name {
+  background-size: 0% 1.5px !important;
+  transition: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TWAM LOADING OVERLAY
+   Transparent frosted-glass layer that sits on top of the page while loading.
+   User can see the page rendering behind it — makes loading feel fast.
+
+   Home page:  spinner + logo + typing text  (twam-overlay)
+   Other pages: spinner only               (twam-overlay + --simple content)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.twam-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Transparent so page renders visibly behind */
+  background: rgba(253, 248, 243, 0.78);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.twam-overlay--exit {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Content — full page, no box, no restrictions ── */
+.twam-overlay__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  padding: 0 24px;
+}
+
+/* Simple variant — spinner only */
+.twam-overlay__content--simple {
+  gap: 0;
+  padding: 0;
+}
+
+/* ── Spinner ── */
+.twam-overlay__spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(107, 15, 42, 0.14);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Logo ── */
+.twam-overlay__logo {
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+}
+
+/* ── Static tagline text ── */
+.twam-overlay__text {
+  font-family: var(--font-heading);
+  font-size: clamp(13px, 1.4vw, 17px);
+  font-weight: 400;
+  color: var(--brand);
+  letter-spacing: 0.06em;
+  text-align: center;
+  margin: 0;
+  opacity: 0.8;
+}
+
+/* ── Desktop home section background images ──────────────────────────────────
+   Positioned on the right side of the section.
+   Starts from halfway through the last product card, spans full section height.
+   Fades in from left so it blends with the product cards naturally.          */
+
+.desktop-section-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  width: 40%;
+  object-fit: contain;
+  object-position: right center;
+  pointer-events: none;
+  z-index: 0;
+  /* Fade in from left (card area side) so it starts mid-last-card */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.6) 30%,
+    black 60%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.6) 30%,
+    black 60%
+  );
+  opacity: 0.55;
+}
+
+.desktop-section-bg--twam {
+  object-position: right top;
+  opacity: 0.5;
+}
+
+.desktop-section-bg--bs {
+  object-position: right center;
+  opacity: 0.5;
+}
+
+.desktop-section-bg--new {
+  object-position: right bottom;
+  opacity: 0.5;
+}
+
+/* Hide on mobile — mobile uses its own mpsl-bg-img */
+@media (max-width: 768px) {
+  .desktop-section-bg {
+    display: none !important;
+  }
+}
+>>>>>>> Stashed changes

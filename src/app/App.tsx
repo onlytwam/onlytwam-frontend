@@ -6,7 +6,7 @@ import {
   useParams,
   useLocation,
 } from "react-router-dom";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState, useRef } from "react";
 import Navbar from "@/shared/components/Navbar";
 import Footer from "@/shared/components/Footer";
 import ProtectedRoute from "@/shared/components/ProtectedRoute";
@@ -369,169 +369,289 @@ const MainLayout = () => (
   </div>
 );
 
-const PageLoader = () => (
-  <div className="s-app-6f11a1">
-    <div className="s-app-090d50" />
-  </div>
-);
+// ── Greeting texts — same as Navbar rotating slogan ──────────────────────────
+const SPLASH_TEXTS = [
+  "Hello, Beautiful.",
+  "Welcome, Gorgeous.",
+  "You Are That.",
+  "Step In, Shine On.",
+  "Confidence Looks Good On You.",
+  "Ready to Find Your Perfect Fit?",
+  "Hello, Radiance.",
+  "Welcome to Comfort, Welcome to Confidence.",
+  "You Belong Here.",
+  "Your Journey to Comfort Starts Now.",
+  "Celebrate Yourself Today.",
+  "Uncover the Real You.",
+  "Find What Makes You Feel Amazing.",
+  "Beauty Begins Here.",
+  "Embrace Your Everyday Magic.",
+  "Welcome to TWAM, Where You Are That.",
+  "Only TWAM — Confidence Starts Here.",
+  "Step Into Comfort, Step Into TWAM.",
+  "You Are TWAM. You Are Enough.",
+  "Be Bold. Be Beautiful. Be TWAM.",
+  "TWAM: The Real You, Unfiltered.",
+];
+
+// ── Logo with fallback chain ──────────────────────────────────────────────────
+function SplashLogo({ className }: { className?: string }) {
+  const [idx, setIdx] = useState(0);
+  const srcs = [
+    "/assets/Twam-Logo-Burgundy.png",
+    "/assets/TWAM.png",
+    "/assets/twam-logo.png",
+  ];
+  return (
+    <img
+      src={srcs[idx]}
+      alt="TWAM"
+      className={className}
+      onError={() => setIdx((i) => Math.min(i + 1, srcs.length - 1))}
+    />
+  );
+}
+
+// ── Home page overlay — transparent, spinner + logo + random static text ────
+function HomeSplash({ onDone }: { onDone: () => void }) {
+  const [exiting, setExiting] = useState(false);
+  // Pick one random text on mount — static, no animation
+  const text = useRef(
+    SPLASH_TEXTS[Math.floor(Math.random() * SPLASH_TEXTS.length)],
+  ).current;
+
+  useEffect(() => {
+    const startTime = Date.now();
+    const MIN_SHOW = 1800;
+
+    const dismiss = () => {
+      const wait = Math.max(0, MIN_SHOW - (Date.now() - startTime));
+      setTimeout(() => {
+        setExiting(true);
+        setTimeout(onDone, 400);
+      }, wait);
+    };
+
+    if ((window as any).__twamHomeReady) {
+      dismiss();
+    } else {
+      window.addEventListener("twam-home-ready", dismiss, { once: true });
+    }
+
+    const safetyTimer = setTimeout(dismiss, 9000);
+
+    return () => {
+      window.removeEventListener("twam-home-ready", dismiss);
+      clearTimeout(safetyTimer);
+      delete (window as any).__twamHomeReady;
+    };
+  }, [onDone]);
+
+  return (
+    <div className={`twam-overlay${exiting ? " twam-overlay--exit" : ""}`}>
+      <div className="twam-overlay__content">
+        <div className="twam-overlay__spinner" />
+        <SplashLogo className="twam-overlay__logo" />
+        <p className="twam-overlay__text">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Generic page overlay — invisible on home (HomeSplash covers it),
+// spinner only on other pages
+const PageLoader = () => {
+  const isHome =
+    window.location.pathname === "/" || window.location.pathname === "/home";
+  // On home page, HomeSplash already shows — render nothing so no double loader
+  if (isHome) return null;
+  // Other pages: transparent spinner overlay
+  return (
+    <div className="twam-overlay">
+      <div className="twam-overlay__content twam-overlay__content--simple">
+        <div className="twam-overlay__spinner" />
+      </div>
+    </div>
+  );
+};
 
 export default function App() {
-  useWishlistLoader(); // Load server wishlist IDs once so all cards show correct heart state
-  useCartLoader(); // Load server cart count once so Navbar badge is correct for auth users
+  useWishlistLoader();
+  useCartLoader();
+
+  // Show splash on every home page load, refresh, and hard refresh (Ctrl+Shift+R)
+  const isHome =
+    window.location.pathname === "/" || window.location.pathname === "/home";
+  const [showSplash, setShowSplash] = useState(isHome);
+
+  const handleSplashDone = () => setShowSplash(false);
+
   return (
-    <Suspense fallback={<PageLoader />}>
-      <ScrollToTop />
-      <RouteMemory />
-      <Routes>
-        {/* ── Main layout (Navbar + Footer) ───────────────────────────────── */}
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/home" element={<Navigate to="/" replace />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact-us" element={<ContactUs />} />
-          <Route path="/unsubscribe" element={<Unsubscribe />} />
-          <Route path="/our-stores" element={<OurStores />} />
-          <Route path="/our-blog" element={<OurBlog />} />
-          <Route path="/blog-1/:id" element={<Blog1 />} />
-          <Route path="/help-center" element={<HelpCenter />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-conditions" element={<TermsConditions />} />
-          <Route path="/shipping-info" element={<ShippingInfo />} />
-          <Route path="/returns-exchanges" element={<ReturnsExchanges />} />
-          <Route
-            path="/delivery-shipping-policy"
-            element={<DeliveryShippingPolicy />}
-          />
-          <Route
-            path="/return-refund-policy"
-            element={<ReturnRefundPolicy />}
-          />
-          <Route path="/news-privacy-policy" element={<NewsPrivacyPolicy />} />
-          <Route path="/only-twam" element={<OnlyTwam />} />
-          <Route path="/shop-by-size" element={<ShopBySize />} />
-          <Route path="/size-guide" element={<SizeGuide />} />
-          <Route path="/twam-brands" element={<TwamBrands />} />
-          <Route path="/your-fit-founder" element={<YourFitFinder />} />
-          <Route path="/take-quiz" element={<TakeQuiz />} />
-          <Route path="/global-search" element={<GlobalSearch />} />
-          <Route path="/order-details/:id" element={<OrderDetails />} />
+    <>
+      {showSplash && <HomeSplash onDone={handleSplashDone} />}
+      <Suspense fallback={<PageLoader />}>
+        <ScrollToTop />
+        <RouteMemory />
+        <Routes>
+          {/* ── Main layout (Navbar + Footer) ───────────────────────────────── */}
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/home" element={<Navigate to="/" replace />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact-us" element={<ContactUs />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/our-stores" element={<OurStores />} />
+            <Route path="/our-blog" element={<OurBlog />} />
+            <Route path="/blog-1/:id" element={<Blog1 />} />
+            <Route path="/help-center" element={<HelpCenter />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-conditions" element={<TermsConditions />} />
+            <Route path="/shipping-info" element={<ShippingInfo />} />
+            <Route path="/returns-exchanges" element={<ReturnsExchanges />} />
+            <Route
+              path="/delivery-shipping-policy"
+              element={<DeliveryShippingPolicy />}
+            />
+            <Route
+              path="/return-refund-policy"
+              element={<ReturnRefundPolicy />}
+            />
+            <Route
+              path="/news-privacy-policy"
+              element={<NewsPrivacyPolicy />}
+            />
+            <Route path="/only-twam" element={<OnlyTwam />} />
+            <Route path="/shop-by-size" element={<ShopBySize />} />
+            <Route path="/size-guide" element={<SizeGuide />} />
+            <Route path="/twam-brands" element={<TwamBrands />} />
+            <Route path="/your-fit-founder" element={<YourFitFinder />} />
+            <Route path="/take-quiz" element={<TakeQuiz />} />
+            <Route path="/global-search" element={<GlobalSearch />} />
+            <Route path="/order-details/:id" element={<OrderDetails />} />
 
-          {/* ── Products ── */}
-          <Route
-            path="/user-products/product-list"
-            element={<ProductList key="all" />}
-          />
-          <Route
-            path="/user-products/product-list/:categoryId"
-            element={<ProductListWithKey />}
-          />
-          <Route path="/new-arrivals" element={<NewArrivals />} />
-          <Route path="/best-sellers" element={<BestSellers />} />
-          <Route
-            path="/user-products/product-detail/:id/:name"
-            element={<ProductDetail />}
-          />
-          <Route path="/user-products/cart" element={<Cart />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route
-            path="/user-products/payment-address"
-            element={<PaymentAddress />}
-          />
-          <Route path="/user-products/payment" element={<Payment />} />
-          <Route
-            path="/user-products/order-confirm/:id"
-            element={<OrderConfirm />}
-          />
-          <Route
-            path="/user-products/payment-callback"
-            element={<PaymentCallback />}
-          />
-          <Route
-            path="/user-products/shipping-option"
-            element={<ShippingOption />}
-          />
-          <Route
-            path="/user-products/invoice-details/:id"
-            element={<Invoice />}
-          />
-          <Route path="/user-products/guest-signup" element={<GuestSignup />} />
+            {/* ── Products ── */}
+            <Route
+              path="/user-products/product-list"
+              element={<ProductList key="all" />}
+            />
+            <Route
+              path="/user-products/product-list/:categoryId"
+              element={<ProductListWithKey />}
+            />
+            <Route path="/new-arrivals" element={<NewArrivals />} />
+            <Route path="/best-sellers" element={<BestSellers />} />
+            <Route
+              path="/user-products/product-detail/:id/:name"
+              element={<ProductDetail />}
+            />
+            <Route path="/user-products/cart" element={<Cart />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route
+              path="/user-products/payment-address"
+              element={<PaymentAddress />}
+            />
+            <Route path="/user-products/payment" element={<Payment />} />
+            <Route
+              path="/user-products/order-confirm/:id"
+              element={<OrderConfirm />}
+            />
+            <Route
+              path="/user-products/payment-callback"
+              element={<PaymentCallback />}
+            />
+            <Route
+              path="/user-products/shipping-option"
+              element={<ShippingOption />}
+            />
+            <Route
+              path="/user-products/invoice-details/:id"
+              element={<Invoice />}
+            />
+            <Route
+              path="/user-products/guest-signup"
+              element={<GuestSignup />}
+            />
 
-          {/* ── Returns ── */}
-          <Route path="/user-products/return-order" element={<ReturnOrder />} />
-          <Route
-            path="/user-products/return-reason"
-            element={<ReturnReason />}
-          />
-          <Route
-            path="/user-products/delivery-option"
-            element={<DeliveryOption />}
-          />
-          <Route
-            path="/user-products/refund-choice"
-            element={<RefundChoice />}
-          />
-          <Route
-            path="/user-products/return-confirm"
-            element={<ReturnConfirm />}
-          />
+            {/* ── Returns ── */}
+            <Route
+              path="/user-products/return-order"
+              element={<ReturnOrder />}
+            />
+            <Route
+              path="/user-products/return-reason"
+              element={<ReturnReason />}
+            />
+            <Route
+              path="/user-products/delivery-option"
+              element={<DeliveryOption />}
+            />
+            <Route
+              path="/user-products/refund-choice"
+              element={<RefundChoice />}
+            />
+            <Route
+              path="/user-products/return-confirm"
+              element={<ReturnConfirm />}
+            />
 
-          {/* ══════════════════════════════════════════════════════════════════
+            {/* ══════════════════════════════════════════════════════════════════
               PUBLIC WISHLIST — accessible to ALL users, no login required.
               Guests see their localStorage wishlist; logged-in users see
               the server wishlist (and a sync button if they have guest items).
               ════════════════════════════════════════════════════════════════ */}
-          <Route path="/wishlist" element={<Wishlist />} />
+            <Route path="/wishlist" element={<Wishlist />} />
 
-          {/* ── Protected account pages ── */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/account" element={<AccountLayoutWithGuard />}>
-              <Route index element={<AccountHome />} />
-              <Route path="dashboard" element={<UserDashboard />} />
-              <Route path="update-profile" element={<UpdateProfile />} />
-              <Route path="change-password" element={<UpdateProfile />} />
-              <Route path="address-list" element={<AddressList />} />
-              <Route path="address-form" element={<AddressForm />} />
-              <Route path="address-form/:id" element={<AddressForm />} />
-              <Route path="coupons-list" element={<CouponsList />} />
-              <Route path="orders-list" element={<OrdersList />} />
-              <Route path="notifications" element={<Notifications />} />
-              <Route path="wishlist" element={<Wishlist />} />
+            {/* ── Protected account pages ── */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/account" element={<AccountLayoutWithGuard />}>
+                <Route index element={<AccountHome />} />
+                <Route path="dashboard" element={<UserDashboard />} />
+                <Route path="update-profile" element={<UpdateProfile />} />
+                <Route path="change-password" element={<UpdateProfile />} />
+                <Route path="address-list" element={<AddressList />} />
+                <Route path="address-form" element={<AddressForm />} />
+                <Route path="address-form/:id" element={<AddressForm />} />
+                <Route path="coupons-list" element={<CouponsList />} />
+                <Route path="orders-list" element={<OrdersList />} />
+                <Route path="notifications" element={<Notifications />} />
+                <Route path="wishlist" element={<Wishlist />} />
+              </Route>
             </Route>
           </Route>
-        </Route>
 
-        {/* ── Auth pages (no layout) ───────────────────────────────────────── */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/verify-otp" element={<VerifyOtp />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+          {/* ── Auth pages (no layout) ───────────────────────────────────────── */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* ── Admin panel ─────────────────────────────────────────────────── */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route
-            index
-            element={<Navigate to="/admin/admin-dashboard" replace />}
-          />
-          <Route path="admin-dashboard" element={<AdminDashboard />} />
-          <Route path="bulk-import" element={<AdminBulkUpload />} />
-          <Route path="orders" element={<AdminOrders />} />
-          <Route path="products" element={<AdminProducts />} />
-          <Route path="products/new" element={<AdminProductForm />} />
-          <Route path="products/:id" element={<AdminProductForm />} />
-          <Route path="inventory" element={<AdminInventory />} />
-          <Route path="reports" element={<AdminReports />} />
-          <Route path="categories" element={<AdminCategories />} />
-          <Route path="brands" element={<AdminBrands />} />
-          <Route path="sizes" element={<AdminSizes />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="coupons" element={<AdminCoupons />} />
-          <Route path="support" element={<AdminSupportRequests />} />
-          <Route path="blog" element={<AdminBlog />} />
-        </Route>
+          {/* ── Admin panel ─────────────────────────────────────────────────── */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route
+              index
+              element={<Navigate to="/admin/admin-dashboard" replace />}
+            />
+            <Route path="admin-dashboard" element={<AdminDashboard />} />
+            <Route path="bulk-import" element={<AdminBulkUpload />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="products/new" element={<AdminProductForm />} />
+            <Route path="products/:id" element={<AdminProductForm />} />
+            <Route path="inventory" element={<AdminInventory />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="categories" element={<AdminCategories />} />
+            <Route path="brands" element={<AdminBrands />} />
+            <Route path="sizes" element={<AdminSizes />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="coupons" element={<AdminCoupons />} />
+            <Route path="support" element={<AdminSupportRequests />} />
+            <Route path="blog" element={<AdminBlog />} />
+          </Route>
 
-        {/* ── Fallback ────────────────────────────────────────────────────── */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+          {/* ── Fallback ────────────────────────────────────────────────────── */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </>
   );
 }
