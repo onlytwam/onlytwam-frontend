@@ -7,10 +7,17 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-  - task: NodeTool@1
+  - task: NodeTool@0
     displayName: Install Node.js
     inputs:
       versionSpec: "20.x"
+
+  - script: node --version && npm --version
+    displayName: Verify Node version
+
+  - script: |
+      sudo apt-get install -y build-essential libvips-dev
+    displayName: Install native build tools for sharp
 
   - script: npm install
     displayName: Install dependencies
