@@ -3957,13 +3957,8 @@ button {
   z-index: 0;
   clip-path: var(--pc-discount-cut-shape);
   -webkit-clip-path: var(--pc-discount-cut-shape);
-<<<<<<< Updated upstream
   background:
     radial-gradient(130% 130% at 0 0,
-=======
-  background: radial-gradient(
-      130% 130% at 0 0,
->>>>>>> Stashed changes
       rgba(245, 240, 230, 0.52) 0%,
       rgba(245, 240, 230, 0.08) 34%,
       rgba(245, 240, 230, 0) 58%),
