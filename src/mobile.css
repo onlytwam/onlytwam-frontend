@@ -510,7 +510,7 @@
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
-    margin-left: 10px; /* ← adjust this for search-to-cart spacing */
+    margin-left: 30px; /* ← adjust this for search-to-cart spacing */
   }
 
   .mnb-icon-btn {
