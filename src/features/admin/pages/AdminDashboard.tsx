@@ -1,9 +1,3 @@
-// Fixed:
-// - /Product → /Products  (backend prefix is /api/Products)
-// - /UserProfile → /People  (backend prefix is /api/People)
-// - Pagination params: Page.Index / Page.Size (uppercase, matching backend)
-// - Orders uses /Orders/AdminList for admin view
-
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/api/axiosInstance';
@@ -51,13 +45,11 @@ export default function AdminDashboard() {
     }).then(r => r.data),
   });
 
-  // FIX: /Products not /Product
   const { data: productsData } = useQuery({
     queryKey: ['admin-products-dash'],
-    queryFn: () => api.get('/Products', { params: { 'Page.Size': 1 } }).then(r => r.data),
+    queryFn: () => api.get('/Products/', { params: { 'Page.Size': 1 } }).then(r => r.data),
   });
 
-  // FIX: /People not /UserProfile
   const { data: usersData } = useQuery({
     queryKey: ['admin-users-dash'],
     queryFn: () => api.get('/People', { params: { 'Page.Size': 1 } }).then(r => r.data).catch(() => null),
@@ -88,7 +80,7 @@ export default function AdminDashboard() {
       <div className="s-admindashboa-842deb">
         <StatCard title="Total Orders"   value={totalOrders}   icon="bi-bag-check"    color="var(--brand)" sub="All time"       onClick={() => navigate('/admin/orders')} />
         <StatCard title="Total Products" value={totalProducts} icon="bi-box-seam"     color="var(--brand)" sub="Published"      onClick={() => navigate('/admin/products')} />
-        <StatCard title="Total Users"    value={totalUsers || '—'} icon="bi-people"   color="var(--brand)" sub="Registered" />
+        <StatCard title="Total Users"    value={totalUsers || '—'} icon="bi-people"   color="var(--brand)" sub="Registered"     onClick={() => navigate('/admin/users')} />
         <StatCard title="Pending Orders" value={pendingOrders} icon="bi-clock-history" color="var(--brand)" sub="Need attention" onClick={() => navigate('/admin/orders')} />
       </div>
 

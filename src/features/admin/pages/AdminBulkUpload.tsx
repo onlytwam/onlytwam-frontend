@@ -1,10 +1,3 @@
-/**
- * AdminBulkUpload.tsx
- * ───────────────────
- * Minimalistic, elegant Excel bulk-import page.
- * Flow: Select entity → Download template → Upload filled file →
- *       Preview rows → Confirm import → See results.
- */
 
 import { useState, useRef, useCallback } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -41,26 +34,150 @@ interface ImportResult {
 
 type Step = 'select' | 'upload' | 'preview' | 'result';
 
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
+const s = {
+  page: { padding: '32px 24px', maxWidth: 1100, margin: '0 auto' } as React.CSSProperties,
+  head: { marginBottom: 28 } as React.CSSProperties,
+  h1: { fontSize: 22, fontWeight: 700, color: 'var(--brand)', margin: 0, letterSpacing: '-0.3px' } as React.CSSProperties,
+  sub: { fontSize: 13, color: 'var(--heirloom)', marginTop: 4 } as React.CSSProperties,
+
+  stepper: {
+    display: 'flex', marginBottom: 32, borderRadius: 10,
+    overflow: 'hidden', border: '1px solid var(--ivory)',
+  } as React.CSSProperties,
+  stepItem: (active: boolean, done: boolean): React.CSSProperties => ({
+    flex: 1, padding: '10px 0', textAlign: 'center',
+    fontSize: 12, fontWeight: active ? 600 : 400,
+    background: done ? 'var(--brand)' : active ? 'var(--ivory)' : '#fff',
+    color: done ? '#fff' : active ? 'var(--brand)' : 'var(--heirloom)',
+    borderRight: '1px solid var(--ivory)',
+    transition: 'all .2s',
+  }),
+
+  card: {
+    background: '#fff', border: '1px solid var(--ivory)',
+    borderRadius: 12, padding: 28, marginBottom: 20,
+  } as React.CSSProperties,
+  cardTitle: { fontSize: 15, fontWeight: 600, color: 'var(--brand)', marginBottom: 16 } as React.CSSProperties,
+
+  entityGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px,1fr))', gap: 12 } as React.CSSProperties,
+  entityCard: (sel: boolean): React.CSSProperties => ({
+    border: sel ? '2px solid var(--brand)' : '1px solid var(--ivory)',
+    borderRadius: 10, padding: '16px 18px', cursor: 'pointer',
+    background: sel ? 'var(--ivory)' : '#fff',
+    transition: 'all .15s',
+  }),
+  entityName: { fontSize: 14, fontWeight: 600, color: 'var(--brand)', marginBottom: 4 } as React.CSSProperties,
+  entityNote: { fontSize: 11, color: 'var(--heirloom)' } as React.CSSProperties,
+
+  btnPrimary: {
+    background: 'var(--brand)', color: '#fff', border: 'none',
+    borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+  } as React.CSSProperties,
+  btnSecondary: {
+    background: 'transparent', color: 'var(--brand)',
+    border: '1px solid var(--brand)', borderRadius: 8,
+    padding: '10px 22px', fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+  } as React.CSSProperties,
+  btnGhost: {
+    background: 'transparent', color: 'var(--heirloom)',
+    border: 'none', borderRadius: 8, padding: '10px 16px',
+    fontSize: 13, cursor: 'pointer',
+  } as React.CSSProperties,
+
+  dropzone: (dragging: boolean): React.CSSProperties => ({
+    border: `2px dashed ${dragging ? 'var(--brand)' : 'var(--ivory)'}`,
+    borderRadius: 12, padding: '48px 32px', textAlign: 'center',
+    background: dragging ? 'var(--ivory)' : '#fafafa',
+    cursor: 'pointer', transition: 'all .2s',
+  }),
+
+  tableWrap: { overflowX: 'auto' as const, borderRadius: 8, border: '1px solid var(--ivory)' } as React.CSSProperties,
+  table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 12 } as React.CSSProperties,
+  th: {
+    background: 'var(--brand)', color: '#fff', padding: '9px 12px',
+    textAlign: 'left' as const, fontWeight: 600, whiteSpace: 'nowrap' as const,
+  } as React.CSSProperties,
+  td: {
+    padding: '8px 12px', borderBottom: '1px solid var(--ivory)',
+    maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+  } as React.CSSProperties,
+  tdErr: {
+    padding: '8px 12px', borderBottom: '1px solid var(--ivory)',
+    background: '#fff5f5', color: '#c0392b', fontSize: 11,
+  } as React.CSSProperties,
+
+  statRow: { display: 'flex', gap: 16, marginBottom: 20 } as React.CSSProperties,
+  statCard: (bg: string): React.CSSProperties => ({
+    flex: 1, padding: '16px 20px', borderRadius: 10,
+    background: bg, border: '1px solid var(--ivory)',
+  }),
+  statNum: { fontSize: 28, fontWeight: 700, color: 'var(--brand)' } as React.CSSProperties,
+  statLbl: { fontSize: 12, color: 'var(--heirloom)', marginTop: 2 } as React.CSSProperties,
+
+  note: {
+    background: 'var(--ivory)', borderRadius: 8, padding: '10px 14px',
+    fontSize: 12, color: 'var(--heirloom)', marginTop: 12,
+  } as React.CSSProperties,
+  actions: { display: 'flex', gap: 10, alignItems: 'center', marginTop: 20 } as React.CSSProperties,
+};
+
+const STEPS = ['Select Type', 'Upload File', 'Preview', 'Done'];
+const STEP_IDX: Record<Step, number> = { select: 0, upload: 1, preview: 2, result: 3 };
+
+// ── Fallback entities (shown while /entities loads) ────────────────────────────
+
+const FALLBACK_ENTITIES = [
+  { key: 'products',   label: 'Products',   notes: 'Bulk create products' },
+  { key: 'categories', label: 'Categories', notes: 'Bulk create categories' },
+  { key: 'brands',     label: 'Brands',     notes: 'Bulk create brands' },
+  { key: 'sizes',      label: 'Sizes',      notes: 'Bulk create sizes' },
+  { key: 'coupons',    label: 'Coupons',    notes: 'Bulk create coupons' },
+];
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function AdminBulkUpload() {
-  const [step, setStep]               = useState<Step>('select');
-  const [entity, setEntity]           = useState<string>('');
-  const [file, setFile]               = useState<File | null>(null);
-  const [isDragging, setIsDragging]   = useState(false);
-  const [preview, setPreview]         = useState<PreviewResult | null>(null);
-  const [result, setResult]           = useState<ImportResult | null>(null);
-  const fileRef                       = useRef<HTMLInputElement>(null);
+  const [step, setStep]             = useState<Step>('select');
+  const [entity, setEntity]         = useState('');
+  const [file, setFile]             = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [preview, setPreview]       = useState<PreviewResult | null>(null);
+  const [result, setResult]         = useState<ImportResult | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  // ── Fetch supported entities ──────────────────────────────────────────────
+  // ── Entity list from existing /BulkImport/entities ───────────────────────
   const { data: entitiesData } = useQuery<{ entities: EntityDef[] }>({
     queryKey: ['bulk-import-entities'],
     queryFn: () => api.get('/BulkImport/entities').then(r => r.data),
   });
-  const entities: EntityDef[] = entitiesData?.entities ?? [];
+  const entities = entitiesData?.entities ?? FALLBACK_ENTITIES;
   const selectedEntity = entities.find(e => e.key === entity);
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  // ── Template download via axios so the auth token is included ────────────
+  const downloadTemplate = async () => {
+    if (!entity) return;
+    try {
+      const response = await api.get(`/BulkImport/template/${entity}`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `twam_${entity}_template.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast.error('Failed to download template');
+    }
+  };
+
+  // ── Preview → POST /BulkImport/preview/{entity} ───────────────────────────
   const previewMutation = useMutation<PreviewResult, any, File>({
     mutationFn: (f: File) => {
       const form = new FormData();
@@ -69,13 +186,11 @@ export default function AdminBulkUpload() {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).then(r => r.data);
     },
-    onSuccess: (data) => {
-      setPreview(data);
-      setStep('preview');
-    },
-    onError: (e) => toast.error(e?.response?.data?.detail || 'Failed to parse file'),
+    onSuccess: (data) => { setPreview(data); setStep('preview'); },
+    onError: (e) => toast.error(e?.response?.data?.detail || e?.response?.data?.error || 'Failed to parse file'),
   });
 
+  // ── Import → POST /BulkImport/import/{entity} ────────────────────────────
   const importMutation = useMutation<ImportResult, any, void>({
     mutationFn: () => {
       const form = new FormData();
@@ -95,10 +210,7 @@ export default function AdminBulkUpload() {
   // ── File handling ─────────────────────────────────────────────────────────
   const handleFile = useCallback((f: File | null) => {
     if (!f) return;
-    if (!f.name.endsWith('.xlsx')) {
-      toast.error('Please upload an .xlsx file');
-      return;
-    }
+    if (!f.name.endsWith('.xlsx')) { toast.error('Please upload an .xlsx file'); return; }
     setFile(f);
     previewMutation.mutate(f);
   }, [entity]);
@@ -109,121 +221,16 @@ export default function AdminBulkUpload() {
     handleFile(e.dataTransfer.files[0] || null);
   }, [handleFile]);
 
-  const downloadTemplate = () => {
-    const link = document.createElement('a');
-    link.href = `${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'}/BulkImport/template/${entity}`;
-    link.download = `twam_${entity}_template.xlsx`;
-    link.click();
-  };
-
   const reset = () => {
-    setStep('select');
-    setEntity('');
-    setFile(null);
-    setPreview(null);
-    setResult(null);
+    setStep('select'); setEntity(''); setFile(null);
+    setPreview(null); setResult(null);
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  // ── Styles ────────────────────────────────────────────────────────────────
-  const s = {
-    page:    { padding: '32px 24px', maxWidth: 1100, margin: '0 auto' } as React.CSSProperties,
-    head:    { marginBottom: 28 } as React.CSSProperties,
-    h1:      { fontSize: 22, fontWeight: 700, color: 'var(--brand)', margin: 0, letterSpacing: '-0.3px' } as React.CSSProperties,
-    sub:     { fontSize: 13, color: 'var(--heirloom)', marginTop: 4 } as React.CSSProperties,
-
-    stepper: {
-      display: 'flex', gap: 0, marginBottom: 32, borderRadius: 10,
-      overflow: 'hidden', border: '1px solid var(--ivory)',
-    } as React.CSSProperties,
-    stepItem:(active: boolean, done: boolean) => ({
-      flex: 1, padding: '10px 0', textAlign: 'center' as const,
-      fontSize: 12, fontWeight: active ? 600 : 400,
-      background: done ? 'var(--brand)' : active ? 'var(--ivory)' : '#fff',
-      color: done ? '#fff' : active ? 'var(--brand)' : 'var(--heirloom)',
-      borderRight: '1px solid var(--ivory)',
-      transition: 'all .2s',
-    }),
-
-    card:  {
-      background: '#fff', border: '1px solid var(--ivory)',
-      borderRadius: 12, padding: 28, marginBottom: 20,
-    } as React.CSSProperties,
-    cardTitle: { fontSize: 15, fontWeight: 600, color: 'var(--brand)', marginBottom: 16 } as React.CSSProperties,
-
-    entityGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px,1fr))', gap: 12 } as React.CSSProperties,
-    entityCard: (sel: boolean) => ({
-      border: sel ? '2px solid var(--brand)' : '1px solid var(--ivory)',
-      borderRadius: 10, padding: '16px 18px', cursor: 'pointer',
-      background: sel ? 'var(--ivory)' : '#fff',
-      transition: 'all .15s',
-    }) as React.CSSProperties,
-    entityName: { fontSize: 14, fontWeight: 600, color: 'var(--brand)', marginBottom: 4 } as React.CSSProperties,
-    entityNote: { fontSize: 11, color: 'var(--heirloom)' } as React.CSSProperties,
-
-    btnPrimary: {
-      background: 'var(--brand)', color: '#fff', border: 'none',
-      borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 600,
-      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-    } as React.CSSProperties,
-    btnSecondary: {
-      background: 'transparent', color: 'var(--brand)',
-      border: '1px solid var(--brand)', borderRadius: 8,
-      padding: '10px 22px', fontSize: 13, fontWeight: 600,
-      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-    } as React.CSSProperties,
-    btnGhost: {
-      background: 'transparent', color: 'var(--heirloom)',
-      border: 'none', borderRadius: 8, padding: '10px 16px',
-      fontSize: 13, cursor: 'pointer',
-    } as React.CSSProperties,
-
-    dropzone: (dragging: boolean) => ({
-      border: `2px dashed ${dragging ? 'var(--brand)' : 'var(--ivory)'}`,
-      borderRadius: 12, padding: '48px 32px', textAlign: 'center' as const,
-      background: dragging ? 'var(--ivory)' : '#fafafa',
-      cursor: 'pointer', transition: 'all .2s',
-    }),
-
-    table: {
-      width: '100%', borderCollapse: 'collapse' as const,
-      fontSize: 12,
-    } as React.CSSProperties,
-    th: {
-      background: 'var(--brand)', color: '#fff', padding: '9px 12px',
-      textAlign: 'left' as const, fontWeight: 600, whiteSpace: 'nowrap' as const,
-    } as React.CSSProperties,
-    td: {
-      padding: '8px 12px', borderBottom: '1px solid var(--ivory)',
-      maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
-    } as React.CSSProperties,
-    tdErr: {
-      padding: '8px 12px', borderBottom: '1px solid var(--ivory)',
-      background: '#fff5f5', color: '#c0392b', fontSize: 11,
-    } as React.CSSProperties,
-
-    statRow: { display: 'flex', gap: 16, marginBottom: 20 } as React.CSSProperties,
-    statCard: (color: string) => ({
-      flex: 1, padding: '16px 20px', borderRadius: 10,
-      background: color, border: '1px solid var(--ivory)',
-    }) as React.CSSProperties,
-    statNum:  { fontSize: 28, fontWeight: 700, color: 'var(--brand)' } as React.CSSProperties,
-    statLbl:  { fontSize: 12, color: 'var(--heirloom)', marginTop: 2 } as React.CSSProperties,
-
-    note: {
-      background: 'var(--ivory)', borderRadius: 8, padding: '10px 14px',
-      fontSize: 12, color: 'var(--heirloom)', marginTop: 12,
-    } as React.CSSProperties,
-    actions: { display: 'flex', gap: 10, alignItems: 'center', marginTop: 20 } as React.CSSProperties,
-  };
-
-  // ── Step indicators ────────────────────────────────────────────────────────
-  const STEPS = ['Select Type', 'Upload File', 'Preview', 'Done'];
-  const stepIdx = { select: 0, upload: 1, preview: 2, result: 3 };
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div style={s.page}>
-      {/* Header */}
       <div style={s.head}>
         <h2 style={s.h1}>Bulk Import</h2>
         <p style={s.sub}>Upload an Excel file to import multiple records at once</p>
@@ -232,12 +239,10 @@ export default function AdminBulkUpload() {
       {/* Stepper */}
       <div style={s.stepper}>
         {STEPS.map((label, i) => {
-          const current = stepIdx[step];
+          const current = STEP_IDX[step];
           return (
             <div key={label} style={s.stepItem(current === i, current > i)}>
-              <span style={{ marginRight: 5 }}>
-                {current > i ? '✓' : `${i + 1}.`}
-              </span>
+              <span style={{ marginRight: 5 }}>{current > i ? '✓' : `${i + 1}.`}</span>
               {label}
             </div>
           );
@@ -248,33 +253,19 @@ export default function AdminBulkUpload() {
       {step === 'select' && (
         <div style={s.card}>
           <p style={s.cardTitle}>What would you like to import?</p>
+
           <div style={s.entityGrid}>
-            {entities.length === 0
-              ? [
-                  { key: 'products',   label: 'Products',   notes: 'Bulk create products' },
-                  { key: 'categories', label: 'Categories', notes: 'Bulk create categories' },
-                  { key: 'brands',     label: 'Brands',     notes: 'Bulk create brands' },
-                  { key: 'sizes',      label: 'Sizes',      notes: 'Bulk create sizes' },
-                  { key: 'coupons',    label: 'Coupons',    notes: 'Bulk create coupons' },
-                ].map(e => (
-                  <div key={e.key} style={s.entityCard(entity === e.key)} onClick={() => setEntity(e.key)}>
-                    <div style={s.entityName}>{e.label}</div>
-                    <div style={s.entityNote}>{e.notes}</div>
-                  </div>
-                ))
-              : entities.map(e => (
-                  <div key={e.key} style={s.entityCard(entity === e.key)} onClick={() => setEntity(e.key)}>
-                    <div style={s.entityName}>{e.label}</div>
-                    <div style={s.entityNote}>{e.notes}</div>
-                  </div>
-                ))
-            }
+            {entities.map(e => (
+              <div key={e.key} style={s.entityCard(entity === e.key)} onClick={() => setEntity(e.key)}>
+                <div style={s.entityName}>{e.label}</div>
+                <div style={s.entityNote}>{e.notes}</div>
+              </div>
+            ))}
           </div>
 
-          {entity && selectedEntity && (
+          {entity && selectedEntity && 'required' in selectedEntity && (
             <div style={s.note}>
-              <strong>Required columns:</strong>{' '}
-              {selectedEntity.required.join(', ')}<br />
+              <strong>Required columns:</strong> {(selectedEntity as EntityDef).required.join(', ')}<br />
               {selectedEntity.notes}
             </div>
           )}
@@ -298,7 +289,7 @@ export default function AdminBulkUpload() {
         </div>
       )}
 
-      {/* ── Step 2: Upload ────────────────────────────────────────────────── */}
+      {/* ── Step 2: Upload ───────────────────────────────────────────────── */}
       {step === 'upload' && (
         <div style={s.card}>
           <p style={s.cardTitle}>
@@ -313,7 +304,7 @@ export default function AdminBulkUpload() {
             onClick={() => fileRef.current?.click()}
           >
             <i className="bi bi-file-earmark-spreadsheet"
-               style={{ fontSize: 40, color: 'var(--brand)', display: 'block', marginBottom: 12 }} />
+              style={{ fontSize: 40, color: 'var(--brand)', display: 'block', marginBottom: 12 }} />
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--brand)', margin: '0 0 6px' }}>
               {previewMutation.isPending ? 'Parsing file…' : 'Drop your .xlsx file here'}
             </p>
@@ -326,9 +317,7 @@ export default function AdminBulkUpload() {
               </div>
             )}
             <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx"
+              ref={fileRef} type="file" accept=".xlsx"
               style={{ display: 'none' }}
               onChange={e => handleFile(e.target.files?.[0] || null)}
             />
@@ -351,14 +340,13 @@ export default function AdminBulkUpload() {
         </div>
       )}
 
-      {/* ── Step 3: Preview ───────────────────────────────────────────────── */}
+      {/* ── Step 3: Preview ──────────────────────────────────────────────── */}
       {step === 'preview' && preview && (
         <div>
-          {/* Stats */}
           <div style={s.statRow}>
             {[
-              { label: 'Total Rows',    val: preview.totalRows,   bg: '#fff' },
-              { label: 'Ready to Import', val: preview.validRows, bg: '#f0fff4' },
+              { label: 'Total Rows',       val: preview.totalRows,   bg: '#fff' },
+              { label: 'Ready to Import',  val: preview.validRows,   bg: '#f0fff4' },
               { label: 'Rows with Errors', val: preview.invalidRows, bg: preview.invalidRows > 0 ? '#fff5f5' : '#fff' },
             ].map(stat => (
               <div key={stat.label} style={s.statCard(stat.bg)}>
@@ -368,10 +356,9 @@ export default function AdminBulkUpload() {
             ))}
           </div>
 
-          {/* Preview table */}
           <div style={s.card}>
-            <p style={s.cardTitle}>Row Preview (first {Math.min(preview.rows.length, 200)} rows)</p>
-            <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--ivory)' }}>
+            <p style={s.cardTitle}>Row Preview (first 100 rows)</p>
+            <div style={s.tableWrap}>
               <table style={s.table}>
                 <thead>
                   <tr>
@@ -385,7 +372,8 @@ export default function AdminBulkUpload() {
                 </thead>
                 <tbody>
                   {preview.rows.slice(0, 100).map((row, idx) => {
-                    const hasErr = row._errors && row._errors.length > 0;
+                    const hasErr = row._errors?.length > 0;
+                    const fields = Object.keys(row).filter(k => k !== '_row' && k !== '_errors');
                     return (
                       <tr key={idx} style={{ background: hasErr ? '#fffafa' : idx % 2 === 0 ? '#fff' : '#fafafa' }}>
                         <td style={s.td}>{row._row}</td>
@@ -396,11 +384,10 @@ export default function AdminBulkUpload() {
                           }
                         </td>
                         {preview.columns.map((col, ci) => {
-                          const fields = Object.keys(row).filter(k => k !== '_row' && k !== '_errors');
-                          const val = fields[ci] ? row[fields[ci]] : '';
+                          const val = fields[ci] !== undefined ? row[fields[ci]] : '';
                           return (
                             <td key={col} style={s.td} title={String(val ?? '')}>
-                              {val ?? <span style={{ color: '#ccc' }}>—</span>}
+                              {val !== '' && val != null ? val : <span style={{ color: '#ccc' }}>—</span>}
                             </td>
                           );
                         })}
@@ -413,10 +400,9 @@ export default function AdminBulkUpload() {
                 </tbody>
               </table>
             </div>
-
             {preview.rows.length > 100 && (
               <p style={{ fontSize: 11, color: 'var(--heirloom)', marginTop: 8, textAlign: 'center' }}>
-                Showing 100 of {preview.rows.length} rows — all will be imported.
+                Showing 100 of {preview.rows.length} rows — all valid rows will be imported.
               </p>
             )}
           </div>
@@ -432,29 +418,29 @@ export default function AdminBulkUpload() {
                 onClick={() => importMutation.mutate()}
               >
                 {importMutation.isPending
-                  ? <><i className="bi bi-arrow-repeat spin" /> Importing…</>
+                  ? <><i className="bi bi-arrow-repeat" /> Importing…</>
                   : <><i className="bi bi-upload" /> Import {preview.validRows} rows</>
                 }
               </button>
             ) : (
               <span style={{ color: '#c0392b', fontSize: 13 }}>
-                No valid rows to import. Fix the errors and re-upload.
+                No valid rows to import. Fix errors and re-upload.
               </span>
             )}
           </div>
         </div>
       )}
 
-      {/* ── Step 4: Result ────────────────────────────────────────────────── */}
+      {/* ── Step 4: Result ───────────────────────────────────────────────── */}
       {step === 'result' && result && (
         <div style={s.card}>
           <div style={{ textAlign: 'center', padding: '20px 0 28px' }}>
             {result.inserted > 0 ? (
               <i className="bi bi-check-circle-fill"
-                 style={{ fontSize: 52, color: 'var(--brand)', display: 'block', marginBottom: 12 }} />
+                style={{ fontSize: 52, color: 'var(--brand)', display: 'block', marginBottom: 12 }} />
             ) : (
               <i className="bi bi-exclamation-triangle-fill"
-                 style={{ fontSize: 52, color: '#e67e22', display: 'block', marginBottom: 12 }} />
+                style={{ fontSize: 52, color: '#e67e22', display: 'block', marginBottom: 12 }} />
             )}
             <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--brand)', margin: '0 0 6px' }}>
               {result.inserted > 0 ? 'Import Complete' : 'Nothing Imported'}
@@ -464,8 +450,8 @@ export default function AdminBulkUpload() {
 
           <div style={s.statRow}>
             {[
-              { label: 'Imported',   val: result.inserted, bg: '#f0fff4' },
-              { label: 'Skipped',    val: result.skipped,  bg: result.skipped > 0 ? '#fff5f5' : '#fff' },
+              { label: 'Imported', val: result.inserted, bg: '#f0fff4' },
+              { label: 'Skipped',  val: result.skipped,  bg: result.skipped > 0 ? '#fff5f5' : '#fff' },
             ].map(stat => (
               <div key={stat.label} style={s.statCard(stat.bg)}>
                 <div style={s.statNum}>{stat.val}</div>
@@ -492,6 +478,9 @@ export default function AdminBulkUpload() {
             <button style={s.btnGhost} onClick={() => { setStep('upload'); setFile(null); setPreview(null); setResult(null); }}>
               Re-upload same entity
             </button>
+             
+            <button style={s.btnGhost} onClick={() => setStep('select')}>← Back</button>
+         
           </div>
         </div>
       )}

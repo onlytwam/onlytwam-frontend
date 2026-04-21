@@ -1,12 +1,3 @@
-// src/api/products.api.ts
-// Fixes applied:
-//  1. priceMin/priceMax comparison changed from 'in' → 'eq' (semantically correct)
-//  2. cupSizeIds filter wired to new backend CupSize filter property
-//  3. listCupSizes export added so ProductList can load cup sizes from /CupSize
-//  4. order.ascending=false serialises correctly as boolean via axios
-//  5. getProductColors normalised — always returns { name, hex }[] using colorHelpers
-//  6. listSizes / listCupSizes handle 403 gracefully (admin-only endpoints)
-
 import type { GuestWishlistItem } from "@/shared/utils/guestWishlist";
 import api from "@/shared/api/axiosInstance";
 import { resolveColorSwatch } from "@/shared/utils/colorHelpers";
@@ -142,7 +133,7 @@ export const listBrands = async (params?: any) => {
     normalized["Page.Size"] = 500;
     delete normalized["page.size"];
   }
-  const response = await api.get("/Brand", { params: normalized });
+  const response = await api.get("/Brand/", { params: normalized });
   return response.data;
 };
 
