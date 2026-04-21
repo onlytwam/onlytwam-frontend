@@ -1,10 +1,4 @@
-// Fixed:
-// - Filters sent as repeated query params (not JSON.stringify) so backend receives array correctly
-// - search uses a debounced ref to avoid mid-type re-fetches
-// - After status update: invalidate + refetch, and update `selected` in place so badge reflects new state
-// - updateStatus onSuccess refreshes the selected order state immediately
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/api/axiosInstance';
 import { formatPrice } from '@/shared/utils/helpers';
@@ -13,117 +7,105 @@ import toast from 'react-hot-toast';
 const FILTERS = ['All', 'Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded', 'Return Initiated', 'Returned', 'Failed'];
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  Delivered:        { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Pending:          { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Processing:       { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Shipped:          { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Cancelled:        { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Refunded:         { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Delivered: { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Pending: { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Processing: { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Shipped: { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Cancelled: { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Refunded: { bg: 'var(--ivory)', color: 'var(--brand)' },
   'Return Initiated': { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Returned:         { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Confirmed:        { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Failed:           { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Returned: { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Confirmed: { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Failed: { bg: 'var(--ivory)', color: 'var(--brand)' },
 };
 
 const PAGE_SIZE = 15;
 
 export default function AdminOrders() {
   const qc = useQueryClient();
-  const [filter,   setFilter]   = useState('All');
-  const [search,   setSearch]   = useState('');
-  const [page,     setPage]     = useState(1);
+
+  const [filter, setFilter] = useState('All');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
 
-  // FIX 1: Build params so axios serializes Filters as repeated keys
-  // e.g. Filters[0][property]=State&Filters[0][comparison]==&Filters[0][value]=Pending
-  // Many .NET backends accept this format out of the box via model binding.
-  // If your backend still expects JSON string, swap the Filters block to:
-  //   Filters: JSON.stringify(filters)
+  // ✅ Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // ✅ Build params correctly
   const buildParams = useCallback(() => {
     const params: Record<string, any> = {
-      'Page.Index':      page,
-      'Page.Size':       PAGE_SIZE,
-      'Order.Property':  'OrderDate',
+      'Page.Index': page,
+      'Page.Size': PAGE_SIZE,
+      'Order.Property': 'OrderDate',
       'Order.Ascending': false,
     };
 
-    const filters: { property: string; comparison: string; value: string }[] = [];
+    const filters: any[] = [];
 
     if (filter !== 'All') {
-      filters.push({ property: 'State', comparison: '==', value: filter });
-    }
-    if (search.trim()) {
-      filters.push({ property: 'QuickSearch', comparison: 'contains', value: search.trim() });
+      filters.push({
+        property: 'State',
+        comparison: '==',
+        value: filter,
+      });
     }
 
-    // FIX: Send filters as plain objects in array — axios serializes as
-    // Filters[0][property]=State&Filters[0][comparison]==&Filters[0][value]=Pending
-    // which ASP.NET Core model binding picks up correctly.
-    // If your API still needs a JSON string, replace with: params.Filters = JSON.stringify(filters)
+    if (debouncedSearch.trim()) {
+      filters.push({
+        property: 'QuickSearch',
+        comparison: 'contains',
+        value: debouncedSearch.trim(),
+      });
+    }
+
     if (filters.length) {
-      params['Filters'] = filters; // axios will serialize array of objects
+      params['Filters'] = JSON.stringify(filters); // ✅ IMPORTANT FIX
     }
 
     return params;
-  }, [filter, search, page]);
+  }, [filter, debouncedSearch, page]);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['admin-orders', filter, search, page],
-    queryFn:  () =>
-      api.get('/Orders/AdminList', {
-        params: buildParams(),
-        // FIX: tell axios how to serialize array-of-objects params
-        paramsSerializer: (p) => {
-          const parts: string[] = [];
-          Object.entries(p).forEach(([key, val]) => {
-            if (Array.isArray(val)) {
-              val.forEach((item: any, i) => {
-                if (typeof item === 'object') {
-                  Object.entries(item).forEach(([k, v]) => {
-                    parts.push(`${encodeURIComponent(`${key}[${i}][${k}]`)}=${encodeURIComponent(String(v))}`);
-                  });
-                } else {
-                  parts.push(`${encodeURIComponent(`${key}[${i}]`)}=${encodeURIComponent(String(item))}`);
-                }
-              });
-            } else {
-              parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`);
-            }
-          });
-          return parts.join('&');
-        },
-      }).then(r => r.data),
+    queryKey: ['admin-orders', filter, debouncedSearch, page],
+    queryFn: () =>
+      api.get('/Orders/AdminList', { params: buildParams() }).then(r => r.data),
   });
 
-  // FIX 2: After update — invalidate queries AND refetch immediately,
-  // then update `selected` in-place so the modal badge shows the new state.
   const updateStatus = useMutation({
     mutationFn: ({ orderId, state }: { orderId: string; state: string }) => {
       if (state === 'Cancelled') {
-        return api
-          .post('/Orders/CancelOrder', { orderId, isRefund: false, reason: 'Admin cancellation' })
-          .then(r => r.data);
+        return api.post('/Orders/CancelOrder', {
+          orderId,
+          isRefund: false,
+          reason: 'Admin cancellation',
+        });
       }
-      return api.put('/Orders/UpdateStatus', { orderId, state }).then(r => r.data);
+      return api.put('/Orders/UpdateStatus', { orderId, state });
     },
     onSuccess: (_data, variables) => {
       toast.success('Order status updated!');
 
-      // FIX: update selected in-place immediately (optimistic UI feel)
       setSelected((prev: any) =>
         prev ? { ...prev, state: variables.state } : prev
       );
 
-      // Invalidate + force refetch so the table row also reflects the change
       qc.invalidateQueries({ queryKey: ['admin-orders'] });
       refetch();
     },
     onError: () => toast.error('Failed to update status'),
   });
 
-  const orders = data?.list  ?? [];
-  const total  = data?.count ?? 0;
-  const pages  = Math.ceil(total / PAGE_SIZE);
+  const orders = data?.list ?? [];
+  const total = data?.count ?? 0;
+  const pages = Math.ceil(total / PAGE_SIZE);
 
   const badge = (state: string) => (
     <span className="s-adminorders-3cbcde s-adminorders-28616f">
@@ -137,11 +119,14 @@ export default function AdminOrders() {
       <div className="s-adminblog-fe4afb">
         <div>
           <h2 className="s-adminblog-91c675">Orders</h2>
-          <p  className="s-adminblog-1c2c10">{total} total orders</p>
+          <p className="s-adminblog-1c2c10">{total} total orders</p>
         </div>
         <input
           value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }}
+          onChange={e => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           placeholder="Search order #, customer…"
           className="s-adminorders-86fe52"
         />
@@ -152,12 +137,15 @@ export default function AdminOrders() {
         {FILTERS.map(f => (
           <button
             key={f}
-            onClick={() => { setFilter(f); setPage(1); }}
+            onClick={() => {
+              setFilter(f);
+              setPage(1);
+            }}
             className="s-adminorders-ffb22a"
             style={{
-              border:     `1px solid ${filter === f ? 'var(--brand)' : 'var(--ivory)'}`,
+              border: `1px solid ${filter === f ? 'var(--brand)' : 'var(--ivory)'}`,
               background: filter === f ? 'var(--brand)' : '#fff',
-              color:      filter === f ? '#fff' : 'var(--heirloom)',
+              color: filter === f ? '#fff' : 'var(--heirloom)',
               fontWeight: filter === f ? 600 : 400,
             }}
           >
@@ -165,7 +153,6 @@ export default function AdminOrders() {
           </button>
         ))}
       </div>
-
       {/* Table */}
       <div className="s-adminbrands-a637bc">
         <div className="s-admindashboa-ce7380">
