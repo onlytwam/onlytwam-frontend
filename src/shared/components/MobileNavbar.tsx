@@ -6,6 +6,7 @@ import { useWishlistStore } from "@/shared/store/wishlistStore";
 import QuickCart from "@/features/cart/components/QuickCart";
 import { getGuestWishlistCount } from "@/shared/utils/guestWishlist";
 import toast from "react-hot-toast";
+import { Capacitor } from "@capacitor/core";
 
 const SEARCH_HINTS = [
   "Amante",
@@ -20,6 +21,12 @@ const SEARCH_HINTS = [
   "Triumph",
 ];
 
+const VOICE_PAUSE_MS = 4000;
+
+function getNativeSpeech() {
+  return (window as any)?.Capacitor?.Plugins?.NativeSpeech ?? null;
+}
+
 function AssetImg({
   names,
   alt,
@@ -31,9 +38,7 @@ function AssetImg({
 }) {
   const [idx, setIdx] = useState(0);
   const [failed, setFailed] = useState(false);
-
   if (failed) return null;
-
   return (
     <img
       src={names[idx]}
@@ -64,7 +69,13 @@ export default function MobileNavbar({
   const [typedText, setTypedText] = useState("");
   const [hintIdx, setHintIdx] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const recRef = useRef<any>(null);
+
+  const webRecRef = useRef<any>(null);
+  const nativeListenersRef = useRef<any[]>([]);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmedTextRef = useRef<string>("");
+  const isListeningRef = useRef(false);
+  const shouldRestartRef = useRef(false);
 
   const [guestCartCount, setGuestCartCount] = useState(() => {
     try {
@@ -110,9 +121,11 @@ export default function MobileNavbar({
     if (location.pathname === "/global-search") {
       const q = new URLSearchParams(location.search).get("q") || "";
       setSearchText(q);
+      confirmedTextRef.current = q;
       return;
     }
     setSearchText("");
+    confirmedTextRef.current = "";
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -120,7 +133,6 @@ export default function MobileNavbar({
       setTypedText("");
       return;
     }
-
     const word = SEARCH_HINTS[hintIdx];
     const speed = isDeleting ? 60 : 110;
     const timer = setTimeout(() => {
@@ -137,9 +149,8 @@ export default function MobileNavbar({
         return;
       }
       setIsDeleting(false);
-      setHintIdx((index) => (index + 1) % SEARCH_HINTS.length);
+      setHintIdx((i) => (i + 1) % SEARCH_HINTS.length);
     }, speed);
-
     return () => clearTimeout(timer);
   }, [typedText, isDeleting, hintIdx, searchText, isListening]);
 
@@ -156,19 +167,15 @@ export default function MobileNavbar({
     navigate("/");
   };
 
-  const goWishlist = () => {
+  const goWishlist = () =>
     navigate("/wishlist", {
       state: { from: location.pathname + location.search },
     });
-  };
 
-  const goNotifications = () => {
+  const goNotifications = () =>
     navigate(isAuthenticated ? "/account/notifications" : "/login");
-  };
 
-  const goAccount = () => {
-    navigate(isAuthenticated ? "/account" : "/login");
-  };
+  const goAccount = () => navigate(isAuthenticated ? "/account" : "/login");
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -177,52 +184,239 @@ export default function MobileNavbar({
     navigate(`/global-search?q=${encodeURIComponent(q)}`);
   };
 
-  const startVoice = () => {
-    if (isListening) {
-      recRef.current?.stop();
-      recRef.current = null;
-      setIsListening(false);
+  const clearPauseTimer = () => {
+    if (pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+    }
+  };
+
+  const resetPauseTimer = () => {
+    clearPauseTimer();
+    pauseTimerRef.current = setTimeout(fullyStop, VOICE_PAUSE_MS);
+  };
+
+  const removeNativeListeners = () => {
+    nativeListenersRef.current.forEach((h) => {
+      try {
+        h.remove();
+      } catch (_) {}
+    });
+    nativeListenersRef.current = [];
+  };
+
+  function fullyStop() {
+    clearPauseTimer();
+    shouldRestartRef.current = false;
+    isListeningRef.current = false;
+    const ns = getNativeSpeech();
+    if (ns) {
+      removeNativeListeners();
+      try {
+        ns.stop();
+      } catch (_) {}
+    }
+    if (webRecRef.current) {
+      try {
+        webRecRef.current.stop();
+      } catch (_) {}
+      webRecRef.current = null;
+    }
+    setIsListening(false);
+    confirmedTextRef.current = searchText;
+  }
+
+  const startNativeSession = () => {
+    const ns = getNativeSpeech();
+    if (!ns) {
+      // Plugin not found — fall back to web speech
+      startWebVoice();
       return;
     }
 
+    removeNativeListeners();
+
+    const cap = (window as any).Capacitor;
+
+    const resultHandle = cap.addListener(
+      "NativeSpeech",
+      "onResult",
+      (data: { transcript: string; isFinal: boolean }) => {
+        if (!isListeningRef.current) return;
+        if (data.isFinal) {
+          const updated = (
+            confirmedTextRef.current +
+            " " +
+            data.transcript
+          ).trim();
+          confirmedTextRef.current = updated;
+          setSearchText(updated);
+          shouldRestartRef.current = true;
+        } else {
+          setSearchText(
+            (confirmedTextRef.current + " " + data.transcript).trim(),
+          );
+        }
+        resetPauseTimer();
+      },
+    );
+
+    const errorHandle = cap.addListener(
+      "NativeSpeech",
+      "onError",
+      (data: { error: number; fatal: boolean }) => {
+        if (!isListeningRef.current) return;
+        if (!data.fatal) {
+          shouldRestartRef.current = true;
+          restartNativeIfNeeded();
+        } else {
+          toast.error(
+            data.error === -1
+              ? "Speech recognition service not available on this device. Please install Google app."
+              : `Voice error: ${data.error}`,
+          );
+          fullyStop();
+        }
+      },
+    );
+
+    const statusHandle = cap.addListener(
+      "NativeSpeech",
+      "onStatus",
+      (data: { status: string }) => {
+        if (data.status === "speechEnd" && isListeningRef.current) {
+          shouldRestartRef.current = true;
+          setTimeout(restartNativeIfNeeded, 200);
+        }
+      },
+    );
+
+    nativeListenersRef.current = [resultHandle, errorHandle, statusHandle];
+
+    ns.start({ language: "en-IN" }).catch((e: any) => {
+      const msg = e?.message || String(e) || "";
+      if (msg === "NO_SERVICE" || msg.includes("NO_SERVICE")) {
+        toast(
+          "Voice search needs the Google app on your device. Please install or enable it.",
+          { duration: 5000 },
+        );
+      } else {
+        toast.error(`Could not start mic: ${msg}`);
+      }
+      fullyStop();
+    });
+  };
+
+  const restartNativeIfNeeded = () => {
+    if (!shouldRestartRef.current || !isListeningRef.current) return;
+    shouldRestartRef.current = false;
+    removeNativeListeners();
+    setTimeout(() => {
+      if (isListeningRef.current) startNativeSession();
+    }, 150);
+  };
+
+  const startWebVoice = () => {
     const SpeechRecognitionApi =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognitionApi) {
       toast.error("Voice search not supported on this device");
+      fullyStop();
       return;
     }
 
     const recognition = new SpeechRecognitionApi();
     recognition.lang = "en-IN";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.continuous = false;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setIsListening(true);
 
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      let final_ = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) final_ += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      if (final_) {
+        const updated = (confirmedTextRef.current + " " + final_).trim();
+        confirmedTextRef.current = updated;
+        setSearchText(updated);
+      } else if (interim) {
+        setSearchText((confirmedTextRef.current + " " + interim).trim());
+      }
+      resetPauseTimer();
+    };
+
     recognition.onend = () => {
-      setIsListening(false);
-      recRef.current = null;
+      webRecRef.current = null;
+      if (isListeningRef.current) {
+        setTimeout(() => {
+          if (isListeningRef.current) startWebVoice();
+        }, 150);
+      } else {
+        setIsListening(false);
+      }
     };
 
     recognition.onerror = (event: any) => {
-      setIsListening(false);
-      recRef.current = null;
       if (event.error === "no-speech" || event.error === "aborted") return;
-      toast.error("Voice search failed. Please try again.");
+      toast.error(`Voice error: ${event.error}`);
+      fullyStop();
     };
 
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript.trim();
-      setSearchText(transcript);
-      setTimeout(() => {
-        navigate(`/global-search?q=${encodeURIComponent(transcript)}`);
-      }, 250);
-    };
-
-    recRef.current = recognition;
+    webRecRef.current = recognition;
     recognition.start();
+  };
+
+  const startVoice = async () => {
+    if (isListeningRef.current) {
+      fullyStop();
+      return;
+    }
+
+    confirmedTextRef.current = searchText.trim();
+    shouldRestartRef.current = false;
+    isListeningRef.current = true;
+    setIsListening(true);
+    resetPauseTimer();
+
+    if (Capacitor.isNativePlatform()) {
+      const ns = getNativeSpeech();
+      if (ns) {
+        // Check availability first
+        try {
+          const result = await ns.isAvailable();
+          if (!result?.available) {
+            toast(
+              "Voice search needs the Google app. Please install or enable it from Play Store.",
+              { duration: 5000 },
+            );
+            fullyStop();
+            return;
+          }
+        } catch (_) {
+          // isAvailable check failed — try anyway
+        }
+        startNativeSession();
+      } else {
+        // Plugin not loaded — fall back to web
+        startWebVoice();
+      }
+    } else {
+      startWebVoice();
+    }
+  };
+
+  const clearSearch = () => {
+    fullyStop();
+    setSearchText("");
+    confirmedTextRef.current = "";
   };
 
   const isHomeActive =
@@ -278,17 +472,17 @@ export default function MobileNavbar({
                 </button>
 
                 <div className="mnb-search-input-wrap">
-                  {!searchText && (
-                    <span
-                      className={`mnb-search-hint${
-                        isListening ? " is-listening" : ""
-                      }`}
-                    >
-                      {isListening ? "Listening..." : typedText}
-                      {!isListening && <span className="mnb-search-cursor" />}
+                  {!searchText && !isListening && (
+                    <span className="mnb-search-hint">
+                      {typedText}
+                      <span className="mnb-search-cursor" />
                     </span>
                   )}
-
+                  {!searchText && isListening && (
+                    <span className="mnb-search-hint is-listening">
+                      Listening...
+                    </span>
+                  )}
                   <input
                     type="search"
                     inputMode="search"
@@ -298,11 +492,25 @@ export default function MobileNavbar({
                     spellCheck={false}
                     className="mnb-search-input"
                     value={searchText}
-                    onChange={(event) => setSearchText(event.target.value)}
+                    onChange={(e) => {
+                      setSearchText(e.target.value);
+                      confirmedTextRef.current = e.target.value;
+                    }}
                     placeholder=""
                     aria-label="Search products"
                   />
                 </div>
+
+                {searchText ? (
+                  <button
+                    type="button"
+                    className="mnb-search-clear"
+                    onClick={clearSearch}
+                    aria-label="Clear search"
+                  >
+                    <i className="bi bi-x-lg" />
+                  </button>
+                ) : null}
 
                 <button
                   type="submit"
@@ -317,7 +525,7 @@ export default function MobileNavbar({
             <div className="mnb-header-actions">
               <button
                 className="mnb-icon-btn mnb-icon-relative"
-                onClick={() => setShowQuickCart((open) => !open)}
+                onClick={() => setShowQuickCart((o) => !o)}
                 data-quickcart-trigger="true"
                 aria-label="Cart"
               >

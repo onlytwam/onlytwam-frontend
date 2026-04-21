@@ -479,6 +479,26 @@
     animation: mnb-search-cursor-blink 0.8s step-end infinite;
   }
 
+  /* Clear (x) button — appears when search bar has text */
+  .mnb-search-clear {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: rgba(107, 15, 42, 0.45);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  .mnb-search-clear:active {
+    color: var(--brand);
+  }
+
   .mnb-search-submit {
     width: 30px;
     height: 100%;

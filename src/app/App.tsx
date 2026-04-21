@@ -6,7 +6,15 @@ import {
   useParams,
   useLocation,
 } from "react-router-dom";
-import { lazy, Suspense, useEffect, useState, useRef } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
+import { Capacitor } from "@capacitor/core";
 import Navbar from "@/shared/components/Navbar";
 import Footer from "@/shared/components/Footer";
 import ProtectedRoute from "@/shared/components/ProtectedRoute";
@@ -14,6 +22,13 @@ import AdminBar from "@/features/admin/components/AdminBar";
 import Breadcrumb from "@/shared/components/Breadcrumb";
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { ProfileLeaveGuardProvider } from "@/shared/components/profileLeaveGuard";
+
+// ── Platform detection ────────────────────────────────────────────────────────
+const IS_NATIVE = Capacitor.isNativePlatform();
+
+// Set true for 600ms when app returns from Android background so
+// RouteTransitionOverlay doesn't fire a spinner over an already-rendered page.
+let _isCapacitorResume = false;
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -161,8 +176,6 @@ const OrdersList = lazy(() => import("@/features/account/pages/OrdersList"));
 const Notifications = lazy(
   () => import("@/features/account/pages/Notifications"),
 );
-// Wishlist is imported SEPARATELY — used in both the protected account route
-// AND the public /wishlist route so guests can access it without logging in.
 const Wishlist = lazy(() => import("@/features/account/pages/Wishlist"));
 import { useWishlistLoader } from "@/features/account/hooks/useWishlist";
 import { useCartLoader } from "@/features/cart/hooks/useCart";
@@ -199,9 +212,9 @@ const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"));
 const AdminBulkUpload = lazy(
   () => import("@/features/admin/pages/AdminBulkUpload"),
 );
-// ── Layouts ───────────────────────────────────────────────────────────────────
 
-// Routes that never get a breadcrumb (home, auth pages, admin, etc.)
+// ── Breadcrumb ────────────────────────────────────────────────────────────────
+
 const NO_BREADCRUMB_ROUTES = ["/", "/home"];
 const NO_BREADCRUMB_PREFIXES = [
   "/login",
@@ -211,11 +224,8 @@ const NO_BREADCRUMB_PREFIXES = [
   "/admin",
 ];
 
-// Static breadcrumb definitions — [intermediate crumbs, final label]
-// Home is always prepended automatically.
 type StaticCrumbs = { label: string; path?: string }[];
 const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
-  // ── Content
   "/about": [{ label: "About Us" }],
   "/contact-us": [{ label: "Contact Us" }],
   "/our-stores": [{ label: "Our Stores" }],
@@ -227,11 +237,9 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   "/return-refund-policy": [{ label: "Return & Refund Policy" }],
   "/news-privacy-policy": [{ label: "Newsletter Privacy" }],
   "/unsubscribe": [{ label: "Unsubscribe" }],
-  // ── Orders / shipping
   "/shipping-info": [{ label: "Shipping Info" }],
   "/returns-exchanges": [{ label: "Returns & Exchanges" }],
   "/order-details": [{ label: "Order Details" }],
-  // ── Products (static section pages)
   "/only-twam": [{ label: "Only TWAM" }],
   "/shop-by-size": [{ label: "Shop by Size" }],
   "/size-guide": [{ label: "Size Guide" }],
@@ -240,12 +248,10 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   "/take-quiz": [{ label: "Take Quiz" }],
   "/new-arrivals": [{ label: "New Arrivals" }],
   "/best-sellers": [{ label: "Best Sellers" }],
-  // ── Products (list / detail / cart) — dynamic crumbs pushed via store
   "/user-products/product-list": [{ label: "All Products" }],
   "/user-products/cart": [{ label: "Cart" }],
   "/cart": [{ label: "Cart" }],
   "/wishlist": [{ label: "My Wishlist" }],
-  // ── Checkout flow
   "/user-products/payment-address": [
     { label: "Cart", path: "/cart" },
     { label: "Address" },
@@ -265,7 +271,6 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
     { label: "Checkout" },
     { label: "Guest Sign Up" },
   ],
-  // ── Returns
   "/user-products/return-order": [
     { label: "Returns" },
     { label: "Select Item" },
@@ -277,7 +282,6 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   ],
   "/user-products/refund-choice": [{ label: "Returns" }, { label: "Refund" }],
   "/user-products/return-confirm": [{ label: "Returns" }, { label: "Confirm" }],
-  // ── Account
   "/account/dashboard": [
     { label: "My Account", path: "/account/dashboard" },
     { label: "Dashboard" },
@@ -321,27 +325,22 @@ function AutoBreadcrumb() {
   const { pathname } = useLocation();
   const { crumbs: storeCrumbs, clearCrumbs } = useBreadcrumbStore();
 
-  // Clear any page-pushed crumbs when the route changes
   useEffect(() => {
     clearCrumbs();
   }, [pathname]);
 
-  // Never show on home / auth / admin
   if (
     NO_BREADCRUMB_ROUTES.includes(pathname) ||
     NO_BREADCRUMB_PREFIXES.some((p) => pathname.startsWith(p))
   )
     return null;
 
-  // Dynamic crumbs pushed by the page (ProductList category, ProductDetail name, etc.)
   if (storeCrumbs && storeCrumbs.length > 0) {
     return <Breadcrumb items={storeCrumbs} />;
   }
 
-  // Exact-match static crumbs
   let trail = STATIC_ROUTE_CRUMBS[pathname];
 
-  // Prefix match for parameterised routes (e.g. /order-details/123)
   if (!trail) {
     for (const [route, crumbs] of Object.entries(STATIC_ROUTE_CRUMBS)) {
       if (pathname.startsWith(route + "/") || pathname.startsWith(route)) {
@@ -369,7 +368,7 @@ const MainLayout = () => (
   </div>
 );
 
-// ── Greeting texts — same as Navbar rotating slogan ──────────────────────────
+// ── Greeting texts ────────────────────────────────────────────────────────────
 const SPLASH_TEXTS = [
   "Hello, Beautiful.",
   "Welcome, Gorgeous.",
@@ -412,17 +411,19 @@ function SplashLogo({ className }: { className?: string }) {
   );
 }
 
-// ── Home page overlay — transparent, spinner + logo + random static text ────
+// ── Home page splash — full branded overlay ──────────────────────────────────
+// Stays visible until Home.tsx fires "twam-home-ready" (APIs + banner loaded).
+// MIN_SHOW is shorter on native because the native splash already ran for 2s
+// before React mounted, so the user has already waited enough.
 function HomeSplash({ onDone }: { onDone: () => void }) {
   const [exiting, setExiting] = useState(false);
-  // Pick one random text on mount — static, no animation
   const text = useRef(
     SPLASH_TEXTS[Math.floor(Math.random() * SPLASH_TEXTS.length)],
   ).current;
 
   useEffect(() => {
     const startTime = Date.now();
-    const MIN_SHOW = 1800;
+    const MIN_SHOW = IS_NATIVE ? 600 : 1800;
 
     const dismiss = () => {
       const wait = Math.max(0, MIN_SHOW - (Date.now() - startTime));
@@ -438,7 +439,7 @@ function HomeSplash({ onDone }: { onDone: () => void }) {
       window.addEventListener("twam-home-ready", dismiss, { once: true });
     }
 
-    const safetyTimer = setTimeout(dismiss, 9000);
+    const safetyTimer = setTimeout(dismiss, IS_NATIVE ? 12000 : 9000);
 
     return () => {
       window.removeEventListener("twam-home-ready", dismiss);
@@ -458,14 +459,89 @@ function HomeSplash({ onDone }: { onDone: () => void }) {
   );
 }
 
-// ── Generic page overlay — invisible on home (HomeSplash covers it),
-// spinner only on other pages
+// ── Route transition overlay — all non-home pages ────────────────────────────
+// Shows a transparent full-screen overlay with a spinner on every route change.
+// Hides when:
+//   (a) the page fires window.dispatchEvent(new Event("page-content-ready")), OR
+//   (b) auto-dismiss timeout elapses (longer on native for mobile network).
+//   (c) app resumes from background — skip entirely, nothing new is loading.
+function RouteTransitionOverlay() {
+  const { pathname } = useLocation();
+
+  const isHomePath = (p: string) => p === "/" || p === "/home";
+
+  const [visible, setVisible] = useState(() => !isHomePath(pathname));
+  const [exiting, setExiting] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismiss = useCallback(() => {
+    setExiting(true);
+    timerRef.current = setTimeout(() => {
+      setVisible(false);
+      setExiting(false);
+    }, 400);
+  }, []);
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    if (isHomePath(pathname)) {
+      setVisible(false);
+      setExiting(false);
+      return;
+    }
+
+    // Skip spinner when user returns from Android background —
+    // the page is already rendered, nothing new is loading.
+    if (_isCapacitorResume) {
+      setVisible(false);
+      setExiting(false);
+      return;
+    }
+
+    setExiting(false);
+    setVisible(true);
+
+    // Native gets 5s — mobile networks are slower than desktop.
+    // Web gets 2.5s — covers most API response times on broadband.
+    const autoTimer = setTimeout(dismiss, IS_NATIVE ? 5000 : 2500);
+
+    const handler = () => {
+      clearTimeout(autoTimer);
+      dismiss();
+    };
+    window.addEventListener("page-content-ready", handler, { once: true });
+
+    return () => {
+      clearTimeout(autoTimer);
+      window.removeEventListener("page-content-ready", handler);
+    };
+  }, [pathname, dismiss]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className={`twam-overlay${exiting ? " twam-overlay--exit" : ""}`}>
+      <div className="twam-overlay__content twam-overlay__content--simple">
+        <div className="twam-overlay__spinner" />
+      </div>
+    </div>
+  );
+}
+
+// ── Suspense fallback — shown while lazy chunks are downloading ───────────────
+// RouteTransitionOverlay (inside Suspense) handles the data-loading phase.
+// This covers the code-splitting phase before RouteTransitionOverlay mounts.
 const PageLoader = () => {
   const isHome =
     window.location.pathname === "/" || window.location.pathname === "/home";
-  // On home page, HomeSplash already shows — render nothing so no double loader
   if (isHome) return null;
-  // Other pages: transparent spinner overlay
   return (
     <div className="twam-overlay">
       <div className="twam-overlay__content twam-overlay__content--simple">
@@ -479,12 +555,41 @@ export default function App() {
   useWishlistLoader();
   useCartLoader();
 
-  // Show splash on every home page load, refresh, and hard refresh (Ctrl+Shift+R)
   const isHome =
     window.location.pathname === "/" || window.location.pathname === "/home";
   const [showSplash, setShowSplash] = useState(isHome);
 
   const handleSplashDone = () => setShowSplash(false);
+
+  // ── Capacitor background/foreground detection ─────────────────────────────
+  // No @capacitor/app needed — both "resume" and visibilitychange fire inside
+  // the Capacitor WebView using standard Web APIs.
+  // Marks _isCapacitorResume=true for 600ms so RouteTransitionOverlay skips
+  // showing a spinner when the user just brings the app back from background.
+  useEffect(() => {
+    if (!IS_NATIVE) return;
+
+    let t: ReturnType<typeof setTimeout> | null = null;
+
+    const markResume = () => {
+      _isCapacitorResume = true;
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        _isCapacitorResume = false;
+      }, 600);
+    };
+
+    document.addEventListener("resume", markResume);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") markResume();
+    });
+
+    return () => {
+      document.removeEventListener("resume", markResume);
+      if (t) clearTimeout(t);
+      _isCapacitorResume = false;
+    };
+  }, []);
 
   return (
     <>
@@ -492,8 +597,11 @@ export default function App() {
       <Suspense fallback={<PageLoader />}>
         <ScrollToTop />
         <RouteMemory />
+        {/* RouteTransitionOverlay lives inside Suspense so it has access to
+            useLocation() and only renders after lazy chunks have resolved. */}
+        <RouteTransitionOverlay />
         <Routes>
-          {/* ── Main layout (Navbar + Footer) ───────────────────────────────── */}
+          {/* ── Main layout (Navbar + Footer) ─────────────────────────────── */}
           <Route element={<MainLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Navigate to="/" replace />} />
@@ -594,11 +702,6 @@ export default function App() {
               element={<ReturnConfirm />}
             />
 
-            {/* ══════════════════════════════════════════════════════════════════
-              PUBLIC WISHLIST — accessible to ALL users, no login required.
-              Guests see their localStorage wishlist; logged-in users see
-              the server wishlist (and a sync button if they have guest items).
-              ════════════════════════════════════════════════════════════════ */}
             <Route path="/wishlist" element={<Wishlist />} />
 
             {/* ── Protected account pages ── */}
@@ -619,13 +722,13 @@ export default function App() {
             </Route>
           </Route>
 
-          {/* ── Auth pages (no layout) ───────────────────────────────────────── */}
+          {/* ── Auth pages (no layout) ────────────────────────────────────── */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* ── Admin panel ─────────────────────────────────────────────────── */}
+          {/* ── Admin panel ──────────────────────────────────────────────── */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route
               index
@@ -648,7 +751,7 @@ export default function App() {
             <Route path="blog" element={<AdminBlog />} />
           </Route>
 
-          {/* ── Fallback ────────────────────────────────────────────────────── */}
+          {/* ── Fallback ─────────────────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

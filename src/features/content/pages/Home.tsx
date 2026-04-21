@@ -1029,6 +1029,8 @@ export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(0);
   const [categoryProducts, setCategoryProducts] = useState<any[] | null>(null);
   const [quickShopId, setQuickShopId] = useState(0);
+  // Track hero banner image load — required before firing twam-home-ready
+  const [bannerLoaded, setBannerLoaded] = useState(false);
 
   useEffect(() => {
     const cached = sessionStorage.getItem("menus");
@@ -1173,11 +1175,11 @@ export default function Home() {
   });
 
   useEffect(() => {
-    if (bsReady && naReady && tfReady) {
+    if (bsReady && naReady && tfReady && bannerLoaded) {
       (window as any).__twamHomeReady = true;
       window.dispatchEvent(new Event("twam-home-ready"));
     }
-  }, [bsReady, naReady, tfReady]);
+  }, [bsReady, naReady, tfReady, bannerLoaded]);
 
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],
@@ -1274,10 +1276,13 @@ export default function Home() {
           src={isMobile ? "/assets/mobile-banner.png" : "106802.png"}
           className="img-fluid"
           alt="TWAM Banner"
+          onLoad={() => setBannerLoaded(true)}
           onError={(e) => {
             (e.target as HTMLImageElement).src = isMobile
               ? "/assets/mobile-banner.jpg"
               : "/assets/106802.png";
+            // Still mark as loaded so the splash doesn't hang on a broken image
+            setBannerLoaded(true);
           }}
         />
       </section>
