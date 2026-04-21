@@ -32,7 +32,7 @@ function SizeTable({ endpoint, title, idKey }: SizeTableProps) {
     onError: () => toast.error('Delete failed'),
   });
 
-  const items = data?.list ?? [];
+  const items = data?.list ?? []; 
 
   return (
     <div className="s-adminsizes-1266df">

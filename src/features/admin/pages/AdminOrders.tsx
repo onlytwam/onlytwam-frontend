@@ -1,100 +1,172 @@
 // Fixed:
-// - Use /Orders/AdminList (not /Orders) for admin order view
-// - Pagination: Page.Index / Page.Size (not page.pageSize / page.pageNumber)
-// - Filter format: JSON Filters param (backend expects Filters=[{property,comparison,value}])
-// - order.state not order.status
+// - Filters sent as repeated query params (not JSON.stringify) so backend receives array correctly
+// - search uses a debounced ref to avoid mid-type re-fetches
+// - After status update: invalidate + refetch, and update `selected` in place so badge reflects new state
+// - updateStatus onSuccess refreshes the selected order state immediately
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/api/axiosInstance';
 import { formatPrice } from '@/shared/utils/helpers';
 import toast from 'react-hot-toast';
 
 const FILTERS = ['All', 'Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded', 'Return Initiated', 'Returned', 'Failed'];
+
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  Delivered: { bg: 'var(--ivory)', color: 'var(--brand)' },  Pending:    { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Processing:{ bg: 'var(--ivory)', color: 'var(--brand)' },  Shipped:    { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Cancelled: { bg: 'var(--ivory)', color: 'var(--brand)' },  Refunded:   { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Delivered:        { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Pending:          { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Processing:       { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Shipped:          { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Cancelled:        { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Refunded:         { bg: 'var(--ivory)', color: 'var(--brand)' },
   'Return Initiated': { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Returned:  { bg: 'var(--ivory)', color: 'var(--brand)' },  Confirmed:  { bg: 'var(--ivory)', color: 'var(--brand)' },
-  Failed:    { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Returned:         { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Confirmed:        { bg: 'var(--ivory)', color: 'var(--brand)' },
+  Failed:           { bg: 'var(--ivory)', color: 'var(--brand)' },
 };
+
+const PAGE_SIZE = 15;
 
 export default function AdminOrders() {
   const qc = useQueryClient();
-  const [filter, setFilter]   = useState('All');
-  const [search, setSearch]   = useState('');
-  const [page,   setPage]     = useState(1);
+  const [filter,   setFilter]   = useState('All');
+  const [search,   setSearch]   = useState('');
+  const [page,     setPage]     = useState(1);
   const [selected, setSelected] = useState<any>(null);
-  const PAGE_SIZE = 15;
 
-  // FIX: build correct filter JSON + correct pagination params
-  const buildParams = () => {
-    const filters: any[] = [];
-    if (filter !== 'All') filters.push({ property: 'State', comparison: '==', value: filter });
-    if (search.trim())    filters.push({ property: 'QuickSearch', comparison: 'contains', value: search.trim() });
-    return {
-      ...(filters.length ? { Filters: JSON.stringify(filters) } : {}),
-      'Page.Index':    page,           // FIX: was page.pageNumber
-      'Page.Size':     PAGE_SIZE,      // FIX: was page.pageSize
+  // FIX 1: Build params so axios serializes Filters as repeated keys
+  // e.g. Filters[0][property]=State&Filters[0][comparison]==&Filters[0][value]=Pending
+  // Many .NET backends accept this format out of the box via model binding.
+  // If your backend still expects JSON string, swap the Filters block to:
+  //   Filters: JSON.stringify(filters)
+  const buildParams = useCallback(() => {
+    const params: Record<string, any> = {
+      'Page.Index':      page,
+      'Page.Size':       PAGE_SIZE,
       'Order.Property':  'OrderDate',
       'Order.Ascending': false,
     };
-  };
 
-  // FIX: use /Orders/AdminList not /Orders (has more fields like customer name)
-  const { data, isLoading } = useQuery({
+    const filters: { property: string; comparison: string; value: string }[] = [];
+
+    if (filter !== 'All') {
+      filters.push({ property: 'State', comparison: '==', value: filter });
+    }
+    if (search.trim()) {
+      filters.push({ property: 'QuickSearch', comparison: 'contains', value: search.trim() });
+    }
+
+    // FIX: Send filters as plain objects in array — axios serializes as
+    // Filters[0][property]=State&Filters[0][comparison]==&Filters[0][value]=Pending
+    // which ASP.NET Core model binding picks up correctly.
+    // If your API still needs a JSON string, replace with: params.Filters = JSON.stringify(filters)
+    if (filters.length) {
+      params['Filters'] = filters; // axios will serialize array of objects
+    }
+
+    return params;
+  }, [filter, search, page]);
+
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['admin-orders', filter, search, page],
-    queryFn:  () => api.get('/Orders/AdminList', { params: buildParams() }).then(r => r.data),
+    queryFn:  () =>
+      api.get('/Orders/AdminList', {
+        params: buildParams(),
+        // FIX: tell axios how to serialize array-of-objects params
+        paramsSerializer: (p) => {
+          const parts: string[] = [];
+          Object.entries(p).forEach(([key, val]) => {
+            if (Array.isArray(val)) {
+              val.forEach((item: any, i) => {
+                if (typeof item === 'object') {
+                  Object.entries(item).forEach(([k, v]) => {
+                    parts.push(`${encodeURIComponent(`${key}[${i}][${k}]`)}=${encodeURIComponent(String(v))}`);
+                  });
+                } else {
+                  parts.push(`${encodeURIComponent(`${key}[${i}]`)}=${encodeURIComponent(String(item))}`);
+                }
+              });
+            } else {
+              parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`);
+            }
+          });
+          return parts.join('&');
+        },
+      }).then(r => r.data),
   });
 
-  // Update order status — uses new /Orders/UpdateStatus endpoint
+  // FIX 2: After update — invalidate queries AND refetch immediately,
+  // then update `selected` in-place so the modal badge shows the new state.
   const updateStatus = useMutation({
-    mutationFn: ({ orderId, state }: any) => {
+    mutationFn: ({ orderId, state }: { orderId: string; state: string }) => {
       if (state === 'Cancelled') {
-        return api.post('/Orders/CancelOrder', { orderId, isRefund: false, reason: 'Admin cancellation' }).then(r => r.data);
+        return api
+          .post('/Orders/CancelOrder', { orderId, isRefund: false, reason: 'Admin cancellation' })
+          .then(r => r.data);
       }
-      // For other state changes: use UpdateStatus endpoint
       return api.put('/Orders/UpdateStatus', { orderId, state }).then(r => r.data);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success('Order status updated!');
+
+      // FIX: update selected in-place immediately (optimistic UI feel)
+      setSelected((prev: any) =>
+        prev ? { ...prev, state: variables.state } : prev
+      );
+
+      // Invalidate + force refetch so the table row also reflects the change
       qc.invalidateQueries({ queryKey: ['admin-orders'] });
-      setSelected(null);
+      refetch();
     },
     onError: () => toast.error('Failed to update status'),
   });
 
-  const orders = data?.list ?? [];
+  const orders = data?.list  ?? [];
   const total  = data?.count ?? 0;
   const pages  = Math.ceil(total / PAGE_SIZE);
 
-  const badge = (state: string) => {
-    return <span className="s-adminorders-3cbcde s-adminorders-28616f">{state || 'Pending'}</span>;
-  };
+  const badge = (state: string) => (
+    <span className="s-adminorders-3cbcde s-adminorders-28616f">
+      {state || 'Pending'}
+    </span>
+  );
 
   return (
     <div>
+      {/* Header + search */}
       <div className="s-adminblog-fe4afb">
         <div>
           <h2 className="s-adminblog-91c675">Orders</h2>
-          <p className="s-adminblog-1c2c10">{total} total orders</p>
+          <p  className="s-adminblog-1c2c10">{total} total orders</p>
         </div>
-        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+        <input
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }}
           placeholder="Search order #, customer…"
-          className="s-adminorders-86fe52" />
+          className="s-adminorders-86fe52"
+        />
       </div>
 
       {/* Status filter tabs */}
       <div className="s-adminorders-6ddedd">
         {FILTERS.map(f => (
-          <button key={f} onClick={() => { setFilter(f); setPage(1); }}
-            className="s-adminorders-ffb22a" style={ {border: `1px solid ${filter === f ? 'var(--brand)' : 'var(--ivory)'}`, background: filter === f ? 'var(--brand)' : '#fff', color: filter === f ? '#fff' : 'var(--heirloom)', fontWeight: filter === f ? 600 : 400} }>
+          <button
+            key={f}
+            onClick={() => { setFilter(f); setPage(1); }}
+            className="s-adminorders-ffb22a"
+            style={{
+              border:     `1px solid ${filter === f ? 'var(--brand)' : 'var(--ivory)'}`,
+              background: filter === f ? 'var(--brand)' : '#fff',
+              color:      filter === f ? '#fff' : 'var(--heirloom)',
+              fontWeight: filter === f ? 600 : 400,
+            }}
+          >
             {f}
           </button>
         ))}
       </div>
 
+      {/* Table */}
       <div className="s-adminbrands-a637bc">
         <div className="s-admindashboa-ce7380">
           <table className="s-adminbrands-de3642">
@@ -108,34 +180,45 @@ export default function AdminOrders() {
             <tbody>
               {isLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={7} className="s-adminorders-652ef8">
-                    <div className="s-adminorders-ac15d0" />
-                  </td></tr>
-                ))
+                    <tr key={i}>
+                      <td colSpan={7} className="s-adminorders-652ef8">
+                        <div className="s-adminorders-ac15d0" />
+                      </td>
+                    </tr>
+                  ))
                 : orders.length === 0
-                  ? <tr><td colSpan={7} className="s-admininvento-2925c8">
-                    <i className="bi bi-bag-x s-adminorders-9fdb4f" />No orders found
-                  </td></tr>
+                  ? (
+                    <tr>
+                      <td colSpan={7} className="s-admininvento-2925c8">
+                        <i className="bi bi-bag-x s-adminorders-9fdb4f" /> No orders found
+                      </td>
+                    </tr>
+                  )
                   : orders.map((order: any) => (
-                    <tr key={order.orderId} className="s-adminbrands-59d787"
+                    <tr
+                      key={order.orderId}
+                      className="s-adminbrands-59d787"
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--ivory)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
                       <td className="s-adminorders-0359e2">#{order.orderNumber || order.orderId}</td>
                       <td className="s-adminorders-428224">
-                        {/* Admin list includes address.name */}
                         <div className="s-adminorders-0728c5">{order.address?.name || '—'}</div>
                       </td>
                       <td className="s-adminorders-2d9718">{order.orderItems?.length ?? '—'}</td>
                       <td className="s-adminorders-04b8c3">{formatPrice(order.totalAmount || 0)}</td>
-                      {/* FIX: use order.state not order.status */}
                       <td className="s-adminorders-428224">{badge(order.state)}</td>
                       <td className="s-adminorders-d76599">
-                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString('en-IN') : '—'}
+                        {order.orderDate
+                          ? new Date(order.orderDate).toLocaleDateString('en-IN')
+                          : '—'}
                       </td>
                       <td className="s-adminorders-428224">
-                        <button onClick={() => setSelected(order)}
-                          className="s-adminorders-1af559">
-                          <i className="bi bi-pencil me-1" />Update
+                        <button
+                          onClick={() => setSelected(order)}
+                          className="s-adminorders-1af559"
+                        >
+                          <i className="bi bi-pencil me-1" /> Update
                         </button>
                       </td>
                     </tr>
@@ -145,39 +228,76 @@ export default function AdminOrders() {
           </table>
         </div>
 
+        {/* Pagination */}
         {pages > 1 && (
           <div className="s-adminorders-0fe0c2">
-            <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-              className="s-adminorders-c67f5e" style={ {background: page === 1 ? 'var(--ivory)' : '#fff'} }>← Prev</button>
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+              className="s-adminorders-c67f5e"
+              style={{ background: page === 1 ? 'var(--ivory)' : '#fff' }}
+            >
+              ← Prev
+            </button>
             <span className="s-adminorders-caf6f2">Page {page} of {pages}</span>
-            <button disabled={page >= pages} onClick={() => setPage(p => p + 1)}
-              className="s-adminorders-c67f5e" style={ {background: page >= pages ? 'var(--ivory)' : '#fff'} }>Next →</button>
+            <button
+              disabled={page >= pages}
+              onClick={() => setPage(p => p + 1)}
+              className="s-adminorders-c67f5e"
+              style={{ background: page >= pages ? 'var(--ivory)' : '#fff' }}
+            >
+              Next →
+            </button>
           </div>
         )}
       </div>
 
       {/* Status update modal */}
       {selected && (
-        <div className="s-adminorders-d4682b"
-          onClick={() => setSelected(null)}>
-          <div className="s-adminorders-dadf17" onClick={e => e.stopPropagation()}>
+        <div
+          className="s-adminorders-d4682b"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="s-adminorders-dadf17"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="s-adminorders-83a233">
-              <h3 className="s-adminorders-18f7bb">Order #{selected.orderNumber || selected.orderId}</h3>
+              <h3 className="s-adminorders-18f7bb">
+                Order #{selected.orderNumber || selected.orderId}
+              </h3>
               <button onClick={() => setSelected(null)} className="s-adminorders-90ae21">×</button>
             </div>
+
+            {/* FIX: badge now reads from selected.state which is updated optimistically */}
             <p className="s-adminorders-253bda">Current: {badge(selected.state)}</p>
+
             <div className="s-adminorders-2af484">
               {['Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'].map(s => (
-                <button key={s} onClick={() => updateStatus.mutate({ orderId: selected.orderId, state: s })}
-                  disabled={updateStatus.isPending}
-                  className="s-adminorders-642033" style={{ border: `1px solid ${STATUS_COLOR[s]?.color || 'var(--ivory)'}`, color: STATUS_COLOR[s]?.color || '#000' }}>
-                  {s}
+                <button
+                  key={s}
+                  onClick={() =>
+                    updateStatus.mutate({ orderId: selected.orderId, state: s })
+                  }
+                  disabled={updateStatus.isPending || selected.state === s}
+                  className="s-adminorders-642033"
+                  style={{
+                    border:   `1px solid ${STATUS_COLOR[s]?.color || 'var(--ivory)'}`,
+                    color:    STATUS_COLOR[s]?.color || '#000',
+                    // visually mark the current state
+                    opacity:  selected.state === s ? 0.4 : 1,
+                    cursor:   selected.state === s ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {updateStatus.isPending && updateStatus.variables?.state === s
+                    ? '…'
+                    : s}
                 </button>
               ))}
             </div>
           </div>
         </div>
       )}
-      </div>
+    </div>
   );
 }

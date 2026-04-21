@@ -190,13 +190,16 @@ export const listNotifications = async (params?: {
 // ── Coupons ───────────────────────────────────────────────────────────────────
 
 export const listUserCoupons = async (params?: { userProfileId?: string }) => {
-  const q: Record<string, any> = {};
+  const q: Record<string, any> = {
+    "Page.Size": 100,
+    "Order.Property": "endDate",
+    "Order.Ascending": true,
+  };
   if (params?.userProfileId)
-    q.Filters = toFilters({ userProfileId: params.userProfileId });
+    q.Filters = toFilters({ UserProfileId: params.userProfileId });
   const response = await api.get("/Coupons/UserList", { params: q });
   return response.data;
 };
-
 // ── Admin: Ekart Config ───────────────────────────────────────────────────────
 
 export const getEkartConfig = async () => {

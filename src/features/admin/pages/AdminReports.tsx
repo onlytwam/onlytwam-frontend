@@ -1,7 +1,3 @@
-// AdminReports.tsx — Fixed:
-// - Pagination: 'Page.Size' not 'page.pageSize'
-// - order: 'Order.Property' / 'Order.Ascending' not 'order.property'
-// - Uses /Orders/AdminList for admin view
 
 import { useQuery } from '@tanstack/react-query';
 import api from '@/shared/api/axiosInstance';

@@ -15,6 +15,7 @@ const ALL_NAV = [
   { path: '/admin/admin-dashboard', icon: 'bi-speedometer2',    label: 'Dashboard',        roles: [1,3,4,5,6] },
   { path: '/admin/orders',          icon: 'bi-bag-check',        label: 'Orders',           roles: [1,5,6] },
   { path: '/admin/products',        icon: 'bi-box-seam',         label: 'Products',         roles: [1,3,4] },
+  { path: '/admin/bulk-import',     icon: 'bi-upload',           label: 'Bulk Upload', roles: [1,3,4] },
   { path: '/admin/categories',      icon: 'bi-folder',           label: 'Categories',       roles: [1,4] },
   { path: '/admin/brands',          icon: 'bi-bookmark-star',    label: 'Brands',           roles: [1,4] },
   { path: '/admin/sizes',           icon: 'bi-rulers',           label: 'Sizes',            roles: [1,3] },

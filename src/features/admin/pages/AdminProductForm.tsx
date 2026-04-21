@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -10,746 +10,1051 @@ import { getImageUrl } from '@/shared/utils/helpers';
 import { resolveColorSwatch } from '@/shared/utils/colorHelpers';
 import toast from 'react-hot-toast';
 
+
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const productSchema = z.object({
-  name:            z.string().min(1, 'Name is required'),
-  description:     z.string().min(1, 'Description is required'),
-  productCode:     z.string().min(1, 'Product code is required'),
-  categoryId:      z.coerce.number().min(1, 'Category is required'),
-  childCategoryId: z.number().optional().nullable(),
-  brandId:         z.coerce.number().min(1, 'Brand is required'),
-  tag:             z.string().optional().nullable(),
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().min(1, 'Description is required'),
+  productCode: z.string().min(1, 'Product code is required'),
+  categoryId: z.coerce.number().min(1, 'Category is required'),
+  childCategoryId: z.coerce.number().optional().nullable(),
+  brandId: z.coerce.number().min(1, 'Brand is required'),
+  tag: z.string().optional().nullable(),
 });
+
 const variantSchema = z.object({
-  variantName:        z.string().min(1, 'Variant name is required'),
+  variantName: z.string().min(1, 'Variant name is required'),
+  variantProductCode: z.string().min(1, 'Variant product code is required'),
   variantDescription: z.string().optional().nullable(),
-  color:              z.string().optional().nullable(),
-  isBestSeller:       z.boolean().optional(),
-  isReturnAvailable:  z.boolean().optional(),
-  isCupSize:          z.boolean().optional(),
+  fabricId: z
+    .union([z.coerce.number(), z.literal(''), z.null()])
+    .transform(v => (v === '' || v === 0 ? null : v))
+    .optional()
+    .nullable(),
+  // FIX-V2: taxHSNCodeId replaces free-text hsnCode
+  taxHSNCodeId: z
+    .union([z.coerce.number(), z.literal(''), z.null()])
+    .transform(v => (v === '' || v === 0 ? null : v))
+    .optional()
+    .nullable(),
+  isBestSeller: z.boolean().optional().default(false),
+  isReturnAvailable: z.boolean().optional().default(false),
+  // FIX-V5: isCupSize must be in schema — registered via hidden input + Toggle
+  isCupSize: z.boolean().optional().default(false),
 });
+
 const vdSchema = z.object({
-  sizeId:          z.coerce.number().min(1, 'Size is required'),
-  cupSizeId:       z.coerce.number().optional().nullable(),
-  mrpPrice:        z.coerce.number().min(1, 'MRP is required'),
-  finalPrice:      z.coerce.number().min(1, 'Final price is required'),
+  stockQuantity: z.coerce.number().min(0, 'Stock quantity is required'),
+  sizeId: z.coerce.number().min(1, 'Size is required'),
+  cupSizeId: z.union([z.coerce.number(), z.literal(''), z.null()])
+    .transform(v => (v === '' || v === 0 ? null : v))
+    .optional().nullable(),
+  mrpPrice: z.coerce.number().min(1, 'MRP is required'),
   discountPercent: z.coerce.number().min(0).max(100).optional().nullable(),
-  stockQuantity:   z.coerce.number().min(0, 'Stock is required'),
+  finalPrice: z.coerce.number().min(1, 'Final price is required'),
+  cgst: z.coerce.number().min(0, 'CGST is required'),
+  sgst: z.coerce.number().min(0, 'SGST is required'),
+  taxAmount: z.coerce.number().optional().nullable(),
+  availableStockQuantity: z.coerce.number().optional().nullable(),
+  processedStockQuantity: z.coerce.number().optional().nullable(),
+  amendmentStockQuantity: z.coerce.number().optional().nullable(),
 });
 
 type Tab = 'product' | 'variants' | 'details';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_ACTIONS: Record<string, string[]> = {
-  Created:                           ['Submit For Approval'],
-  Modified:                          ['Submit For Approval'],
-  'Submitted To Product Manager':    ['Approve', 'Reject'],
-  'Submitted To Inventory Manager':  ['Approve', 'Reject'],
-  Approved:                          ['Reject'],
-  Rejected:                          ['Resubmit'],
+  Created: ['Submit For Approval'],
+  Modified: ['Submit For Approval'],
+  'Submitted To Product Manager': ['Approve', 'Reject'],
+  'Submitted To Inventory Manager': ['Approve', 'Reject'],
+  Approved: ['Return For Correction'],
+  Rejected: ['Resubmit'],
 };
 
-// ─── Shared styles ────────────────────────────────────────────────────────────
-const lbl: React.CSSProperties = { fontSize: 13, fontWeight: 500, color: 'var(--heirloom)', display: 'block', marginBottom: 5 };
-const inp: React.CSSProperties = {};
+const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
+  Approved: { bg: '#e8f5e9', color: '#2e7d32' },
+  Created: { bg: '#e3f2fd', color: '#1565c0' },
+  Modified: { bg: '#fff8e1', color: '#f57f17' },
+  Rejected: { bg: '#ffebee', color: '#c62828' },
+  'Submitted To Product Manager': { bg: '#fce4ec', color: '#c62828' },
+  'Submitted To Inventory Manager': { bg: '#fce4ec', color: '#c62828' },
+};
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const primary = '#7A1E2C';
+const primaryLt = '#F5E9E6';
+const bgMain = '#FAF7F4';
+const cardBg = '#FFFFFF';
+const border = '#E6DAD3';
+const grey = '#F3EFEC';
+const txt = '#2B2B2B';
+const sub = '#8A7F7A';
+
+// ─── Inline styles ────────────────────────────────────────────────────────────
+const card: React.CSSProperties = {
+  background: cardBg,
+  borderRadius: 12,
+  padding: '28px 32px 24px',
+  marginBottom: 20,
+  border: `1px solid ${border}`,
+};
+const grid3: React.CSSProperties = {
+  display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+  gap: '20px 32px', marginBottom: 22,
+};
+const fieldWrap: React.CSSProperties = { display: 'flex', flexDirection: 'column' };
+const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: sub, marginBottom: 6 };
+const inp: React.CSSProperties = {
+  border: 'none', borderBottom: `1.5px solid ${border}`,
+  padding: '8px 0', fontSize: 14, color: txt,
+  background: 'transparent', outline: 'none',
+  width: '100%', fontFamily: 'inherit',
+};
+const sel: React.CSSProperties = { ...inp, cursor: 'pointer', appearance: 'auto' as const };
+const errStyle: React.CSSProperties = { fontSize: 11, color: primary, marginTop: 3 };
+const btnPrimary: React.CSSProperties = {
+  background: primary, color: '#fff', border: 'none',
+  borderRadius: 24, padding: '10px 26px',
+  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  letterSpacing: 0.3, whiteSpace: 'nowrap' as const,
+};
+const btnOut: React.CSSProperties = {
+  background: '#fff', color: primary, border: `1.5px solid ${primary}`,
+  borderRadius: 24, padding: '10px 26px',
+  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  whiteSpace: 'nowrap' as const,
+};
+const actionsRow: React.CSSProperties = {
+  display: 'flex', justifyContent: 'flex-end',
+  gap: 12, marginTop: 28, flexWrap: 'wrap' as const,
+};
+const badgeStyle = (state: string | null): React.CSSProperties => {
+  const s = STATUS_COLOR[state || ''] ?? { bg: grey, color: sub };
+  return {
+    background: s.bg, color: s.color,
+    border: `1.5px solid ${s.color}`,
+    borderRadius: 20, padding: '5px 16px',
+    fontSize: 13, fontWeight: 700,
+  };
+};
+const tabBtn = (active: boolean, disabled: boolean): React.CSSProperties => ({
+  padding: '13px 24px', border: 'none', background: 'none',
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  fontSize: 14, fontWeight: active ? 700 : 400,
+  color: active ? primary : '#555',
+  borderBottom: `2px solid ${active ? primary : 'transparent'}`,
+  marginBottom: -2, fontFamily: 'inherit',
+  opacity: disabled ? 0.5 : 1,
+});
+
+// ─── Safe helpers ─────────────────────────────────────────────────────────────
+function safeColorHex(color?: string | null, colorHex?: string | null): string {
+  try {
+    const r = resolveColorSwatch(color ?? undefined, colorHex ?? undefined);
+    return r?.colorHex || colorHex || color || '#888888';
+  } catch {
+    return colorHex || color || '#888888';
+  }
+}
+function safeImageUrl(path: unknown): string | null {
+  if (!path || typeof path !== 'string') return null;
+  try { return getImageUrl(path); } catch { return null; }
+}
+
+// ─── Small components ─────────────────────────────────────────────────────────
+function Field({ label, required, error, children }: {
+  label: string; required?: boolean; error?: string; children: React.ReactNode;
+}) {
   return (
-    <div className="s-updateprofil-246fef">
-      <label style={lbl}>{label}</label>
+    <div style={fieldWrap}>
+      <label style={lbl}>{label}{required && <span style={{ color: primary }}>*</span>}</label>
       {children}
-      {error && <p className="auth-err-text">{error}</p>}
+      {error && <p style={errStyle}>{error}</p>}
     </div>
   );
 }
 
-const jf = (filters: any[]) => (filters.length ? JSON.stringify(filters) : undefined);
+function Toggle({ checked, onChange, label }: {
+  checked: boolean; onChange: (v: boolean) => void; label: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+      onClick={() => onChange(!checked)}>
+      <div style={{
+        width: 42, height: 24, borderRadius: 12,
+        background: checked ? primary : '#ccc',
+        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+      }}>
+        <div style={{
+          position: 'absolute',
+          left: checked ? 20 : 2, top: 2,
+          width: 20, height: 20, borderRadius: '50%',
+          background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+          transition: 'left 0.2s',
+        }} />
+      </div>
+      <span style={{ fontSize: 14, color: '#444' }}>{label}</span>
+    </div>
+  );
+}
 
 // ─── File upload helpers ──────────────────────────────────────────────────────
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((res, rej) => {
     const r = new FileReader();
-    r.onload  = () => res((r.result as string).split(',')[1]);
+    r.onload = () => res((r.result as string).split(',')[1]);
     r.onerror = rej;
     r.readAsDataURL(file);
   });
 }
-
 async function uploadFile(file: File): Promise<string> {
   const b64 = await fileToBase64(file);
-  const res = await api.post('/FileUpload', {
-    fileName: file.name,
-    fileData: b64,
-    fileType: file.type,
-  });
+  const res = await api.post('/FileUpload', { fileName: file.name, fileData: b64, fileType: file.type });
   return res.data?.filePath || res.data?.fileUrl || `uploads/${file.name}`;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminProductForm() {
-  const { id }        = useParams<{ id?: string }>();
-  const nav           = useNavigate();
-  const qc            = useQueryClient();
+  const { id } = useParams<{ id?: string }>();
+  const nav = useNavigate();
+  const qc = useQueryClient();
   const { getUserId } = useAuthStore();
-  const isEdit        = !!id && id !== '0';
-  const pid           = isEdit ? Number(id) : 0;
+  const isEdit = !!id && id !== '0' && id !== 'new';
+  const pid = isEdit ? Number(id) : 0;
 
-  // UI state
-  const [tab,      setTab]     = useState<Tab>('product');
-  const [savedPid, setSavedPid]= useState(pid);
-  const [pState,   setPState]  = useState<string | null>(null);
-  const [selVid,   setSelVid]  = useState<number | null>(null);
-  const [showVF,   setShowVF]  = useState(false);
-  const [showVDF,  setShowVDF] = useState(false);
-  const [editV,    setEditV]   = useState<any>(null);
-  const [editVD,   setEditVD]  = useState<any>(null);
+  const [tab, setTab] = useState<Tab>('product');
+  const [savedPid, setSavedPid] = useState(pid);
+  const [pState, setPState] = useState<string | null>(null);
+  const [selVid, setSelVid] = useState<number | null>(null);
+  const [vdState, setVdState] = useState<string | null>(null);
+
+  const [showVF, setShowVF] = useState(false);
+  const [showVDF, setShowVDF] = useState(false);
+  const [editV, setEditV] = useState<any>(null);
+  const [editVD, setEditVD] = useState<any>(null);
   const [childCats, setChildCats] = useState<any[]>([]);
 
-  // ── Color state — TWO fields that auto-resolve each other ─────────────────
-  // colorName: human label ("Bark")   — stored in ProductVariants.Color
-  // colorHex:  CSS hex    ("#C8A882") — shown in picker, derived automatically
-  const [colorName, setColorName] = useState('');
-  const [colorHex,  setColorHex]  = useState('var(--heirloom)');
+  // ── Color state ──────────────────────────────────────────────────────────────
+  const [colorHex, setColorHex] = useState('#888888');
 
-  /** Called when admin types in the name input */
-  const handleColorNameChange = (raw: string) => {
-    setColorName(raw);
-    if (raw.trim()) {
-      const { colorHex: hex } = resolveColorSwatch(raw.trim());
-      setColorHex(hex);
-    }
-  };
-
-  /** Called when admin picks from the native color-picker */
-  const handleColorHexChange = (hex: string) => {
-    setColorHex(hex);
-    const { colorName: name } = resolveColorSwatch(undefined, hex);
-    // Only overwrite the name when it was blank or still a generic placeholder
-    if (!colorName.trim() || colorName === colorHex) {
-      setColorName(name);
-    }
-  };
-
-  // Image state
-  const [,              setImgFiles]      = useState<File[]>([]);
-  const [imgPreviews,   setImgPreviews]   = useState<string[]>([]);
+  // ── Image state ──────────────────────────────────────────────────────────────
+  const [imgPreviews, setImgPreviews] = useState<string[]>([]);
   const [uploadedPaths, setUploadedPaths] = useState<string[]>([]);
-  const [uploading,     setUploading]     = useState(false);
-  const [existingImgs,  setExistingImgs]  = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [existingImgs, setExistingImgs] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ── Lookups ──────────────────────────────────────────────────────────────────
-  const { data: cD }  = useQuery({ queryKey: ['ac'],  queryFn: () => api.get('/Category', { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
-  const { data: bD }  = useQuery({ queryKey: ['ab'],  queryFn: () => api.get('/Brand',    { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
-  const { data: sD }  = useQuery({ queryKey: ['as'],  queryFn: () => api.get('/Size',     { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
-  const { data: csD } = useQuery({ queryKey: ['acs'], queryFn: () => api.get('/CupSize',  { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
-  const cats     = (cD  as any[]) || [];
-  const brands   = (bD  as any[]) || [];
-  const sizes    = (sD  as any[]) || [];
-  const cupSizes = (csD as any[]) || [];
+  const resetImages = useCallback(() => {
+    setImgPreviews([]); setUploadedPaths([]); setExistingImgs([]);
+  }, []);
 
-  // ── Product data ──────────────────────────────────────────────────────────────
+  // ── Lookups ──────────────────────────────────────────────────────────────────
+  const { data: cD } = useQuery({ queryKey: ['ac'], queryFn: () => api.get('/Category', { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
+  const { data: bD } = useQuery({ queryKey: ['ab'], queryFn: () => api.get('/Brand/', { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
+  const { data: sD } = useQuery({ queryKey: ['as'], queryFn: () => api.get('/Size', { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
+  const { data: csD } = useQuery({ queryKey: ['acs'], queryFn: () => api.get('/CupSize', { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
+  const { data: fbD } = useQuery({ queryKey: ['afb'], queryFn: () => api.get('/Fabric', { params: { 'Page.Size': 200 } }).then(r => r.data?.list || []) });
+  // FIX-V2: Fetch HSN codes from /TaxHSNCode API
+  const { data: hsnD } = useQuery({ queryKey: ['ahsn'], queryFn: () => api.get('/TaxHSNCode', { params: { 'Page.Size': 500 } }).then(r => r.data?.list || []) });
+
+  const cats = useMemo(() => (cD as any[]) ?? [], [cD]);
+  const brands = useMemo(() => (bD as any[]) ?? [], [bD]);
+  const sizes = useMemo(() => (sD as any[]) ?? [], [sD]);
+  const cupSizes = useMemo(() => (csD as any[]) ?? [], [csD]);
+  const fabrics = useMemo(() => (fbD as any[]) ?? [], [fbD]);
+  // FIX-V2: HSN codes list
+  const hsnCodes = useMemo(() => (hsnD as any[]) ?? [], [hsnD]);
+
+  // ── Data queries ──────────────────────────────────────────────────────────────
   const { data: pData } = useQuery({
     queryKey: ['apf', savedPid],
-    queryFn:  () => api.get(`/Products/${savedPid}`).then(r => r.data),
-    enabled:  savedPid > 0,
+    queryFn: () => api.get(`/Products/${savedPid}`).then(r => r.data),
+    enabled: savedPid > 0,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
-  const { data: vData, refetch: refV } = useQuery({
+  const { data: vData, refetch: refV, isLoading: vLoading, isError: vError } = useQuery({
     queryKey: ['avs', savedPid],
-    queryFn:  () => api.get('/ProductVariants', {
-      params: { Filters: jf([{ property: 'ProductId', comparison: '==', value: String(savedPid) }]), 'Page.Size': 50 },
+    queryFn: () => api.get('/ProductVariants', {
+      params: {
+        Filters: JSON.stringify([{ property: 'ProductId', comparison: '==', value: String(savedPid) }]),
+        'Page.Size': 50,
+      },
     }).then(r => r.data?.list || []),
     enabled: savedPid > 0,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const { data: vdData, refetch: refVD } = useQuery({
     queryKey: ['avds', selVid],
-    queryFn:  () => api.get('/ProductVariantDetail', {
-      params: { Filters: jf([{ property: 'ProductVariantId', comparison: '==', value: String(selVid) }]), 'Page.Size': 100 },
+    queryFn: () => api.get('/ProductVariantDetail', {
+      params: {
+        Filters: JSON.stringify([{ property: 'ProductVariantId', comparison: '==', value: String(selVid) }]),
+        'Page.Size': 100,
+      },
     }).then(r => r.data?.list || []),
     enabled: !!selVid,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
-  const variants = (vData  as any[]) || [];
-  const vds      = (vdData as any[]) || [];
+  const variants = useMemo(() => (vData as any[]) ?? [], [vData]);
+  const vds = useMemo(() => {
+    const list = (vdData as any[]) ?? [];
+    return list.filter(v => v.productVariantId === selVid);
+  }, [vdData, selVid]);
 
   // ── Product form ──────────────────────────────────────────────────────────────
-  const { register: rP, handleSubmit: hP, setValue: sP, watch: wP, formState: { errors: eP } } =
+  const { register: rP, handleSubmit: hP, reset, watch: wP, formState: { errors: eP } } =
     useForm({ resolver: zodResolver(productSchema) });
-  const selCat = wP('categoryId');
 
+  const selCat = Number(wP('categoryId'));
   useEffect(() => {
     if (pData) {
-      sP('name',            pData.name);
-      sP('description',     pData.description);
-      sP('productCode',     pData.productCode);
-      sP('categoryId',      pData.categoryId);
-      sP('childCategoryId', pData.childCategoryId);
-      sP('brandId',         pData.brandId);
-      sP('tag',             pData.tag);
-      setPState(pData.state);
+      reset({
+        name: pData.name ?? '',
+        description: pData.description ?? '',
+        productCode: pData.productCode ?? '',
+        categoryId: pData.categoryId ?? undefined,
+        childCategoryId: pData.childCategoryId ?? undefined,
+        brandId: pData.brandId ?? undefined,
+        tag: pData.tag ?? '',
+      });
+      setPState(pData.state ?? null);
     }
-  }, [pData]);
+  }, [pData, reset, tab]);;
 
   useEffect(() => {
     if (selCat && cats.length)
-      setChildCats(cats.filter((c: any) => c.parentCategoryId === Number(selCat)));
+      setChildCats(cats.filter((c: any) => c.parentCategoryId === selCat));
+    else
+      setChildCats([]);
   }, [selCat, cats]);
 
   // ── Variant form ──────────────────────────────────────────────────────────────
-  const { register: rV, handleSubmit: hV, setValue: sV, reset: resetV, formState: { errors: eV } } =
-    useForm({ resolver: zodResolver(variantSchema) });
+  const {
+    register: rV,
+    handleSubmit: hV,
+    setValue: sV,
+    reset: resetV,
+    watch: wV,
+    formState: { errors: eV },
+  } = useForm({ resolver: zodResolver(variantSchema) });
+
+  // Watch boolean fields to drive Toggle visuals
+  const isBestSellerVal = !!wV('isBestSeller');
+  const isReturnVal = !!wV('isReturnAvailable');
+  const isCupSizeVal = !!wV('isCupSize');
 
   useEffect(() => {
     if (editV) {
-      sV('variantName',        editV.variantName);
-      sV('variantDescription', editV.variantDescription);
-      sV('isBestSeller',       editV.isBestSeller);
-      sV('isReturnAvailable',  editV.isReturnAvailable);
-      sV('isCupSize',          editV.isCupSize);
-      // Auto-resolve both fields from whatever was stored
-      const rawColor = editV.color || '';
-      const { colorName: name, colorHex: hex } = resolveColorSwatch(rawColor);
-      setColorName(name);
-      setColorHex(hex);
-      const imgs = editV.images?.length ? editV.images : editV.image ? [editV.image] : [];
+      sV('variantName', editV.variantName ?? '');
+      sV('variantProductCode', editV.variantProductCode ?? editV.productCode ?? editV.variantCode ?? '');
+      sV('variantDescription', editV.variantDescription ?? '');
+      // FIX-V1: set null so coercion doesn't produce 0
+      sV('fabricId', editV.fabricId ?? null);
+      // FIX-V2: populate taxHSNCodeId from existing variant data
+      sV('taxHSNCodeId', editV.taxHSNCodeId ?? null);
+      // FIX-V5: use sV() for all booleans so zod schema receives them
+      sV('isBestSeller', !!editV.isBestSeller);
+      sV('isReturnAvailable', !!editV.isReturnAvailable);
+      sV('isCupSize', !!editV.isCupSize);
+      setColorHex(safeColorHex(editV.color, editV.colorHex));
+      const rawImgs = editV.images;
+      const imgs: string[] = Array.isArray(rawImgs)
+        ? rawImgs.filter((x: unknown) => typeof x === 'string' && x.length > 0)
+        : typeof editV.image === 'string' && editV.image
+          ? [editV.image]
+          : [];
       setExistingImgs(imgs);
     } else {
-      resetV();
-      setColorName('');
-      setColorHex('var(--heirloom)');
+      // FIX-V7: explicitly reset all fields including booleans
+      resetV({
+        variantName: '',
+        variantProductCode: '',
+        variantDescription: '',
+        fabricId: null,
+        taxHSNCodeId: null,
+        isBestSeller: false,
+        isReturnAvailable: false,
+        isCupSize: false,
+      });
+      setColorHex('#888888');
       setExistingImgs([]);
     }
-    setImgFiles([]);
     setImgPreviews([]);
     setUploadedPaths([]);
-  }, [editV]);
+  }, [editV, resetV, sV]);
 
   // ── VD form ───────────────────────────────────────────────────────────────────
-  const { register: rVD, handleSubmit: hVD, setValue: sVD, reset: resetVD, watch: wVD, formState: { errors: eVD } } =
-    useForm({ resolver: zodResolver(vdSchema) });
-  const mrp = Number(wVD('mrpPrice')  || 0);
+  const {
+    register: rVD,
+    handleSubmit: hVD,
+    setValue: sVD,
+    reset: resetVD,
+    watch: wVD,
+    formState: { errors: eVD },
+  } = useForm({ resolver: zodResolver(vdSchema) });
+
+  const mrp = Number(wVD('mrpPrice') || 0);
   const fin = Number(wVD('finalPrice') || 0);
+  const cgst = Number(wVD('cgst') || 0);
+  const sgst = Number(wVD('sgst') || 0);
 
   useEffect(() => {
     if (editVD) {
-      sVD('sizeId',          editVD.sizeId);
-      sVD('cupSizeId',       editVD.cupSizeId);
-      sVD('mrpPrice',        editVD.mrpPrice);
-      sVD('finalPrice',      editVD.finalPrice);
-      sVD('discountPercent', editVD.discountPercent);
-      sVD('stockQuantity',   editVD.stockQuantity);
+      sVD('stockQuantity', editVD.stockQuantity ?? 0);
+      sVD('sizeId', editVD.sizeId ?? '');
+      sVD('cupSizeId', editVD.cupSizeId ?? '');
+      sVD('mrpPrice', editVD.mrpPrice ?? '');
+      sVD('discountPercent', editVD.discountPercent ?? 0);
+      sVD('finalPrice', editVD.finalPrice ?? '');
+      sVD('cgst', editVD.cgst ?? 0);
+      sVD('sgst', editVD.sgst ?? 0);
+      sVD('taxAmount', editVD.taxAmount ?? 0);
+      sVD('availableStockQuantity', editVD.availableStockQuantity ?? '');
+      sVD('processedStockQuantity', editVD.processedStockQuantity ?? '');
+      sVD('amendmentStockQuantity', editVD.amendmentStockQuantity ?? '');
+      setVdState(editVD.state ?? null);
     } else {
       resetVD();
+      setVdState(null);
     }
-  }, [editVD]);
+  }, [editVD, resetVD, sVD]);
 
+  // Auto discount
   useEffect(() => {
-    if (mrp && fin) sVD('discountPercent', Math.max(0, Math.round(((mrp - fin) / mrp) * 100)));
-  }, [mrp, fin]);
+    if (mrp > 0 && fin > 0 && fin <= mrp)
+      sVD('discountPercent', Math.round(((mrp - fin) / mrp) * 100));
+    else if (mrp > 0 && fin > mrp)
+      sVD('discountPercent', 0);
+  }, [mrp, fin, sVD]);
 
-  // ── Image upload handler ──────────────────────────────────────────────────────
-  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    await processFiles(files);
-    if (fileRef.current) fileRef.current.value = '';
-  };
+  // Auto tax amount = finalPrice × (cgst + sgst) / 100
+  useEffect(() => {
+    if (fin > 0 && (cgst > 0 || sgst > 0))
+      sVD('taxAmount', parseFloat(((fin * (cgst + sgst)) / 100).toFixed(2)));
+  }, [fin, cgst, sgst, sVD]);
 
+  // ── Image upload ──────────────────────────────────────────────────────────────
   const processFiles = async (files: File[]) => {
-    files.forEach(f => {
+    const valid = files.filter(f => {
+      if (f.size > 2 * 1024 * 1024) { toast.error(`${f.name} exceeds 2 MB`); return false; }
+      return true;
+    });
+    if (!valid.length) return;
+    valid.forEach(f => {
       const r = new FileReader();
       r.onload = ev => setImgPreviews(p => [...p, ev.target?.result as string]);
       r.readAsDataURL(f);
     });
-    setImgFiles(p => [...p, ...files]);
     setUploading(true);
     try {
-      const paths = await Promise.all(files.map(uploadFile));
+      const paths = await Promise.all(valid.map(uploadFile));
       setUploadedPaths(p => [...p, ...paths]);
-      toast.success(`${files.length} image${files.length > 1 ? 's' : ''} uploaded!`);
+      toast.success(`${valid.length} image${valid.length > 1 ? 's' : ''} uploaded`);
     } catch {
-      toast.error('Image upload failed — check file size and try again');
+      toast.error('Upload failed — check file size and try again');
     } finally {
       setUploading(false);
     }
   };
 
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length) await processFiles(files);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   // ── Mutations ─────────────────────────────────────────────────────────────────
   const saveProd = useMutation({
     mutationFn: async (data: any) => {
-      const pl = { ...data, userProfileId: getUserId(), state: savedPid > 0 ? 'Modified' : 'Created' };
-      return savedPid > 0
-        ? api.put(`/Products/${savedPid}`, pl).then(r => r.data)
-        : api.post('/Products', pl).then(r => r.data);
+      const wasNew = savedPid === 0;
+      const pl = { ...data, userProfileId: getUserId(), state: wasNew ? 'Created' : 'Modified' };
+      return wasNew
+        ? api.post('/Products/', pl).then(r => r.data)
+        : api.put(`/Products/${savedPid}`, pl).then(r => r.data);
     },
     onSuccess: (res) => {
-      const nid = res?.productId || res?.id || savedPid;
-      if (nid) setSavedPid(nid);
-      setPState(savedPid > 0 ? 'Modified' : 'Created');
-      toast.success(savedPid > 0 ? 'Product updated!' : 'Product created! Now add variants.');
+      const wasNew = savedPid === 0;
+      // FIX-V8: capture nid before any state changes
+      const nid: number =
+        res?.productId ?? res?.id ?? res?.data?.productId ?? res?.data?.id ?? savedPid;
+
+      if (nid && nid !== savedPid) {
+        setSavedPid(nid);
+        window.history.replaceState(null, '', `/admin/products/${nid}`);
+        if (res && typeof res === 'object') qc.setQueryData(['apf', nid], res);
+      }
+      setPState(wasNew ? 'Created' : 'Modified');
+      toast.success(wasNew ? 'Product created! Now add variants.' : 'Product updated!');
       qc.invalidateQueries({ queryKey: ['admin-products'] });
-      if (!savedPid) setTab('variants');
+      // FIX-V8: setTab directly after setSavedPid — no pendingTabRef needed
+      if (wasNew) setTab('variants');
     },
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to save product'),
   });
 
-  const updState = useMutation({
-    mutationFn: (s: string) => api.put(`/Products/${savedPid}`, { state: s }),
+  // FIX-V4: correct onError — was copy-pasted from variant save
+  const updProdState = useMutation({
+    mutationFn: (s: string) => api.put(`/Products/${savedPid}`, { ...(pData ?? {}), state: s }),
     onSuccess: (_, s) => {
       setPState(s);
-      toast.success(`Status updated to: ${s}`);
+      toast.success(`Status → ${s}`);
       qc.invalidateQueries({ queryKey: ['admin-products'] });
+      qc.invalidateQueries({ queryKey: ['apf', savedPid] });
     },
-    onError: () => toast.error('Failed to update status'),
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to update status'),
   });
 
   const saveVar = useMutation({
     mutationFn: async (data: any) => {
-      const allImgs = [...existingImgs, ...uploadedPaths];
-      const pl = {
-        ...data,
-        productId:     savedPid,
+      if (!savedPid || savedPid === 0)
+        throw new Error('Please save the product before adding variants.');
+
+      // Duplicate name guard
+      if (!editV) {
+        const exists = variants.some(
+          (v: any) => v.variantName?.toLowerCase().trim() === data.variantName?.toLowerCase().trim()
+        );
+        if (exists) throw new Error(`Variant "${data.variantName}" already exists.`);
+      }
+
+      // FIX-V3: images as plain string array (not objects)
+      const allImagePaths = [...existingImgs, ...uploadedPaths];
+
+      const payload: Record<string, any> = {
+        variantName: data.variantName,
+        productCode: data.variantProductCode,   // API field is productCode
+        productId: savedPid,
+        variantDescription: data.variantDescription || null,
+        fabricId: data.fabricId || null,
+        // FIX-V2: send taxHSNCodeId (number | null) — derived from dropdown
+        taxHSNCodeId: data.taxHSNCodeId || null,
+        isBestSeller: !!data.isBestSeller,
+        isReturnAvailable: !!data.isReturnAvailable,
+        isCupSize: !!data.isCupSize,
+        color: colorHex || '#888888',
+        colorHex: colorHex || '#888888',
         userProfileId: getUserId(),
-        state:         editV ? 'Modified' : 'Created',
-        images:        allImgs,
-        image:         allImgs[0] || null,
-        // color stores the NAME (e.g. "Bark") — this is what goes into ProductVariants.Color
-        color:         colorName.trim() || colorHex,
-        // colorHex is passed along so backend can upsert twam.ProductColor if supported
-        colorHex:      colorHex,
+        createdBy: getUserId(),
+        // FIX-V3: plain string array
+        images: allImagePaths,
+        image: allImagePaths[0] || null,
+        state: editV ? 'Modified' : 'Created',
       };
-      return editV
-        ? api.put(`/ProductVariants/${editV.productVariantId}`, pl)
-        : api.post('/ProductVariants', pl);
+
+      console.log('[saveVar] payload →', payload);
+
+      const res = editV
+        ? await api.put(`/ProductVariants/${editV.productVariantId}`, payload)
+        : await api.post('/ProductVariants', payload);
+
+      return res.data;
     },
     onSuccess: () => {
       toast.success(editV ? 'Variant updated!' : 'Variant created!');
       setShowVF(false);
       setEditV(null);
-      setImgFiles([]);
-      setImgPreviews([]);
-      setUploadedPaths([]);
-      setExistingImgs([]);
+      resetImages();
       refV();
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to save variant'),
+    onError: (e: any) => {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : e?.response?.data?.detail || e?.response?.data?.title || 'Failed to save variant';
+      console.error('[saveVar] error →', e?.response?.data ?? e);
+      toast.error(msg);
+    },
   });
 
   const delVar = useMutation({
     mutationFn: (id: number) => api.delete(`/ProductVariants/${id}`),
     onSuccess: () => {
       toast.success('Variant deleted');
-      refV();
       if (selVid) setSelVid(null);
+      refV();
     },
-    onError: () => toast.error('Failed to delete variant'),
+    onError: () => toast.error('Failed to delete'),
   });
 
-  const saveVDm = useMutation({
+  const saveVD = useMutation<any, any, any>({
     mutationFn: async (data: any) => {
-      const pl = {
-        ...data,
+      if (!selVid) throw new Error('Please select a variant first.');
+
+      const payload = {
         productVariantId: selVid,
-        productId:        savedPid,
-        userProfileId:    getUserId(),
-        state:            editVD ? 'Modified' : 'Created',
+        productId: savedPid,
+        sizeId: Number(data.sizeId),
+        cupSizeId: data.cupSizeId ? Number(data.cupSizeId) : null,
+        stockQuantity: Number(data.stockQuantity),
+        mrpPrice: Number(data.mrpPrice),
+        finalPrice: Number(data.finalPrice),
+        cgst: Number(data.cgst),
+        sgst: Number(data.sgst),
+        discountPercent: data.discountPercent || 0,
+        taxAmount: data.taxAmount || 0,
+        availableStockQuantity: data.availableStockQuantity || 0,
+        processedStockQuantity: data.processedStockQuantity || 0,
+        amendmentStockQuantity: data.amendmentStockQuantity || 0,
+        userProfileId: getUserId(),
+        createdBy: getUserId(),
+        state: editVD ? 'Modified' : 'Created',
       };
+
+      console.log('✅ VD PAYLOAD:', payload);
+
       return editVD
-        ? api.put(`/ProductVariantDetail/${editVD.productVariantDetailId}`, pl)
-        : api.post('/ProductVariantDetail', pl);
+        ? api.put(`/ProductVariantDetail/${editVD.productVariantDetailId}`, payload)
+        : api.post('/ProductVariantDetail', payload);
     },
     onSuccess: () => {
-      toast.success(editVD ? 'Size updated!' : 'Size added!');
+      toast.success(editVD ? 'Details updated!' : 'Details added!');
       setShowVDF(false);
       setEditVD(null);
       refVD();
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to save size'),
+    onError: (e: any) => {
+      console.error('❌ VD ERROR:', e?.response?.data || e);
+      toast.error(e?.response?.data?.detail || 'Failed to save details');
+    },
   });
 
-  const delVDm = useMutation({
+  const delVD = useMutation({
     mutationFn: (id: number) => api.delete(`/ProductVariantDetail/${id}`),
     onSuccess: () => { toast.success('Deleted'); refVD(); },
     onError: () => toast.error('Failed to delete'),
   });
 
-  // ── Helpers ───────────────────────────────────────────────────────────────────
-  const badge = (state: string | null) => {
-    return (
-      <span className="s-adminproduct-2b277c s-adminproduct-69e3b0">
-        {state || 'New'}
-      </span>
-    );
-  };
-
-  const tabSt = (t: Tab): React.CSSProperties => ({
-    padding: '10px 20px', border: 'none', background: 'none',
-    cursor: t === 'details' ? (selVid ? 'pointer' : 'not-allowed') : (t === 'variants' ? (savedPid ? 'pointer' : 'not-allowed') : 'pointer'),
-    fontSize: 14, fontWeight: tab === t ? 700 : 400,
-    color: tab === t ? 'var(--brand)' : 'var(--heirloom)',
-    borderBottom: `3px solid ${tab === t ? 'var(--brand)' : 'transparent'}`,
-    fontFamily: 'var(--font-body)',
-    opacity: (t === 'variants' && !savedPid) || (t === 'details' && !selVid) ? 0.4 : 1,
+  const amendQty = useMutation({
+    mutationFn: ({ id, qty }: { id: number; qty: number }) =>
+      api.put(`/ProductVariantDetail/${id}`, { ...editVD, amendmentStockQuantity: qty }),
+    onSuccess: () => { toast.success('Quantity amended!'); setShowVDF(false); setEditVD(null); refVD(); },
+    onError: () => toast.error('Failed to amend'),
   });
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  const markOutOfStock = useMutation({
+    mutationFn: (id: number) =>
+      api.put(`/ProductVariantDetail/${id}`, { ...editVD, stockQuantity: 0, state: 'OutOfStock' }),
+    onSuccess: () => { toast.success('Marked out of stock'); setShowVDF(false); setEditVD(null); refVD(); },
+    onError: () => toast.error('Failed'),
+  });
+
+  // ── Tab navigation ────────────────────────────────────────────────────────────
+  const goTab = (t: Tab) => {
+    if (t === 'variants' && !savedPid) { toast('Save the product first.', { icon: 'ℹ️' }); return; }
+    if (t === 'details' && !selVid) { toast('Select a variant first.', { icon: 'ℹ️' }); return; }
+    setShowVF(false);
+    setShowVDF(false);
+    setTab(t);
+  };
+
+  // ── Variant form submit handler ───────────────────────────────────────────────
+  // FIX-V6: single clean submit path
+  const onVariantSubmit = hV((data) => {
+    saveVar.mutate(data);
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═════════════════════════════════════════════════════════════════════════════
   return (
-    <div>
-      {/* ── Header ── */}
-      <div className="s-adminproduct-3d61cb">
-        <div>
-          <button onClick={() => nav('/admin/products')}
-            className="s-adminproduct-13d9f1">
-            ← Products
+    <div style={{ fontFamily: 'var(--font-body, "Segoe UI", sans-serif)', background: bgMain, minHeight: '100vh' }}>
+
+      {/* ── Tab bar ── */}
+      <div style={{ background: cardBg, borderRadius: '12px 12px 0 0', padding: '0 32px', borderBottom: `2px solid ${border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex' }}>
+          <button style={tabBtn(tab === 'product', false)} onClick={() => goTab('product')}>Product Info</button>
+          <button style={tabBtn(tab === 'variants', !savedPid)} onClick={() => goTab('variants')}>
+            Variants {variants.length > 0 && `(${variants.length})`}
           </button>
-          <h2 className="s-addressform-638cea">
-            {isEdit ? 'Edit Product' : 'Create New Product'}
-          </h2>
-        </div>
-        <div className="s-adminproduct-4f5591">
-          {badge(pState)}
-          {savedPid > 0 && STATUS_ACTIONS[pState || '']?.map(a => (
-            <button key={a} onClick={() => updState.mutate(a)}
-              className="s-adminproduct-76a1ab">
-              {a}
-            </button>
-          ))}
+          <button style={tabBtn(tab === 'details', !selVid)} onClick={() => goTab('details')}>
+            Variant Details {vds.length > 0 && `(${vds.length})`}
+          </button>
         </div>
       </div>
 
-      {/* ── Tabs ── */}
-      <div className="s-adminproduct-eafda1">
-        <button style={tabSt('product')}  onClick={() => setTab('product')}>
-          <i className="bi bi-info-circle me-1" />Product Info
-        </button>
-        <button style={tabSt('variants')} onClick={() => savedPid > 0 && setTab('variants')} disabled={!savedPid}>
-          <i className="bi bi-palette me-1" />Variants {variants.length > 0 && `(${variants.length})`}
-        </button>
-        <button style={tabSt('details')}  onClick={() => selVid && setTab('details')} disabled={!selVid}>
-          <i className="bi bi-rulers me-1" />Sizes & Pricing {vds.length > 0 && `(${vds.length})`}
-        </button>
-      </div>
-
-      {/* TAB 1 — Product Info */}
+      {/* ══════════════════════════════════ TAB 1: Product Form ══ */}
       {tab === 'product' && (
-        <div className="s-updateprofil-245770">
-          <form onSubmit={hP(data => saveProd.mutate(data))}>
-            <div className="s-adminproduct-25b090">
-              <Field label="Product Name *" error={eP.name?.message as string}>
-                <input {...rP('name')} className="inp-field" placeholder="e.g. Amante Lightly Padded Bra" />
+        <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0, color: txt }}>Product Form</h2>
+            {pState && <span style={badgeStyle(pState)}>{pState}</span>}
+          </div>
+
+          <form onSubmit={hP(
+            (d) => saveProd.mutate(d),
+            (errors) => {
+              console.error('Validation errors:', errors);
+              toast.error('Please fill all required fields');
+            }
+          )}>            <div style={grid3}>
+              <Field label="Name" required error={eP.name?.message as string}>
+                <input {...rP('name')} style={inp} placeholder="Product name" />
               </Field>
-              <Field label="Product Code *" error={eP.productCode?.message as string}>
-                <input {...rP('productCode')} className="inp-field" placeholder="e.g. AMT-BRA-001" />
+              <Field label="Description" required error={eP.description?.message as string}>
+                <textarea {...rP('description')} style={{ ...inp, resize: 'vertical', minHeight: 56 }} placeholder="Description" />
               </Field>
-              <Field label="Parent Category *" error={eP.categoryId?.message as string}>
-                <select {...rP('categoryId', { valueAsNumber: true })} className="inp-field s-adminproduct-c9137f">
-                  <option value="">Select Category</option>
+              <Field label="Product Code" required error={eP.productCode?.message as string}>
+                <input {...rP('productCode')} style={inp} placeholder="e.g. TLCB 925" />
+              </Field>
+            </div>
+
+            <div style={grid3}>
+              <Field label="Parent Category" required error={eP.categoryId?.message as string}>
+                <select {...rP('categoryId')} style={sel}>
+                  <option value="">Select</option>
                   {cats.filter((c: any) => !c.parentCategoryId).map((c: any) => (
                     <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
                   ))}
                 </select>
               </Field>
-              {childCats.length > 0 && (
-                <Field label="Sub Category">
-                  <select {...rP('childCategoryId', { valueAsNumber: true })} className="inp-field s-adminproduct-c9137f">
-                    <option value="">Select Sub Category</option>
-                    {childCats.map((c: any) => (
-                      <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-              <Field label="Brand *" error={eP.brandId?.message as string}>
-                <select {...rP('brandId', { valueAsNumber: true })} className="inp-field s-adminproduct-c9137f">
-                  <option value="">Select Brand</option>
+              <Field label="Child Category">
+                <select {...rP('childCategoryId', { valueAsNumber: true })} style={sel}>
+                  <option value="">Select</option>
+                  {childCats.map((c: any) => (
+                    <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Brand" required error={eP.brandId?.message as string}>
+                <select {...rP('brandId')} style={sel}>
+                  <option value="">Select</option>
                   {brands.map((b: any) => (
                     <option key={b.brandId} value={b.brandId}>{b.brandName || b.name}</option>
                   ))}
                 </select>
               </Field>
-              <Field label="Tag (optional)">
-                <input {...rP('tag')} className="inp-field" placeholder="e.g. new-arrival, bestseller" />
+            </div>
+
+            <div style={{ maxWidth: 380, marginBottom: 20 }}>
+              <Field label="Tag">
+                <input {...rP('tag')} style={inp} placeholder="Tag" />
               </Field>
             </div>
-            <Field label="Description *" error={eP.description?.message as string}>
-              <textarea {...rP('description')} className="inp-field s-adminproduct-c6d4c8" />
-            </Field>
-            <div className="s-adminproduct-cb83c3">
-              <button type="button" onClick={() => nav('/admin/products')}
-                className="s-adminproduct-a52f52">
-                Cancel
-              </button>
-              <button type="submit" disabled={saveProd.isPending}
-                className="s-adminproduct-c236dd">
-                {saveProd.isPending ? 'Saving…' : savedPid > 0 ? 'Update & Continue →' : 'Create & Continue →'}
-              </button>
+
+            <div style={actionsRow}>
+              {pState === 'Approved' && (
+                <button type="button" onClick={() => updProdState.mutate('Return For Correction')}
+                  disabled={updProdState.isPending} style={btnPrimary}>
+                  Return For Correction
+                </button>
+              )}
+              {pState !== 'Approved' && STATUS_ACTIONS[pState || '']?.map(a => (
+                <button key={a} type="button" onClick={() => updProdState.mutate(a)}
+                  disabled={updProdState.isPending} style={btnPrimary}>{a}</button>
+              ))}
+              <button type="button" onClick={() => nav('/admin/products')} style={btnOut}>Cancel</button>
+              {pState !== 'Approved' && (
+                <button type="submit" disabled={saveProd.isPending} style={btnPrimary}>
+                  {saveProd.isPending ? 'Saving…' : savedPid > 0 ? 'Update & Next' : 'Save & Continue'}
+                </button>
+              )}
+              {savedPid > 0 && (
+                <button type="button" onClick={() => goTab('variants')}
+                  style={{ ...btnPrimary, background: '#1565c0' }}>
+                  Next: Add Variants →
+                </button>
+              )}
             </div>
           </form>
         </div>
       )}
 
-      {/* TAB 2 — Variants */}
+      {/* ══════════════════════════════════ TAB 2: Variants ══════ */}
       {tab === 'variants' && (
         <div>
-          <div className="s-adminproduct-d763a3">
-            <h3 className="s-adminproduct-53697f">Product Variants</h3>
-            <button onClick={() => { setEditV(null); setShowVF(true); }}
-              className="s-adminproduct-717817">
-              <i className="bi bi-plus-lg" /> Add Variant
-            </button>
-          </div>
+          {/* Variant list */}
+          {!showVF && (
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>
+                  Product Variants {variants.length > 0 && `(${variants.length})`}
+                </h3>
+                <button onClick={() => { setEditV(null); setShowVF(true); }} style={btnPrimary}>
+                  + Add Variant
+                </button>
+              </div>
 
-          {variants.length === 0 ? (
-            <div className="s-adminproduct-0584c4">
-              <i className="bi bi-palette s-adminproduct-8eb3fc" />
-              <p className="s-adminorders-18f7bb">No variants yet. Add a color/style variant to continue.</p>
-            </div>
-          ) : (
-            <div className="s-adminproduct-068605">
-              {variants.map((v: any) => {
-                // Resolve a proper swatch color for each variant card
-                const { colorHex: vHex } = resolveColorSwatch(v.color, v.colorHex);
-                return (
-                  <div key={v.productVariantId}
-                    className="s-adminproduct-dc47e1" style={ {border: `2px solid ${selVid === v.productVariantId ? 'var(--brand)' : 'var(--ivory)'}`} }
-                    onClick={() => { setSelVid(v.productVariantId); setTab('details'); }}>
-                    <div className="s-adminproduct-436612">
-                      <div className="s-adminproduct-9d4d46">
-                        {(v.image || (v.images && v.images[0])) ? (
-                          <img src={getImageUrl(v.image || v.images?.[0])} alt={v.variantName} className="s-userdashboar-4ebae2"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        ) : v.color ? (
-                          // Use resolved hex — never raw name as background
-                          <div className="s-adminproduct-302ea8" style={ { background: vHex } } />
-                        ) : (
-                          <i className="bi bi-image s-adminproduct-e37bf7" />
-                        )}
+              {vLoading ? (
+                <p style={{ textAlign: 'center', padding: '48px 0', color: sub }}>⏳ Loading variants…</p>
+              ) : vError ? (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <p style={{ color: primary }}>Failed to load.{' '}
+                    <button onClick={() => refV()} style={{ color: primary, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}>Retry</button>
+                  </p>
+                </div>
+              ) : variants.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 0', color: '#bbb' }}>
+                  <div style={{ fontSize: 44, marginBottom: 12 }}>🎨</div>
+                  <p>No variants yet — click "Add Variant" to start.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {variants.map((v: any) => {
+                    const vHex = safeColorHex(v.color, v.colorHex);
+                    const imgSrc = safeImageUrl(v.image || (Array.isArray(v.images) ? v.images[0] : null));
+                    return (
+                      <div key={v.productVariantId}
+                        style={{
+                          border: `2px solid ${selVid === v.productVariantId ? primary : '#f0f0f0'}`,
+                          borderRadius: 10, padding: '14px 18px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          background: selVid === v.productVariantId ? primaryLt : '#fff', cursor: 'pointer',
+                        }}
+                        onClick={() => { setSelVid(v.productVariantId); setTab('details'); }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                          {imgSrc ? (
+                            <img src={imgSrc} alt={v.variantName}
+                              style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover' }}
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <div style={{ width: 52, height: 52, borderRadius: 8, background: vHex, flexShrink: 0 }} />
+                          )}
+                          <div>
+                            <p style={{ fontWeight: 600, fontSize: 14, margin: 0 }}>{v.variantName}</p>
+                            <p style={{ fontSize: 12, color: sub, margin: '3px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {v.color && <span style={{ width: 10, height: 10, borderRadius: '50%', background: vHex, display: 'inline-block' }} />}
+                              {v.color || v.productCode || ''}
+                            </p>
+                            {v.isBestSeller && <span style={{ fontSize: 11, color: '#f57f17', fontWeight: 600 }}>⭐ Best Seller</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
+                          <button onClick={() => { setEditV(v); setShowVF(true); }} style={{ ...btnOut, padding: '7px 16px', fontSize: 12 }}>Edit</button>
+                          <button onClick={() => { setSelVid(v.productVariantId); setTab('details'); }}
+                            style={{ background: 'transparent', color: '#555', border: '1.5px solid #ddd', borderRadius: 24, padding: '7px 16px', fontSize: 12, cursor: 'pointer' }}>
+                            Details →
+                          </button>
+                          <button onClick={() => {
+                            if (window.confirm(`Delete "${v.variantName}"? All sizes will also be removed.`))
+                              delVar.mutate(v.productVariantId);
+                          }} style={{ background: 'transparent', color: primary, border: `1.5px solid ${primary}`, borderRadius: 24, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                        </div>
                       </div>
-                      <div className="s-userdashboar-7aa8c4">
-                        <p className="s-adminproduct-e1341a">{v.variantName}</p>
-                        {v.color && (
-                          <p className="s-adminproduct-cf7653">
-                            <span className="s-adminproduct-431516" style={ {background: vHex} } />
-                            {v.color}
-                          </p>
-                        )}
-                        {v.isBestSeller && <span className="s-adminproduct-4e66ec">Best Seller</span>}
-                      </div>
-                    </div>
-                    <div className="s-adminbrands-ac734d" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => { setEditV(v); setShowVF(true); }}
-                        className="s-adminproduct-ac303b">
-                        <i className="bi bi-pencil me-1" />Edit
-                      </button>
-                      <button onClick={() => { if (window.confirm(`Delete "${v.variantName}"?`)) delVar.mutate(v.productVariantId); }}
-                        className="s-adminproduct-751429">
-                        <i className="bi bi-trash" />
-                      </button>
-                      <button onClick={() => { setSelVid(v.productVariantId); setTab('details'); }}
-                        className="s-adminproduct-751429">
-                        Sizes →
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
+
+              {variants.length > 0 && (
+                <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 12 }}>
+                  <p style={{ fontSize: 13, color: '#888', margin: 0 }}>
+                    ✅ {variants.length} variant{variants.length > 1 ? 's' : ''} added. Now add size &amp; pricing for each.
+                  </p>
+                  <button type="button" onClick={() => { setSelVid(variants[0].productVariantId); setTab('details'); }}
+                    style={{ ...btnPrimary, background: '#1565c0' }}>
+                    Next: Add Variant Details →
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ── Variant Modal ── */}
+          {/* ── Variant Form ── */}
           {showVF && (
-            <div className="s-adminproduct-ca0ae5"
-              onClick={() => { setShowVF(false); setEditV(null); }}>
-              <div className="s-adminproduct-a33585"
-                onClick={e => e.stopPropagation()}>
-                <div className="s-adminproduct-a1f2ef">
-                  <h3 className="s-adminproduct-1ecd3b">{editV ? 'Edit Variant' : 'Add Variant'}</h3>
-                  <button onClick={() => { setShowVF(false); setEditV(null); }}
-                    className="s-adminproduct-83b18f">×</button>
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Product Variant Form</h2>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {!savedPid && (
+                    <span style={{ fontSize: 12, color: primary }}>⚠ Save the product first</span>
+                  )}
+                  {/* FIX-V6: single submit path */}
+                  <button
+                    type="button"
+                    disabled={saveVar.isPending || uploading || !savedPid}
+                    onClick={onVariantSubmit}
+                    style={{ ...btnPrimary, opacity: !savedPid ? 0.4 : 1 }}
+                  >
+                    {saveVar.isPending ? 'Saving…' : uploading ? 'Uploading…' : 'Save'}
+                  </button>
+                  <button type="button"
+                    onClick={() => { setShowVF(false); setEditV(null); resetImages(); }}
+                    style={btnOut}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
+              {/* FIX-V6: form has no onSubmit — submission driven by Save button */}
+              <form onSubmit={e => e.preventDefault()}>
+
+                {/* Row 1: Variant Name | Variant Product Code | Variant Description */}
+                <div style={grid3}>
+                  <Field label="Variant Name" required error={eV.variantName?.message as string}>
+                    <input {...rV('variantName')} style={inp} placeholder="e.g. Black & White Lace Bra" />
+                  </Field>
+                  <Field label="Variant Product Code" required error={eV.variantProductCode?.message as string}>
+                    <input {...rV('variantProductCode')} style={inp} placeholder="e.g. TLCB 925-BLK" />
+                  </Field>
+                  <Field label="Variant Description">
+                    <textarea {...rV('variantDescription')} style={{ ...inp, resize: 'vertical', minHeight: 56 }} placeholder="Optional description" />
+                  </Field>
                 </div>
 
-                <form onSubmit={hV(data => saveVar.mutate(data))}>
-                  <div className="s-updateprofil-900022">
-                    <Field label="Variant Name *" error={eV.variantName?.message as string}>
-                      <input {...rV('variantName')} className="inp-field" placeholder="e.g. Midnight Black" />
-                    </Field>
+                {/* Row 2: Fabrics | Color | HSN Code (FIX-V2: dropdown from API) */}
+                <div style={grid3}>
+                  <Field label="Fabrics">
+                    <select {...rV('fabricId')} style={sel}>
+                      <option value="">Select Fabric</option>
+                      {fabrics.map((f: any) => (
+                        <option key={f.fabricId ?? f.id} value={f.fabricId ?? f.id}>{f.fabricName || f.name}</option>
+                      ))}
+                    </select>
+                  </Field>
 
-                    {/* ── Color field — two-way auto-resolution ── */}
-                    <Field label="Color">
-                      <div className="s-adminproduct-6597c4">
+                  <Field label="Color">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input
+                        value={colorHex}
+                        onChange={e => setColorHex(e.target.value)}
+                        style={{ ...inp, flex: 1 }}
+                        placeholder="#292323"
+                      />
+                      <label style={{ position: 'relative', width: 32, height: 32, flexShrink: 0, cursor: 'pointer' }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%',
+                          background: /^#[0-9a-f]{3,6}$/i.test(colorHex) ? colorHex : '#888',
+                          border: '2px solid #ddd',
+                        }} />
+                        <input type="color"
+                          value={/^#[0-9a-f]{6}$/i.test(colorHex) ? colorHex : '#888888'}
+                          onChange={e => setColorHex(e.target.value)}
+                          style={{ position: 'absolute', opacity: 0, inset: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
+                      </label>
+                    </div>
+                  </Field>
 
-                        {/* Row 1: picker + live swatch preview */}
-                        <div className="s-adminproduct-04b6ac">
-                          {/* Native color picker — changes hex, auto-resolves name */}
-                          <input
-                            type="color"
-                            value={colorHex}
-                            onChange={e => handleColorHexChange(e.target.value)}
-                            className="s-adminproduct-d36f9a"
-                            title="Pick a color — name is resolved automatically"
-                          />
-                          {/* Hex text input — changes hex, auto-resolves name */}
-                          <input
-                            value={colorHex}
-                            onChange={e => handleColorHexChange(e.target.value)}
-                            className="inp-field s-adminproduct-68dfb3"
-                            placeholder="#C8A882"
-                          />
+                  {/* FIX-V2: HSN Code — dropdown fetched from /TaxHSNCode, stores taxHSNCodeId */}
+                  <Field label="HSN Code" error={eV.taxHSNCodeId?.message as string}>
+                    <select {...rV('taxHSNCodeId')} style={sel}>
+                      <option value="">Select HSN Code</option>
+                      {hsnCodes.map((h: any) => (
+                        <option key={h.taxHSNCodeId ?? h.id} value={h.taxHSNCodeId ?? h.id}>
+                          {h.hsnCode ?? h.code ?? h.name} {h.description ? `— ${h.description}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                {/* Row 3: Toggles */}
+                {/* FIX-V5: hidden inputs register booleans with RHF so zod receives them */}
+                <input type="hidden" {...rV('isBestSeller')} />
+                <input type="hidden" {...rV('isReturnAvailable')} />
+                <input type="hidden" {...rV('isCupSize')} />
+
+                <div style={{ display: 'flex', gap: 48, marginBottom: 28, flexWrap: 'wrap' as const, alignItems: 'center' }}>
+                  <Toggle
+                    checked={isBestSellerVal}
+                    onChange={v => sV('isBestSeller', v)}
+                    label="Is Best Seller"
+                  />
+                  <Toggle
+                    checked={isReturnVal}
+                    onChange={v => sV('isReturnAvailable', v)}
+                    label="Is Return Available"
+                  />
+                  <Toggle
+                    checked={isCupSizeVal}
+                    onChange={v => sV('isCupSize', v)}
+                    label="Is Cup Size Required"
+                  />
+                </div>
+
+                {/* Upload zone */}
+                <div
+                  style={{
+                    border: '2px dashed #f8bbd0', borderRadius: 10,
+                    background: '#fff9fb', padding: '20px 24px',
+                    display: 'flex', alignItems: 'center', gap: 16,
+                    cursor: uploading ? 'default' : 'pointer', marginBottom: 16,
+                  }}
+                  onClick={() => !uploading && fileRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = primary; }}
+                  onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#f8bbd0'; }}
+                  onDrop={async e => {
+                    e.preventDefault();
+                    (e.currentTarget as HTMLElement).style.borderColor = '#f8bbd0';
+                    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                    if (files.length) await processFiles(files);
+                  }}>
+                  <div style={{ fontSize: 28, color: '#e57373' }}>☁</div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 600, color: '#555', fontSize: 14, margin: '0 0 3px' }}>
+                      {uploading ? 'Uploading…' : 'Drag File here to Upload'}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#999', margin: 0 }}>Allowed Files: JPG, PNG | Max File Size: 2 MB</p>
+                  </div>
+                  <button type="button"
+                    onClick={e => { e.stopPropagation(); fileRef.current?.click(); }}
+                    style={{ ...btnPrimary, padding: '8px 22px', fontSize: 13 }}>
+                    Browse
+                  </button>
+                  <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png"
+                    onChange={handleFileInput} style={{ display: 'none' }} />
+                </div>
+
+                {/* Image thumbnails */}
+                {(existingImgs.length > 0 || imgPreviews.length > 0) && (
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const, marginBottom: 20 }}>
+                    {existingImgs.map((src, i) => {
+                      const s = safeImageUrl(src);
+                      return (
+                        <div key={`e${i}`} style={{ position: 'relative', width: 100, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                          {s && <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.png'; }} />}
+                          <button type="button"
+                            onClick={() => setExistingImgs(p => p.filter((_, j) => j !== i))}
+                            style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: primary, color: '#fff', border: 'none', fontSize: 14, cursor: 'pointer', fontWeight: 700, padding: 0, lineHeight: '22px', textAlign: 'center' }}>×</button>
                         </div>
-
-                        {/* Row 2: color name input — changes name, auto-resolves hex */}
-                        <input
-                          value={colorName}
-                          onChange={e => handleColorNameChange(e.target.value)}
-                          className="inp-field"
-                          placeholder="Color name, e.g. Bark, Midnight, Coral Red"
-                        />
-
-                        {/* Live resolved preview */}
-                        {colorName && (
-                          <div className="s-adminproduct-9511b6">
-                            <span className="s-adminproduct-81ef4f" style={ {background: colorHex} } />
-                            <span className="s-adminbrands-95b451">Stored as:</span>
-                            <strong>{colorName}</strong>
-                            <span className="s-adminbrands-95b451">→</span>
-                            <code className="s-adminproduct-d7fbe2">{colorHex}</code>
+                      );
+                    })}
+                    {imgPreviews.map((src, i) => (
+                      <div key={`n${i}`} style={{ position: 'relative', width: 100, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                        <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {i < uploadedPaths.length && (
+                          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 18, height: 18, borderRadius: '50%', background: '#2e7d32', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ color: '#fff', fontSize: 11 }}>✓</span>
                           </div>
                         )}
+                        <button type="button"
+                          onClick={() => { setImgPreviews(p => p.filter((_, j) => j !== i)); setUploadedPaths(p => p.filter((_, j) => j !== i)); }}
+                          style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: primary, color: '#fff', border: 'none', fontSize: 14, cursor: 'pointer', fontWeight: 700, padding: 0, lineHeight: '22px', textAlign: 'center' }}>×</button>
                       </div>
-                    </Field>
-                  </div>
-
-                  <Field label="Variant Description">
-                    <textarea {...rV('variantDescription')} className="inp-field s-adminproduct-f4c34e" placeholder="Optional description for this color/style" />
-                  </Field>
-
-                  <div className="s-adminproduct-99eeea">
-                    {[
-                      { n: 'isBestSeller',      l: '⭐ Best Seller' },
-                      { n: 'isReturnAvailable', l: '↩ Returnable' },
-                      { n: 'isCupSize',         l: '📐 Has Cup Size' },
-                    ].map(o => (
-                      <label key={o.n} className="s-adminproduct-66250b">
-                        <input type="checkbox" {...rV(o.n as any)} /> {o.l}
-                      </label>
                     ))}
                   </div>
-
-                  {/* ── Image Upload Section ── */}
-                  <Field label="Product Images">
-                    {existingImgs.length > 0 && (
-                      <div className="s-adminproduct-02d219">
-                        <p className="s-adminproduct-d4b2a4">Current images — click × to remove:</p>
-                        <div className="s-adminproduct-47622e">
-                          {existingImgs.map((src, i) => (
-                            <div key={i} className="s-updateprofil-1d5e50">
-                              <img src={getImageUrl(src)} alt=""
-                                className="s-adminproduct-8b47fe"
-                                onError={e => { (e.target as HTMLImageElement).src = '/assets/category-bg.png'; }} />
-                              <button type="button"
-                                onClick={() => setExistingImgs(p => p.filter((_, j) => j !== i))}
-                                className="s-adminproduct-34e986">
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div
-                      className="s-adminproduct-bb2af0" style={ {cursor: uploading ? 'not-allowed' : 'pointer'} }
-                      onClick={() => !uploading && fileRef.current?.click()}
-                      onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)'; }}
-                      onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--ivory)'; }}
-                      onDrop={async e => {
-                        e.preventDefault();
-                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--ivory)';
-                        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-                        if (files.length) await processFiles(files);
-                      }}>
-                      {uploading ? (
-                        <>
-                          <div className="s-adminproduct-a67995" />
-                          <p className="s-adminblog-1c2c10">Uploading to server…</p>
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-cloud-upload s-adminproduct-25eff0" />
-                          <p className="s-adminproduct-063709">Click to upload or drag & drop</p>
-                          <p className="s-adminproduct-ba4567">JPG, PNG, WebP · Multiple files allowed</p>
-                        </>
-                      )}
-                      <input ref={fileRef} type="file" multiple accept="image/*" onChange={handleFiles} className="s-addressform-8251cb" />
-                    </div>
-
-                    {imgPreviews.length > 0 && (
-                      <div className="s-adminnewslet-171a67">
-                        <p className="s-adminproduct-d4b2a4">
-                          New uploads — {uploadedPaths.length}/{imgPreviews.length} done:
-                        </p>
-                        <div className="s-adminproduct-47622e">
-                          {imgPreviews.map((src, i) => (
-                            <div key={i} className="s-updateprofil-1d5e50">
-                              <img src={src} alt="" className="s-adminproduct-8b47fe" />
-                              {i >= uploadedPaths.length && uploading && (
-                                <div className="s-adminproduct-a21c09">
-                                  <div className="s-adminproduct-cdd4e7" />
-                                </div>
-                              )}
-                              {i < uploadedPaths.length && (
-                                <div className="s-adminproduct-f1c780">
-                                  <i className="bi bi-check s-adminproduct-b5c012" />
-                                </div>
-                              )}
-                              <button type="button"
-                                onClick={() => {
-                                  setImgPreviews(p => p.filter((_, j) => j !== i));
-                                  setImgFiles(f => f.filter((_, j) => j !== i));
-                                  setUploadedPaths(p => p.filter((_, j) => j !== i));
-                                }}
-                                className="s-adminproduct-34e986">
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </Field>
-
-                  <div className="s-adminbrands-fcea5e">
-                    <button type="button" onClick={() => { setShowVF(false); setEditV(null); }}
-                      className="s-adminproduct-83422c">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={saveVar.isPending || uploading}
-                      className="s-adminproduct-dd48fb" style={ {background: uploading ? 'var(--heirloom)' : '#000000', cursor: uploading ? 'not-allowed' : 'pointer'} }>
-                      {saveVar.isPending ? 'Saving…' : uploading ? 'Wait — uploading images…' : editV ? 'Update Variant' : 'Add Variant'}
-                    </button>
-                  </div>
-                </form>
-              </div>
+                )}
+              </form>
             </div>
           )}
         </div>
       )}
 
-      {/* TAB 3 — Sizes & Pricing */}
+      {/* ══════════════════════════════════ TAB 3: Variant Details ══ */}
       {tab === 'details' && (
         <div>
+          {/* Variant selector chips */}
           {variants.length > 0 && (
-            <div className="s-adminproduct-e64ca9">
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const, padding: '12px 0 8px' }}>
               {variants.map((v: any) => {
-                const { colorHex: vHex } = resolveColorSwatch(v.color, v.colorHex);
+                const vHex = safeColorHex(v.color, v.colorHex);
+                const active = selVid === v.productVariantId;
                 return (
                   <button key={v.productVariantId} onClick={() => setSelVid(v.productVariantId)}
-                    className="s-adminproduct-f3e70e" style={ {border: `2px solid ${selVid === v.productVariantId ? 'var(--brand)' : 'var(--ivory)'}`, background: selVid === v.productVariantId ? 'var(--ivory)' : '#fff'} }>
-                    {v.color && (
-                      <div className="s-adminproduct-e603d0" style={ {background: vHex} } />
-                    )}
+                    style={{
+                      border: `2px solid ${active ? primary : '#e0e0e0'}`,
+                      borderRadius: 24, padding: '7px 18px', fontSize: 13,
+                      background: active ? primaryLt : '#fff',
+                      color: active ? primary : '#555', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      fontWeight: active ? 600 : 400,
+                    }}>
+                    {v.color && <div style={{ width: 12, height: 12, borderRadius: '50%', background: vHex }} />}
                     {v.variantName}
                   </button>
                 );
@@ -757,141 +1062,192 @@ export default function AdminProductForm() {
             </div>
           )}
 
-          <div className="s-userdashboar-aee024">
-            <h3 className="s-adminproduct-53697f">
-              Sizes & Pricing
-              {selVid && <span className="s-adminproduct-675c1f">
-                for {variants.find((v: any) => v.productVariantId === selVid)?.variantName}
-              </span>}
-            </h3>
-            <button onClick={() => { setEditVD(null); setShowVDF(true); }} disabled={!selVid}
-              className="s-adminproduct-9c0395" style={ {background: selVid ? '#000000' : 'var(--ivory)', cursor: selVid ? 'pointer' : 'not-allowed'} }>
-              <i className="bi bi-plus-lg" /> Add Size
-            </button>
-          </div>
-
-          {!selVid ? (
-            <div className="s-adminproduct-0584c4">
-              <i className="bi bi-rulers s-adminproduct-05c981" />
-              <p className="s-adminorders-18f7bb">Select a variant above to manage its sizes.</p>
-            </div>
-          ) : (
-            <div className="s-adminbrands-a637bc">
-              <div className="s-admindashboa-ce7380">
-                <table className="s-adminbrands-de3642">
-                  <thead>
-                    <tr className="s-admininvento-d3aab0">
-                      {['Size', 'Cup', 'MRP', 'Final Price', 'Discount', 'Stock', 'Status', 'Actions'].map(h => (
-                        <th key={h} className="s-admininvento-947fb4">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vds.length === 0 ? (
-                      <tr><td colSpan={8} className="s-admininvento-2925c8">No sizes yet — click "Add Size" to start.</td></tr>
-                    ) : vds.map((vd: any) => (
-                      <tr key={vd.productVariantDetailId} className="s-adminbrands-59d787">
-                        <td className="s-admininvento-192c9d">{vd.sizeLabel || '—'}</td>
-                        <td className="s-admindashboa-76859f">{vd.cupSizeLabel || '—'}</td>
-                        <td className="s-adminproduct-08c274">₹{vd.mrpPrice}</td>
-                        <td className="s-adminproduct-d42842">₹{vd.finalPrice}</td>
-                        <td className="s-admindashboa-f5f90c">
-                          {vd.discountPercent > 0 && (
-                            <span className="s-adminproduct-023f38">
-                              {vd.discountPercent}% OFF
-                            </span>
-                          )}
-                        </td>
-                        <td className="s-adminproduct-087ce1" style={ {color: (vd.stockQuantity || 0) === 0 ? 'var(--brand)' : (vd.stockQuantity || 0) < 10 ? 'var(--brand)' : 'var(--brand)'} }>
-                          {vd.stockQuantity ?? 0}
-                        </td>
-                        <td className="s-admindashboa-f5f90c">
-                          <span className="s-adminproduct-78beb4" style={{ background: vd.state === 'Approved' ? 'var(--ivory)' : '#fff', color: vd.state === 'Approved' ? 'var(--brand)' : 'var(--heirloom)' }}>
-                            {vd.state || 'Draft'}
-                          </span>
-                        </td>
-                        <td className="s-admindashboa-f5f90c">
-                          <div className="s-adminproduct-6209be">
-                            <button onClick={() => { setEditVD(vd); setShowVDF(true); }}
-                              className="s-adminproduct-bec64d">
-                              <i className="bi bi-pencil" />
-                            </button>
-                            <button onClick={() => { if (window.confirm('Delete this size entry?')) delVDm.mutate(vd.productVariantDetailId); }}
-                              className="s-adminproduct-feb1ca">
-                              <i className="bi bi-trash" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* VD list */}
+          {!showVDF && (
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>
+                  Product Variant Details
+                  {selVid && (
+                    <span style={{ fontSize: 14, fontWeight: 400, color: sub, marginLeft: 8 }}>
+                      — {variants.find((v: any) => v.productVariantId === selVid)?.variantName}
+                    </span>
+                  )}
+                </h3>
+                <button onClick={() => { setEditVD(null); setShowVDF(true); }} disabled={!selVid}
+                  style={{ ...btnPrimary, opacity: selVid ? 1 : 0.4, cursor: selVid ? 'pointer' : 'not-allowed' }}>
+                  + Add Detail
+                </button>
               </div>
+
+              {!selVid ? (
+                <p style={{ color: '#bbb', textAlign: 'center', padding: '32px 0' }}>Select a variant above.</p>
+              ) : vds.length === 0 ? (
+                <p style={{ color: '#bbb', textAlign: 'center', padding: '32px 0' }}>No details yet — click "Add Detail".</p>
+              ) : (
+                <div style={{ overflowX: 'auto' as const }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
+                        {['Stock', 'Size', 'Cup', 'MRP', 'Disc%', 'Final', 'CGST', 'SGST', 'Tax', 'Avail.', 'Status', ''].map(h => (
+                          <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, color: sub, fontWeight: 600, whiteSpace: 'nowrap' as const }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vds.map((vd: any) => (
+                        <tr key={vd.productVariantDetailId} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                          <td style={{ padding: '12px', fontSize: 14, fontWeight: 600, color: (vd.stockQuantity ?? 0) === 0 ? primary : '#2e7d32' }}>{vd.stockQuantity ?? 0}</td>
+                          <td style={{ padding: '12px', fontSize: 14 }}>{vd.sizeLabel || '—'}</td>
+                          <td style={{ padding: '12px', fontSize: 14 }}>{vd.cupSizeLabel || '—'}</td>
+                          <td style={{ padding: '12px', fontSize: 14 }}>₹{vd.mrpPrice}</td>
+                          <td style={{ padding: '12px', fontSize: 14, color: '#2e7d32' }}>{vd.discountPercent > 0 ? `${vd.discountPercent}%` : '—'}</td>
+                          <td style={{ padding: '12px', fontSize: 14, fontWeight: 600 }}>₹{vd.finalPrice}</td>
+                          <td style={{ padding: '12px', fontSize: 14 }}>{vd.cgst ?? '—'}%</td>
+                          <td style={{ padding: '12px', fontSize: 14 }}>{vd.sgst ?? '—'}%</td>
+                          <td style={{ padding: '12px', fontSize: 14 }}>₹{vd.taxAmount ?? '—'}</td>
+                          <td style={{ padding: '12px', fontSize: 14 }}>{vd.availableStockQuantity ?? '—'}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ ...badgeStyle(vd.state), padding: '3px 10px', fontSize: 11 }}>{vd.state || 'Draft'}</span>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button onClick={() => { setEditVD(vd); setShowVDF(true); }} style={{ ...btnOut, padding: '5px 14px', fontSize: 12 }}>Edit</button>
+                              <button onClick={() => { if (window.confirm('Delete?')) delVD.mutate(vd.productVariantDetailId); }}
+                                style={{ background: 'transparent', color: primary, border: `1.5px solid ${primary}`, borderRadius: 20, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {vds.length > 0 && (
+                <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 12 }}>
+                  <div>
+                    <p style={{ fontSize: 13, color: '#444', margin: '0 0 4px', fontWeight: 600 }}>Ready to submit?</p>
+                    <p style={{ fontSize: 12, color: '#888', margin: 0 }}>All variants and sizes entered.</p>
+                  </div>
+                  {(pState === 'Created' || pState === 'Modified' || pState === 'Rejected') && (
+                    <button type="button" onClick={() => updProdState.mutate('Submitted To Product Manager')}
+                      disabled={updProdState.isPending}
+                      style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 24, padding: '10px 26px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      {updProdState.isPending ? 'Submitting…' : '✓ Submit For Approval'}
+                    </button>
+                  )}
+                  {pState === 'Submitted To Product Manager' && (
+                    <span style={{ fontSize: 13, color: primary, fontWeight: 600 }}>⏳ Awaiting approval…</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Size/Pricing Modal */}
+          {/* ── Variant Detail form ── */}
           {showVDF && (
-            <div className="s-adminproduct-ca0ae5"
-              onClick={() => { setShowVDF(false); setEditVD(null); }}>
-              <div className="s-adminproduct-2ec4f9"
-                onClick={e => e.stopPropagation()}>
-                <div className="s-adminproduct-a1f2ef">
-                  <h3 className="s-adminproduct-1ecd3b">{editVD ? 'Edit Size' : 'Add Size & Pricing'}</h3>
-                  <button onClick={() => { setShowVDF(false); setEditVD(null); }}
-                    className="s-adminproduct-83b18f">×</button>
-                </div>
-                <form onSubmit={hVD(data => saveVDm.mutate(data))}>
-                  <div className="s-updateprofil-900022">
-                    <Field label="Size *" error={eVD.sizeId?.message as string}>
-                      <select {...rVD('sizeId', { valueAsNumber: true })} className="inp-field s-adminproduct-c9137f">
-                        <option value="">Select Size</option>
-                        {sizes.map((s: any) => (
-                          <option key={s.sizeId} value={s.sizeId}>{s.sizeLabel}</option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Cup Size (optional)">
-                      <select {...rVD('cupSizeId', { valueAsNumber: true })} className="inp-field s-adminproduct-c9137f">
-                        <option value="">No Cup Size</option>
-                        {cupSizes.map((c: any) => (
-                          <option key={c.cupSizeId} value={c.cupSizeId}>{c.sizeLabel}</option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="MRP (₹) *" error={eVD.mrpPrice?.message as string}>
-                      <input type="number" {...rVD('mrpPrice', { valueAsNumber: true })} className="inp-field" placeholder="0" min="0" />
-                    </Field>
-                    <Field label="Final Price (₹) *" error={eVD.finalPrice?.message as string}>
-                      <input type="number" {...rVD('finalPrice', { valueAsNumber: true })} className="inp-field" placeholder="0" min="0" />
-                    </Field>
-                    <Field label="Discount % (auto)">
-                      <input type="number" {...rVD('discountPercent', { valueAsNumber: true })} style={{ ...inp, background: 'var(--ivory)', color: 'var(--heirloom)' }} readOnly />
-                    </Field>
-                    <Field label="Stock Quantity *" error={eVD.stockQuantity?.message as string}>
-                      <input type="number" {...rVD('stockQuantity', { valueAsNumber: true })} className="inp-field" placeholder="0" min="0" />
-                    </Field>
-                  </div>
-
-                  {mrp > 0 && fin > 0 && fin < mrp && (
-                    <div className="s-adminproduct-e7f79a">
-                      <i className="bi bi-tag-fill" />
-                      Customer saves ₹{(mrp - fin).toFixed(0)} — {Math.round(((mrp - fin) / mrp) * 100)}% OFF
-                    </div>
-                  )}
-
-                  <div className="s-adminblog-679e96">
-                    <button type="button" onClick={() => { setShowVDF(false); setEditVD(null); }}
-                      className="s-adminproduct-83422c">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={saveVDm.isPending}
-                      className="s-adminproduct-811531">
-                      {saveVDm.isPending ? 'Saving…' : editVD ? 'Update Size' : 'Add Size'}
-                    </button>
-                  </div>
-                </form>
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Product Variant Details</h2>
+                {vdState && <span style={badgeStyle(vdState)}>{vdState}</span>}
               </div>
+
+              <form onSubmit={hVD(d => saveVD.mutate(d))}>
+                <div style={grid3}>
+                  <Field label="Stock Quantity" required error={eVD.stockQuantity?.message as string}>
+                    <input type="number" {...rVD('stockQuantity', { valueAsNumber: true })} style={inp} placeholder="0" min="0" />
+                  </Field>
+                  <Field label="Size" required error={eVD.sizeId?.message as string}>
+                    <select {...rVD('sizeId', { valueAsNumber: true })} style={sel}>
+                      <option value="">Select</option>
+                      {sizes.map((s: any) => <option key={s.sizeId} value={s.sizeId}>{s.sizeLabel}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Cup Size">
+                    <select {...rVD('cupSizeId')} style={sel}>
+                      <option value="">No Cup Size</option>
+                      {cupSizes.map((c: any) => <option key={c.cupSizeId} value={c.cupSizeId}>{c.sizeLabel}</option>)}
+                    </select>
+                  </Field>
+                </div>
+
+                <div style={grid3}>
+                  <Field label="MRP Price" required error={eVD.mrpPrice?.message as string}>
+                    <input type="number" {...rVD('mrpPrice', { valueAsNumber: true })} style={inp} placeholder="0" min="0" />
+                  </Field>
+                  <Field label="Discount Percent">
+                    <input type="number" {...rVD('discountPercent', { valueAsNumber: true })}
+                      style={{ ...inp, color: sub, background: '#fafafa' }} readOnly placeholder="Auto" />
+                  </Field>
+                  <Field label="Final Price" required error={eVD.finalPrice?.message as string}>
+                    <input type="number" {...rVD('finalPrice', { valueAsNumber: true })} style={inp} placeholder="0" min="0" />
+                  </Field>
+                </div>
+
+                <div style={grid3}>
+                  <Field label="CGST" required error={eVD.cgst?.message as string}>
+                    <input type="number" {...rVD('cgst', { valueAsNumber: true })} style={inp} placeholder="e.g. 6" min="0" step="0.01" />
+                  </Field>
+                  <Field label="SGST" required error={eVD.sgst?.message as string}>
+                    <input type="number" {...rVD('sgst', { valueAsNumber: true })} style={inp} placeholder="e.g. 6" min="0" step="0.01" />
+                  </Field>
+                  <Field label="Tax Amount">
+                    <input type="number" {...rVD('taxAmount', { valueAsNumber: true })}
+                      style={{ ...inp, color: sub, background: '#fafafa' }} readOnly placeholder="Auto" />
+                  </Field>
+                </div>
+
+                <div style={grid3}>
+                  <Field label="Available Stock Quantity">
+                    <input type="number" {...rVD('availableStockQuantity', { valueAsNumber: true })} style={inp} placeholder="0" min="0" />
+                  </Field>
+                  <Field label="Processed Stock Quantity">
+                    <input type="number" {...rVD('processedStockQuantity', { valueAsNumber: true })} style={inp} placeholder="0" min="0" />
+                  </Field>
+                  <Field label="Amendment Stock Quantity">
+                    <input type="number" {...rVD('amendmentStockQuantity', { valueAsNumber: true })}
+                      style={{ ...inp, borderBottom: `1.5px solid ${primary}` }} placeholder="Enter quantity" min="0" />
+                  </Field>
+                </div>
+
+                {mrp > 0 && fin > 0 && fin < mrp && (
+                  <div style={{ background: '#fff8e1', border: '1px solid #f9a825', borderRadius: 8, padding: '10px 16px', fontSize: 13, color: '#f57f17', marginBottom: 12 }}>
+                    🏷 Customer saves ₹{(mrp - fin).toFixed(0)} — {Math.round(((mrp - fin) / mrp) * 100)}% OFF
+                  </div>
+                )}
+                {mrp > 0 && fin > mrp && (
+                  <div style={{ background: primaryLt, border: `1px solid ${primary}`, borderRadius: 8, padding: '10px 16px', fontSize: 13, color: primary, marginBottom: 12 }}>
+                    ⚠️ Final price cannot exceed MRP
+                  </div>
+                )}
+
+                <div style={actionsRow}>
+                  {editVD && (
+                    <>
+                      <button type="button"
+                        onClick={() => amendQty.mutate({ id: editVD.productVariantDetailId, qty: Number(wVD('amendmentStockQuantity') || 0) })}
+                        disabled={amendQty.isPending} style={btnPrimary}>
+                        {amendQty.isPending ? '…' : 'Amend Quantity'}
+                      </button>
+                      <button type="button"
+                        onClick={() => saveVD.mutate({ ...wVD() as any, state: 'Return For Correction' })}
+                        disabled={saveVD.isPending} style={btnPrimary}>
+                        Return For Correction
+                      </button>
+                      <button type="button"
+                        onClick={() => { if (window.confirm('Mark as out of stock?')) markOutOfStock.mutate(editVD.productVariantDetailId); }}
+                        disabled={markOutOfStock.isPending} style={btnPrimary}>
+                        {markOutOfStock.isPending ? '…' : 'Out Of Stock'}
+                      </button>
+                    </>
+                  )}
+                  <button type="button" onClick={() => { setShowVDF(false); setEditVD(null); }} style={btnOut}>Cancel</button>
+                  <button type="submit" disabled={saveVD.isPending || (fin > mrp && mrp > 0)} style={btnPrimary}>
+                    {saveVD.isPending ? 'Saving…' : editVD ? 'Update' : 'Save'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>
