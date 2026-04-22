@@ -3,10 +3,10 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Horizontal scrollable category tabs.
  * Positioning handled entirely by CSS position:sticky — no JS scroll logic.
- * Scrolls with page, sticks at top:64px when it reaches the header bottom.
+ * Scrolls with page, sticks at top:46px when it reaches the header bottom.
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import ReactDOM from "react-dom";
 import type { CategoryMenu } from "@/shared/types";
@@ -16,9 +16,23 @@ interface Props {
   menus: CategoryMenu[];
 }
 
-const MOBILE_HEADER_HEIGHT = 48;
-const MOBILE_CATBAR_HEIGHT = 40;
+const MOBILE_HEADER_HEIGHT = 46;
+const MOBILE_CATBAR_HEIGHT = 38;
 const MOBILE_HEADER_WITH_CATBAR = MOBILE_HEADER_HEIGHT + MOBILE_CATBAR_HEIGHT;
+
+function findCategoryPath(
+  menus: CategoryMenu[],
+  targetId: number,
+): CategoryMenu[] {
+  for (const menu of menus) {
+    if (menu.categoryId === targetId) return [menu];
+    if (menu.children?.length) {
+      const childPath = findCategoryPath(menu.children, targetId);
+      if (childPath.length) return [menu, ...childPath];
+    }
+  }
+  return [];
+}
 
 // ── Zara-style 2-panel dropdown ──────────────────────────────────────────────
 function ZaraDropdown({
@@ -35,7 +49,7 @@ function ZaraDropdown({
 
   useEffect(() => {
     // Catbar is always visible when user taps a pill (can't tap hidden catbar)
-    // Catbar: top=64px, height=44px → bottom=108px always
+    // Catbar: top=46px, height=38px → bottom=84px always
     const drop = dropRef.current;
     if (drop) drop.style.top = `${MOBILE_HEADER_WITH_CATBAR}px`;
     const fn = (e: MouseEvent) => {
@@ -89,6 +103,18 @@ export default function MobileCategoryBar({ menus }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [openCat, setOpenCat] = useState<CategoryMenu | null>(null);
+  const activeCategoryId = useMemo(() => {
+    const match = location.pathname.match(
+      /^\/user-products\/product-list\/(\d+)$/,
+    );
+    if (!match) return null;
+
+    const targetId = Number(match[1]);
+    if (!Number.isFinite(targetId) || targetId <= 0) return null;
+
+    const path = findCategoryPath(menus, targetId);
+    return path[0]?.categoryId ?? null;
+  }, [location.pathname, menus]);
 
   useEffect(() => {
     setOpenCat(null);
@@ -96,8 +122,8 @@ export default function MobileCategoryBar({ menus }: Props) {
 
   // ── Scroll handler: catbar hides/shows, toolbar tracks it ───────────────────
   // Both are position:fixed so this works at any scroll position on any page.
-  // Scroll DOWN >4px  → catbar hides (translateY -100%), toolbar moves to top:64px
-  // Scroll UP   >2px  → catbar shows (translateY 0),    toolbar moves to top:112px
+  // Scroll DOWN >4px  → catbar hides (translateY -100%), toolbar moves to top:46px
+  // Scroll UP   >2px  → catbar shows (translateY 0),    toolbar moves to top:84px
   // Toolbar transition matches catbar (0.2s) — they move in sync, no gap.
   const wrapRef2 = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
@@ -131,12 +157,12 @@ export default function MobileCategoryBar({ menus }: Props) {
         if (diff > 4 && !catHidden.current) {
           catHidden.current = true;
           if (cat) cat.classList.add("mcb-wrapper--hidden");
-          setToolbarTop(false); // toolbar moves up to 64px
+          setToolbarTop(false); // toolbar moves up to 46px
           setOpenCat(null);
         } else if (diff < -2 && catHidden.current) {
           catHidden.current = false;
           if (cat) cat.classList.remove("mcb-wrapper--hidden");
-          setToolbarTop(true); // toolbar moves down to 108px
+          setToolbarTop(true); // toolbar moves down to 84px
         }
 
         lastScrollY.current = y;
@@ -185,8 +211,7 @@ export default function MobileCategoryBar({ menus }: Props) {
       <div className="mcb-track" ref={scrollRef}>
         <button
           className={`mcb-pill${
-            location.pathname === "/user-products/product-list" &&
-            !location.pathname.match(/product-list\/\d/)
+            location.pathname === "/user-products/product-list"
               ? " mcb-pill--active"
               : ""
           }`}
@@ -203,16 +228,18 @@ export default function MobileCategoryBar({ menus }: Props) {
             key={cat.categoryId}
             className={`mcb-pill${
               openCat?.categoryId === cat.categoryId ||
-              location.pathname.includes(`/${cat.categoryId}`)
-                ? " mcb-pill--active"
-                : ""
+              activeCategoryId === cat.categoryId
+              ? " mcb-pill--active"
+              : ""
             }`}
             onClick={() => {
-              if (!cat.children?.length) goToCategory(cat);
-              else
-                setOpenCat((prev) =>
-                  prev?.categoryId === cat.categoryId ? null : cat,
-                );
+              if (!cat.children?.length) {
+                goToCategory(cat);
+                return;
+              }
+              setOpenCat((prev) =>
+                prev?.categoryId === cat.categoryId ? null : cat,
+              );
             }}
           >
             {cat.name}

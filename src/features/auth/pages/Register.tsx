@@ -4,6 +4,8 @@ import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import api from '@/shared/api/axiosInstance';
+import MobileBackHeader from '@/shared/components/MobileBackHeader';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import CryptoJS from 'crypto-js';
 
 // ── AES-128-CBC encrypt — mirrors Angular CryptoService ───────────────────────
@@ -35,6 +37,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function Register() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [form, setForm] = useState<FormData>({
     firstName: '', lastName: '', email: '', phoneNumber: '', password: '', confirmPassword: '',
   });
@@ -87,14 +90,16 @@ export default function Register() {
     setForm(prev => ({ ...prev, [field]: value }));
 
   return (
-    <div className="s-register-950e18">
-      <div className="s-register-cdd672">
+    <>
+      {isMobile && <MobileBackHeader title="Create Account" />}
+      <div className="s-register-950e18">
+        <div className="s-register-cdd672">
         {/* Logo */}
         <div className="s-login-9aad3d">
           <img src="/assets/Twam-Logo-Black.png" alt="TWAM"
             className="s-register-fa8330"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          <h2 className="s-register-916d9e">Create Account</h2>
+          {!isMobile && <h2 className="s-register-916d9e">Create Account</h2>}
           <p className="s-register-d6d81a">Join TWAM today</p>
         </div>
 
@@ -186,6 +191,7 @@ export default function Register() {
           <Link to="/login" className="s-register-51a817">Sign In</Link>
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

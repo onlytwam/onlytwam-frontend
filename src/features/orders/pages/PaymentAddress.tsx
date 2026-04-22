@@ -942,18 +942,6 @@ export default function PaymentAddress() {
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="s-paymentaddre-2e2509 s-paymentaddre-ffd8281d checkout-shell checkout-shell--address">
-      <div className="checkout-mobile-header">
-        <button
-          className="checkout-mobile-back"
-          onClick={() => navigate(-1)}
-          aria-label="Go back"
-        >
-          <i className="bi bi-chevron-left" />
-        </button>
-        <h4 className="s-paymentaddre-e0ad90 s-paymentaddre-ffd02986 checkout-page-title">
-          Delivery Address
-        </h4>
-      </div>
 
       {/* ════════════════ GUEST FLOW ════════════════ */}
       {!isAuth && (

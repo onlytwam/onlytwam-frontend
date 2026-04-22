@@ -164,28 +164,30 @@ export default function Wishlist() {
   return (
     <div className="s-wishlist-387046 s-wishlist-ff77776b">
       {/* Header */}
-      <div className="s-wishlist-9e2513">
-        <div>
-          <h1 className="s-wishlist-b993f0 s-wishlist-ffaa1fea">
-            <i className="bi bi-heart-fill s-wishlist-9d41a6" />
-            My Wishlist
-          </h1>
-          <p className="s-wishlist-4735d5">
-            {displayItems.length === 0
-              ? "Your wishlist is empty"
-              : `${displayItems.length} saved item${displayItems.length !== 1 ? "s" : ""}`}
-            {isGuest && <span className="s-wishlist-a22f7a">Guest</span>}
-          </p>
+      {!isMobile && (
+        <div className="s-wishlist-9e2513">
+          <div>
+            <h1 className="s-wishlist-b993f0 s-wishlist-ffaa1fea">
+              <i className="bi bi-heart-fill s-wishlist-9d41a6" />
+              My Wishlist
+            </h1>
+            <p className="s-wishlist-4735d5">
+              {displayItems.length === 0
+                ? "Your wishlist is empty"
+                : `${displayItems.length} saved item${displayItems.length !== 1 ? "s" : ""}`}
+              {isGuest && <span className="s-wishlist-a22f7a">Guest</span>}
+            </p>
+          </div>
+          {displayItems.length > 0 && (
+            <button
+              onClick={() => navigate(prevPath)}
+              className="s-wishlist-693b7a s-wishlist-ffaa1fea"
+            >
+              <i className="bi bi-arrow-left" /> Continue Shopping
+            </button>
+          )}
         </div>
-        {displayItems.length > 0 && (
-          <button
-            onClick={() => navigate(prevPath)}
-            className="s-wishlist-693b7a s-wishlist-ffaa1fea"
-          >
-            <i className="bi bi-arrow-left" /> Continue Shopping
-          </button>
-        )}
-      </div>
+      )}
 
       {/* Sync banner */}
       {!isGuest && guestItems.length > 0 && (

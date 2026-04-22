@@ -315,17 +315,6 @@ export default function Cart() {
 
   return (
     <>
-      <div className="checkout-mobile-header" style={{ display: "none" }}>
-        <button
-          className="checkout-mobile-back"
-          onClick={() => navigate(-1)}
-          aria-label="Go back"
-        >
-          <i className="bi bi-chevron-left" />
-        </button>
-        <h1 className="cart-page-mobile-title">Cart</h1>
-      </div>
-
       <div className="container s-cart-2eb199">
         {/* ── Select All row ── */}
         <div className="s-cart-1fdbde">
@@ -347,9 +336,6 @@ export default function Cart() {
               <div
                 key={item.cartId ?? item.productVariantId}
                 className="s-cart-100fbc"
-                style={{
-                  background: item.isSelected ? "rgba(107,15,42,0.03)" : "#fff",
-                }}
               >
                 <input
                   type="checkbox"

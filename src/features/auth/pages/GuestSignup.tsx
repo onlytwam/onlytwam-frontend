@@ -14,6 +14,7 @@ import { useRef, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import api from "@/shared/api/axiosInstance";
 import { sendOtp, verifyOtpUniversal } from "@/features/auth/api/auth.api";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
 const TAX_RATE = 0.05;
 
@@ -45,6 +46,7 @@ function isEmail(v: string) {
 
 export default function GuestSignup() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // ── Step state ─────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("contact");
@@ -492,9 +494,11 @@ export default function GuestSignup() {
       {step === "contact" && (
         <div className="row g-4">
           <div className="col-lg-8">
-            <h5 className="s-guestsignup-194917">
-              Guest Checkout — Your Details
-            </h5>
+            {!isMobile && (
+              <h5 className="s-guestsignup-194917">
+                Guest Checkout — Your Details
+              </h5>
+            )}
             <div className="s-guestsignup-735701">
               {/* Name */}
               <div className="s-guestsignup-c4282d">

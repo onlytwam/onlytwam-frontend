@@ -15,6 +15,7 @@ import {
   reverseGeocode,
   resolveStateId,
 } from "@/shared/utils/addressLocation";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
 // ── Capacitor-aware geolocation ───────────────────────────────────────────────
 // Uses @capacitor/geolocation on Android (shows native permission dialog).
@@ -109,6 +110,7 @@ const mergeContactIntoForm = (
 };
 
 export default function AddressForm() {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const qc = useQueryClient();
@@ -280,17 +282,19 @@ export default function AddressForm() {
   return (
     <>
       <div>
-        <div className="s-addressform-bafc04">
-          <button
-            onClick={() => navigate("/account/address-list")}
-            className="s-addressform-be2487"
-          >
-            <i className="bi bi-arrow-left" />
-          </button>
-          <h2 className="s-addressform-638cea">
-            {isEdit ? "Edit Address" : "Add New Address"}
-          </h2>
-        </div>
+        {!isMobile && (
+          <div className="s-addressform-bafc04">
+            <button
+              onClick={() => navigate("/account/address-list")}
+              className="s-addressform-be2487"
+            >
+              <i className="bi bi-arrow-left" />
+            </button>
+            <h2 className="s-addressform-638cea">
+              {isEdit ? "Edit Address" : "Add New Address"}
+            </h2>
+          </div>
+        )}
 
         <div className="s-addressform-b04dc9">
           <div className="s-paymentaddre-12ca4c" style={{ marginBottom: 18 }}>

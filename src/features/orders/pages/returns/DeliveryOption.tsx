@@ -19,11 +19,6 @@ export default function DeliveryOption() {
 
   return (
     <div className="container s-deliveryopti-562975">
-      <button onClick={() => navigate('/user-products/return-reason')}
-        className="s-deliveryopti-01d82d">
-        <i className="bi bi-arrow-left" /> Back
-      </button>
-      <h4 className="s-deliveryopti-186182">Delivery Option</h4>
       <p className="s-deliveryopti-78aac5">How would you like to send back the item?</p>
 
       {DELIVERY_OPTIONS.map(opt => (

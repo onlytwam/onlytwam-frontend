@@ -28,6 +28,8 @@ import {
   encryptPassword,
 } from "@/features/auth/api/auth.api";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import MobileBackHeader from "@/shared/components/MobileBackHeader";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import { useMenuStore } from "@/shared/store/menuStore";
 import toast from "react-hot-toast";
 
@@ -103,6 +105,7 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const { login, isAuthenticated, isSyncing } = useAuthStore();
   const { setMenus } = useMenuStore();
+  const isMobile = useIsMobile();
 
   const redirectTo = searchParams.get("redirect") || "/";
   const initialMode: Mode =
@@ -144,6 +147,13 @@ export default function Login() {
     resolver: zodResolver(forgotSchema),
     defaultValues: { identifier: "" },
   });
+
+  const mobileHeaderTitle =
+    mode === "signup"
+      ? "Create Account"
+      : mode === "forgot" || mode === "channelPicker"
+        ? "Forgot Password"
+        : "Sign In";
 
   // ── Sign In ───────────────────────────────────────────────────────────────
   const handleLogin = loginForm.handleSubmit(async (data) => {
@@ -299,6 +309,8 @@ export default function Login() {
 
   return (
     <>
+      {isMobile && <MobileBackHeader title={mobileHeaderTitle} />}
+
       {isSyncing && (
         <div className="s-login-a10a06">
           <div className="s-login-21c8cb" />
@@ -336,9 +348,11 @@ export default function Login() {
         {/* Right form */}
         <div className="s-login-5c2ebc">
           <div className="s-login-d3c5f3">
-            <Link to="/" className="s-login-0aef96">
-              <i className="bi bi-arrow-left" /> Back to Home
-            </Link>
+            {!isMobile && (
+              <Link to="/" className="s-login-0aef96">
+                <i className="bi bi-arrow-left" /> Back to Home
+              </Link>
+            )}
             <div className="s-login-9aad3d">
               <img
                 src="/assets/images/Twam-Logo-Black.png"
@@ -360,7 +374,7 @@ export default function Login() {
             {/* ── SIGN IN */}
             {mode === "signin" && (
               <>
-                <h5 className="s-login-b4f13d">Sign In</h5>
+                {!isMobile && <h5 className="s-login-b4f13d">Sign In</h5>}
                 <p className="s-login-7a79e7">
                   Welcome Back, Beautiful. Let's get you back to feeling
                   fabulous.
@@ -437,7 +451,7 @@ export default function Login() {
             {/* ── SIGN UP */}
             {mode === "signup" && (
               <>
-                <h5 className="s-login-b4f13d">Sign Up</h5>
+                {!isMobile && <h5 className="s-login-b4f13d">Sign Up</h5>}
                 <p className="s-login-7a79e7">
                   "Every body deserves a perfect fit."
                 </p>
@@ -563,7 +577,9 @@ export default function Login() {
             {/* ── FORGOT PASSWORD — Step 1: enter identifier */}
             {mode === "forgot" && (
               <>
-                <h5 className="s-login-b4f13d">Forgot Password?</h5>
+                {!isMobile && (
+                  <h5 className="s-login-b4f13d">Forgot Password?</h5>
+                )}
                 <p className="s-login-7a79e7">
                   Enter your registered email or phone number. We'll send you a
                   one-time verification code.
@@ -609,7 +625,9 @@ export default function Login() {
             {/* ── FORGOT PASSWORD — Step 2: channel picker */}
             {mode === "channelPicker" && fpChannels && (
               <>
-                <h5 className="s-login-b4f13d">Choose OTP Destination</h5>
+                {!isMobile && (
+                  <h5 className="s-login-b4f13d">Choose OTP Destination</h5>
+                )}
                 <p className="s-login-7a79e7">
                   Your account has both email and phone registered. Where would
                   you like to receive the OTP?

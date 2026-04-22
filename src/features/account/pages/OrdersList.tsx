@@ -17,6 +17,7 @@ import { listOrders } from '@/features/orders/api/orders.api';
 import { formatPrice, getImageUrl, slugify } from '@/shared/utils/helpers';
 import api from '@/shared/api/axiosInstance';
 import { resolveHex } from '@/shared/utils/colorHelpers';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 const ORDER_PAGE_SIZE = 10;
 
@@ -172,6 +173,7 @@ function OrderSummaryCard({ order }: { order: any }) {
 }
 
 export default function OrdersList() {
+  const isMobile = useIsMobile();
   const { getUserId } = useAuthStore();
   const userId = getUserId();
   const [page, setPage] = useState(1);
@@ -222,8 +224,8 @@ export default function OrdersList() {
 
   return (
     <div className="orders-page">
-      <div className="orders-page__header">
-        <h2 className="orders-page__title">My Orders</h2>
+      <div className={`orders-page__header${isMobile ? ' orders-page__header--mobile' : ''}`}>
+        {!isMobile && <h2 className="orders-page__title">My Orders</h2>}
 
         <div className="orders-page__sort">
           <label htmlFor="orders-sort" className="orders-page__sort-label">

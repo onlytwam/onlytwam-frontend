@@ -40,11 +40,6 @@ export default function ReturnReason() {
 
   return (
     <div className="container s-returnreason-2a3313">
-      <button onClick={() => navigate('/user-products/return-order')}
-        className="s-deliveryopti-01d82d">
-        <i className="bi bi-arrow-left" /> Back
-      </button>
-
       {/* Step indicator */}
       <div className="d-flex align-items-center gap-2 mb-4 s-adminnewslet-f01220">
         <span>Select Order</span><i className="bi bi-chevron-right" />
@@ -54,7 +49,6 @@ export default function ReturnReason() {
         <span>Confirm</span>
       </div>
 
-      <h4 className="s-deliveryopti-186182">Reason for Return</h4>
       <p className="s-deliveryopti-78aac5">Please tell us why you want to return this item.</p>
 
       {REASONS.map(r => (

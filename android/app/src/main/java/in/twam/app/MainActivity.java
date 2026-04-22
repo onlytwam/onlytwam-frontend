@@ -42,13 +42,14 @@ public class MainActivity extends BridgeActivity {
         private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
         private static final int AUDIO_FORMAT   = AudioFormat.ENCODING_PCM_16BIT;
 
-        private AudioRecord     audioRecord;
+        private AudioRecord      audioRecord;
         private volatile boolean recording = false;
-        private Thread          recordThread;
+        private Thread           recordThread;
 
         // ── start ─────────────────────────────────────────────────────────────
         @PluginMethod
         public void start(PluginCall call) {
+            android.util.Log.d("TWAM_SPEECH", "=== start() called ===");
             stopRecording();
             getActivity().runOnUiThread(() -> {
                 notifyListeners("onStatus", statusObj("ready"));
@@ -61,6 +62,7 @@ public class MainActivity extends BridgeActivity {
         // ── stop ──────────────────────────────────────────────────────────────
         @PluginMethod
         public void stop(PluginCall call) {
+            android.util.Log.d("TWAM_SPEECH", "=== stop() called ===");
             stopRecording();
             call.resolve();
         }
@@ -69,7 +71,7 @@ public class MainActivity extends BridgeActivity {
         @PluginMethod
         public void isAvailable(PluginCall call) {
             JSObject d = new JSObject();
-            d.put("available", true);   // always true — no Google dependency
+            d.put("available", true);
             call.resolve(d);
         }
 
@@ -78,7 +80,10 @@ public class MainActivity extends BridgeActivity {
             int bufSize = AudioRecord.getMinBufferSize(
                 SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
 
+            android.util.Log.d("TWAM_SPEECH", "bufSize=" + bufSize);
+
             if (bufSize <= 0) {
+                android.util.Log.e("TWAM_SPEECH", "Invalid bufSize: " + bufSize);
                 notifyListeners("onError",
                     errorObj("Cannot create AudioRecord buffer", true));
                 return;
@@ -89,7 +94,12 @@ public class MainActivity extends BridgeActivity {
                     MediaRecorder.AudioSource.MIC,
                     SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, bufSize * 4);
 
-                if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+                int state = audioRecord.getState();
+                android.util.Log.d("TWAM_SPEECH", "AudioRecord state=" + state
+                    + " (1=INITIALIZED)");
+
+                if (state != AudioRecord.STATE_INITIALIZED) {
+                    android.util.Log.e("TWAM_SPEECH", "AudioRecord not initialized");
                     notifyListeners("onError",
                         errorObj("AudioRecord failed to initialize", true));
                     return;
@@ -99,31 +109,31 @@ public class MainActivity extends BridgeActivity {
                 byte[] chunk = new byte[bufSize];
                 recording    = true;
 
-                // ── Smart timeout constants ───────────────────────────────────
-                // No speech at all → stop after this, send NOTHING (zero cost)
                 final long NO_SPEECH_TIMEOUT_MS   = 4000;
-                // After speech is heard, stop after this long of silence
                 final long POST_SPEECH_SILENCE_MS = 1500;
-                // Hard cap — search keywords are short, no need for more
                 final long HARD_MAX_MS            = 5000;
 
                 audioRecord.startRecording();
+                android.util.Log.d("TWAM_SPEECH",
+                    "=== Recording started, bufSize=" + bufSize + " ===");
                 notifyListeners("onStatus", statusObj("speechStart"));
 
                 long    startMs          = System.currentTimeMillis();
                 boolean speechStarted    = false;
                 long    silenceStartedMs = 0;
+                int     loopCount        = 0;
 
                 while (recording) {
                     long elapsed = System.currentTimeMillis() - startMs;
 
-                    // Hard cap: 5 seconds regardless
                     if (elapsed >= HARD_MAX_MS) {
+                        android.util.Log.d("TWAM_SPEECH", "Hard cap reached at " + elapsed + "ms");
                         break;
                     }
 
-                    // No speech detected in 4 seconds → discard, cost = zero
                     if (!speechStarted && elapsed >= NO_SPEECH_TIMEOUT_MS) {
+                        android.util.Log.d("TWAM_SPEECH",
+                            "No speech detected in " + elapsed + "ms — discarding");
                         pcmBuffer.reset();
                         break;
                     }
@@ -134,35 +144,54 @@ public class MainActivity extends BridgeActivity {
                     pcmBuffer.write(chunk, 0, read);
                     boolean silent = isSilent(chunk, read);
 
+                    // Log amplitude every 10 loops so we can see if mic is working
+                    loopCount++;
+                    if (loopCount % 10 == 0) {
+                        long amp = getAmplitude(chunk, read);
+                        android.util.Log.d("TWAM_SPEECH",
+                            "Loop " + loopCount
+                            + " | elapsed=" + elapsed + "ms"
+                            + " | amplitude=" + amp
+                            + " | silent=" + silent
+                            + " | speechStarted=" + speechStarted);
+                    }
+
                     if (!silent) {
-                        // Active speech
                         speechStarted    = true;
                         silenceStartedMs = 0;
                     } else if (speechStarted) {
-                        // Speech started but now gone quiet
                         if (silenceStartedMs == 0) {
                             silenceStartedMs = System.currentTimeMillis();
                         } else if ((System.currentTimeMillis() - silenceStartedMs)
                                     >= POST_SPEECH_SILENCE_MS) {
-                            // User finished speaking — stop immediately
+                            android.util.Log.d("TWAM_SPEECH",
+                                "Post-speech silence detected — stopping");
                             break;
                         }
                     }
                 }
 
                 stopRecording();
-                notifyListeners("onStatus", statusObj("speechEnd"));
 
                 byte[] pcmBytes = pcmBuffer.toByteArray();
+                android.util.Log.d("TWAM_SPEECH",
+                    "Recording stopped. speechStarted=" + speechStarted
+                    + " pcmSize=" + pcmBytes.length
+                    + " durationSec=" + (pcmBytes.length / 32000.0));
 
-                // Too short or silence timeout → empty result, no API call
+                notifyListeners("onStatus", statusObj("speechEnd"));
+
                 if (pcmBytes.length < 3200) {
+                    android.util.Log.d("TWAM_SPEECH",
+                        "Audio too short or silent — not sending to backend");
                     notifyListeners("onResult", resultObj("", true));
                     return;
                 }
 
-                // Send to FastAPI → Azure Speech
+                android.util.Log.d("TWAM_SPEECH",
+                    "Sending " + pcmBytes.length + " bytes to backend...");
                 String transcript = sendToBackend(pcmBytes);
+                android.util.Log.d("TWAM_SPEECH", "Final transcript: '" + transcript + "'");
 
                 JSObject d = new JSObject();
                 d.put("transcript", transcript);
@@ -170,30 +199,37 @@ public class MainActivity extends BridgeActivity {
                 notifyListeners("onResult", d);
 
             } catch (Exception e) {
+                android.util.Log.e("TWAM_SPEECH", "doRecord exception: " + e.getMessage(), e);
                 notifyListeners("onError", errorObj(e.getMessage(), true));
                 stopRecording();
             }
         }
 
         // ── Silence detection ─────────────────────────────────────────────────
-        // Average amplitude below 600 = silence / room noise.
-        // Raise threshold if ambient noise triggers false speech detection.
-        // Lower if soft voices are not being picked up.
         private boolean isSilent(byte[] buf, int len) {
+            return getAmplitude(buf, len) < 600;
+        }
+
+        private long getAmplitude(byte[] buf, int len) {
             long sum     = 0;
             int  samples = len / 2;
             for (int i = 0; i < len - 1; i += 2) {
                 short s = (short) ((buf[i + 1] << 8) | (buf[i] & 0xff));
                 sum += Math.abs(s);
             }
-            return samples > 0 && (sum / samples) < 600;
+            return samples > 0 ? sum / samples : 0;
         }
 
         // ── POST PCM to backend ───────────────────────────────────────────────
         private String sendToBackend(byte[] pcmBytes) throws Exception {
-            String          boundary = "----TwamAudioBoundary";
-            URL             url      = new URL(TRANSCRIBE_URL);
-            HttpURLConnection conn   = (HttpURLConnection) url.openConnection();
+            android.util.Log.d("TWAM_SPEECH", "=== Sending audio to backend ===");
+            android.util.Log.d("TWAM_SPEECH", "PCM bytes: " + pcmBytes.length);
+            android.util.Log.d("TWAM_SPEECH", "Duration: " + (pcmBytes.length / 32000.0) + "s");
+            android.util.Log.d("TWAM_SPEECH", "URL: " + TRANSCRIBE_URL);
+
+            String            boundary = "----TwamAudioBoundary";
+            URL               url      = new URL(TRANSCRIBE_URL);
+            HttpURLConnection conn     = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
             conn.setConnectTimeout(10_000);
@@ -201,8 +237,8 @@ public class MainActivity extends BridgeActivity {
             conn.setRequestProperty("Content-Type",
                 "multipart/form-data; boundary=" + boundary);
 
-            try (OutputStream    out = conn.getOutputStream();
-                 DataOutputStream dos = new DataOutputStream(out)) {
+            try (OutputStream     out = conn.getOutputStream();
+                 DataOutputStream  dos = new DataOutputStream(out)) {
                 dos.writeBytes("--" + boundary + "\r\n");
                 dos.writeBytes(
                     "Content-Disposition: form-data; name=\"audio\"; "
@@ -214,22 +250,36 @@ public class MainActivity extends BridgeActivity {
             }
 
             int status = conn.getResponseCode();
-            if (status != 200) {
-                throw new Exception("Backend returned HTTP " + status);
-            }
+            android.util.Log.d("TWAM_SPEECH", "HTTP status: " + status);
+
+            java.io.InputStream is = (status == 200)
+                ? conn.getInputStream()
+                : conn.getErrorStream();
 
             StringBuilder sb = new StringBuilder();
-            try (java.io.InputStream      is = conn.getInputStream();
-                 java.io.BufferedReader   br = new java.io.BufferedReader(
-                     new java.io.InputStreamReader(is, "UTF-8"))) {
-                String line;
-                while ((line = br.readLine()) != null) sb.append(line);
+            if (is != null) {
+                try (java.io.BufferedReader br = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(is, "UTF-8"))) {
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                }
             }
 
-            return new JSONObject(sb.toString()).optString("transcript", "");
+            String body = sb.toString();
+            android.util.Log.d("TWAM_SPEECH", "Response body: " + body);
+
+            if (status != 200) {
+                android.util.Log.e("TWAM_SPEECH",
+                    "Backend error HTTP " + status + ": " + body);
+                throw new Exception("Backend HTTP " + status + " — " + body);
+            }
+
+            String transcript = new JSONObject(body).optString("transcript", "");
+            android.util.Log.d("TWAM_SPEECH", "Transcript: '" + transcript + "'");
+            return transcript;
         }
 
-        // ── Internal helpers ──────────────────────────────────────────────────
+        // ── Helpers ───────────────────────────────────────────────────────────
         private void stopRecording() {
             recording = false;
             if (audioRecord != null) {

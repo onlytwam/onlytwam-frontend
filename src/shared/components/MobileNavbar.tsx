@@ -13,9 +13,9 @@ const SEARCH_HINTS = [
   "panties",
   "Enamor",
   "padded bra",
-  "Jockey",
+  "Soie",
   "seamless",
-  "Clovia",
+  "TWAM",
   "sports bra",
   "wireless bra",
   "Triumph",
@@ -75,7 +75,6 @@ export default function MobileNavbar({
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmedTextRef = useRef<string>("");
   const isListeningRef = useRef(false);
-  const shouldRestartRef = useRef(false);
 
   const [guestCartCount, setGuestCartCount] = useState(() => {
     try {
@@ -89,12 +88,14 @@ export default function MobileNavbar({
     getGuestWishlistCount,
   );
 
+  // ── Scroll listener ──────────────────────────────────────────────────────
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 2);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // ── Guest cart sync ──────────────────────────────────────────────────────
   useEffect(() => {
     const syncGuestCart = () => {
       try {
@@ -109,6 +110,7 @@ export default function MobileNavbar({
     return () => window.removeEventListener("guestCartUpdated", syncGuestCart);
   }, []);
 
+  // ── Guest wishlist sync ──────────────────────────────────────────────────
   useEffect(() => {
     const syncGuestWishlist = () =>
       setGuestWishlistCount(getGuestWishlistCount());
@@ -117,6 +119,7 @@ export default function MobileNavbar({
       window.removeEventListener("wishlistUpdated", syncGuestWishlist);
   }, []);
 
+  // ── Sync search text with URL ────────────────────────────────────────────
   useEffect(() => {
     if (location.pathname === "/global-search") {
       const q = new URLSearchParams(location.search).get("q") || "";
@@ -128,6 +131,7 @@ export default function MobileNavbar({
     confirmedTextRef.current = "";
   }, [location.pathname, location.search]);
 
+  // ── Typewriter hint animation ────────────────────────────────────────────
   useEffect(() => {
     if (searchText || isListening) {
       setTypedText("");
@@ -159,6 +163,7 @@ export default function MobileNavbar({
     ? wishlistServerIds.size
     : guestWishlistCount;
 
+  // ── Navigation helpers ───────────────────────────────────────────────────
   const goHome = () => {
     if (location.pathname === "/" || location.pathname === "/home") {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -173,7 +178,7 @@ export default function MobileNavbar({
     });
 
   const goNotifications = () =>
-    navigate(isAuthenticated ? "/account/notifications" : "/login");
+    navigate(isAuthenticated ? "/notifications" : "/login");
 
   const goAccount = () => navigate(isAuthenticated ? "/account" : "/login");
 
@@ -184,6 +189,7 @@ export default function MobileNavbar({
     navigate(`/global-search?q=${encodeURIComponent(q)}`);
   };
 
+  // ── Timer helpers ────────────────────────────────────────────────────────
   const clearPauseTimer = () => {
     if (pauseTimerRef.current) {
       clearTimeout(pauseTimerRef.current);
@@ -196,6 +202,7 @@ export default function MobileNavbar({
     pauseTimerRef.current = setTimeout(fullyStop, VOICE_PAUSE_MS);
   };
 
+  // ── Listener cleanup ─────────────────────────────────────────────────────
   const removeNativeListeners = () => {
     nativeListenersRef.current.forEach((h) => {
       try {
@@ -205,9 +212,9 @@ export default function MobileNavbar({
     nativeListenersRef.current = [];
   };
 
+  // ── Stop everything ──────────────────────────────────────────────────────
   function fullyStop() {
     clearPauseTimer();
-    shouldRestartRef.current = false;
     isListeningRef.current = false;
     const ns = getNativeSpeech();
     if (ns) {
@@ -226,96 +233,71 @@ export default function MobileNavbar({
     confirmedTextRef.current = searchText;
   }
 
+  // ── Native (APK) session ─────────────────────────────────────────────────
+  // FIX 1: ns.addListener not cap.addListener (Capacitor 3+ correct API)
+  // FIX 2: auto-navigate on final transcript instead of just setting state
   const startNativeSession = () => {
     const ns = getNativeSpeech();
     if (!ns) {
-      // Plugin not found — fall back to web speech
       startWebVoice();
       return;
     }
 
     removeNativeListeners();
 
-    const cap = (window as any).Capacitor;
-
-    const resultHandle = cap.addListener(
-      "NativeSpeech",
+    const resultHandle = ns.addListener(
       "onResult",
       (data: { transcript: string; isFinal: boolean }) => {
         if (!isListeningRef.current) return;
+
+        const transcript = (data.transcript ?? "").trim();
+
         if (data.isFinal) {
-          const updated = (
-            confirmedTextRef.current +
-            " " +
-            data.transcript
-          ).trim();
+          const updated = (confirmedTextRef.current + " " + transcript).trim();
           confirmedTextRef.current = updated;
           setSearchText(updated);
-          shouldRestartRef.current = true;
-        } else {
-          setSearchText(
-            (confirmedTextRef.current + " " + data.transcript).trim(),
-          );
+          // Stop mic and auto-navigate to search results
+          fullyStop();
+          if (updated) {
+            navigate(`/global-search?q=${encodeURIComponent(updated)}`);
+          }
+        } else if (transcript) {
+          // Show interim text in search bar while still recording
+          setSearchText((confirmedTextRef.current + " " + transcript).trim());
+          resetPauseTimer();
         }
-        resetPauseTimer();
       },
     );
 
-    const errorHandle = cap.addListener(
-      "NativeSpeech",
+    const errorHandle = ns.addListener(
       "onError",
-      (data: { error: number; fatal: boolean }) => {
+      (data: { error: string; fatal: boolean }) => {
         if (!isListeningRef.current) return;
-        if (!data.fatal) {
-          shouldRestartRef.current = true;
-          restartNativeIfNeeded();
-        } else {
-          toast.error(
-            data.error === -1
-              ? "Speech recognition service not available on this device. Please install Google app."
-              : `Voice error: ${data.error}`,
-          );
+        if (data.fatal) {
+          toast.error(`Voice error: ${data.error}`);
           fullyStop();
         }
+        // non-fatal errors ignored — Android already handled retry
       },
     );
 
-    const statusHandle = cap.addListener(
-      "NativeSpeech",
+    const statusHandle = ns.addListener(
       "onStatus",
-      (data: { status: string }) => {
-        if (data.status === "speechEnd" && isListeningRef.current) {
-          shouldRestartRef.current = true;
-          setTimeout(restartNativeIfNeeded, 200);
-        }
+      (_data: { status: string }) => {
+        // speechEnd fires when Android stops recording.
+        // We simply wait — onResult arrives next with the transcript.
       },
     );
 
     nativeListenersRef.current = [resultHandle, errorHandle, statusHandle];
 
     ns.start({ language: "en-IN" }).catch((e: any) => {
-      const msg = e?.message || String(e) || "";
-      if (msg === "NO_SERVICE" || msg.includes("NO_SERVICE")) {
-        toast(
-          "Voice search needs the Google app on your device. Please install or enable it.",
-          { duration: 5000 },
-        );
-      } else {
-        toast.error(`Could not start mic: ${msg}`);
-      }
+      toast.error(`Could not start mic: ${e?.message || e}`);
       fullyStop();
     });
   };
 
-  const restartNativeIfNeeded = () => {
-    if (!shouldRestartRef.current || !isListeningRef.current) return;
-    shouldRestartRef.current = false;
-    removeNativeListeners();
-    setTimeout(() => {
-      if (isListeningRef.current) startNativeSession();
-    }, 150);
-  };
-
+  // ── Web (browser) voice ──────────────────────────────────────────────────
   const startWebVoice = () => {
     const SpeechRecognitionApi =
       (window as any).SpeechRecognition ||
@@ -347,6 +329,10 @@ export default function MobileNavbar({
         const updated = (confirmedTextRef.current + " " + final_).trim();
         confirmedTextRef.current = updated;
         setSearchText(updated);
+        fullyStop();
+        if (updated) {
+          navigate(`/global-search?q=${encodeURIComponent(updated)}`);
+        }
       } else if (interim) {
         setSearchText((confirmedTextRef.current + " " + interim).trim());
       }
@@ -374,6 +360,7 @@ export default function MobileNavbar({
     recognition.start();
   };
 
+  // ── Start / stop mic ─────────────────────────────────────────────────────
   const startVoice = async () => {
     if (isListeningRef.current) {
       fullyStop();
@@ -381,7 +368,6 @@ export default function MobileNavbar({
     }
 
     confirmedTextRef.current = searchText.trim();
-    shouldRestartRef.current = false;
     isListeningRef.current = true;
     setIsListening(true);
     resetPauseTimer();
@@ -389,14 +375,12 @@ export default function MobileNavbar({
     if (Capacitor.isNativePlatform()) {
       const ns = getNativeSpeech();
       if (ns) {
-        // Check availability first
         try {
           const result = await ns.isAvailable();
           if (!result?.available) {
-            toast(
-              "Voice search needs the Google app. Please install or enable it from Play Store.",
-              { duration: 5000 },
-            );
+            toast("Voice search is not available on this device.", {
+              duration: 5000,
+            });
             fullyStop();
             return;
           }
@@ -405,7 +389,6 @@ export default function MobileNavbar({
         }
         startNativeSession();
       } else {
-        // Plugin not loaded — fall back to web
         startWebVoice();
       }
     } else {
@@ -419,22 +402,44 @@ export default function MobileNavbar({
     confirmedTextRef.current = "";
   };
 
+  // ── Active state helpers ─────────────────────────────────────────────────
   const isHomeActive =
     location.pathname === "/" || location.pathname === "/home";
-  const isWishlistActive =
-    location.pathname === "/wishlist" ||
-    location.pathname === "/account/wishlist";
-  const isNotificationsActive = location.pathname === "/account/notifications";
-  const isUserActive =
-    location.pathname.startsWith("/account") && !isNotificationsActive;
+  const isWishlistActive = location.pathname === "/wishlist";
+  const isNotificationsActive = location.pathname === "/notifications";
+  const isUserActive = location.pathname.startsWith("/account");
+  const showHeaderBackButton = showSearchHeader && !isHomeActive;
 
+  const handleHeaderBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate("/");
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <>
       {showSearchHeader && (
         <header
-          className={`mnb-header${isScrolled ? " mnb-header--scrolled" : ""}`}
+          className={`mnb-header${isScrolled ? " mnb-header--scrolled" : ""}${
+            showHeaderBackButton ? " mnb-header--with-back" : ""
+          }`}
         >
-          <div className="mnb-row">
+          <div
+            className={`mnb-row${showHeaderBackButton ? " mnb-row--with-back" : ""}`}
+          >
+            {showHeaderBackButton && (
+              <button
+                type="button"
+                className="checkout-mobile-back mnb-header__back"
+                onClick={handleHeaderBack}
+                aria-label="Go back"
+              >
+                <i className="bi bi-chevron-left" />
+              </button>
+            )}
             <form
               className="mnb-search-shell"
               onSubmit={handleSearchSubmit}

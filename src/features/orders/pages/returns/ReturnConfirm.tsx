@@ -45,11 +45,6 @@ export default function ReturnConfirm() {
 
   return (
     <div className="container s-deliveryopti-562975">
-      <button onClick={() => navigate('/user-products/refund-choice')}
-        className="s-deliveryopti-01d82d">
-        <i className="bi bi-arrow-left" /> Back
-      </button>
-
       {/* Step indicator */}
       <div className="d-flex align-items-center gap-2 mb-4 s-adminnewslet-f01220">
         <span>Select Order</span><i className="bi bi-chevron-right" />
@@ -59,7 +54,6 @@ export default function ReturnConfirm() {
         <span className="fw-bold text-dark">Confirm</span>
       </div>
 
-      <h4 className="s-deliveryopti-186182">Confirm Return Request</h4>
       <p className="s-deliveryopti-78aac5">Please review your return details before submitting.</p>
 
       <div className="s-returnconfir-51918e">

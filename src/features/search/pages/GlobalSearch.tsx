@@ -6,7 +6,13 @@
  * sortOption kept as separate state (not inside ProductFilterState).
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type FormEvent,
+} from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +21,7 @@ import ProductCard from "@/features/products/components/ProductCard";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import ProductFilters, {
+  COLOR_FAMILIES,
   ProductActiveFilters,
   getAppliedFilterCount,
   matchesVariantCollectionPriceFilters,
@@ -25,6 +32,10 @@ import ProductFilters, {
 import ProductToolbar from "@/features/products/components/ProductToolbar";
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
+import { Capacitor } from "@capacitor/core";
+import toast from "react-hot-toast";
+import { listCategories } from "@/features/products/api/products.api";
+import type { CategoryMenu } from "@/shared/types";
 
 const COLOR_HEX: Record<string, string> = {
   black: "#000000",
@@ -105,8 +116,135 @@ function resolveHex(q: string): string | null {
   return null;
 }
 
-function isColorQuery(q: string) {
-  return q.trim().length >= 3 && resolveHex(q) !== null;
+const VOICE_PAUSE_MS = 4000;
+
+function getNativeSpeech() {
+  return (window as any)?.Capacitor?.Plugins?.NativeSpeech ?? null;
+}
+
+const SEARCH_STOP_WORDS = new Set([
+  "a",
+  "all",
+  "an",
+  "and",
+  "any",
+  "can",
+  "could",
+  "find",
+  "for",
+  "from",
+  "give",
+  "get",
+  "hey",
+  "i",
+  "in",
+  "look",
+  "me",
+  "need",
+  "of",
+  "on",
+  "please",
+  "search",
+  "see",
+  "show",
+  "showing",
+  "some",
+  "the",
+  "to",
+  "up",
+  "want",
+  "what",
+  "with",
+  "would",
+]);
+
+function searchNormalize(input: string) {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeRegExp(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function flattenCategories(categories: CategoryMenu[]): CategoryMenu[] {
+  const out: CategoryMenu[] = [];
+  const walk = (items: CategoryMenu[]) => {
+    for (const item of items || []) {
+      out.push(item);
+      if (item.children?.length) walk(item.children);
+    }
+  };
+  walk(categories || []);
+  return out;
+}
+
+const COLOR_SEARCH_TERMS = Array.from(
+  new Set(COLOR_FAMILIES.flatMap((family) => family.keywords)),
+)
+  .map((term) => searchNormalize(term))
+  .filter(Boolean)
+  .sort((a, b) => b.length - a.length);
+
+function parseSearchIntent(rawQuery: string, categories: CategoryMenu[]) {
+  const normalized = searchNormalize(rawQuery);
+  if (!normalized) {
+    return {
+      colors: [] as string[],
+      searchText: "",
+      categoryIds: [] as number[],
+    };
+  }
+
+  let working = ` ${normalized} `;
+  const colors: string[] = [];
+
+  for (const term of COLOR_SEARCH_TERMS) {
+    const checkPattern = new RegExp(
+      `(^|\\s)${escapeRegExp(term)}(?=\\s|$)`,
+      "i",
+    );
+    if (checkPattern.test(working)) {
+      colors.push(term);
+      working = working.replace(
+        new RegExp(`(^|\\s)${escapeRegExp(term)}(?=\\s|$)`, "gi"),
+        " ",
+      );
+    }
+  }
+
+  const cleaned = working
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((word) => word && !SEARCH_STOP_WORDS.has(word))
+    .join(" ");
+
+  const categoryCandidates = flattenCategories(categories)
+    .filter((cat) => cat.name)
+    .map((cat) => ({
+      categoryId: cat.categoryId,
+      normalized: searchNormalize(cat.name),
+    }))
+    .filter(
+      (cat) =>
+        cleaned.length > 0 &&
+        (cat.normalized.includes(cleaned) || cleaned.includes(cat.normalized)),
+    )
+    .sort((a, b) => b.normalized.length - a.normalized.length);
+
+  const categoryIds = Array.from(
+    new Set(categoryCandidates.map((cat) => cat.categoryId)),
+  );
+
+  return {
+    colors,
+    searchText: cleaned,
+    categoryIds,
+  };
 }
 
 function normalize(s: string) {
@@ -172,6 +310,13 @@ export default function GlobalSearch() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") || "";
+  const [searchText, setSearchText] = useState(q);
+  const [isListening, setIsListening] = useState(false);
+  const webRecRef = useRef<any>(null);
+  const nativeListenersRef = useRef<any[]>([]);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmedTextRef = useRef<string>(q);
+  const isListeningRef = useRef(false);
 
   const { setCrumbs } = useBreadcrumbStore();
   useEffect(() => {
@@ -179,6 +324,11 @@ export default function GlobalSearch() {
       { label: "Home", path: "/" },
       { label: q ? `Results for "${q}"` : "Search" },
     ]);
+  }, [q]);
+
+  useEffect(() => {
+    setSearchText(q);
+    confirmedTextRef.current = q;
   }, [q]);
 
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
@@ -198,6 +348,9 @@ export default function GlobalSearch() {
 
   useEffect(() => {
     setPage(1);
+  }, [q]);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [q]);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -222,7 +375,7 @@ export default function GlobalSearch() {
       ) as HTMLElement | null;
       const catWasHidden =
         catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
-      const toolbarTop = toolbar?.style.top || "108px";
+      const toolbarTop = toolbar?.style.top || "64px";
       const toolbarBottom = toolbar
         ? Math.round(toolbar.getBoundingClientRect().bottom)
         : 152;
@@ -262,8 +415,246 @@ export default function GlobalSearch() {
     };
   }, [filterOpen, isMobile]);
 
-  const colorQuery = q.trim().split(/\s+/).length === 1 && isColorQuery(q);
-  const anchorHex = colorQuery ? resolveHex(q) : null;
+  const { data: categoriesData } = useQuery({
+    queryKey: ["gs-categories"],
+    queryFn: () => listCategories({ pageSize: 500 }),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const categoryList = useMemo(
+    () => categoriesData?.list ?? [],
+    [categoriesData],
+  );
+
+  const searchIntent = useMemo(
+    () => parseSearchIntent(q, categoryList),
+    [q, categoryList],
+  );
+
+  const clearPauseTimer = () => {
+    if (pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+    }
+  };
+
+  const resetPauseTimer = () => {
+    clearPauseTimer();
+    pauseTimerRef.current = setTimeout(fullyStop, VOICE_PAUSE_MS);
+  };
+
+  const removeNativeListeners = () => {
+    nativeListenersRef.current.forEach((handle) => {
+      try {
+        handle.remove();
+      } catch (_) {}
+    });
+    nativeListenersRef.current = [];
+  };
+
+  function fullyStop() {
+    clearPauseTimer();
+    isListeningRef.current = false;
+    const ns = getNativeSpeech();
+    if (ns) {
+      removeNativeListeners();
+      try {
+        ns.stop();
+      } catch (_) {}
+    }
+    if (webRecRef.current) {
+      try {
+        webRecRef.current.stop();
+      } catch (_) {}
+      webRecRef.current = null;
+    }
+    setIsListening(false);
+    confirmedTextRef.current = searchText;
+  }
+
+  const startNativeSession = () => {
+    const ns = getNativeSpeech();
+    if (!ns) {
+      startWebVoice();
+      return;
+    }
+
+    removeNativeListeners();
+
+    const resultHandle = ns.addListener(
+      "onResult",
+      (data: { transcript: string; isFinal: boolean }) => {
+        if (!isListeningRef.current) return;
+
+        const transcript = (data.transcript ?? "").trim();
+
+        if (data.isFinal) {
+          const updated = (confirmedTextRef.current + " " + transcript).trim();
+          confirmedTextRef.current = updated;
+          setSearchText(updated);
+          fullyStop();
+          if (updated) {
+            navigate(`/global-search?q=${encodeURIComponent(updated)}`);
+          }
+        } else if (transcript) {
+          setSearchText((confirmedTextRef.current + " " + transcript).trim());
+          resetPauseTimer();
+        }
+      },
+    );
+
+    const errorHandle = ns.addListener(
+      "onError",
+      (data: { error: string; fatal: boolean }) => {
+        if (!isListeningRef.current) return;
+        if (data.fatal) {
+          toast.error(`Voice error: ${data.error}`);
+          fullyStop();
+        }
+      },
+    );
+
+    const statusHandle = ns.addListener(
+      "onStatus",
+      (_data: { status: string }) => {
+        // status events are ignored here; results drive the flow.
+      },
+    );
+
+    nativeListenersRef.current = [resultHandle, errorHandle, statusHandle];
+
+    ns.start({ language: "en-IN" }).catch((e: any) => {
+      toast.error(`Could not start mic: ${e?.message || e}`);
+      fullyStop();
+    });
+  };
+
+  const startWebVoice = () => {
+    const SpeechRecognitionApi =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionApi) {
+      toast.error("Voice search not supported on this device");
+      fullyStop();
+      return;
+    }
+
+    const recognition = new SpeechRecognitionApi();
+    recognition.lang = "en-IN";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      let final_ = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) final_ += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      if (final_) {
+        const updated = (confirmedTextRef.current + " " + final_).trim();
+        confirmedTextRef.current = updated;
+        setSearchText(updated);
+        fullyStop();
+        if (updated) {
+          navigate(`/global-search?q=${encodeURIComponent(updated)}`);
+        }
+      } else if (interim) {
+        setSearchText((confirmedTextRef.current + " " + interim).trim());
+      }
+      resetPauseTimer();
+    };
+
+    recognition.onend = () => {
+      webRecRef.current = null;
+      if (isListeningRef.current) {
+        setTimeout(() => {
+          if (isListeningRef.current) startWebVoice();
+        }, 150);
+      } else {
+        setIsListening(false);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error === "no-speech" || event.error === "aborted") return;
+      toast.error(`Voice error: ${event.error}`);
+      fullyStop();
+    };
+
+    webRecRef.current = recognition;
+    recognition.start();
+  };
+
+  const startVoice = async () => {
+    if (isListeningRef.current) {
+      fullyStop();
+      return;
+    }
+
+    confirmedTextRef.current = searchText.trim();
+    isListeningRef.current = true;
+    setIsListening(true);
+    resetPauseTimer();
+
+    if (Capacitor.isNativePlatform()) {
+      const ns = getNativeSpeech();
+      if (ns) {
+        try {
+          const result = await ns.isAvailable();
+          if (!result?.available) {
+            toast("Voice search is not available on this device.", {
+              duration: 5000,
+            });
+            fullyStop();
+            return;
+          }
+        } catch (_) {
+          // availability check failed, but we can still try to start
+        }
+        startNativeSession();
+      } else {
+        startWebVoice();
+      }
+    } else {
+      startWebVoice();
+    }
+  };
+
+  const handleBackNavigation = () => {
+    fullyStop();
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/");
+  };
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    fullyStop();
+    const next = searchText.trim();
+    setPage(1);
+    setSearchParams(next ? { q: next } : {});
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const clearSearch = () => {
+    fullyStop();
+    setSearchText("");
+    confirmedTextRef.current = "";
+  };
+
+  const smartQuery = searchIntent.searchText;
+  const colorQueryText = searchIntent.colors.join(" ");
+  const hasColorSearch = searchIntent.colors.length > 0;
+  const displayQuery =
+    [...searchIntent.colors, smartQuery].filter(Boolean).join(" ") || q;
+  const anchorHex = hasColorSearch
+    ? resolveHex(searchIntent.colors[0])
+    : null;
 
   // Brands query — for chip label display in toolbar
 
@@ -276,8 +667,11 @@ export default function GlobalSearch() {
       orderAscending: false,
     };
     const deferCupSizeFiltering = shouldDeferCupSizeFiltering(filters);
-    if (colorQuery) params.colors = q;
-    else if (q) params.quickSearch = q;
+    if (searchIntent.colors.length)
+      params.colors = searchIntent.colors.join(",");
+    if (searchIntent.categoryIds.length)
+      params.categoryIds = searchIntent.categoryIds.join(",");
+    if (smartQuery) params.quickSearch = smartQuery;
 
     if (filters.categoryIds.length)
       params.categoryIds = filters.categoryIds.join(",");
@@ -305,7 +699,7 @@ export default function GlobalSearch() {
     }
 
     return params;
-  }, [q, colorQuery, filters, sortOption]);
+  }, [filters, searchIntent, smartQuery, sortOption]);
 
   /* ── Products query ────────────────────────────────────────────────────── */
   const { data: productData, isLoading } = useQuery({
@@ -315,14 +709,18 @@ export default function GlobalSearch() {
   });
 
   const raw: any[] = productData?.list ?? [];
-  const fuzzyFiltered = colorQuery
+  const fuzzyFiltered = hasColorSearch && !smartQuery
     ? raw
     : (() => {
+        const matchQuery = smartQuery || colorQueryText || q;
         const f = raw.filter(
           (p: any) =>
-            fuzzyMatch(q, p.name ?? "") ||
-            fuzzyMatch(q, p.description ?? "") ||
-            fuzzyMatch(q, p.color ?? ""),
+            fuzzyMatch(matchQuery, p.name ?? "") ||
+            fuzzyMatch(matchQuery, p.description ?? "") ||
+            fuzzyMatch(
+              matchQuery,
+              p.color ?? p.colorName ?? p.colorHex ?? "",
+            ),
         );
         return f.length > 0 ? f : raw;
       })();
@@ -400,6 +798,83 @@ export default function GlobalSearch() {
 
   return (
     <div>
+      {isMobile && (
+        <header className="gs-mobile-header">
+          <button
+            type="button"
+            className="checkout-mobile-back gs-mobile-header__back"
+            onClick={handleBackNavigation}
+            aria-label="Go back"
+          >
+            <i className="bi bi-chevron-left" />
+          </button>
+
+          <div
+            className="gs-mobile-header__title"
+            title={displayQuery ? `Results for "${displayQuery}"` : "Search"}
+          >
+            {displayQuery ? (
+              <>
+                Results for{" "}
+                <span className="gs-mobile-header__query">"{displayQuery}"</span>
+              </>
+            ) : (
+              "Search"
+            )}
+          </div>
+
+          <form
+            className="mnb-search-form gs-mobile-header__search"
+            onSubmit={handleSearchSubmit}
+            role="search"
+          >
+            <button
+              type="button"
+              className={`mnb-search-mic${isListening ? " is-listening" : ""}`}
+              onClick={startVoice}
+              aria-label={isListening ? "Stop voice search" : "Voice search"}
+            >
+              <i
+                className={`bi ${isListening ? "bi-stop-circle-fill" : "bi-mic-fill"}`}
+              />
+            </button>
+
+            <div className="mnb-search-input-wrap">
+              <input
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                className="mnb-search-input"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Search products"
+                aria-label="Search products"
+              />
+            </div>
+            {searchText.trim() && (
+              <button
+                type="button"
+                className="mnb-search-clear"
+                onClick={clearSearch}
+                aria-label="Clear search"
+              >
+                <i className="bi bi-x-lg" />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="mnb-search-submit"
+              aria-label="Search"
+            >
+              <i className="bi bi-search" />
+            </button>
+          </form>
+        </header>
+      )}
+
       {/* ══ Sticky toolbar (same layout as before — filter LEFT · sort CENTER · count RIGHT) ══ */}
       <div className="s-globalsearch-f4837a">
         <div className="container">
@@ -439,20 +914,17 @@ export default function GlobalSearch() {
 
       {/* ══ Page body ══ */}
       <div className="container s-globalsearch-58358e s-globalsearch-ff9e69e4">
-        {isMobile && q && (
-          <p className="gs-result-label">
-            Results for <span className="gs-result-query">"{q}"</span>
-          </p>
-        )}
         {/* Color badge */}
-        {q && colorQuery && anchorHex && (
+        {q && hasColorSearch && anchorHex && (
           <div className="s-cart-1fdbde">
             <span
               className="s-globalsearch-1ccf92"
               style={{ background: anchorHex }}
             />
             <span className="s-globalsearch-d2dadc">
-              Showing all {q.toLowerCase()} shades
+              {smartQuery
+                ? `Showing ${displayQuery}`
+                : `Showing all ${searchIntent.colors.join(" ")} shades`}
             </span>
           </div>
         )}

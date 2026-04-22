@@ -20,11 +20,6 @@ export default function RefundChoice() {
 
   return (
     <div className="container s-deliveryopti-562975">
-      <button onClick={() => navigate('/user-products/delivery-option')}
-        className="s-deliveryopti-01d82d">
-        <i className="bi bi-arrow-left" /> Back
-      </button>
-      <h4 className="s-deliveryopti-186182">How would you like your refund?</h4>
       <p className="s-deliveryopti-78aac5">Choose your preferred refund method.</p>
 
       {REFUND_OPTIONS.map(opt => (

@@ -12,6 +12,7 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import { listAddress, createAddress, updateAddress, deleteAddress } from '@/features/orders/api/orders.api';
 import api from '@/shared/api/axiosInstance';
 import { lookupPincode, reverseGeocode, resolveStateId } from '@/shared/utils/addressLocation';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 const emptyForm = {
   name: '', phone: '', addressLine: '', locality: '',
@@ -61,6 +62,7 @@ export default function AddressList() {
   const user = useAuthStore((state) => state.user);
   const { getUserId } = useAuthStore();
   const userId = getUserId();
+  const isMobile = useIsMobile();
 
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
@@ -243,11 +245,17 @@ export default function AddressList() {
   }
 
   return (
-    <div className="container py-4" style={{ maxWidth: 720 }}>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5 className="mb-0" style={{ fontFamily: 'Palatino, serif', color: '#6B0F2A' }}>
-          Saved Addresses
-        </h5>
+    <div className="s-addresslist-page container py-4" style={{ maxWidth: 720 }}>
+      <div
+        className={`d-flex align-items-center mb-4 ${
+          isMobile ? 'justify-content-end' : 'justify-content-between'
+        }`}
+      >
+        {!isMobile && (
+          <h5 className="mb-0" style={{ fontFamily: 'Palatino, serif', color: '#6B0F2A' }}>
+            Saved Addresses
+          </h5>
+        )}
         <button
           className="btn btn-sm"
           style={{ background: '#6B0F2A', color: '#fff', borderRadius: 8 }}

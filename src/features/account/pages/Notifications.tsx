@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listNotifications } from '@/features/orders/api/orders.api';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 export default function Notifications() {
+  const isMobile = useIsMobile();
   const { getUserId } = useAuthStore();
   const userId = getUserId();
 
@@ -20,15 +22,18 @@ export default function Notifications() {
   if (isLoading) return <div className="d-flex justify-content-center py-4"><div className="spinner-border text-secondary" /></div>;
 
   return (
-    <>
+    <div className="s-notification-page">
       <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5 className="mb-0">
-          Notifications
-          {unreadCount > 0 && (
-            <span className="badge bg-danger ms-2 s-couponslist-030edf">{unreadCount} new</span>
-          )}
-        </h5>
+        {!isMobile && (
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h5 className="mb-0">
+              Notifications
+              {unreadCount > 0 && (
+                <span className="badge bg-danger ms-2 s-couponslist-030edf">{unreadCount} new</span>
+              )}
+            </h5>
+          </div>
+        )}
       </div>
 
       {notifications.length === 0 ? (
@@ -41,10 +46,13 @@ export default function Notifications() {
           {notifications.map((notif: any, idx: number) => (
             <div
               key={notif.notificationId || idx}
-              className={`d-flex gap-3 p-3 mb-2 rounded border ${!notif.isRead ? 'border-primary' : ''} s-notification-6de659`} style={ {background: notif.isRead ? '#fff' : 'var(--ivory)'} }
+              className={`d-flex gap-3 p-3 mb-2 rounded border ${!notif.isRead ? 'border-primary' : ''} s-notification-6de659`}
+              style={ {
+                background: notif.isRead ? '#fff' : 'var(--ivory)',
+              } }
             >
               <div
-                className="s-notification-9088a7" style={ {background: notif.isRead ? 'var(--ivory)' : 'var(--ivory)'} }
+                className="s-notification-9088a7" style={ {background: 'var(--ivory)'} }
               >
                 <i className={`bi ${notif.type === 'order' ? 'bi-bag' : notif.type === 'promo' ? 'bi-tag' : 'bi-bell'} s-notification-f4946d`} style={ {color: notif.isRead ? 'var(--heirloom)' : 'var(--brand)'} } />
               </div>
@@ -63,6 +71,5 @@ export default function Notifications() {
         </div>
       )}
     </div>
-    </>
   );
 }

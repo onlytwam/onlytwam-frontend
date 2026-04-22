@@ -166,19 +166,6 @@ export default function ShippingOption() {
 
   return (
     <div className="container s-invoice-5c9003 checkout-shell checkout-shell--shipping">
-      <div className="checkout-mobile-header">
-        <button
-          className="checkout-mobile-back"
-          onClick={() => navigate(-1)}
-          aria-label="Go back"
-        >
-          <i className="bi bi-chevron-left" />
-        </button>
-        <h5 className="s-adminblog-19fd7a checkout-page-title">
-          Choose Shipping Method
-        </h5>
-      </div>
-
       <div className="row g-4 align-items-start">
         <div className="col-lg-7">
           {isLoading ? (

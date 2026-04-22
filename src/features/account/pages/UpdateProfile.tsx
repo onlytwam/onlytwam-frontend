@@ -20,6 +20,7 @@ import { updateProfile, changePassword } from '@/features/auth/api/auth.api';
 import UserAvatar from '@/shared/components/UserAvatar';
 import { getCanvasSafeImageUrl } from '@/shared/utils/helpers';
 import { useProfileLeaveGuard } from '@/shared/components/profileLeaveGuard';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 type EditorState = {
   zoom: number;
@@ -46,6 +47,7 @@ const DEFAULT_EDITOR_STATE: EditorState = {
 };
 
 export default function UpdateProfile() {
+  const isMobile = useIsMobile();
   const { user, setUser } = useAuthStore();
   const { setGuard } = useProfileLeaveGuard();
   const location = useLocation();
@@ -515,9 +517,11 @@ export default function UpdateProfile() {
 
   return (
     <div className="s-updateprofil-245770">
-      <h5 className="s-updateprofil-e41087">
-        {isPasswordPage ? 'Change Password' : 'My Profile'}
-      </h5>
+      {!isMobile && (
+        <h5 className="s-updateprofil-e41087">
+          {isPasswordPage ? 'Change Password' : 'My Profile'}
+        </h5>
+      )}
 
       {!isPasswordPage ? (
         <div className="s-updateprofil-3d6779">

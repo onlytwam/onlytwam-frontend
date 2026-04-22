@@ -28,11 +28,6 @@ export default function ReturnOrder() {
 
   return (
     <div className="container s-returnorder-027ed1">
-      <button onClick={() => navigate('/account/orders-list')}
-        className="s-deliveryopti-01d82d">
-        <i className="bi bi-arrow-left" /> Back to Orders
-      </button>
-      <h4 className="s-deliveryopti-186182">Return / Exchange</h4>
       <p className="s-deliveryopti-78aac5">Select the order you want to return.</p>
 
       {isLoading ? <div className="s-shippingopti-9ecba4"><div className="spinner-border text-secondary" /></div>

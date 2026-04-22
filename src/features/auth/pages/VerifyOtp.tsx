@@ -8,6 +8,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { sendForgotPasswordOtpToChannel } from "@/features/auth/api/auth.api";
+import MobileBackHeader from "@/shared/components/MobileBackHeader";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import toast from "react-hot-toast";
 
 const OTP_LENGTH = 6;
@@ -16,6 +18,7 @@ const RESEND_SECONDS = 60;
 export default function VerifyOtp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isMobile = useIsMobile();
 
   // Params from Login.tsx navigation
   const identifier =
@@ -152,7 +155,9 @@ export default function VerifyOtp() {
   });
 
   return (
-    <div className="s-login-2bb036">
+    <>
+      {isMobile && <MobileBackHeader title="Verify OTP" />}
+      <div className="s-login-2bb036">
       <div className="d-none d-md-flex s-login-2da0c0">
         <img
           src="/assets/images/forgot-bg.jpg"
@@ -172,9 +177,11 @@ export default function VerifyOtp() {
 
       <div className="s-login-5c2ebc">
         <div className="s-resetpasswor-4c6092">
-          <Link to="/login" className="s-login-0aef96">
-            <i className="bi bi-arrow-left" /> Back to Sign In
-          </Link>
+          {!isMobile && (
+            <Link to="/login" className="s-login-0aef96">
+              <i className="bi bi-arrow-left" /> Back to Sign In
+            </Link>
+          )}
 
           <div className="s-login-9aad3d">
             <img
@@ -191,9 +198,11 @@ export default function VerifyOtp() {
             <div className="s-verifyotp-f5c8cb">
               <i className={`bi ${channelIcon} s-verifyotp-0f59f9`} />
             </div>
-            <h5 className="s-login-b4f13d">
-              {isPhone ? "Verify Your Phone" : "Verify Your Email"}
-            </h5>
+            {!isMobile && (
+              <h5 className="s-login-b4f13d">
+                {isPhone ? "Verify Your Phone" : "Verify Your Email"}
+              </h5>
+            )}
             <p className="s-resetpasswor-4c0ccf">
               We sent a {OTP_LENGTH}-digit code to your {channelLabel}
             </p>
@@ -295,6 +304,7 @@ export default function VerifyOtp() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

@@ -6,6 +6,8 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { verifyForgotPasswordOtpAndReset } from "@/features/auth/api/auth.api";
+import MobileBackHeader from "@/shared/components/MobileBackHeader";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import toast from "react-hot-toast";
 
 interface PasswordStrength {
@@ -33,6 +35,7 @@ function getStrength(pw: string): PasswordStrength {
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
+  const isMobile = useIsMobile();
 
   // New flow: identifier + otp from VerifyOtp page
   const identifier =
@@ -119,7 +122,9 @@ export default function ResetPassword() {
   const channelLabel = channel === "phone" ? "phone" : "email";
 
   return (
-    <div className="s-login-2bb036">
+    <>
+      {isMobile && <MobileBackHeader title="Reset Password" />}
+      <div className="s-login-2bb036">
       <div className="d-none d-md-flex s-login-2da0c0">
         <img
           src="/assets/images/forgot-bg.jpg"
@@ -141,9 +146,11 @@ export default function ResetPassword() {
 
       <div className="s-login-5c2ebc">
         <div className="s-resetpasswor-4c6092">
-          <Link to="/login" className="s-login-0aef96">
-            <i className="bi bi-arrow-left" /> Back to Sign In
-          </Link>
+          {!isMobile && (
+            <Link to="/login" className="s-login-0aef96">
+              <i className="bi bi-arrow-left" /> Back to Sign In
+            </Link>
+          )}
 
           <div className="s-login-9aad3d">
             <img
@@ -186,7 +193,9 @@ export default function ResetPassword() {
           ) : (
             <>
               <div className="s-adminnewslet-70cb1d">
-                <h5 className="s-login-b4f13d">Set New Password</h5>
+                {!isMobile && (
+                  <h5 className="s-login-b4f13d">Set New Password</h5>
+                )}
                 <p className="s-resetpasswor-4c0ccf">
                   OTP verified via{" "}
                   <span className="s-register-51a817">
@@ -382,6 +391,7 @@ export default function ResetPassword() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

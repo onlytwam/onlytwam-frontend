@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listUserCoupons } from '@/features/orders/api/orders.api';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 export default function CouponsList() {
+  const isMobile = useIsMobile();
   const authStore = useAuthStore();
 
   // Safely extract userId — handles both function and property patterns
@@ -104,7 +106,7 @@ export default function CouponsList() {
 
   return (
     <div>
-      <h5 className="mb-4">My Coupons</h5>
+      {!isMobile && <h5 className="mb-4">My Coupons</h5>}
 
       {coupons.length === 0 ? (
         <div className="text-center py-5">

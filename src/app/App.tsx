@@ -15,8 +15,10 @@ import {
   useCallback,
 } from "react";
 import { Capacitor } from "@capacitor/core";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import Navbar from "@/shared/components/Navbar";
 import Footer from "@/shared/components/Footer";
+import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import ProtectedRoute from "@/shared/components/ProtectedRoute";
 import AdminBar from "@/features/admin/components/AdminBar";
 import Breadcrumb from "@/shared/components/Breadcrumb";
@@ -66,6 +68,70 @@ function RouteMemory() {
   }, [pathname, search]);
 
   return null;
+}
+
+type MobileBackHeaderRoute = {
+  path: string;
+  title: string;
+};
+
+const MOBILE_BACK_HEADER_ROUTES: MobileBackHeaderRoute[] = [
+  { path: "/about", title: "About Us" },
+  { path: "/contact-us", title: "Contact Us" },
+  { path: "/unsubscribe", title: "Unsubscribe" },
+  { path: "/our-stores", title: "Our Stores" },
+  { path: "/our-blog", title: "Our Blog" },
+  { path: "/blog-1", title: "Blog" },
+  { path: "/help-center", title: "Help Center" },
+  { path: "/privacy-policy", title: "Privacy Policy" },
+  { path: "/terms-conditions", title: "Terms & Conditions" },
+  { path: "/shipping-info", title: "Shipping Info" },
+  { path: "/returns-exchanges", title: "Returns & Exchanges" },
+  {
+    path: "/delivery-shipping-policy",
+    title: "Delivery & Shipping Policy",
+  },
+  { path: "/return-refund-policy", title: "Return & Refund Policy" },
+  { path: "/news-privacy-policy", title: "Newsletter Privacy" },
+  { path: "/only-twam", title: "Only TWAM" },
+  { path: "/shop-by-size", title: "Shop by Size" },
+  { path: "/size-guide", title: "Size Guide" },
+  { path: "/twam-brands", title: "TWAM Brands" },
+  { path: "/your-fit-founder", title: "Your Fit Finder" },
+  { path: "/take-quiz", title: "Take Quiz" },
+  { path: "/new-arrivals", title: "New Arrivals" },
+  { path: "/best-sellers", title: "Best Sellers" },
+  { path: "/user-products/cart", title: "Cart" },
+  { path: "/cart", title: "Cart" },
+  { path: "/user-products/payment-address", title: "Delivery Address" },
+  { path: "/user-products/shipping-option", title: "Choose Shipping Method" },
+  { path: "/user-products/payment", title: "Payment" },
+  { path: "/wishlist", title: "My Wishlist" },
+  { path: "/notifications", title: "Notifications" },
+  { path: "/register", title: "Create Account" },
+  { path: "/reset-password", title: "Reset Password" },
+  { path: "/verify-otp", title: "Verify OTP" },
+  { path: "/user-products/guest-signup", title: "Checkout" },
+  { path: "/order-details", title: "Order Details" },
+  { path: "/user-products/order-confirm", title: "Order Confirmed" },
+  { path: "/user-products/payment-callback", title: "Payment Failed" },
+  { path: "/user-products/invoice-details", title: "Invoice" },
+  { path: "/user-products/return-order", title: "Return / Exchange" },
+  { path: "/user-products/return-reason", title: "Reason for Return" },
+  { path: "/user-products/delivery-option", title: "Delivery Option" },
+  { path: "/user-products/refund-choice", title: "Refund Choice" },
+  { path: "/user-products/return-confirm", title: "Confirm Return" },
+];
+
+function matchesMobileBackHeaderRoute(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+function getMobileBackHeaderTitle(pathname: string) {
+  const match = MOBILE_BACK_HEADER_ROUTES.find((route) =>
+    matchesMobileBackHeaderRoute(pathname, route.path),
+  );
+  return match?.title ?? null;
 }
 
 // ── Public pages ──────────────────────────────────────────────────────────────
@@ -249,9 +315,8 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   "/new-arrivals": [{ label: "New Arrivals" }],
   "/best-sellers": [{ label: "Best Sellers" }],
   "/user-products/product-list": [{ label: "All Products" }],
-  "/user-products/cart": [{ label: "Cart" }],
-  "/cart": [{ label: "Cart" }],
   "/wishlist": [{ label: "My Wishlist" }],
+  "/notifications": [{ label: "Notifications" }],
   "/user-products/payment-address": [
     { label: "Cart", path: "/cart" },
     { label: "Address" },
@@ -356,17 +421,28 @@ function AutoBreadcrumb() {
   return <Breadcrumb items={items} />;
 }
 
-const MainLayout = () => (
-  <div className="s-app-22e1be">
-    <AdminBar />
-    <Navbar />
-    <AutoBreadcrumb />
-    <main className="s-app-52dcac">
-      <Outlet />
-    </main>
-    <Footer />
-  </div>
-);
+function MainLayout() {
+  const { pathname } = useLocation();
+  const isMobile = useIsMobile();
+  const mobileBackHeaderTitle = isMobile
+    ? getMobileBackHeaderTitle(pathname)
+    : null;
+
+  return (
+    <div className="s-app-22e1be">
+      <AdminBar />
+      <Navbar />
+      <AutoBreadcrumb />
+      <main className="s-app-52dcac">
+        {mobileBackHeaderTitle && (
+          <MobileBackHeader title={mobileBackHeaderTitle} />
+        )}
+        <Outlet />
+      </main>
+      <Footer />
+    </div>
+  );
+}
 
 // ── Greeting texts ────────────────────────────────────────────────────────────
 const SPLASH_TEXTS = [
@@ -706,6 +782,7 @@ export default function App() {
 
             {/* ── Protected account pages ── */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/notifications" element={<Notifications />} />
               <Route path="/account" element={<AccountLayoutWithGuard />}>
                 <Route index element={<AccountHome />} />
                 <Route path="dashboard" element={<UserDashboard />} />

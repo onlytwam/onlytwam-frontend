@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import UserAvatar from '@/shared/components/UserAvatar';
+import MobileBackHeader from '@/shared/components/MobileBackHeader';
 import { useProfileLeaveGuard, type ProfileLeaveGuardState } from '@/shared/components/profileLeaveGuard';
 import { accountNavItems, getAccountPageTitle } from '@/features/account/accountNav';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
@@ -229,25 +230,11 @@ export default function ProfileLayout() {
   if (isMobile) {
     return (
       <div className="pl-mobile-shell">
-        <div className="pl-mobile-topbar">
-          <button
-            type="button"
-            onClick={handleMobileBack}
-            className="pl-mobile-back"
-            aria-label="Go back"
-          >
-            <span className="pl-mobile-back__icon" aria-hidden="true">
-              {"<"}
-            </span>
-          </button>
-          <h1 className="pl-mobile-title twam-font-heading">
-            {mobilePageTitle}
-          </h1>
-        </div>
+        <MobileBackHeader title={mobilePageTitle} onBack={handleMobileBack} />
 
-        <main className="pl-mobile-content">
+        <div className="pl-mobile-content">
           <Outlet />
-        </main>
+        </div>
       </div>
     );
   }

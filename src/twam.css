@@ -10828,6 +10828,7 @@ button {
   width: 100%;
   aspect-ratio: 3/3.7;
   object-fit: cover;
+  object-position: center center;
   display: block;
   transition: opacity 0.35s ease;
 }
@@ -14574,6 +14575,7 @@ button {
 }
 
 .s-cart-100fbc {
+  background: #fff;
   border: 1px solid var(--ivory);
   border-radius: 8px;
   padding: 14px 16px;
@@ -20646,14 +20648,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   max-width: 1180px;
   padding-top: 12px;
   padding-bottom: 32px;
-}
-
-.checkout-page-title {
-  margin: 0 0 18px;
-  font-size: 28px;
-  line-height: 1.2;
-  font-weight: 700;
-  color: #1d1617;
 }
 
 .checkout-card {

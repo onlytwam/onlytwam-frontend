@@ -353,16 +353,18 @@ export default function ProductList() {
   return (
     <div style={{ fontFamily: FONTS }}>
       {categoryImage && (
-        <img
-          src={categoryImage}
-          alt={categoryName}
-          loading="lazy"
-          style={{
-            display: "block",
-            width: "100%",
-            height: "auto",
-          }}
-        />
+        <div className="category-hero-banner">
+          <img
+            src={categoryImage}
+            alt={categoryName}
+            loading="lazy"
+            style={{
+              display: "block",
+              width: "100%",
+              height: "auto",
+            }}
+          />
+        </div>
       )}
 
       {/* Toolbar: Filter button | Quick price | Sort dropdown | Product count */}
