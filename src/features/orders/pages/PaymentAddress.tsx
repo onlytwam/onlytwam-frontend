@@ -19,12 +19,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useCartStore } from "@/features/cart/store/cartStore";
-import { clearBuyNowSession } from "@/shared/utils/checkoutSession";
+import { readCheckoutSession } from "@/features/cart/utils/checkoutSession";
+import { clearBuyNowSession, getBuyNowSession } from "@/shared/utils/checkoutSession";
 import {
   listAddress,
   createAddress,
   updateAddress,
 } from "@/features/orders/api/orders.api";
+import {
+  resolveStateId,
+  resolveStateMatch,
+  getRememberedAddressState,
+  rememberAddressState,
+} from "@/shared/utils/addressLocation";
 import api from "@/shared/api/axiosInstance";
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
@@ -40,6 +47,7 @@ const emptyForm = {
   locality: "", // area / neighbourhood    — geo auto-fill
   city: "", // pincode / geo auto-fill
   state: "", // pincode / geo auto-fill
+  stateId: null as number | null,
   country: "India", // geo auto-fill
   pinCode: "",
   addressType: "Home",
@@ -82,6 +90,65 @@ const mergeContactIntoForm = (
 };
 
 // ── Pincode lookup — India Post API ──────────────────────────────────────────
+const splitAddressParts = (value: unknown): string[] =>
+  String(value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce<string[]>((acc, part) => {
+      const prev = acc[acc.length - 1];
+      if (prev && prev.toLowerCase() === part.toLowerCase()) return acc;
+      acc.push(part);
+      return acc;
+    }, []);
+
+const getStateLabelById = (states: any[], stateId: unknown): string => {
+  const numericId = Number(stateId);
+  if (!Number.isFinite(numericId)) return "";
+
+  const match = states.find(
+    (state: any) => Number(state?.stateId ?? state?.id) === numericId,
+  );
+  return String(match?.stateName ?? match?.name ?? match?.state ?? "").trim();
+};
+
+const getAddressStateLabel = (addr: any, states: any[]): string => {
+  const remembered = getRememberedAddressState(addr?.addressId, addr?.pinCode);
+  const direct = String(
+    addr?.stateName ?? addr?.state ?? remembered?.state ?? "",
+  ).trim();
+  if (direct) return direct;
+  if (remembered?.stateId != null) {
+    return getStateLabelById(states, remembered.stateId);
+  }
+  return getStateLabelById(states, addr?.stateId);
+};
+
+const extractAddressParts = (addressLine: unknown, locality?: unknown) => {
+  const parts = splitAddressParts(addressLine);
+  const localityText = String(locality ?? "").trim();
+  const inferredLocality =
+    localityText || (parts.length > 2 ? parts[parts.length - 1] : "");
+
+  const lineParts =
+    inferredLocality && parts.length > 1
+      ? parts[parts.length - 1].toLowerCase() === inferredLocality.toLowerCase()
+        ? parts.slice(0, -1)
+        : parts
+      : parts;
+
+  const houseNo = lineParts[0] ?? "";
+  const street = lineParts.slice(1).join(", ");
+
+  return {
+    houseNo,
+    street,
+    locality: inferredLocality,
+    displayLine: [houseNo, street, inferredLocality].filter(Boolean).join(", "),
+    lineWithoutLocality: [houseNo, street].filter(Boolean).join(", "),
+  };
+};
+
 interface PinData {
   city: string;
   state: string;
@@ -182,6 +249,7 @@ interface FormPanelProps {
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   errors: Record<string, string>;
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  states: any[];
   onSubmit: () => void;
   submitLabel: string;
   submitting?: boolean;
@@ -194,6 +262,7 @@ function AddressFormPanel({
   setForm,
   errors,
   setErrors,
+  states,
   onSubmit,
   submitLabel,
   submitting,
@@ -206,7 +275,7 @@ function AddressFormPanel({
   const [geoLoading, setGeoLoading] = useState(false);
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const upd = (key: keyof FormState) => (val: string | boolean) =>
+  const upd = (key: keyof FormState) => (val: string | boolean | number | null) =>
     setForm((f) => ({ ...f, [key]: val }));
 
   const clearErr = (...keys: string[]) =>
@@ -238,10 +307,16 @@ function AddressFormPanel({
       } else {
         setPinStatus("ok");
         clearErr("pinCode");
+        const matchedState = resolveStateMatch(states, data.state);
         setForm((f) => ({
           ...f,
-          city: data.city || f.city,
-          state: data.state || f.state,
+          city: f.city.trim() ? f.city : data.city || f.city,
+          state: f.state.trim() ? f.state : matchedState?.stateName ?? data.state ?? f.state,
+          stateId:
+            f.stateId ??
+            matchedState?.stateId ??
+            resolveStateId(states, data.state) ??
+            null,
           country: data.country || f.country,
         }));
       }
@@ -277,7 +352,11 @@ function AddressFormPanel({
           addressLine: geo.road || f.addressLine,
           locality: geo.suburb || f.locality,
           city: geo.city || f.city,
-          state: geo.state || f.state,
+          state: resolveStateMatch(states, geo.state)?.stateName ?? geo.state ?? f.state,
+          stateId:
+            resolveStateMatch(states, geo.state)?.stateId ??
+            resolveStateId(states, geo.state) ??
+            f.stateId,
           country: geo.country || f.country || "India",
           pinCode: geo.postcode || f.pinCode,
         }));
@@ -538,7 +617,9 @@ function AddressFormPanel({
           <input
             value={form.state}
             onChange={(e) => {
-              upd("state")(e.target.value);
+              const value = e.target.value;
+              upd("state")(value);
+              upd("stateId")(resolveStateId(states, value));
               clearErr("state");
             }}
             placeholder="State"
@@ -678,6 +759,19 @@ export default function PaymentAddress() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [isBuyNow, clearCheckoutSelection]);
 
+  useEffect(() => {
+    const session = isBuyNow ? getBuyNowSession() : readCheckoutSession();
+    if (!session?.items?.length) return;
+
+    const store = useCartStore.getState();
+    store.setSelectedItems?.(session.items as any);
+    store.setSubTotal?.(session.subTotal);
+    store.setTaxAmount?.(session.taxAmount);
+    if (!isBuyNow && session.shipping) {
+      store.setShipping?.(session.shipping as any);
+    }
+  }, [isBuyNow]);
+
   // Auth
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
     null,
@@ -686,6 +780,7 @@ export default function PaymentAddress() {
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState<FormState>(() => createDraftForm(user));
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [states, setStates] = useState<any[]>([]);
 
   // Guest
   const [guestEmail, setGuestEmail] = useState("");
@@ -713,6 +808,15 @@ export default function PaymentAddress() {
   });
 
   useEffect(() => {
+    api
+      .get("/MDM/state", { params: { "Page.Size": 100 } })
+      .then((r) => setStates(r.data?.list ?? r.data ?? []))
+      .catch(() => {
+        setStates([]);
+      });
+  }, []);
+
+  useEffect(() => {
     const addrs = addresses as any[];
     if (addrs.length > 0 && !selectedAddressId) {
       const def = addrs.find((a: any) => a.isDefault) ?? addrs[0];
@@ -735,12 +839,43 @@ export default function PaymentAddress() {
     return () => clearTimeout(t);
   }, [resendTimer]);
 
+  useEffect(() => {
+    const hydrateState = (f: FormState): FormState => {
+      const match = resolveStateMatch(states, f.state);
+      if (match && (f.stateId !== match.stateId || f.state !== match.stateName)) {
+        return { ...f, stateId: match.stateId, state: match.stateName };
+      }
+
+      if (!f.state.trim() && f.stateId != null) {
+        const label = getStateLabelById(states, f.stateId);
+        if (label) return { ...f, state: label };
+      }
+
+      return f;
+    };
+
+    setForm(hydrateState);
+    setGuestForm(hydrateState);
+  }, [states]);
+
   const saveMutation = useMutation({
     mutationFn: (data: any) =>
       editItem
         ? updateAddress(editItem.addressId, { ...data, userProfileId: userId })
         : createAddress({ ...data, userProfileId: userId }),
-    onSuccess: () => {
+    onSuccess: (saved: any, variables: any) => {
+      const savedAddressId =
+        Number(saved?.addressId ?? saved?.data?.addressId ?? editItem?.addressId);
+      const rememberedState = String(variables?.state ?? "").trim();
+      const cacheKey =
+        Number.isFinite(savedAddressId) && savedAddressId > 0
+          ? savedAddressId
+          : variables?.pinCode ?? null;
+      rememberAddressState(cacheKey, {
+        state: rememberedState,
+        stateId: variables?.stateId ?? null,
+        pinCode: variables?.pinCode ?? null,
+      });
       toast.success(editItem ? "Address updated!" : "Address saved!");
       qc.invalidateQueries({ queryKey: ["addresses", userId] });
       setShowForm(false);
@@ -846,18 +981,17 @@ export default function PaymentAddress() {
       toast.error("Please fix the highlighted errors");
       return;
     }
-    const fullLine = [
-      guestForm.houseNo,
-      guestForm.addressLine,
-      guestForm.locality,
-    ]
-      .filter(Boolean)
-      .join(", ");
+    const state = guestForm.state.trim() || getStateLabelById(states, guestForm.stateId);
+    const stateId = resolveStateId(states, state) ?? guestForm.stateId ?? null;
     sessionStorage.setItem(
       "guestAddress",
       JSON.stringify({
         ...guestForm,
-        addressLine: fullLine,
+        state,
+        stateId,
+        addressLine: [guestForm.houseNo, guestForm.addressLine]
+          .filter(Boolean)
+          .join(", "),
         email: guestEmail,
       }),
     );
@@ -875,10 +1009,13 @@ export default function PaymentAddress() {
 
   const handleSaveAddress = () => {
     if (!validate(form, setErrors)) return;
-    const fullLine = [form.houseNo, form.addressLine, form.locality]
-      .filter(Boolean)
-      .join(", ");
-    saveMutation.mutate({ ...form, addressLine: fullLine });
+    const state = form.state.trim() || getStateLabelById(states, form.stateId);
+    const stateId = resolveStateId(states, state) ?? form.stateId ?? null;
+    saveMutation.mutate({
+      ...form,
+      state,
+      stateId,
+    });
   };
 
   const mobileFooterAction = !isAuth
@@ -916,17 +1053,27 @@ export default function PaymentAddress() {
 
   const editAddress = (addr: any) => {
     setEditItem(addr);
-    const parts = (addr.addressLine ?? "")
-      .split(",")
-      .map((s: string) => s.trim());
+    const parsed = extractAddressParts(addr.addressLine, addr.locality);
+    const remembered = getRememberedAddressState(addr?.addressId, addr?.pinCode);
+    const state = getAddressStateLabel(addr, states);
+    const resolvedStateMatch = resolveStateMatch(
+      states,
+      addr.state ?? addr.stateName ?? remembered?.state ?? "",
+    );
     setForm({
       name: addr.name ?? "",
       phone: addr.phone ?? "",
-      houseNo: parts[0] ?? "",
-      addressLine: parts.slice(1).join(", ") || "",
-      locality: addr.locality ?? "",
+      houseNo: parsed.houseNo,
+      addressLine: parsed.street,
+      locality: parsed.locality,
       city: addr.city ?? "",
-      state: addr.state ?? addr.stateName ?? "",
+      state,
+      stateId:
+        addr.stateId ??
+        remembered?.stateId ??
+        resolvedStateMatch?.stateId ??
+        resolveStateId(states, state) ??
+        null,
       country: addr.country ?? "India",
       pinCode: addr.pinCode ?? "",
       addressType: addr.typeId === 2 ? "Work" : "Home",
@@ -936,8 +1083,13 @@ export default function PaymentAddress() {
     setShowForm(true);
   };
 
-  const getFullAddr = (a: any) =>
-    [a.addressLine, a.city, a.state, a.pinCode].filter(Boolean).join(", ");
+  const getFullAddr = (a: any) => {
+    const parsed = extractAddressParts(a.addressLine, a.locality);
+    const state = getAddressStateLabel(a, states);
+    return [parsed.displayLine, a.city, state, a.pinCode]
+      .filter(Boolean)
+      .join(", ");
+  };
 
   // ──────────────────────────────────────────────────────────────────────────
   return (
@@ -1148,6 +1300,7 @@ export default function PaymentAddress() {
                 setForm={setGuestForm}
                 errors={guestErrors}
                 setErrors={setGuestErrors}
+                states={states}
                 onSubmit={handleGuestContinue}
                 submitLabel="Continue to Shipping"
                 showDefault={false}
@@ -1301,6 +1454,7 @@ export default function PaymentAddress() {
                 setForm={setForm}
                 errors={errors}
                 setErrors={setErrors}
+                states={states}
                 onSubmit={handleSaveAddress}
                 submitLabel={editItem ? "Update Address" : "Save Address"}
                 submitting={saveMutation.isPending}

@@ -6514,6 +6514,89 @@
     font-size: 14px !important;
     border-radius: 12px !important;
   }
+
+  body:has(.checkout-shell--payment) .payment-wa-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    pointer-events: auto;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    background: rgba(17, 20, 18, 0.46);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: default;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-modal__panel {
+    position: relative;
+    width: min(100%, 360px);
+    z-index: 1;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-modal .payment-wa-toast {
+    width: 100% !important;
+    max-width: 360px !important;
+    padding: 14px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 18px 40px rgba(107, 15, 42, 0.14) !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast {
+    width: min(100vw - 20px, 360px) !important;
+    padding: 14px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 18px 40px rgba(107, 15, 42, 0.14) !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast__header {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast__icon {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 14px !important;
+    font-size: 21px !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast__eyebrow {
+    margin-bottom: 6px !important;
+    padding: 3px 9px !important;
+    font-size: 10px !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast__title {
+    font-size: 15px !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast__copy {
+    margin-top: 5px !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast__actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
+  }
+
+  body:has(.checkout-shell--payment) .payment-wa-toast__button {
+    width: 100% !important;
+    min-height: 42px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+  }
 }
 
 @media (max-width: 768px) {

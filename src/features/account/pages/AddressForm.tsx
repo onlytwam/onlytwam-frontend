@@ -13,6 +13,8 @@ import api from "@/shared/api/axiosInstance";
 import {
   lookupPincode,
   reverseGeocode,
+  getRememberedAddressState,
+  rememberAddressState,
   resolveStateId,
 } from "@/shared/utils/addressLocation";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
@@ -20,6 +22,49 @@ import { useIsMobile } from "@/shared/hooks/useIsMobile";
 // ── Capacitor-aware geolocation ───────────────────────────────────────────────
 // Uses @capacitor/geolocation on Android (shows native permission dialog).
 // Falls back to browser navigator.geolocation in web/dev mode.
+const splitAddressParts = (value: unknown): string[] =>
+  String(value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce<string[]>((acc, part) => {
+      const prev = acc[acc.length - 1];
+      if (prev && prev.toLowerCase() === part.toLowerCase()) return acc;
+      acc.push(part);
+      return acc;
+    }, []);
+
+const extractAddressParts = (addressLine: unknown, locality?: unknown) => {
+  const parts = splitAddressParts(addressLine);
+  const localityText = String(locality ?? "").trim();
+  const inferredLocality =
+    localityText || (parts.length > 2 ? parts[parts.length - 1] : "");
+
+  const lineParts =
+    inferredLocality && parts.length > 1
+      ? parts[parts.length - 1].toLowerCase() === inferredLocality.toLowerCase()
+        ? parts.slice(0, -1)
+        : parts
+      : parts;
+
+  return {
+    addressLine: [lineParts[0] ?? "", lineParts.slice(1).join(", ")]
+      .filter(Boolean)
+      .join(", "),
+    locality: inferredLocality,
+  };
+};
+
+const getStateLabelById = (states: any[], stateId: unknown): string => {
+  const numericId = Number(stateId);
+  if (!Number.isFinite(numericId)) return "";
+
+  const match = states.find(
+    (state: any) => Number(state?.stateId ?? state?.id) === numericId,
+  );
+  return String(match?.stateName ?? match?.name ?? match?.state ?? "").trim();
+};
+
 async function getPosition(): Promise<{ latitude: number; longitude: number }> {
   try {
     const { Geolocation } = await import("@capacitor/geolocation");
@@ -147,14 +192,16 @@ export default function AddressForm() {
         (a: any) => String(a.addressId) === id,
       );
       if (addr) {
+        const parsed = extractAddressParts(addr.addressLine, addr.locality);
+        const remembered = getRememberedAddressState(addr?.addressId, addr?.pinCode);
         setForm({
           name: addr.name ?? "",
           phone: addr.phone ?? "",
-          addressLine: addr.addressLine ?? "",
-          locality: addr.locality ?? "",
+          addressLine: parsed.addressLine || addr.addressLine || "",
+          locality: parsed.locality || addr.locality || "",
           city: addr.city ?? "",
           pinCode: addr.pinCode ?? "",
-          stateId: addr.stateId ?? null,
+          stateId: addr.stateId ?? remembered?.stateId ?? resolveStateId(states, addr.state ?? addr.stateName ?? remembered?.state ?? "") ?? null,
           addressType: addr.typeId === 2 ? "Work" : "Home",
           isDefault: addr.isDefault ?? false,
         });
@@ -190,8 +237,8 @@ export default function AddressForm() {
       const matchedStateId = resolveStateId(states, data.state);
       setForm((f) => ({
         ...f,
-        city: data.city || f.city,
-        stateId: matchedStateId ?? f.stateId,
+        city: f.city.trim() ? f.city : data.city || f.city,
+        stateId: f.stateId ?? matchedStateId ?? null,
       }));
     }, 600);
     return () => {
@@ -214,8 +261,8 @@ export default function AddressForm() {
         ...f,
         addressLine: f.addressLine || geo.road,
         locality: geo.suburb || f.locality,
-        city: geo.city || f.city,
-        stateId: matchedStateId ?? f.stateId,
+        city: f.city.trim() ? f.city : geo.city || f.city,
+        stateId: f.stateId ?? matchedStateId ?? null,
         pinCode: geo.postcode || f.pinCode,
       }));
       toast.success("Location auto-filled. Please verify the details.");
@@ -240,7 +287,19 @@ export default function AddressForm() {
       isEdit
         ? updateAddress(Number(id), { ...form, userProfileId: userId })
         : createAddress({ ...form, userProfileId: userId }),
-    onSuccess: () => {
+    onSuccess: (saved: any) => {
+      const savedAddressId = Number(
+        saved?.addressId ?? saved?.data?.addressId ?? id,
+      );
+      const cacheKey =
+        Number.isFinite(savedAddressId) && savedAddressId > 0
+          ? savedAddressId
+          : form.pinCode || null;
+      rememberAddressState(cacheKey, {
+        state: getStateLabelById(states, form.stateId) || undefined,
+        stateId: form.stateId ?? null,
+        pinCode: form.pinCode ?? null,
+      });
       toast.success(isEdit ? "Address updated!" : "Address added!");
       qc.invalidateQueries({ queryKey: ["addresses"] });
       navigate("/account/address-list");

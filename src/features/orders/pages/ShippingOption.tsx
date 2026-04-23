@@ -3,6 +3,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useCartStore } from "@/features/cart/store/cartStore";
+import {
+  readCheckoutSession,
+  saveCheckoutSession,
+} from "@/features/cart/utils/checkoutSession";
 import { listDeliveryCharges } from "@/features/cart/api/cart.api";
 import type { ShippingOption } from "@/shared/types";
 import { getBuyNowSession } from "@/shared/utils/checkoutSession";
@@ -36,22 +40,32 @@ export default function ShippingOption() {
   const {
     setShipping,
     selectedShipping,
+    getSelectedItems,
     getSubTotal,
     couponDiscount,
   } = useCartStore();
   const buyNowSession = isBuyNow ? getBuyNowSession() : null;
+  const checkoutSession = isBuyNow ? buyNowSession : readCheckoutSession();
 
   useEffect(() => {
-    if (!isBuyNow) return;
-    const session = getBuyNowSession();
+    const session = isBuyNow ? getBuyNowSession() : readCheckoutSession();
     if (!session?.items?.length) return;
     const store = useCartStore.getState();
     store.setSelectedItems?.(session.items as any);
     store.setSubTotal?.(session.subTotal);
+<<<<<<< Updated upstream
+=======
+    store.setTaxAmount?.(session.taxAmount);
+    if (!isBuyNow && session.shipping) {
+      store.setShipping?.(session.shipping as any);
+    }
+>>>>>>> Stashed changes
   }, [isBuyNow]);
 
   const [selectedId, setSelectedId] = useState<number | null>(
-    selectedShipping?.deliveryChargeId ?? null,
+    selectedShipping?.deliveryChargeId ??
+      checkoutSession?.shipping?.deliveryChargeId ??
+      null,
   );
 
   const { data: shippingOptions = [], isLoading } = useQuery({
@@ -61,7 +75,14 @@ export default function ShippingOption() {
     staleTime: 10 * 60 * 1000,
   });
 
+<<<<<<< Updated upstream
   const subTotal = buyNowSession?.subTotal ?? getSubTotal();
+=======
+  const subTotal = checkoutSession?.subTotal ?? getSubTotal();
+  const taxAmount = checkoutSession?.taxAmount ?? getTaxAmount();
+  const checkoutItems =
+    checkoutSession?.items?.length ? checkoutSession.items : getSelectedItems();
+>>>>>>> Stashed changes
   const normalizedOptions: ShippingOption[] = (
     (shippingOptions as any[]) || []
   ).map((opt: any) => {
@@ -155,6 +176,14 @@ export default function ShippingOption() {
         option.description ??
         "Standard Delivery",
       estimatedDays: parseEstimatedDays(option.days),
+    });
+
+    saveCheckoutSession({
+      mode: isBuyNow ? "buyNow" : "cart",
+      items: checkoutItems,
+      subTotal,
+      taxAmount,
+      shipping: option,
     });
 
     navigate("/user-products/payment" + (isBuyNow ? "?buyNow=1" : ""));

@@ -12,6 +12,7 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOrderDetail } from "@/features/orders/api/orders.api";
 import { useCartStore } from "@/features/cart/store/cartStore";
+import { clearCheckoutSession } from "@/features/cart/utils/checkoutSession";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { formatDate } from "@/shared/utils/helpers";
 import {
@@ -33,6 +34,7 @@ export default function OrderConfirm() {
     if (!paymentSucceeded) return;
 
     clearCart();
+    clearCheckoutSession();
     if (isBuyNowOrder) {
       clearBuyNowSession();
     } else {

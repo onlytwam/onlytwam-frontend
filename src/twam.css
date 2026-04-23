@@ -20810,6 +20810,126 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   box-shadow: none;
 }
 
+body:has(.checkout-shell--payment) .payment-wa-toast {
+  width: min(100vw - 48px, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(107, 15, 42, 0.12);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, #ffffff 100%);
+  box-shadow: 0 24px 60px rgba(107, 15, 42, 0.16);
+  padding: 18px;
+  color: #171415;
+  font-family: var(--font-body);
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    rgba(37, 211, 102, 0.14),
+    rgba(37, 211, 102, 0.24)
+  );
+  color: #25d366;
+  box-shadow: inset 0 0 0 1px rgba(37, 211, 102, 0.14);
+  font-size: 24px;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__copy-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ivory);
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__title {
+  margin: 0;
+  color: var(--brand);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__copy {
+  margin: 6px 0 0;
+  color: #6f5e64;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__button {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__button:active {
+  transform: translateY(1px);
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__button--primary {
+  border: none;
+  background: linear-gradient(135deg, #25d366, #1ea64f);
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(37, 211, 102, 0.2);
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__button--primary:hover {
+  box-shadow: 0 12px 22px rgba(37, 211, 102, 0.24);
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__button--secondary {
+  border: 1px solid rgba(107, 15, 42, 0.14);
+  background: #ffffff;
+  color: var(--brand);
+}
+
+body:has(.checkout-shell--payment) .payment-wa-toast__button--secondary:hover {
+  border-color: rgba(107, 15, 42, 0.24);
+  box-shadow: 0 10px 18px rgba(107, 15, 42, 0.06);
+}
+
 .checkout-actions {
   margin-top: 18px;
 }

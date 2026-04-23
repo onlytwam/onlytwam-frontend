@@ -1,10 +1,15 @@
-import type { CartModel } from "@/shared/types";
+import type { CartModel, ShippingOption } from "@/shared/types";
 
 const BUY_NOW_SESSION_KEY = "buyNowCheckout";
 
 export interface BuyNowSession {
   items: CartModel[];
   subTotal: number;
+<<<<<<< Updated upstream
+=======
+  taxAmount: number;
+  shipping?: ShippingOption | null;
+>>>>>>> Stashed changes
   createdAt: number;
 }
 

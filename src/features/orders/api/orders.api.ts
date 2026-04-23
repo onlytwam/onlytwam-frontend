@@ -157,6 +157,7 @@ function buildAddressPayload(data: any) {
     addressLine: buildAddressLine(data),
     locality: data.locality ?? "",
     city: data.city ?? "",
+    state: data.state ?? data.stateName ?? "",
     pinCode: data.pinCode ?? data.pincode ?? "",
     stateId: data.stateId ?? null,
     countryId: data.countryId ?? 1,
@@ -168,11 +169,49 @@ function buildAddressPayload(data: any) {
   };
 }
 
-function buildAddressLine(data: any): string {
-  const parts = [data.houseNo || "", data.addressLine || data.address || ""]
-    .map((s) => s.trim())
+const splitAddressParts = (value: unknown): string[] =>
+  String(value ?? "")
+    .split(",")
+    .map((part) => part.trim())
     .filter(Boolean);
-  return parts.join(", ");
+
+const normalizeAddressLine = (value: unknown): string => {
+  const parts = splitAddressParts(value);
+  if (parts.length === 0) return "";
+
+  const compacted: string[] = [];
+  for (const part of parts) {
+    const prev = compacted[compacted.length - 1];
+    if (prev && prev.toLowerCase() === part.toLowerCase()) continue;
+    compacted.push(part);
+  }
+
+  return compacted.join(", ");
+};
+
+function buildAddressLine(data: any): string {
+  const rawLine = normalizeAddressLine(data.addressLine || data.address || "");
+  const locality = String(data.locality ?? "").trim();
+  const houseNo = String(data.houseNo ?? "").trim();
+  const parts = splitAddressParts(rawLine);
+  const lineParts =
+    locality && parts.length > 1
+      ? parts[parts.length - 1].toLowerCase() === locality.toLowerCase()
+        ? parts.slice(0, -1)
+        : parts
+      : parts;
+  const cleanedLine = normalizeAddressLine(lineParts.join(", "));
+
+  if (!houseNo) {
+    return cleanedLine;
+  }
+
+  const cleanedParts = splitAddressParts(cleanedLine);
+  if (cleanedParts[0]?.toLowerCase() === houseNo.toLowerCase()) {
+    return cleanedLine;
+  }
+
+  return normalizeAddressLine([houseNo, cleanedLine].filter(Boolean).join(", "));
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────

@@ -19,6 +19,10 @@ import { getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { clearBuyNowSession } from "@/shared/utils/checkoutSession";
+import {
+  readCheckoutSession,
+  saveCheckoutSession,
+} from "@/features/cart/utils/checkoutSession";
 
 const TAX_RATE = 0.05;
 
@@ -94,8 +98,13 @@ export default function Cart() {
     "/user-products/product-list";
   const qc = useQueryClient();
   const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
-  const { appliedCoupon, couponDiscount, setCoupon, removeCoupon } =
-    useCartStore();
+  const {
+    appliedCoupon,
+    couponDiscount,
+    selectedShipping,
+    setCoupon,
+    removeCoupon,
+  } = useCartStore();
 
   const isAuth = hasValidToken();
   const userId = getUserId();
@@ -272,6 +281,17 @@ export default function Cart() {
     const store = useCartStore.getState();
     store.setSelectedItems?.(selectedItems);
     store.setSubTotal?.(subTotal);
+<<<<<<< Updated upstream
+=======
+    store.setTaxAmount?.(taxAmount);
+    saveCheckoutSession({
+      mode: "cart",
+      items: selectedItems,
+      subTotal,
+      taxAmount,
+      shipping: selectedShipping ?? readCheckoutSession()?.shipping ?? null,
+    });
+>>>>>>> Stashed changes
     if (!isAuth) {
       navigate("/user-products/payment-address");
       return;

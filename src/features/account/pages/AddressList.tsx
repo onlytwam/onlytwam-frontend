@@ -11,7 +11,13 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { listAddress, createAddress, updateAddress, deleteAddress } from '@/features/orders/api/orders.api';
 import api from '@/shared/api/axiosInstance';
-import { lookupPincode, reverseGeocode, resolveStateId } from '@/shared/utils/addressLocation';
+import {
+  getRememberedAddressState,
+  lookupPincode,
+  rememberAddressState,
+  reverseGeocode,
+  resolveStateId,
+} from '@/shared/utils/addressLocation';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 const emptyForm = {
@@ -49,6 +55,64 @@ const mergeContactIntoForm = (
     name: form.name.trim() ? form.name : contact.name,
     phone: form.phone.trim() ? form.phone : contact.phone,
   };
+};
+
+const splitAddressParts = (value: unknown): string[] =>
+  String(value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce<string[]>((acc, part) => {
+      const prev = acc[acc.length - 1];
+      if (prev && prev.toLowerCase() === part.toLowerCase()) return acc;
+      acc.push(part);
+      return acc;
+    }, []);
+
+const extractAddressParts = (addressLine: unknown, locality?: unknown) => {
+  const parts = splitAddressParts(addressLine);
+  const localityText = String(locality ?? "").trim();
+  const inferredLocality =
+    localityText || (parts.length > 2 ? parts[parts.length - 1] : "");
+
+  const lineParts =
+    inferredLocality && parts.length > 1
+      ? parts[parts.length - 1].toLowerCase() === inferredLocality.toLowerCase()
+        ? parts.slice(0, -1)
+        : parts
+      : parts;
+
+  const addressLineValue = [lineParts[0] ?? "", lineParts.slice(1).join(", ")]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    addressLine: addressLineValue,
+    locality: inferredLocality,
+    displayLine: [addressLineValue, inferredLocality].filter(Boolean).join(", "),
+  };
+};
+
+const getStateLabelById = (states: any[], stateId: unknown): string => {
+  const numericId = Number(stateId);
+  if (!Number.isFinite(numericId)) return "";
+
+  const match = states.find(
+    (state: any) => Number(state?.stateId ?? state?.id) === numericId,
+  );
+  return String(match?.stateName ?? match?.name ?? match?.state ?? "").trim();
+};
+
+const getAddressStateLabel = (addr: any, states: any[]): string => {
+  const remembered = getRememberedAddressState(addr?.addressId, addr?.pinCode);
+  const direct = String(
+    addr?.stateName ?? addr?.state ?? remembered?.state ?? "",
+  ).trim();
+  if (direct) return direct;
+  if (remembered?.stateId != null) {
+    return getStateLabelById(states, remembered.stateId);
+  }
+  return getStateLabelById(states, addr?.stateId);
 };
 
 function TypeIcon({ typeId }: { typeId?: number }) {
@@ -123,8 +187,8 @@ export default function AddressList() {
       const matchedStateId = resolveStateId(states, data.state);
       setForm((f) => ({
         ...f,
-        city: data.city || f.city,
-        stateId: matchedStateId ?? f.stateId,
+        city: f.city.trim() ? f.city : data.city || f.city,
+        stateId: f.stateId ?? matchedStateId ?? null,
       }));
     }, 600);
 
@@ -154,8 +218,8 @@ export default function AddressList() {
           ...f,
           addressLine: f.addressLine || geo.road,
           locality: geo.suburb || f.locality,
-          city: geo.city || f.city,
-          stateId: matchedStateId ?? f.stateId,
+          city: f.city.trim() ? f.city : geo.city || f.city,
+          stateId: f.stateId ?? matchedStateId ?? null,
           pinCode: geo.postcode || f.pinCode,
         }));
         toast.success('Location auto-filled. Please verify the details.');
@@ -178,7 +242,19 @@ export default function AddressList() {
       editItem
         ? updateAddress(editItem.addressId, { ...data, userProfileId: userId })
         : createAddress({ ...data, userProfileId: userId }),
-    onSuccess: () => {
+    onSuccess: (saved: any, variables: any) => {
+      const savedAddressId = Number(
+        saved?.addressId ?? saved?.data?.addressId ?? editItem?.addressId,
+      );
+      const cacheKey =
+        Number.isFinite(savedAddressId) && savedAddressId > 0
+          ? savedAddressId
+          : variables?.pinCode ?? form.pinCode ?? null;
+      rememberAddressState(cacheKey, {
+        state: getStateLabelById(states, variables?.stateId ?? form.stateId) || undefined,
+        stateId: variables?.stateId ?? form.stateId ?? null,
+        pinCode: variables?.pinCode ?? form.pinCode ?? null,
+      });
       toast.success(editItem ? 'Address updated!' : 'Address saved!');
       qc.invalidateQueries({ queryKey: ['addresses', userId] });
       handleClose();
@@ -198,14 +274,16 @@ export default function AddressList() {
 
   const handleEdit = (addr: any) => {
     setEditItem(addr);
+    const parsed = extractAddressParts(addr.addressLine, addr.locality);
+    const remembered = getRememberedAddressState(addr?.addressId, addr?.pinCode);
     setForm({
       name:        addr.name        ?? '',
       phone:       addr.phone       ?? '',
-      addressLine: addr.addressLine ?? '',
-      locality:    addr.locality    ?? '',
+      addressLine: parsed.addressLine || addr.addressLine || '',
+      locality:    parsed.locality || addr.locality || '',
       city:        addr.city        ?? '',
       pinCode:     addr.pinCode     ?? '',
-      stateId:     addr.stateId     ?? null,
+      stateId:     addr.stateId ?? remembered?.stateId ?? resolveStateId(states, addr.state ?? addr.stateName ?? remembered?.state ?? '') ?? null,
       addressType: addr.typeId === 2 ? 'Work' : 'Home',
       isDefault:   addr.isDefault   ?? false,
     });
@@ -467,6 +545,7 @@ export default function AddressList() {
                   <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>
                     {addr.addressLine && <div>{addr.addressLine}</div>}
                     {addr.locality   && <div>{addr.locality}</div>}
+                    {getAddressStateLabel(addr, states) && <div>{getAddressStateLabel(addr, states)}</div>}
                     <div>{[addr.city, addr.pinCode].filter(Boolean).join(' - ')}</div>
                     {addr.phone && <div style={{ marginTop: 4, color: '#6b7280' }}>📞 {addr.phone}</div>}
                   </div>
