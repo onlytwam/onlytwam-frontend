@@ -226,15 +226,15 @@ export default function Cart() {
       return;
     }
     try {
-      const res = await listCoupons({
-        Filters: JSON.stringify([
-          {
-            property: "CouponCode",
-            comparison: "eq",
-            value: couponInput.trim().toLowerCase(),
-          },
-        ]),
-      });
+        const res = await listCoupons({
+          Filters: [
+            {
+              property: "CouponCode",
+              comparison: "eq",
+              value: couponInput.trim(),
+            },
+          ],
+        });
       const coupon = res?.list?.[0];
       if (!coupon) {
         toast.error("Invalid coupon code");

@@ -59,7 +59,12 @@ export const checkOutOfStock = async (data: any) => {
 
 // GET /api/Coupons  (FIX: was /Coupon singular)
 export const listCoupons = async (params?: any) => {
-  const response = await api.get("/Coupons", { params });
+  const response = await api.get("/Coupons/", {
+    params: {
+      ...params,
+      Filters: JSON.stringify(params?.Filters), 
+    },
+  });
   return response.data;
 };
 
