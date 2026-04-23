@@ -355,7 +355,7 @@ const styles: Record<string, React.CSSProperties> = {
 
 /* ─── Component ─────────────────────────────────────────────── */
 export default function Invoice() {
-  // ✅ Fix 1: typed useParams
+  //  Fix 1: typed useParams
   const { id } = useParams<{ id: string }>();
 
   const { data: order, isLoading } = useQuery({
@@ -364,7 +364,7 @@ export default function Invoice() {
     enabled: !!id,
   });
 
-  // ✅ Fix 2: inject Google Font + print CSS via useEffect (not <link> in JSX)
+  //  Fix 2: inject Google Font + print CSS via useEffect (not <link> in JSX)
   useEffect(() => {
     if (document.getElementById('twam-invoice-styles')) return;
     const link = document.createElement('link');
@@ -376,9 +376,46 @@ export default function Invoice() {
 
     const style = document.createElement('style');
     style.textContent = `
+      @page {
+        size: auto;
+        margin: 0mm;
+      }
       @media print {
-        body { background: #fff !important; }
-        .no-print { display: none !important; }
+        /* Remove browser's own date / title / URL header+footer */
+        html, body {
+          background: #fff !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        /* Hide site navbar, site footer, and action buttons */
+        header,
+        footer,
+        nav,
+        aside,
+        .no-print,
+        [class*="navbar"],
+        [class*="nav-bar"],
+        [class*="site-header"],
+        [class*="site-footer"],
+        [class*="topbar"],
+        [class*="bottom-bar"] {
+          display: none !important;
+          visibility: hidden !important;
+        }
+
+        /* Show only the invoice card */
+        body > *:not(.invoice-print-root) {
+          display: none !important;
+        }
+
+        .invoice-print-root {
+          display: block !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          min-height: unset !important;
+          background: #fff !important;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -406,7 +443,7 @@ export default function Invoice() {
 
   const items: any[] = order.orderItems || order.items || [];
 
-  // ✅ Fix 3: explicitly typed TotalRow array — no implicit `any` on `green`
+  //  Fix 3: explicitly typed TotalRow array — no implicit `any` on `green`
   const totals: TotalRow[] = [
     { label: 'Subtotal', value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}` },
     { label: 'Tax',      value: `₹${(order.taxAmount || 0).toLocaleString('en-IN')}` },
@@ -423,7 +460,7 @@ export default function Invoice() {
   ];
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="invoice-print-root">
       <div style={styles.card}>
 
         {/* Accent bar */}
@@ -432,7 +469,7 @@ export default function Invoice() {
         {/* ── Header ── */}
         <div style={styles.headerBand}>
           <div style={styles.brandBlock}>
-            <span style={styles.brandName}>TWAM</span>
+            <span style={styles.brandName}><img src="/assets/twam-white.jpeg" alt="" /></span>
             <span style={styles.brandTagline}>Only TWAM — It's all about you</span>
           </div>
           <div style={styles.invoiceMeta}>
@@ -465,7 +502,7 @@ export default function Invoice() {
                 <div style={styles.addressPhone}>{order.shippingAddress.phone}</div>
               </div>
 
-              {/* ✅ Fix 4: statusBadge is self-contained — no stray spans inside */}
+              {/*  Fix 4: statusBadge is self-contained — no stray spans inside */}
               <div style={styles.statusBadge}>
                 <div style={styles.statusDot} />
                 <div style={styles.statusLabel}>Status</div>
@@ -476,7 +513,7 @@ export default function Invoice() {
 
           {/* Items table */}
           <div style={styles.tableWrap}>
-            {/* ✅ Fix 5: header row and item rows are separate — no mixed spans */}
+            {/*  Fix 5: header row and item rows are separate — no mixed spans */}
             <div style={styles.tableHeadRow}>
               <span style={styles.thCell}>Product</span>
               <span style={styles.thCell}>Size</span>
@@ -500,11 +537,10 @@ export default function Invoice() {
             ))}
           </div>
 
-<<<<<<< Updated upstream
           {/* Totals */}
           <div style={styles.totalsSection}>
             <div style={styles.totalsBox}>
-              {/* ✅ Fix 6: destructure with typed TotalRow — no implicit any on `green` */}
+              {/*  Fix 6: destructure with typed TotalRow — no implicit any on `green` */}
               {totals.map(({ label, value, green }: TotalRow) => (
                 <div key={label} style={styles.totalRow}>
                   <span style={styles.totalLabel}>{label}</span>
@@ -517,21 +553,6 @@ export default function Invoice() {
                     {value}
                   </span>
                 </div>
-=======
-        {/* Totals */}
-        <div className="s-invoice-c5795d">
-          <table className="s-invoice-423b00">
-            <tbody>
-              {[
-                { label: 'Subtotal', value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}` },
-                { label: 'Shipping', value: (order.deliveryCharge || 0) === 0 ? 'FREE' : `₹${order.deliveryCharge}` },
-                ...(order.couponAmount > 0 ? [{ label: 'Coupon Discount', value: `−₹${order.couponAmount}`, green: true }] : []),
-              ].map(({ label, value, green }: any) => (
-                <tr key={label}>
-                  <td className="s-invoice-178719">{label}</td>
-                  <td className="s-invoice-d7f350" style={ {color: green ? 'var(--brand)' : '#000000'} }>{value}</td>
-                </tr>
->>>>>>> Stashed changes
               ))}
               <div style={styles.grandTotalRow}>
                 <span style={styles.grandTotalLabel}>Total</span>
