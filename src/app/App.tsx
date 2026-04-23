@@ -278,6 +278,8 @@ const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"));
 const AdminBulkUpload = lazy(
   () => import("@/features/admin/pages/AdminBulkUpload"),
 );
+// const AdminProductBulkUpload = lazy(() => import("@/features/admin/pages/AdminProductBulkUpload"));
+
 
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
@@ -814,6 +816,7 @@ export default function App() {
             <Route path="admin-dashboard" element={<AdminDashboard />} />
             <Route path="bulk-import" element={<AdminBulkUpload />} />
             <Route path="orders" element={<AdminOrders />} />
+            {/* <Route path="product-bulk-upload" element={<AdminProductBulkUpload />} /> */}
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id" element={<AdminProductForm />} />

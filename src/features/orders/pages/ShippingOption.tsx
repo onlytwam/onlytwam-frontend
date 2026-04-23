@@ -37,7 +37,6 @@ export default function ShippingOption() {
     setShipping,
     selectedShipping,
     getSubTotal,
-    getTaxAmount,
     couponDiscount,
   } = useCartStore();
   const buyNowSession = isBuyNow ? getBuyNowSession() : null;
@@ -49,7 +48,6 @@ export default function ShippingOption() {
     const store = useCartStore.getState();
     store.setSelectedItems?.(session.items as any);
     store.setSubTotal?.(session.subTotal);
-    store.setTaxAmount?.(session.taxAmount);
   }, [isBuyNow]);
 
   const [selectedId, setSelectedId] = useState<number | null>(
@@ -64,7 +62,6 @@ export default function ShippingOption() {
   });
 
   const subTotal = buyNowSession?.subTotal ?? getSubTotal();
-  const taxAmount = buyNowSession?.taxAmount ?? getTaxAmount();
   const normalizedOptions: ShippingOption[] = (
     (shippingOptions as any[]) || []
   ).map((opt: any) => {
@@ -106,7 +103,6 @@ export default function ShippingOption() {
   const total = Math.max(
     0,
     Number(subTotal) +
-      Number(taxAmount) +
       shippingCost -
       Number(couponDiscount || 0),
   );
@@ -302,10 +298,6 @@ export default function ShippingOption() {
               {
                 label: "Subtotal",
                 value: `Rs.${subTotal.toLocaleString("en-IN")}`,
-              },
-              {
-                label: "Tax",
-                value: `Rs.${taxAmount.toLocaleString("en-IN")}`,
               },
               {
                 label: "Shipping",

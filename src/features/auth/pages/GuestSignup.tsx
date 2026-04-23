@@ -90,9 +90,8 @@ export default function GuestSignup() {
       s + (i.finalPrice || 0) * (i.processedQuantity || i.quantity || 1),
     0,
   );
-  const taxAmount = Math.round(subTotal * TAX_RATE);
   const delivery = 99;
-  const total = subTotal + taxAmount + delivery;
+  const total = subTotal + delivery;
   const [showWhatsapp, setShowWhatsapp] = useState(false);
 
   // Resend timer
@@ -366,7 +365,6 @@ export default function GuestSignup() {
         countryId: Number(form.countryId) || undefined,
         pinCode: form.pinCode,
         subTotal,
-        taxAmount,
         deliveryCharge: delivery,
         totalAmount: total,
         isWhatsappNotification: whatsapp,

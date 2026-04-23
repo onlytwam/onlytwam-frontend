@@ -136,7 +136,6 @@ export default function Cart() {
     (s, i) => s + (i.finalPrice || 0) * (i.processedQuantity || 1),
     0,
   );
-  const taxAmount = Math.round(subTotal * TAX_RATE);
   const totalPayable = Math.max(0, subTotal - (couponDiscount ?? 0));
 
   const updateMutation = useMutation({
@@ -273,7 +272,6 @@ export default function Cart() {
     const store = useCartStore.getState();
     store.setSelectedItems?.(selectedItems);
     store.setSubTotal?.(subTotal);
-    store.setTaxAmount?.(taxAmount);
     if (!isAuth) {
       navigate("/user-products/payment-address");
       return;

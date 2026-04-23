@@ -500,6 +500,7 @@ export default function Invoice() {
             ))}
           </div>
 
+<<<<<<< Updated upstream
           {/* Totals */}
           <div style={styles.totalsSection}>
             <div style={styles.totalsBox}>
@@ -516,6 +517,21 @@ export default function Invoice() {
                     {value}
                   </span>
                 </div>
+=======
+        {/* Totals */}
+        <div className="s-invoice-c5795d">
+          <table className="s-invoice-423b00">
+            <tbody>
+              {[
+                { label: 'Subtotal', value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}` },
+                { label: 'Shipping', value: (order.deliveryCharge || 0) === 0 ? 'FREE' : `₹${order.deliveryCharge}` },
+                ...(order.couponAmount > 0 ? [{ label: 'Coupon Discount', value: `−₹${order.couponAmount}`, green: true }] : []),
+              ].map(({ label, value, green }: any) => (
+                <tr key={label}>
+                  <td className="s-invoice-178719">{label}</td>
+                  <td className="s-invoice-d7f350" style={ {color: green ? 'var(--brand)' : '#000000'} }>{value}</td>
+                </tr>
+>>>>>>> Stashed changes
               ))}
               <div style={styles.grandTotalRow}>
                 <span style={styles.grandTotalLabel}>Total</span>

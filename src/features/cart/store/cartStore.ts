@@ -12,7 +12,6 @@ interface CartState {
   // persisted selected items for checkout flow
   _selectedItems: CartModel[];
   _subTotal: number;
-  _taxAmount: number;
 
   setItems: (items: CartModel[]) => void;
   toggleSelectAll: () => void;
@@ -25,7 +24,6 @@ interface CartState {
   setShipping: (option: ShippingOption | null) => void;
   getSelectedItems: () => CartModel[];
   getSubTotal: () => number;
-  getTaxAmount: () => number;
   getTotalPayable: () => number;
   getTotalDiscount: () => number;
   getSelectedItemsCount: () => number;
@@ -35,7 +33,6 @@ interface CartState {
   /** Store selected items for Payment / PaymentAddress pages */
   setSelectedItems: (items: CartModel[]) => void;
   setSubTotal: (v: number) => void;
-  setTaxAmount: (v: number) => void;
 }
 
 const recalculate = (items: CartModel[]) => ({
@@ -56,7 +53,6 @@ export const useCartStore = create<CartState>((set, get) => ({
   selectAll: false,
   _selectedItems: [],
   _subTotal: 0,
-  _taxAmount: 0,
 
   setItems: (items) => {
     const itemsWithSelection = items.map((i) => ({ ...i, isSelected: true }));
@@ -102,13 +98,6 @@ export const useCartStore = create<CartState>((set, get) => ({
       .reduce((acc, i) => acc + (i.finalPrice || 0) * (i.processedQuantity || 1), 0);
   },
 
-  getTaxAmount: () => {
-    const stored = get()._taxAmount;
-    if (stored > 0) return stored;
-    const sub = get().getSubTotal();
-    return Math.round(sub * 0.05);
-  },
-
   getTotalPayable: () => {
     const sub      = get().getSubTotal();
     const shipping = (get().selectedShipping as any)?.cost ?? (get().selectedShipping as any)?.deliveryCharges ?? 0;
@@ -134,7 +123,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({
       items: [], totalItems: 0, totalPrice: 0,
       appliedCoupon: null, couponDiscount: 0, selectedShipping: null,
-      _selectedItems: [], _subTotal: 0, _taxAmount: 0,
+      _selectedItems: [], 
     }),
 
   clearCheckoutSelection: () =>
@@ -144,10 +133,9 @@ export const useCartStore = create<CartState>((set, get) => ({
       selectedShipping: null,
       _selectedItems: [],
       _subTotal: 0,
-      _taxAmount: 0,
+     
     }),
 
   setSelectedItems: (items) => set({ _selectedItems: items }),
   setSubTotal:      (v)     => set({ _subTotal: v }),
-  setTaxAmount:     (v)     => set({ _taxAmount: v }),
 }));

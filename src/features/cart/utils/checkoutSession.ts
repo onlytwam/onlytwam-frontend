@@ -6,7 +6,6 @@ export interface CheckoutSessionState {
   mode: CheckoutMode;
   items: CartModel[];
   subTotal: number;
-  taxAmount: number;
   shipping?: ShippingOption | null;
   createdAt: string;
 }
@@ -33,7 +32,6 @@ const computeSubTotal = (items: CartModel[]) =>
     0,
   );
 
-const computeTaxAmount = (subTotal: number) => Math.round(subTotal * 0.05);
 
 export const readCheckoutSession = (): CheckoutSessionState | null => {
   if (typeof window === "undefined") return null;
@@ -47,13 +45,11 @@ export const readCheckoutSession = (): CheckoutSessionState | null => {
 
     const items = parsed.items.map(normalizeItem);
     const subTotal = toNumber(parsed.subTotal, computeSubTotal(items));
-    const taxAmount = toNumber(parsed.taxAmount, computeTaxAmount(subTotal));
 
     return {
       mode: parsed.mode === "buyNow" ? "buyNow" : "cart",
       items,
       subTotal,
-      taxAmount,
       shipping: parsed.shipping ?? null,
       createdAt:
         typeof parsed.createdAt === "string"
@@ -71,20 +67,17 @@ export const saveCheckoutSession = (session: {
   mode?: CheckoutMode;
   items: CartModel[];
   subTotal?: number;
-  taxAmount?: number;
   shipping?: ShippingOption | null;
 }) => {
   if (typeof window === "undefined") return;
 
   const items = (session.items ?? []).map(normalizeItem);
   const subTotal = session.subTotal ?? computeSubTotal(items);
-  const taxAmount = session.taxAmount ?? computeTaxAmount(subTotal);
 
   const payload: CheckoutSessionState = {
     mode: session.mode === "buyNow" ? "buyNow" : "cart",
     items,
     subTotal,
-    taxAmount,
     shipping: session.shipping ?? null,
     createdAt: new Date().toISOString(),
   };
@@ -101,13 +94,11 @@ export const updateCheckoutSessionItems = (
 
   const nextItems = updater(current.items);
   const subTotal = extras?.subTotal ?? computeSubTotal(nextItems);
-  const taxAmount = extras?.taxAmount ?? computeTaxAmount(subTotal);
 
   const next: CheckoutSessionState = {
     mode: extras?.mode ?? current.mode,
     items: nextItems.map(normalizeItem),
     subTotal,
-    taxAmount,
     shipping: extras?.shipping ?? current.shipping ?? null,
     createdAt: new Date().toISOString(),
   };

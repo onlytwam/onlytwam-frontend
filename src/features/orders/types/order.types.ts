@@ -12,7 +12,6 @@ export interface OrderModel {
   couponId?: number;
   couponAmount?: number;
   deliveryCharge?: number;
-  taxAmount?: number;
   shippingTypeId?: number;
   subTotal: number;
   cartId?: number[];

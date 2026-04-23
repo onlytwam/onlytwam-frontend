@@ -96,7 +96,6 @@ export default function OrderDetails() {
             {[
               ['Subtotal',         formatPrice(order.subTotal       || 0)],
               ['Shipping',         formatPrice(order.deliveryCharge || 0)],
-              ['Tax',              formatPrice(order.taxAmount      || 0)],
               ['Coupon Discount',  order.couponAmount ? `−${formatPrice(order.couponAmount)}` : null],
             ].filter(([, v]) => v !== null).map(([label, value]) => (
               <div key={label as string} className="d-flex justify-content-between py-1 s-addresslist-9eec06">

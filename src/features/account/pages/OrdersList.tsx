@@ -523,9 +523,6 @@ export function LegacyOrdersListExpanded() {
                               <tr><td className="text-muted pe-4">Shipping</td>
                                 <td>{order.deliveryCharge === 0 ? 'FREE' : price(order.deliveryCharge)}</td></tr>
                             )}
-                            {order.taxAmount > 0 && (
-                              <tr><td className="text-muted pe-4">Tax</td><td>{price(order.taxAmount)}</td></tr>
-                            )}
                             {order.couponAmount > 0 && (
                               <tr><td className="text-success pe-4">Discount</td>
                                 <td className="text-success">−{price(order.couponAmount)}</td></tr>

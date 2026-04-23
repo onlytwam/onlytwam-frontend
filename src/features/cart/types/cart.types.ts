@@ -31,7 +31,6 @@ export interface CartModel {
   couponId?: number | null;
   couponAmount?: number | null;
   couponDiscount?: number | null;
-  taxAmount?: number | null;
 }
 
 export interface ShippingOption {

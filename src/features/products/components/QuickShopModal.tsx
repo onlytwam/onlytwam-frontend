@@ -522,7 +522,6 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     if (hasValidToken()) {
       store.setSelectedItems?.([buyNowItem as any]);
       store.setSubTotal?.(Number(dispPrice || 0) * qty);
-      store.setTaxAmount?.(Math.round(Number(dispPrice || 0) * qty * 0.05));
     }
 
     onClose();

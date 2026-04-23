@@ -1072,7 +1072,6 @@ export default function ProductDetail() {
     };
 
     const subTotal = (dispPrice || 0) * quantity;
-    const taxAmount = Math.round(subTotal * 0.05);
     setBuyNowSession([buyNowItem as any]);
     const store = useCartStore.getState();
     store.removeCoupon?.();
@@ -1083,7 +1082,6 @@ export default function ProductDetail() {
       // then go straight to payment address with ?buyNow=1.
       store.setSelectedItems?.([buyNowItem as any]);
       store.setSubTotal?.(subTotal);
-      store.setTaxAmount?.(taxAmount);
       navigate("/user-products/payment-address?buyNow=1", {
         state: returnState,
       });

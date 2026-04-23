@@ -5,7 +5,6 @@ const BUY_NOW_SESSION_KEY = "buyNowCheckout";
 export interface BuyNowSession {
   items: CartModel[];
   subTotal: number;
-  taxAmount: number;
   createdAt: number;
 }
 
@@ -33,11 +32,9 @@ export const setBuyNowSession = (items: CartModel[]) => {
       Number(item.finalPrice || 0) * Number(item.processedQuantity || 1),
     0,
   );
-  const taxAmount = Math.round(subTotal * 0.05);
   const payload: BuyNowSession = {
     items: safeItems,
     subTotal,
-    taxAmount,
     createdAt: Date.now(),
   };
 

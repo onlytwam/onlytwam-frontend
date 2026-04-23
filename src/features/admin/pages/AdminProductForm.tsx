@@ -54,7 +54,6 @@ const vdSchema = z.object({
   finalPrice: z.coerce.number().min(1, 'Final price is required'),
   cgst: z.coerce.number().min(0, 'CGST is required'),
   sgst: z.coerce.number().min(0, 'SGST is required'),
-  taxAmount: z.coerce.number().optional().nullable(),
   availableStockQuantity: z.coerce.number().optional().nullable(),
   processedStockQuantity: z.coerce.number().optional().nullable(),
   amendmentStockQuantity: z.coerce.number().optional().nullable(),
@@ -414,7 +413,6 @@ export default function AdminProductForm() {
       sVD('finalPrice', editVD.finalPrice ?? '');
       sVD('cgst', editVD.cgst ?? 0);
       sVD('sgst', editVD.sgst ?? 0);
-      sVD('taxAmount', editVD.taxAmount ?? 0);
       sVD('availableStockQuantity', editVD.availableStockQuantity ?? '');
       sVD('processedStockQuantity', editVD.processedStockQuantity ?? '');
       sVD('amendmentStockQuantity', editVD.amendmentStockQuantity ?? '');
@@ -432,12 +430,6 @@ export default function AdminProductForm() {
     else if (mrp > 0 && fin > mrp)
       sVD('discountPercent', 0);
   }, [mrp, fin, sVD]);
-
-  // Auto tax amount = finalPrice × (cgst + sgst) / 100
-  useEffect(() => {
-    if (fin > 0 && (cgst > 0 || sgst > 0))
-      sVD('taxAmount', parseFloat(((fin * (cgst + sgst)) / 100).toFixed(2)));
-  }, [fin, cgst, sgst, sVD]);
 
   // ── Image upload ──────────────────────────────────────────────────────────────
   const processFiles = async (files: File[]) => {
@@ -597,7 +589,6 @@ export default function AdminProductForm() {
         cgst: Number(data.cgst),
         sgst: Number(data.sgst),
         discountPercent: data.discountPercent || 0,
-        taxAmount: data.taxAmount || 0,
         availableStockQuantity: data.availableStockQuantity || 0,
         processedStockQuantity: data.processedStockQuantity || 0,
         amendmentStockQuantity: data.amendmentStockQuantity || 0,
@@ -1105,7 +1096,6 @@ export default function AdminProductForm() {
                           <td style={{ padding: '12px', fontSize: 14, fontWeight: 600 }}>₹{vd.finalPrice}</td>
                           <td style={{ padding: '12px', fontSize: 14 }}>{vd.cgst ?? '—'}%</td>
                           <td style={{ padding: '12px', fontSize: 14 }}>{vd.sgst ?? '—'}%</td>
-                          <td style={{ padding: '12px', fontSize: 14 }}>₹{vd.taxAmount ?? '—'}</td>
                           <td style={{ padding: '12px', fontSize: 14 }}>{vd.availableStockQuantity ?? '—'}</td>
                           <td style={{ padding: '12px' }}>
                             <span style={{ ...badgeStyle(vd.state), padding: '3px 10px', fontSize: 11 }}>{vd.state || 'Draft'}</span>
@@ -1191,10 +1181,6 @@ export default function AdminProductForm() {
                   </Field>
                   <Field label="SGST" required error={eVD.sgst?.message as string}>
                     <input type="number" {...rVD('sgst', { valueAsNumber: true })} style={inp} placeholder="e.g. 6" min="0" step="0.01" />
-                  </Field>
-                  <Field label="Tax Amount">
-                    <input type="number" {...rVD('taxAmount', { valueAsNumber: true })}
-                      style={{ ...inp, color: sub, background: '#fafafa' }} readOnly placeholder="Auto" />
                   </Field>
                 </div>
 

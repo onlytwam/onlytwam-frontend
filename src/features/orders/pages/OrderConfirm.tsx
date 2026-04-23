@@ -119,14 +119,6 @@ export default function OrderConfirm() {
                 </span>
               </div>
             )}
-            {(order as any).taxAmount > 0 && (
-              <div className="s-orderconfirm-39c60a">
-                <span className="s-quickcart-08341f">Tax</span>
-                <span className="s-addresslist-9eec06">
-                  ₹{(order as any).taxAmount}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Delivery address — use only fields returned by backend */}

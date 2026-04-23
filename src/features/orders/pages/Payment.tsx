@@ -51,7 +51,6 @@ export default function Payment() {
   const {
     getSelectedItems,
     getSubTotal,
-    getTaxAmount,
     selectedShipping,
     couponDiscount,
     appliedCoupon,
@@ -80,7 +79,6 @@ export default function Payment() {
     const store = useCartStore.getState();
     store.setSelectedItems?.(session.items as any);
     store.setSubTotal?.(session.subTotal);
-    store.setTaxAmount?.(session.taxAmount);
   }, [isBuyNow]);
 
   const selectedAddressId = Number(
@@ -96,7 +94,6 @@ export default function Payment() {
   const cartSelectedItems = getSelectedItems();
   const selectedItems = buyNowItems.length ? buyNowItems : cartSelectedItems;
   const subTotal = buyNowSession?.subTotal ?? getSubTotal();
-  const taxAmount = buyNowSession?.taxAmount ?? getTaxAmount();
   const shippingCost = Number(
     (selectedShipping as any)?.cost ??
       (selectedShipping as any)?.deliveryCharges ??
@@ -104,7 +101,7 @@ export default function Payment() {
   );
   const totalPayable = Math.max(
     0,
-    subTotal + taxAmount + shippingCost - (couponDiscount ?? 0),
+    subTotal + shippingCost - (couponDiscount ?? 0),
   );
 
   const deliveryAddress: any = (addresses as any[]).find(
@@ -267,7 +264,6 @@ export default function Payment() {
       userProfileId: userId,
       subTotal,
       totalAmount: totalPayable,
-      taxAmount,
       deliveryCharge: shippingCost,
       shippingTypeId: (selectedShipping as any)?.shippingTypeId ?? null,
       shippingAddressId: selectedAddressId,
@@ -588,10 +584,6 @@ export default function Payment() {
               {
                 label: "Subtotal",
                 value: `Rs.${subTotal.toLocaleString("en-IN")}`,
-              },
-              {
-                label: "Tax",
-                value: `Rs.${taxAmount.toLocaleString("en-IN")}`,
               },
               {
                 label: "Shipping",
