@@ -430,6 +430,7 @@ export default function Payment() {
     0,
     subTotal + shippingCost - (couponDiscount ?? 0),
   );
+  const surpriseGift = checkoutSession?.surpriseGift ?? null;
 
   const deliveryAddress: any = (addresses as any[]).find(
     (a: any) => a.addressId === selectedAddressId,
@@ -758,6 +759,9 @@ export default function Payment() {
       orderNumber: null,
       paymentMethod: "Online Payment",
       isWhatsappNotification: whatsappUpdates,
+      // Internal-only metadata for fulfillment and ekart handling.
+      surpriseGiftInternalId: surpriseGift?.internalGiftId ?? null,
+      surpriseGiftThreshold: surpriseGift?.threshold ?? null,
       orderItems: selectedItems.map((i: any) => ({
         productId: i.productId,
         // FIX: include productVariantId so OrderItems.ProductVariantId is stored in DB.
@@ -905,6 +909,73 @@ export default function Payment() {
               </p>
             </div>
             <div className="s-payment-726fa8">
+              {surpriseGift && (
+                <div
+                  className="d-flex gap-3 mb-3 checkout-summary-item"
+                  style={{
+                    border: "1px solid rgba(107, 15, 42, 0.12)",
+                    borderRadius: 14,
+                    padding: 12,
+                    background: "linear-gradient(135deg, #fff8f1, #ffffff)",
+                  }}
+                >
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 16,
+                      background:
+                        "linear-gradient(145deg, #6b0f2a 0%, #9e6070 100%)",
+                      position: "relative",
+                      flexShrink: 0,
+                      boxShadow: "0 10px 20px rgba(107,15,42,0.16)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        top: 8,
+                        bottom: 8,
+                        width: 12,
+                        transform: "translateX(-50%)",
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.9)",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 8,
+                        right: 8,
+                        top: "50%",
+                        height: 12,
+                        transform: "translateY(-50%)",
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.9)",
+                      }}
+                    />
+                    <i
+                      className="bi bi-gift-fill"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#fff",
+                        fontSize: 24,
+                        filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.18))",
+                      }}
+                    />
+                  </div>
+                  <div className="checkout-summary-item__body">
+                    <p className="mb-0 s-cart-d5c56b">{surpriseGift.label}</p>
+                    <p className="mb-0 s-userdashboar-4adb1b">Rs.0 x 1</p>
+                  </div>
+                </div>
+              )}
               {selectedItems.map((item: any, i: number) => (
                 <div
                   key={i}

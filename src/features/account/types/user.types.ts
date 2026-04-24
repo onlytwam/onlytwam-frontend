@@ -11,6 +11,7 @@ export interface User {
   phoneNumber?: string;
   profileImageUrl?: string;
   roleId: number;
+  isRandomPassword?: boolean;
 }
 
 export interface AuthenticationModel {

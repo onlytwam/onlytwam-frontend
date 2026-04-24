@@ -17,6 +17,8 @@ export interface OrderModel {
   cartId?: number[];
   orderNumber: string | null;
   isWhatsappNotification?: boolean | null;
+  surpriseGiftInternalId?: string | null;
+  surpriseGiftThreshold?: number | null;
 }
 
 export interface OrderItemModel {

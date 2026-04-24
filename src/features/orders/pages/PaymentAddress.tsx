@@ -18,9 +18,14 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import {
+  checkForgotPasswordChannels,
+  getUserInfo,
+  normalizeUserInfo,
+} from "@/features/auth/api/auth.api";
 import { useCartStore } from "@/features/cart/store/cartStore";
 import { readCheckoutSession } from "@/features/cart/utils/checkoutSession";
-import { clearBuyNowSession, getBuyNowSession } from "@/shared/utils/checkoutSession";
+import { getBuyNowSession } from "@/shared/utils/checkoutSession";
 import {
   listAddress,
   createAddress,
@@ -37,6 +42,7 @@ import api from "@/shared/api/axiosInstance";
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const IVORY_DK = "var(--ivory)";
 const FONT_UI = '"Trebuchet MS", Arial, sans-serif';
+const GUEST_OTP_LENGTH = 6;
 
 // ── Empty form ────────────────────────────────────────────────────────────────
 const emptyForm = {
@@ -743,22 +749,6 @@ export default function PaymentAddress() {
   const { getUserId, hasValidToken } = useAuthStore();
   const userId = getUserId();
   const isAuth = hasValidToken();
-  const clearCheckoutSelection = useCartStore(
-    (state) => state.clearCheckoutSelection,
-  );
-
-  useEffect(() => {
-    if (!isBuyNow) return;
-
-    const handlePopState = () => {
-      clearBuyNowSession();
-      clearCheckoutSelection();
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [isBuyNow, clearCheckoutSelection]);
-
   useEffect(() => {
     const session = isBuyNow ? getBuyNowSession() : readCheckoutSession();
     if (!session?.items?.length) return;
@@ -863,8 +853,13 @@ export default function PaymentAddress() {
         ? updateAddress(editItem.addressId, { ...data, userProfileId: userId })
         : createAddress({ ...data, userProfileId: userId }),
     onSuccess: (saved: any, variables: any) => {
-      const savedAddressId =
-        Number(saved?.addressId ?? saved?.data?.addressId ?? editItem?.addressId);
+      const savedPayload = saved?.data ?? saved ?? {};
+      const savedAddressId = Number(
+        savedPayload?.addressId ??
+          saved?.addressId ??
+          editItem?.addressId ??
+          variables?.addressId,
+      );
       const rememberedState = String(variables?.state ?? "").trim();
       const cacheKey =
         Number.isFinite(savedAddressId) && savedAddressId > 0
@@ -875,8 +870,39 @@ export default function PaymentAddress() {
         stateId: variables?.stateId ?? null,
         pinCode: variables?.pinCode ?? null,
       });
+
+      const nextAddress = {
+        ...(variables ?? {}),
+        ...savedPayload,
+        addressId:
+          Number.isFinite(savedAddressId) && savedAddressId > 0
+            ? savedAddressId
+            : editItem?.addressId ?? savedPayload?.addressId ?? null,
+        userProfileId: userId || variables?.userProfileId || "",
+      };
+
+      qc.setQueryData(["addresses", userId], (current: any[] = []) => {
+        const list = Array.isArray(current) ? current : [];
+        if (editItem?.addressId) {
+          return list.map((addr: any) =>
+            addr.addressId === editItem.addressId ? { ...addr, ...nextAddress } : addr,
+          );
+        }
+
+        if (savedAddressId > 0 && list.some((addr: any) => addr.addressId === savedAddressId)) {
+          return list.map((addr: any) =>
+            addr.addressId === savedAddressId ? { ...addr, ...nextAddress } : addr,
+          );
+        }
+
+        return [nextAddress, ...list];
+      });
+
       toast.success(editItem ? "Address updated!" : "Address saved!");
       qc.invalidateQueries({ queryKey: ["addresses", userId] });
+      if (Number.isFinite(savedAddressId) && savedAddressId > 0) {
+        setSelectedAddressId(savedAddressId);
+      }
       setShowForm(false);
       setEditItem(null);
       setForm(createDraftForm(user));
@@ -909,7 +935,8 @@ export default function PaymentAddress() {
 
   // ── OTP flow ────────────────────────────────────────────────────────────
   const handleSendOtp = async () => {
-    if (!guestEmail || !/\S+@\S+\.\S+/.test(guestEmail)) {
+    const email = guestEmail.trim().toLowerCase();
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
       setOtpError("Enter a valid email address");
       return;
     }
@@ -917,8 +944,26 @@ export default function PaymentAddress() {
     setOtpError("");
     setEmailRegistered(false);
     try {
+      const registration = await checkForgotPasswordChannels(email);
+      if (registration.registered) {
+        setEmailRegistered(true);
+        setOtpSent(false);
+        setOtpValue("");
+        setResendTimer(0);
+        toast.error(
+          "This email is already registered. Please sign in. If you forgot your password, please reset it.",
+        );
+        return;
+      }
+    } catch {
+      setOtpError(
+        "Unable to verify whether this email is registered. Please try again.",
+      );
+      return;
+    }
+    try {
       await api.post("/auth/send-otp", {
-        email: guestEmail.toLowerCase(),
+        email,
         purpose: "guest_checkout",
       });
       setOtpSent(true);
@@ -927,9 +972,25 @@ export default function PaymentAddress() {
     } catch (err: any) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
-      if (status === 409 || (typeof detail === "object" && detail?.exists))
+      const message = String(
+        err?.response?.data?.message ??
+          (typeof detail === "string" ? detail : "") ??
+          "",
+      ).trim();
+      const isRegistered =
+        status === 409 ||
+        (typeof detail === "object" && detail?.exists) ||
+        /already registered|already exists|exists/i.test(message);
+
+      if (isRegistered) {
         setEmailRegistered(true);
-      else if (status === 400)
+        setOtpSent(false);
+        setOtpValue("");
+        setResendTimer(0);
+        toast.error(
+          "This email is already registered. Please sign in. If you forgot your password, please reset it.",
+        );
+      } else if (status === 400)
         setOtpError(typeof detail === "string" ? detail : "Invalid email.");
       else setOtpError("Failed to send OTP. Please try again.");
     } finally {
@@ -938,8 +999,8 @@ export default function PaymentAddress() {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < 4) {
-      setOtpError("Enter the OTP sent to your email");
+    if (!otpValue || otpValue.length < GUEST_OTP_LENGTH) {
+      setOtpError(`Enter all ${GUEST_OTP_LENGTH} digits of the OTP`);
       return;
     }
     setOtpLoading(true);
@@ -952,10 +1013,21 @@ export default function PaymentAddress() {
       });
       if (res.data?.access_token) {
         const { login } = useAuthStore.getState();
-        login(
-          { userId: "", email: guestEmail, roleId: 2, firstName: "" } as any,
-          res.data.access_token,
-        );
+        let userInfo: any = {
+          userId: "",
+          email: guestEmail,
+          roleId: 2,
+          firstName: "",
+        };
+
+        try {
+          const rawInfo = await getUserInfo(res.data.access_token);
+          userInfo = normalizeUserInfo(rawInfo);
+        } catch {
+          // Best-effort only. The address can still be saved immediately via cache update.
+        }
+
+        login(userInfo as any, res.data.access_token);
       }
       setOtpVerified(true);
       setResendTimer(0);
@@ -1141,6 +1213,7 @@ export default function PaymentAddress() {
                       setOtpError("");
                       setOtpSent(false);
                       setOtpValue("");
+                      setEmailRegistered(false);
                     }}
                     placeholder="you@example.com"
                     disabled={otpSent}
@@ -1186,28 +1259,32 @@ export default function PaymentAddress() {
                       value={otpValue}
                       onChange={(e) => {
                         setOtpValue(
-                          e.target.value.replace(/\D/g, "").slice(0, 6),
+                          e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, GUEST_OTP_LENGTH),
                         );
                         setOtpError("");
                       }}
                       onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
                       placeholder="• • • • • •"
-                      maxLength={6}
+                      maxLength={GUEST_OTP_LENGTH}
                       autoComplete="one-time-code"
                       className="s-paymentaddre-66b84d s-paymentaddre-ffd8281d"
                     />
                     <button
                       type="button"
                       onClick={handleVerifyOtp}
-                      disabled={otpLoading || otpValue.length < 4}
+                      disabled={otpLoading || otpValue.length < GUEST_OTP_LENGTH}
                       className="s-paymentaddre-24677c"
                       style={{
                         background:
-                          otpValue.length >= 4
+                          otpValue.length >= GUEST_OTP_LENGTH
                             ? "var(--brand)"
                             : "var(--ivory)",
                         cursor:
-                          otpValue.length >= 4 ? "pointer" : "not-allowed",
+                          otpValue.length >= GUEST_OTP_LENGTH
+                            ? "pointer"
+                            : "not-allowed",
                         fontFamily: FONT_UI,
                       }}
                     >

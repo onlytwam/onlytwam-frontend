@@ -5,6 +5,7 @@ import {
   Outlet,
   useParams,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import {
   lazy,
@@ -390,9 +391,72 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   ],
 };
 
+const BUY_NOW_QUERY_VALUE = "1";
+const BUY_NOW_CART_PATH = "/user-products/cart?buyNow=1";
+const BUY_NOW_BREADCRUMB_PATHS = new Set([
+  "/cart",
+  "/user-products/cart",
+  "/user-products/payment-address",
+  "/user-products/shipping-option",
+  "/user-products/payment",
+]);
+
+function isBuyNowCheckout(search: string) {
+  return new URLSearchParams(search).get("buyNow") === BUY_NOW_QUERY_VALUE;
+}
+
+function withBuyNowQuery(path: string) {
+  if (path === "/cart" || path === "/user-products/cart") {
+    return BUY_NOW_CART_PATH;
+  }
+
+  if (
+    path === "/user-products/payment-address" ||
+    path === "/user-products/shipping-option" ||
+    path === "/user-products/payment"
+  ) {
+    return `${path}?buyNow=1`;
+  }
+
+  return path;
+}
+
+function rewriteBuyNowBreadcrumbs(items: StaticCrumbs, search: string) {
+  if (!isBuyNowCheckout(search)) return items;
+
+  return items.map((item) =>
+    item.path ? { ...item, path: withBuyNowQuery(item.path) } : item,
+  );
+}
+
+function shouldShowBuyNowLabel(pathname: string, search: string) {
+  return isBuyNowCheckout(search) && BUY_NOW_BREADCRUMB_PATHS.has(pathname);
+}
+
+function getCheckoutBackTarget(pathname: string, search: string) {
+  if (!isBuyNowCheckout(search)) return null;
+
+  if (pathname === "/user-products/payment-address") {
+    return BUY_NOW_CART_PATH;
+  }
+
+  if (pathname === "/user-products/shipping-option") {
+    return "/user-products/payment-address?buyNow=1";
+  }
+
+  if (pathname === "/user-products/payment") {
+    return "/user-products/shipping-option?buyNow=1";
+  }
+
+  return null;
+}
+
 function AutoBreadcrumb() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { crumbs: storeCrumbs, clearCrumbs } = useBreadcrumbStore();
+  const buyNowLabel = shouldShowBuyNowLabel(pathname, search)
+    ? "Buy Now"
+    : undefined;
 
   useEffect(() => {
     clearCrumbs();
@@ -405,7 +469,12 @@ function AutoBreadcrumb() {
     return null;
 
   if (storeCrumbs && storeCrumbs.length > 0) {
-    return <Breadcrumb items={storeCrumbs} />;
+    return (
+      <Breadcrumb
+        items={rewriteBuyNowBreadcrumbs(storeCrumbs, search)}
+        contextLabel={buyNowLabel}
+      />
+    );
   }
 
   let trail = STATIC_ROUTE_CRUMBS[pathname];
@@ -422,14 +491,23 @@ function AutoBreadcrumb() {
   if (!trail) return null;
 
   const items = [{ label: "Home", path: "/" }, ...trail];
-  return <Breadcrumb items={items} />;
+  return (
+    <Breadcrumb
+      items={rewriteBuyNowBreadcrumbs(items, search)}
+      contextLabel={buyNowLabel}
+    />
+  );
 }
 
 function MainLayout() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const mobileBackHeaderTitle = isMobile
     ? getMobileBackHeaderTitle(pathname)
+    : null;
+  const mobileBackTarget = isMobile
+    ? getCheckoutBackTarget(pathname, search)
     : null;
 
   return (
@@ -439,7 +517,12 @@ function MainLayout() {
       <AutoBreadcrumb />
       <main className="s-app-52dcac">
         {mobileBackHeaderTitle && (
-          <MobileBackHeader title={mobileBackHeaderTitle} />
+          <MobileBackHeader
+            title={mobileBackHeaderTitle}
+            onBack={
+              mobileBackTarget ? () => navigate(mobileBackTarget) : undefined
+            }
+          />
         )}
         <Outlet />
       </main>

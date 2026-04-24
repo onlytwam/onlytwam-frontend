@@ -1071,24 +1071,12 @@ export default function ProductDetail() {
       isSelected: true,
     };
 
-    const subTotal = (dispPrice || 0) * quantity;
     setBuyNowSession([buyNowItem as any]);
     const store = useCartStore.getState();
     store.removeCoupon?.();
     store.setShipping?.(null);
 
-    if (hasValidToken()) {
-      // Push ONLY the buy now item into the cart store (not the real cart),
-      // then go straight to payment address with ?buyNow=1.
-      store.setSelectedItems?.([buyNowItem as any]);
-      store.setSubTotal?.(subTotal);
-      navigate("/user-products/payment-address?buyNow=1", {
-        state: returnState,
-      });
-      return;
-    }
-
-    navigate("/user-products/payment-address?buyNow=1", {
+    navigate("/user-products/cart?buyNow=1", {
       state: returnState,
     });
   };

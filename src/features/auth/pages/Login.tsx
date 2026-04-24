@@ -41,6 +41,18 @@ function isEmail(v: string) {
   return /\S+@\S+\.\S+/.test(v.trim());
 }
 
+const ADMIN_ROLES = new Set([1, 3, 4, 5, 6]);
+
+function getPostLoginPath(
+  roleId: number,
+  isRandomPassword: boolean | undefined,
+  redirectTo: string,
+) {
+  if (isRandomPassword) return "/account/change-password";
+  if (ADMIN_ROLES.has(roleId)) return "/admin/admin-dashboard";
+  return redirectTo;
+}
+
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email or phone is required"),
   password: z.string().min(1, "Password is required"),
@@ -103,7 +115,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { login, isAuthenticated, isSyncing } = useAuthStore();
+  const { login, isAuthenticated, isSyncing, user } = useAuthStore();
   const { setMenus } = useMenuStore();
   const isMobile = useIsMobile();
 
@@ -124,8 +136,23 @@ export default function Login() {
   } | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated && !isSyncing) navigate(redirectTo, { replace: true });
-  }, [isAuthenticated, isSyncing]);
+    if (!isAuthenticated || isSyncing) return;
+    navigate(
+      getPostLoginPath(
+        user?.roleId ?? 0,
+        user?.isRandomPassword,
+        redirectTo,
+      ),
+      { replace: true },
+    );
+  }, [
+    isAuthenticated,
+    isSyncing,
+    navigate,
+    redirectTo,
+    user?.isRandomPassword,
+    user?.roleId,
+  ]);
 
   const loginForm = useForm({
     resolver: zodResolver(loginSchema),
@@ -174,16 +201,20 @@ export default function Login() {
       sessionStorage.setItem("menus", JSON.stringify(cats));
       setMenus(cats);
 
-      const ADMIN_ROLES = new Set([1, 3, 4, 5, 6]);
       const guestCartExists = !!localStorage.getItem("guestCart");
       const guestWishlistExists = !!localStorage.getItem("guestWishlist");
       if (guestCartExists || guestWishlistExists)
         toast.success("Syncing your cart and wishlist...", { duration: 2000 });
 
       await login(userInfo as any, tokenData.access_token);
-      if (ADMIN_ROLES.has(userInfo.roleId))
-        navigate("/admin/admin-dashboard", { replace: true });
-      else navigate(redirectTo, { replace: true });
+      navigate(
+        getPostLoginPath(
+          userInfo.roleId,
+          userInfo.isRandomPassword,
+          redirectTo,
+        ),
+        { replace: true },
+      );
     } catch (err: any) {
       const msg = extractErrorMessage(err).toLowerCase();
       if (msg.includes("invalid") || err?.response?.status === 400)

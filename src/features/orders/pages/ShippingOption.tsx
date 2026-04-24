@@ -8,6 +8,7 @@ import {
   saveCheckoutSession,
 } from "@/features/cart/utils/checkoutSession";
 import { listDeliveryCharges } from "@/features/cart/api/cart.api";
+import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import type { ShippingOption } from "@/shared/types";
 import { getBuyNowSession } from "@/shared/utils/checkoutSession";
 
@@ -28,6 +29,9 @@ const FALLBACK_OPTION: ShippingOption = {
   estimatedDays: 5,
 };
 
+// Mobile-only free shipping unlock threshold.
+const MOBILE_FREE_SHIPPING_THRESHOLD = 5000;
+
 const parseEstimatedDays = (days: string | null | undefined) => {
   const match = String(days || "").match(/\d+/);
   return match ? Number(match[0]) : undefined;
@@ -37,6 +41,7 @@ export default function ShippingOption() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isBuyNow = searchParams.get("buyNow") === "1";
+  const isMobile = useIsMobile();
   const {
     setShipping,
     selectedShipping,
@@ -72,18 +77,30 @@ export default function ShippingOption() {
   });
 
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
+  const cartValue = Number(subTotal || 0);
   const checkoutItems =
     checkoutSession?.items?.length ? checkoutSession.items : getSelectedItems();
   const normalizedOptions: ShippingOption[] = (
     (shippingOptions as any[]) || []
   ).map((opt: any) => {
     const minOrderValue = Number(opt.minOrderValue ?? 0) || null;
-    const unlockAmount = minOrderValue
-      ? Math.max(0, minOrderValue - Number(subTotal || 0))
+    const baseUnlockAmount = minOrderValue
+      ? Math.max(0, minOrderValue - cartValue)
       : 0;
-    const isEligible = minOrderValue
-      ? Number(subTotal || 0) >= minOrderValue
-      : true;
+    const mobileFreeShippingLocked =
+      isMobile &&
+      Boolean(opt.isFree) &&
+      cartValue < MOBILE_FREE_SHIPPING_THRESHOLD;
+    const mobileFreeShippingUnlockAmount = mobileFreeShippingLocked
+      ? Math.max(0, MOBILE_FREE_SHIPPING_THRESHOLD - cartValue)
+      : 0;
+    const unlockAmount = Math.max(
+      baseUnlockAmount,
+      mobileFreeShippingUnlockAmount,
+    );
+    const isEligible =
+      (minOrderValue ? cartValue >= minOrderValue : true) &&
+      !mobileFreeShippingLocked;
     const deliveryCharges = Number(opt.deliveryCharges ?? 0);
 
     return {
@@ -107,47 +124,32 @@ export default function ShippingOption() {
   const selectedOpt =
     normalizedOptions.find((opt) => opt.deliveryChargeId === selectedId) ??
     (selectedId === FALLBACK_OPTION.deliveryChargeId ? FALLBACK_OPTION : null);
-  const shippingCost = selectedOpt
-    ? selectedOpt.isFree
+  const activeSelectedOpt = selectedOpt?.isEligible === false ? null : selectedOpt;
+  const shippingCost = activeSelectedOpt
+    ? activeSelectedOpt.isFree
       ? 0
-      : Number(selectedOpt.deliveryCharges ?? 0)
+      : Number(activeSelectedOpt.deliveryCharges ?? 0)
     : 0;
   const total = Math.max(
     0,
-    Number(subTotal) +
+    cartValue +
       shippingCost -
       Number(couponDiscount || 0),
   );
+  const surpriseGift = checkoutSession?.surpriseGift ?? null;
   const canChooseOption = (option: ShippingOption) =>
     option.isEligible !== false;
   const selectedLabel =
-    selectedOpt?.shippingType?.shippingType ??
-    selectedOpt?.description ??
-    "Shipping";
+    activeSelectedOpt?.shippingType?.shippingType ??
+    activeSelectedOpt?.description ??
+    "Select shipping";
 
   const handleContinue = () => {
-    if (!selectedId) {
+    if (!activeSelectedOpt) {
       toast.error("Please select a shipping option");
       return;
     }
-
-    const option = selectedOpt;
-    if (!option) {
-      toast.error("Invalid selection");
-      return;
-    }
-
-    if (option.isEligible === false) {
-      const unlockAmount = Number(option.unlockAmount ?? 0);
-      toast.error(
-        unlockAmount > 0
-          ? `Add Rs.${unlockAmount.toLocaleString(
-              "en-IN",
-            )} more to unlock this shipping option`
-          : "This shipping option is not available for the current cart value",
-      );
-      return;
-    }
+    const option = activeSelectedOpt;
 
     setShipping({
       deliveryChargeId: option.deliveryChargeId,
@@ -179,6 +181,9 @@ export default function ShippingOption() {
     navigate("/user-products/payment" + (isBuyNow ? "?buyNow=1" : ""));
   };
 
+  const isFallbackSelected =
+    selectedId === FALLBACK_OPTION.deliveryChargeId;
+
   return (
     <div className="container s-invoice-5c9003 checkout-shell checkout-shell--shipping">
       <div className="row g-4 align-items-start">
@@ -193,12 +198,12 @@ export default function ShippingOption() {
               className="s-shippingopti-b63dfb checkout-card checkout-card--option"
               style={{
                 border: `2px solid ${
-                  selectedId === FALLBACK_OPTION.deliveryChargeId
+                  isFallbackSelected
                     ? "#000000"
                     : "var(--brand)"
                 }`,
                 background:
-                  selectedId === FALLBACK_OPTION.deliveryChargeId
+                  isFallbackSelected
                     ? "var(--ivory)"
                     : "#fff",
               }}
@@ -208,17 +213,17 @@ export default function ShippingOption() {
                   className="s-shippingopti-e0801a"
                   style={{
                     border: `2px solid ${
-                      selectedId === FALLBACK_OPTION.deliveryChargeId
+                      isFallbackSelected
                         ? "#000000"
                         : "var(--brand)"
                     }`,
                     background:
-                      selectedId === FALLBACK_OPTION.deliveryChargeId
+                      isFallbackSelected
                         ? "#000000"
                         : "#fff",
                   }}
                 >
-                  {selectedId === FALLBACK_OPTION.deliveryChargeId && (
+                  {isFallbackSelected && (
                     <div className="s-payment-108f10" />
                   )}
                 </div>
@@ -232,76 +237,74 @@ export default function ShippingOption() {
               </div>
             </div>
           ) : (
-            normalizedOptions.map((opt) => (
-              <div
-                key={opt.deliveryChargeId}
-                onClick={() => {
-                  if (!canChooseOption(opt)) return;
-                  setSelectedId(opt.deliveryChargeId);
-                }}
-                className="s-shippingopti-8cc11b checkout-card checkout-card--option"
-                style={{
-                  border: `2px solid ${
-                    selectedId === opt.deliveryChargeId
-                      ? "#000000"
-                      : "var(--brand)"
-                  }`,
-                  background:
-                    selectedId === opt.deliveryChargeId
-                      ? "var(--ivory)"
-                      : "#fff",
-                  opacity: opt.isEligible === false ? 0.72 : 1,
-                  cursor: canChooseOption(opt) ? "pointer" : "not-allowed",
-                }}
-              >
-                <div className="s-adminreports-25c771">
-                  <div
-                    className="s-shippingopti-e0801a"
-                    style={{
-                      border: `2px solid ${
-                        selectedId === opt.deliveryChargeId
-                          ? "#000000"
-                          : "var(--brand)"
-                      }`,
-                      background:
-                        selectedId === opt.deliveryChargeId
-                          ? "#000000"
-                          : "#fff",
-                    }}
-                  >
-                    {selectedId === opt.deliveryChargeId && (
-                      <div className="s-payment-108f10" />
-                    )}
-                  </div>
-                  <div className="s-shippingopti-content">
-                    <p className="s-shippingopti-b1d3de">
-                      {opt.shippingType?.shippingType ??
-                        opt.description ??
-                        "Standard Delivery"}
-                    </p>
-                    {opt.days && (
-                      <p className="s-userdashboar-bc8be4">{opt.days}</p>
-                    )}
-                    {opt.description && opt.shippingType?.shippingType && (
-                      <p className="s-admindashboa-75a6ca">{opt.description}</p>
-                    )}
-                    {opt.isEligible === false && (
-                      <p className="s-admindashboa-75a6ca">
-                        Add Rs.
-                        {Number(opt.unlockAmount ?? 0).toLocaleString("en-IN")}{" "}
-                        more to unlock
+            normalizedOptions.map((opt) => {
+              const isSelected =
+                selectedId === opt.deliveryChargeId &&
+                opt.isEligible !== false;
+
+              return (
+                <div
+                  key={opt.deliveryChargeId}
+                  onClick={() => {
+                    if (!canChooseOption(opt)) return;
+                    setSelectedId(opt.deliveryChargeId);
+                  }}
+                  className="s-shippingopti-8cc11b checkout-card checkout-card--option"
+                  style={{
+                    border: `2px solid ${
+                      isSelected ? "#000000" : "var(--brand)"
+                    }`,
+                    background: isSelected ? "var(--ivory)" : "#fff",
+                    opacity: opt.isEligible === false ? 0.72 : 1,
+                    cursor: canChooseOption(opt) ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <div className="s-adminreports-25c771">
+                    <div
+                      className="s-shippingopti-e0801a"
+                      style={{
+                        border: `2px solid ${
+                          isSelected ? "#000000" : "var(--brand)"
+                        }`,
+                        background: isSelected ? "#000000" : "#fff",
+                      }}
+                    >
+                      {isSelected && <div className="s-payment-108f10" />}
+                    </div>
+                    <div className="s-shippingopti-content">
+                      <p className="s-shippingopti-b1d3de">
+                        {opt.shippingType?.shippingType ??
+                          opt.description ??
+                          "Standard Delivery"}
                       </p>
-                    )}
+                      {opt.days && (
+                        <p className="s-userdashboar-bc8be4">{opt.days}</p>
+                      )}
+                      {opt.description && opt.shippingType?.shippingType && (
+                        <p className="s-admindashboa-75a6ca">
+                          {opt.description}
+                        </p>
+                      )}
+                      {opt.isEligible === false && (
+                        <p className="s-admindashboa-75a6ca">
+                          Add Rs.
+                          {Number(opt.unlockAmount ?? 0).toLocaleString(
+                            "en-IN",
+                          )}{" "}
+                          more to unlock
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className="s-shippingopti-d90d13 s-shippingopti-price"
+                      style={{ color: opt.isFree ? "var(--brand)" : "#000000" }}
+                    >
+                      {opt.isFree ? "FREE" : `Rs.${opt.deliveryCharges ?? 0}`}
+                    </span>
                   </div>
-                  <span
-                    className="s-shippingopti-d90d13 s-shippingopti-price"
-                    style={{ color: opt.isFree ? "var(--brand)" : "#000000" }}
-                  >
-                    {opt.isFree ? "FREE" : `Rs.${opt.deliveryCharges ?? 0}`}
-                  </span>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -313,14 +316,27 @@ export default function ShippingOption() {
                 A clear breakdown before payment.
               </p>
             </div>
-            {[
+            {[ 
               {
                 label: "Subtotal",
                 value: `Rs.${subTotal.toLocaleString("en-IN")}`,
               },
+              ...(surpriseGift
+                ? [
+                    {
+                      label: "Surprise Gift",
+                      value: "Rs.0",
+                      green: true,
+                    },
+                  ]
+                : []),
               {
                 label: "Shipping",
-                value: shippingCost === 0 ? "FREE" : `Rs.${shippingCost}`,
+                value: activeSelectedOpt
+                  ? shippingCost === 0
+                    ? "FREE"
+                    : `Rs.${shippingCost}`
+                  : "Select shipping",
               },
               ...(couponDiscount > 0
                 ? [
@@ -376,7 +392,7 @@ export default function ShippingOption() {
       >
         <div className="checkout-mobile-action-bar__meta">
           <span className="checkout-mobile-action-bar__badge">
-            {selectedId ? selectedLabel : "Select shipping"}
+            {activeSelectedOpt ? selectedLabel : "Select shipping"}
           </span>
           <span className="checkout-mobile-action-bar__meta-dot">•</span>
           <span className="checkout-mobile-action-bar__total">
@@ -386,7 +402,7 @@ export default function ShippingOption() {
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!selectedId || selectedOpt?.isEligible === false}
+          disabled={!activeSelectedOpt}
           className="checkout-mobile-action-bar__primary"
         >
           Continue to Payment

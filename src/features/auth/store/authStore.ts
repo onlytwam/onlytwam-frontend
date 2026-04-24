@@ -17,11 +17,34 @@ const isAdminRole = (roleId: number) => ADMIN_ROLES.has(roleId);
 
 const STORED_ROLE_KEY = 'twam_role_id';
 const STORED_USER_KEY = 'twam_user';
+const STORED_PASSWORD_UPDATE_KEY = 'twam_password_update_required';
 
 const storedRoleId = Number(localStorage.getItem(STORED_ROLE_KEY) || '0');
+const storedPasswordUpdateRequired =
+  localStorage.getItem(STORED_PASSWORD_UPDATE_KEY) === '1';
 const storedUser = (() => {
-  try { return JSON.parse(localStorage.getItem(STORED_USER_KEY) || 'null'); } catch { return null; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORED_USER_KEY) || 'null');
+    if (
+      parsed &&
+      storedPasswordUpdateRequired &&
+      parsed.isRandomPassword !== true
+    ) {
+      parsed.isRandomPassword = true;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 })();
+
+const persistPasswordUpdateRequired = (required: boolean) => {
+  if (required) {
+    localStorage.setItem(STORED_PASSWORD_UPDATE_KEY, '1');
+    return;
+  }
+  localStorage.removeItem(STORED_PASSWORD_UPDATE_KEY);
+};
 
 // ── WishlistStorage — localStorage helper used across product cards / Home ──
 export const WishlistStorage = {
@@ -54,6 +77,7 @@ interface AuthState {
   cartCount:        number;
   wishlistCount:    number;
   isSyncing:        boolean; // NEW: track sync status
+  passwordUpdateRequired: boolean;
 
   login:            (user: User, token: string) => Promise<void>; // Changed to async
   logout:           () => void;
@@ -280,6 +304,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   cartCount:       0,
   wishlistCount:   initialWishlistCount,
   isSyncing:       false,
+  passwordUpdateRequired: Boolean(
+    storedPasswordUpdateRequired || (storedUser as any)?.isRandomPassword,
+  ),
 
   login: async (user, token) => {
     // Set syncing state
@@ -289,12 +316,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('access_token', token);
     localStorage.setItem(STORED_ROLE_KEY, String(user.roleId ?? 0));
     localStorage.setItem(STORED_USER_KEY, JSON.stringify(user));
+    persistPasswordUpdateRequired(Boolean((user as any)?.isRandomPassword));
     
     set({
       user,
       token,
       isAuthenticated: true,
       isAdmin:         isAdminRole(user.roleId ?? 0),
+      passwordUpdateRequired: Boolean((user as any)?.isRandomPassword),
     });
 
     // ── Sequential Sync: Wishlist first, then Cart ──
@@ -351,6 +380,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('access_token');
     localStorage.removeItem(STORED_ROLE_KEY);
     localStorage.removeItem(STORED_USER_KEY);
+    persistPasswordUpdateRequired(false);
     sessionStorage.clear();
     
     set({
@@ -361,13 +391,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       cartCount:       0,
       wishlistCount:   getGuestWishlistCount(),
       isSyncing:       false,
+      passwordUpdateRequired: false,
     });
   },
 
   setUser: (user) => {
     localStorage.setItem(STORED_ROLE_KEY, String(user.roleId ?? 0));
     localStorage.setItem(STORED_USER_KEY, JSON.stringify(user));
-    set({ user, isAdmin: isAdminRole(user.roleId ?? 0) });
+    persistPasswordUpdateRequired(Boolean((user as any)?.isRandomPassword));
+    set({
+      user,
+      isAdmin: isAdminRole(user.roleId ?? 0),
+      passwordUpdateRequired: Boolean((user as any)?.isRandomPassword),
+    });
   },
 
   setCartCount:     (count) => set({ cartCount: count }),

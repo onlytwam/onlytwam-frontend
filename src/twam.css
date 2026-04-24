@@ -10485,14 +10485,18 @@ button {
 }
 
 .s-paymentaddre-66b84d {
-  width: 162px;
+  width: 220px;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 11px 14px;
   border: 1.5px solid #f5f0e6;
   border-radius: 8px;
-  font-size: 22px;
+  font-size: 20px;
   text-align: center;
   font-weight: 700;
-  letter-spacing: 10px;
+  letter-spacing: 0.42em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
   outline: none;
 }
 
@@ -18658,6 +18662,14 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   border-bottom: 1px solid var(--border-color);
 }
 
+.bc-shell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .bc-list {
   display: flex;
   align-items: center;
@@ -18666,6 +18678,8 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   margin: 0;
   padding: 0;
   flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Standard Links (Burgundy text) */
@@ -18706,6 +18720,27 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   font-size: 12px;
   color: var(--heirloom);
   margin: 0 4px;
+}
+
+.bc-context-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(107, 15, 42, 0.06);
+  border: 1px solid rgba(107, 15, 42, 0.18);
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(107, 15, 42, 0.08);
+}
+
+.bc-context-tag i {
+  font-size: 12px;
 }
 
 /* --------------------------------------------------------------------------
@@ -21148,6 +21183,10 @@ body:has(.checkout-shell--payment) .payment-wa-toast__button--secondary:hover {
   padding: 18px;
 }
 
+.checkout-shell--address .s-paymentaddre-81c77f {
+  overflow: hidden;
+}
+
 .checkout-shell--address .s-paymentaddre-0d4697 {
   margin-bottom: 16px;
   padding: 14px 16px;
@@ -21183,6 +21222,19 @@ body:has(.checkout-shell--payment) .payment-wa-toast__button--secondary:hover {
 
 .checkout-shell--address .s-paymentaddre-50ded3 {
   gap: 16px;
+}
+
+.checkout-shell--address .s-paymentaddre-392b28 {
+  align-items: flex-end;
+}
+
+.checkout-shell--address .s-userdashboar-6d7d28 {
+  min-width: 0;
+}
+
+.checkout-shell--address .s-paymentaddre-a7c6a4 {
+  margin-top: 0;
+  align-self: flex-end;
 }
 
 .checkout-shell--address .s-paymentaddre-12ca4c {

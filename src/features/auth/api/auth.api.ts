@@ -63,6 +63,20 @@ export const normalizeUserInfo = (raw: any) => ({
   profileImageUrl:
     raw.ProfileImageUrl || raw.profileImageUrl || raw.profile_image_url || "",
   isActive: raw.is_active !== undefined ? raw.is_active : true,
+  isRandomPassword: (() => {
+    const value =
+      raw.IsRandomPassword ??
+      raw.is_random_password ??
+      raw.isRandomPassword ??
+      false;
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      return ["1", "true", "yes", "on"].includes(normalized);
+    }
+    return Boolean(value);
+  })(),
 });
 
 export const registerUser = async (user: AuthenticationModel) => {
@@ -201,13 +215,9 @@ export const forgotPassword = async (params: {
 };
 
 export const changePassword = async (params: {
-  emailId: string;
-  currentPassword: string;
   newPassword: string;
 }) => {
   const response = await api.post("/auth/ChangePassword", {
-    EmailId: params.emailId,
-    CurrentPassword: encryptPassword(params.currentPassword),
     NewPassword: encryptPassword(params.newPassword),
   });
   return response.data;

@@ -19,9 +19,10 @@ export interface Crumb {
 
 interface Props {
   items: Crumb[];
+  contextLabel?: string;
 }
 
-export default function Breadcrumb({ items }: Props) {
+export default function Breadcrumb({ items, contextLabel }: Props) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function Breadcrumb({ items }: Props) {
       aria-label="breadcrumb"
       className={`bc-nav ${scrolled ? "scrolled" : ""}`}
     >
-      <div className="container">
+      <div className="container bc-shell">
         <ol className="bc-list">
           {items.map((item, i) => {
             const isLast = i === items.length - 1;
@@ -72,6 +73,12 @@ export default function Breadcrumb({ items }: Props) {
             );
           })}
         </ol>
+        {contextLabel ? (
+          <span className="bc-context-tag" aria-label={`${contextLabel} mode`}>
+            <i className="bi bi-bag-check-fill" aria-hidden="true" />
+            {contextLabel}
+          </span>
+        ) : null}
       </div>
     </nav>
   );

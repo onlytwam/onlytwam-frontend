@@ -2,8 +2,8 @@
  * Cart.tsx
  */
 
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
@@ -19,11 +19,21 @@ import { listUserCoupons } from "@/features/orders/api/orders.api";
 import { getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
-import { clearBuyNowSession } from "@/shared/utils/checkoutSession";
 import {
+  clearBuyNowSession,
+  getBuyNowSession,
+  setBuyNowSession,
+} from "@/shared/utils/checkoutSession";
+import {
+  clearCheckoutSession,
   readCheckoutSession,
   saveCheckoutSession,
 } from "@/features/cart/utils/checkoutSession";
+import {
+  buildSurpriseGiftSignature,
+  getSurpriseGiftSelection,
+  type SurpriseGiftSelection,
+} from "@/shared/utils/surpriseGift";
 import type { CouponModel } from "@/shared/types";
 
 const GuestCart = {
@@ -51,6 +61,589 @@ const GuestCart = {
       ),
     ),
 };
+
+const normalizeBuyNowItems = (items: any[] = []) =>
+  items.map((item: any) => {
+    const processedQuantity = Number(
+      item.processedQuantity ?? item.quantity ?? 1,
+    ) || 1;
+
+    return {
+      ...item,
+      isSelected: item.isSelected ?? true,
+      processedQuantity,
+      quantity: processedQuantity,
+      finalPrice: Number(item.finalPrice || item.price) || 0,
+    };
+  });
+
+function SurpriseGiftToast({
+  title,
+  subtitle,
+  footerHint,
+}: {
+  title: string;
+  subtitle: string;
+  footerHint?: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        minWidth: 0,
+        maxWidth: 380,
+        padding: "14px 16px",
+        borderRadius: 18,
+        background: "linear-gradient(180deg, #fffaf5 0%, #ffffff 100%)",
+        border: "1px solid rgba(107,15,42,0.14)",
+        boxShadow: "0 18px 36px rgba(107,15,42,0.16)",
+      }}
+    >
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(145deg, #6b0f2a, #9e6070)",
+          color: "#fff",
+          boxShadow: "0 10px 22px rgba(107,15,42,0.2)",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: 20 }} aria-hidden="true">
+          🎉
+        </span>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "var(--heirloom)",
+            marginBottom: 2,
+          }}
+        >
+          Surprise unlocked
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            lineHeight: 1.35,
+            color: "var(--brand)",
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            lineHeight: 1.4,
+            color: "var(--heirloom)",
+            marginTop: 3,
+          }}
+        >
+          {subtitle}
+        </div>
+        {footerHint && (
+          <div
+            style={{
+              fontSize: 11,
+              lineHeight: 1.4,
+              color: "var(--heirloom)",
+              opacity: 0.8,
+              marginTop: 4,
+            }}
+          >
+            {footerHint}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SurpriseGiftReminderToast({
+  remainingAmount,
+  onDismiss,
+}: {
+  remainingAmount: number;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 12,
+        minWidth: 0,
+        maxWidth: 380,
+        padding: "14px 16px",
+        borderRadius: 18,
+        background: "linear-gradient(180deg, #fffaf5 0%, #ffffff 100%)",
+        border: "1px solid rgba(107,15,42,0.14)",
+        boxShadow: "0 18px 36px rgba(107,15,42,0.16)",
+      }}
+    >
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(145deg, #9e6070, #6b0f2a)",
+          color: "#fff",
+          boxShadow: "0 10px 22px rgba(107,15,42,0.18)",
+          flexShrink: 0,
+        }}
+      >
+        <i className="bi bi-gift-fill" />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "var(--heirloom)",
+            marginBottom: 2,
+          }}
+        >
+          Gift reminder
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            lineHeight: 1.45,
+            color: "var(--brand)",
+            marginBottom: 4,
+          }}
+        >
+          Shop more for Rs.{remainingAmount.toLocaleString("en-IN")} to win an
+          exciting gift
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            lineHeight: 1.4,
+            color: "var(--heirloom)",
+            opacity: 0.9,
+          }}
+        >
+          The surprise unlocks at Rs.2,500 and above.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss reminder"
+        style={{
+          border: "none",
+          background: "transparent",
+          color: "var(--heirloom)",
+          cursor: "pointer",
+          fontSize: 15,
+          lineHeight: 1,
+          padding: 0,
+          flexShrink: 0,
+        }}
+      >
+        <i className="bi bi-x-lg" />
+      </button>
+    </div>
+  );
+}
+
+function SurpriseGiftCard() {
+  return <FancySurpriseGiftCard />;
+  return (
+    <div
+      className="s-cart-100fbc"
+      style={{
+        marginTop: 16,
+        borderStyle: "dashed",
+        background:
+          "linear-gradient(135deg, rgba(245,240,230,0.96), rgba(255,255,255,0.98))",
+        boxShadow: "0 12px 30px rgba(107,15,42,0.08)",
+        overflow: "hidden",
+        alignItems: "stretch",
+        cursor: "default",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
+        <div
+          aria-hidden="true"
+          style={{
+            position: "relative",
+            width: 96,
+            height: 96,
+            flexShrink: 0,
+            borderRadius: 18,
+            background:
+              "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95), rgba(245,240,230,0.92) 55%, rgba(231,214,219,0.9) 100%)",
+            border: "1px solid rgba(107,15,42,0.14)",
+            overflow: "hidden",
+            display: "grid",
+            placeItems: "center",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 12,
+              borderRadius: 16,
+              background:
+                "linear-gradient(145deg, #6b0f2a 0%, #9e6070 100%)",
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 12,
+              bottom: 12,
+              width: 16,
+              transform: "translateX(-50%)",
+              borderRadius: 8,
+              background: "linear-gradient(180deg, #f5f0e6, #fff)",
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.2)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: 12,
+              right: 12,
+              top: "50%",
+              height: 16,
+              transform: "translateY(-50%)",
+              borderRadius: 8,
+              background: "linear-gradient(180deg, #f5f0e6, #fff)",
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.2)",
+            }}
+          />
+          <i
+            className="bi bi-gift-fill"
+            style={{
+              position: "relative",
+              zIndex: 1,
+              color: "#fff",
+              fontSize: 34,
+              filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.2))",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            ✨
+          </div>
+        </div>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h6 className="s-cart-04af82" style={{ marginBottom: 0 }}>
+            Surprise Gift
+          </h6>
+        </div>
+      </div>
+
+      <div
+        className="s-cart-4c5975"
+        style={{ alignItems: "flex-end", justifyContent: "center" }}
+      >
+        <span className="s-cart-abec22">FREE</span>
+        <span className="s-cart-c7ed91" style={{ opacity: 0.55 }}>
+          🎁
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FancySurpriseGiftCard() {
+  return (
+    <div
+      style={{
+        position: "relative",
+        marginTop: 16,
+        marginBottom: 12,
+        padding: "14px 16px",
+        borderRadius: 20,
+        border: "1px solid rgba(107, 15, 42, 0.14)",
+        background:
+          "linear-gradient(135deg, rgba(255, 250, 244, 0.98) 0%, rgba(247, 236, 229, 0.96) 58%, rgba(255, 255, 255, 0.98) 100%)",
+        boxShadow: "0 16px 32px rgba(107, 15, 42, 0.1)",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        flexWrap: "wrap",
+        cursor: "default",
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: -20,
+            right: -18,
+            width: 84,
+            height: 84,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(182, 109, 127, 0.14), transparent 70%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: -22,
+            bottom: -28,
+            width: 104,
+            height: 104,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(107, 15, 42, 0.08), transparent 72%)",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          minWidth: 0,
+          flex: "1 1 240px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            position: "relative",
+            width: "clamp(74px, 18vw, 92px)",
+            height: "clamp(74px, 18vw, 92px)",
+            flexShrink: 0,
+            borderRadius: 24,
+            background:
+              "linear-gradient(145deg, rgba(255, 251, 247, 0.98), rgba(242, 228, 214, 0.95))",
+            border: "1px solid rgba(107, 15, 42, 0.12)",
+            overflow: "hidden",
+            display: "grid",
+            placeItems: "center",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.88), 0 10px 20px rgba(107, 15, 42, 0.08)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 11,
+              borderRadius: 18,
+              background:
+                "linear-gradient(180deg, #9e6070 0%, #7f1d37 55%, #5f0d27 100%)",
+              boxShadow: "inset 0 -8px 14px rgba(0,0,0,0.1)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 11,
+              bottom: 11,
+              width: 15,
+              transform: "translateX(-50%)",
+              borderRadius: 999,
+              background: "linear-gradient(180deg, #fff7ee, #f0dcc2)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: 11,
+              right: 11,
+              top: "50%",
+              height: 15,
+              transform: "translateY(-50%)",
+              borderRadius: 999,
+              background: "linear-gradient(180deg, #fff7ee, #f0dcc2)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 7,
+              left: "50%",
+              width: 26,
+              height: 16,
+              transform: "translateX(-50%)",
+              borderRadius: 999,
+              background:
+                "linear-gradient(180deg, rgba(255, 248, 238, 0.98), rgba(240, 220, 190, 0.98))",
+              boxShadow: "0 3px 8px rgba(107, 15, 42, 0.1)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 6,
+              left: "50%",
+              width: 14,
+              height: 14,
+              transform: "translateX(-50%)",
+              borderRadius: "50%",
+              background:
+                "linear-gradient(180deg, rgba(255, 254, 250, 0.98), rgba(237, 216, 189, 0.98))",
+              boxShadow: "0 1px 0 rgba(107, 15, 42, 0.08)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 13,
+              width: 18,
+              height: 12,
+              borderRadius: "12px 14px 12px 10px",
+              background:
+                "linear-gradient(180deg, rgba(255, 248, 238, 0.98), rgba(236, 214, 184, 0.98))",
+              transform: "rotate(-24deg)",
+              boxShadow: "0 1px 0 rgba(107, 15, 42, 0.08)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 13,
+              width: 18,
+              height: 12,
+              borderRadius: "14px 12px 10px 12px",
+              background:
+                "linear-gradient(180deg, rgba(255, 248, 238, 0.98), rgba(236, 214, 184, 0.98))",
+              transform: "rotate(24deg)",
+              boxShadow: "0 1px 0 rgba(107, 15, 42, 0.08)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: "rgba(214, 166, 179, 0.95)",
+              boxShadow:
+                "-10px 8px 0 0 rgba(255, 255, 255, 0.92), -18px -4px 0 0 rgba(214, 166, 179, 0.55)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 11,
+              left: 11,
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: "rgba(214, 166, 179, 0.8)",
+              boxShadow:
+                "10px -6px 0 0 rgba(255, 255, 255, 0.88), 17px 4px 0 0 rgba(214, 166, 179, 0.45)",
+            }}
+          />
+          <i
+            className="bi bi-gift-fill"
+            style={{
+              position: "relative",
+              zIndex: 1,
+              color: "rgba(255,255,255,0.96)",
+              fontSize: "clamp(26px, 5vw, 34px)",
+              filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.2))",
+            }}
+          />
+        </div>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h6
+            className="s-cart-04af82"
+            style={{
+              marginBottom: 0,
+              fontSize: "clamp(15px, 1.45vw, 18px)",
+              lineHeight: 1.2,
+            }}
+          >
+            Surprise Gift
+          </h6>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          gap: 6,
+          flexShrink: 0,
+          minWidth: 72,
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <span
+          className="s-cart-abec22"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "6px 12px",
+            borderRadius: 999,
+            background: "rgba(255, 255, 255, 0.68)",
+            border: "1px solid rgba(107, 15, 42, 0.1)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+          }}
+        >
+          FREE
+        </span>
+        <span
+          style={{
+            fontSize: 14,
+            color: "var(--heirloom)",
+            opacity: 0.7,
+            lineHeight: 1,
+          }}
+          aria-hidden="true"
+        >
+          <i className="bi bi-gift-fill" />
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const text = (value: unknown) => String(value ?? "").trim();
 const upper = (value: unknown) => text(value).toUpperCase();
@@ -203,10 +796,12 @@ function SaveForLater({
 export default function Cart() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const prevPath =
     (location.state as any)?.from ||
     sessionStorage.getItem("lastPage") ||
     "/user-products/product-list";
+  const isBuyNowView = searchParams.get("buyNow") === "1";
   const qc = useQueryClient();
   const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
   const {
@@ -219,11 +814,14 @@ export default function Cart() {
 
   const isAuth = hasValidToken();
   const userId = getUserId();
+  const [buyNowItems, setBuyNowItems] = useState<any[]>(() =>
+    isBuyNowView ? normalizeBuyNowItems(getBuyNowSession()?.items ?? []) : [],
+  );
 
   const { data: cartData, isLoading } = useQuery({
     queryKey: ["cart", userId],
     queryFn: () => listCart({ userProfileId: userId }),
-    enabled: isAuth,
+    enabled: isAuth && !isBuyNowView,
     select: (data: any) =>
       (data?.list ?? data ?? []).map((item: any) => ({
         ...item,
@@ -235,6 +833,7 @@ export default function Cart() {
 
   const [authItems, setAuthItems] = useState<any[]>([]);
   const [guestItems, setGuestItems] = useState<any[]>([]);
+  const [cartItemsHydrated, setCartItemsHydrated] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [isCouponDropdownOpen, setIsCouponDropdownOpen] = useState(false);
 
@@ -261,14 +860,38 @@ export default function Cart() {
   });
 
   useEffect(() => {
-    if (cartData) setAuthItems(cartData);
-  }, [cartData]);
+    setCartItemsHydrated(false);
+
+    if (isBuyNowView) {
+      setAuthItems([]);
+      setGuestItems([]);
+      setBuyNowItems(normalizeBuyNowItems(getBuyNowSession()?.items ?? []));
+      setCartItemsHydrated(true);
+      return;
+    }
+
+    if (isAuth) {
+      if (cartData !== undefined) {
+        setAuthItems(cartData);
+        setCartItemsHydrated(true);
+      }
+      return;
+    }
+
+    setAuthItems([]);
+    setGuestItems(
+      GuestCart.get().map((i: any) => ({ ...i, isSelected: true })),
+    );
+    setCartItemsHydrated(true);
+  }, [cartData, isAuth, isBuyNowView]);
   useEffect(() => {
-    if (!isAuth)
-      setGuestItems(
-        GuestCart.get().map((i: any) => ({ ...i, isSelected: true })),
-      );
-  }, [isAuth]);
+    if (!isBuyNowView) {
+      setBuyNowItems([]);
+      return;
+    }
+
+    setBuyNowItems(normalizeBuyNowItems(getBuyNowSession()?.items ?? []));
+  }, [isBuyNowView]);
 
   const appliedCouponCode = getCouponCode(appliedCoupon);
   const typedCouponInput = upper(couponInput);
@@ -288,7 +911,11 @@ export default function Cart() {
     }
   }, [appliedCoupon, appliedCouponCode]);
 
-  const cartItems = isAuth ? authItems : guestItems;
+  const cartItems = isBuyNowView
+    ? buyNowItems
+    : isAuth
+    ? authItems
+    : guestItems;
   const selectedItems = cartItems.filter((i) => i.isSelected);
   const allSelected =
     cartItems.length > 0 && selectedItems.length === cartItems.length;
@@ -298,6 +925,142 @@ export default function Cart() {
     0,
   );
   const totalPayable = Math.max(0, subTotal - (couponDiscount ?? 0));
+  const currentCartSignature = useMemo(
+    () => buildSurpriseGiftSignature(selectedItems as any),
+    [selectedItems],
+  );
+  const currentCheckoutSession = isBuyNowView
+    ? getBuyNowSession()
+    : readCheckoutSession();
+  const giftUnlockPendingRef = useRef(false);
+  const giftFlowSignatureRef = useRef<string | null>(null);
+  const giftRedirectTimerRef = useRef<number | null>(null);
+  const checkoutTransitionInProgressRef = useRef(false);
+  const [giftUnlocked, setGiftUnlocked] = useState<boolean>(() =>
+    Boolean(
+      currentCheckoutSession?.giftCheckoutKey === location.key &&
+        currentCheckoutSession?.surpriseGift &&
+        currentCheckoutSession.cartSignature === currentCartSignature,
+    ),
+  );
+  const activeSurpriseGift = giftUnlocked
+    ? currentCheckoutSession?.surpriseGift ?? null
+    : null;
+  const eligibleSurpriseGift = getSurpriseGiftSelection(subTotal);
+
+  const clearGiftRedirectTimer = () => {
+    if (giftRedirectTimerRef.current !== null) {
+      window.clearTimeout(giftRedirectTimerRef.current);
+      giftRedirectTimerRef.current = null;
+    }
+  };
+
+  const resetGiftCheckoutFlow = () => {
+    clearGiftRedirectTimer();
+    giftUnlockPendingRef.current = false;
+    giftFlowSignatureRef.current = null;
+    checkoutTransitionInProgressRef.current = false;
+  };
+
+  const proceedToCheckoutAddress = async () => {
+    if (checkoutTransitionInProgressRef.current) return;
+    checkoutTransitionInProgressRef.current = true;
+    clearGiftRedirectTimer();
+    giftUnlockPendingRef.current = false;
+    giftFlowSignatureRef.current = null;
+    const store = useCartStore.getState();
+    const checkoutSession = isBuyNowView
+      ? getBuyNowSession()
+      : readCheckoutSession();
+    const surpriseGift =
+      checkoutSession?.surpriseGift ?? activeSurpriseGift ?? null;
+
+    persistCheckoutSession(
+      surpriseGift,
+      surpriseGift
+        ? checkoutSession?.giftCheckoutKey ?? currentCheckoutSession?.giftCheckoutKey ?? location.key
+        : null,
+    );
+
+    if (isBuyNowView) {
+      // Buy Now flow keeps the temporary session in sync, but cart store stays unchanged.
+    } else {
+      store.setSelectedItems?.(selectedItems);
+      store.setSubTotal?.(subTotal);
+    }
+
+    const checkoutPath =
+      "/user-products/payment-address" + (isBuyNowView ? "?buyNow=1" : "");
+
+    if (!isAuth) {
+      navigate(checkoutPath, {
+        state: {
+          from: location.pathname + location.search,
+          surpriseGiftFlow: currentCartSignature,
+        },
+      });
+      return;
+    }
+
+    try {
+      await checkOutOfStock({
+        orderItems: selectedItems
+          .filter((i) => i.productVariantDetailId)
+          .map((i) => ({ productVariantDetailId: i.productVariantDetailId })),
+      });
+      navigate(checkoutPath, {
+        state: {
+          from: location.pathname + location.search,
+          surpriseGiftFlow: currentCartSignature,
+        },
+      });
+    } catch (e: any) {
+      checkoutTransitionInProgressRef.current = false;
+      toast.error(e?.response?.data?.message || "Some items are out of stock");
+    }
+  };
+
+  useEffect(() => {
+    if (!cartItemsHydrated) return;
+
+    const session = isBuyNowView ? getBuyNowSession() : readCheckoutSession();
+    const sessionMatches =
+      Boolean(session?.surpriseGift) &&
+      session?.cartSignature === currentCartSignature &&
+      session?.giftFlowVersion === 2 &&
+      session?.giftCheckoutKey === location.key;
+
+    if (sessionMatches) {
+      setGiftUnlocked(true);
+      return;
+    }
+
+    if (giftUnlockPendingRef.current) return;
+
+    if (session?.surpriseGift) {
+      if (isBuyNowView) clearBuyNowSession();
+      else clearCheckoutSession();
+    }
+
+    setGiftUnlocked(false);
+  }, [cartItemsHydrated, currentCartSignature, isBuyNowView, location.key]);
+
+  useEffect(() => {
+    return () => {
+      clearGiftRedirectTimer();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!giftUnlockPendingRef.current) return;
+    if (!giftFlowSignatureRef.current) return;
+    if (giftFlowSignatureRef.current === currentCartSignature) return;
+
+    resetGiftCheckoutFlow();
+    if (isBuyNowView) clearBuyNowSession();
+    else clearCheckoutSession();
+    setGiftUnlocked(false);
+  }, [currentCartSignature, isBuyNowView]);
 
   const couponOptions = useMemo(() => {
     const byCode = new Map<string, DisplayCoupon>();
@@ -465,7 +1228,7 @@ export default function Cart() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, qty }: { id: number; qty: number }) =>
-      updateCart(id, { quantity: qty }),
+      updateCart(id, { cartId: id, quantity: qty }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cart"] });
       qc.invalidateQueries({ queryKey: ["quick-cart"] });
@@ -483,13 +1246,43 @@ export default function Cart() {
     },
   });
 
+  const syncBuyNowItems = (
+    updater: (items: any[]) => any[],
+    toastMessage?: string,
+  ) => {
+    setBuyNowItems((prev) => {
+      const next = normalizeBuyNowItems(updater(prev));
+      if (next.length > 0) {
+        setBuyNowSession(next as any);
+      } else {
+        clearBuyNowSession();
+      }
+      return next;
+    });
+
+    if (toastMessage) toast.success(toastMessage);
+  };
+
   const handleQtyChange = (item: any, qty: number) => {
     if (qty < 1) return;
+    if (isBuyNowView) {
+      syncBuyNowItems(
+        (prev) =>
+          prev.map((i) =>
+            i.productVariantId === item.productVariantId
+              ? { ...i, processedQuantity: qty, quantity: qty }
+              : i,
+          ),
+      );
+      return;
+    }
     if (isAuth) {
       updateMutation.mutate({ id: item.cartId, qty });
       setAuthItems((prev) =>
         prev.map((i) =>
-          i.cartId === item.cartId ? { ...i, processedQuantity: qty } : i,
+          i.cartId === item.cartId
+            ? { ...i, processedQuantity: qty, quantity: qty }
+            : i,
         ),
       );
     } else {
@@ -505,6 +1298,16 @@ export default function Cart() {
   };
 
   const handleRemove = (item: any) => {
+    if (isBuyNowView) {
+      syncBuyNowItems(
+        (prev) =>
+          prev.filter(
+            (i: any) => i.productVariantId !== item.productVariantId,
+          ),
+        "Item removed",
+      );
+      return;
+    }
     if (isAuth) deleteMutation.mutate(item.cartId);
     else {
       GuestCart.remove(item.productVariantId);
@@ -520,6 +1323,16 @@ export default function Cart() {
   };
 
   const toggleSelect = (item: any) => {
+    if (isBuyNowView) {
+      syncBuyNowItems((prev) =>
+        prev.map((i) =>
+          i.productVariantId === item.productVariantId
+            ? { ...i, isSelected: !i.isSelected }
+            : i,
+        ),
+      );
+      return;
+    }
     const fn = (arr: any[]) =>
       arr.map((i) => {
         const match = isAuth
@@ -532,11 +1345,21 @@ export default function Cart() {
 
   const toggleAll = () => {
     const val = !allSelected;
+    if (isBuyNowView) {
+      syncBuyNowItems((prev) => prev.map((i) => ({ ...i, isSelected: val })));
+      return;
+    }
     const fn = (arr: any[]) => arr.map((i) => ({ ...i, isSelected: val }));
     isAuth ? setAuthItems(fn) : setGuestItems(fn);
   };
 
   const handleClearCart = () => {
+    if (isBuyNowView) {
+      clearBuyNowSession();
+      setBuyNowItems([]);
+      toast.success("Buy Now item cleared");
+      return;
+    }
     if (isAuth) setAuthItems([]);
     else {
       GuestCart.set([]);
@@ -616,6 +1439,32 @@ export default function Cart() {
     setIsCouponDropdownOpen(false);
   };
 
+  const persistCheckoutSession = (
+    surpriseGift: SurpriseGiftSelection | null,
+    giftCheckoutKey?: string | null,
+  ) => {
+    if (isBuyNowView) {
+      setBuyNowSession(selectedItems as any, {
+        shipping: currentCheckoutSession?.shipping ?? null,
+        surpriseGift,
+        cartSignature: currentCartSignature,
+        giftCheckoutKey,
+      });
+      return;
+    }
+
+    clearBuyNowSession();
+    saveCheckoutSession({
+      mode: "cart",
+      items: selectedItems,
+      subTotal,
+      shipping: selectedShipping ?? currentCheckoutSession?.shipping ?? null,
+      surpriseGift,
+      cartSignature: currentCartSignature,
+      giftCheckoutKey,
+    });
+  };
+
   const handleCheckout = async () => {
     if (selectedItems.length === 0) {
       toast.error("Please select at least one item");
@@ -628,30 +1477,77 @@ export default function Cart() {
         return;
       }
     }
-    clearBuyNowSession();
-    const store = useCartStore.getState();
-    store.setSelectedItems?.(selectedItems);
-    store.setSubTotal?.(subTotal);
-    saveCheckoutSession({
-      mode: "cart",
-      items: selectedItems,
-      subTotal,
-      shipping: selectedShipping ?? readCheckoutSession()?.shipping ?? null,
-    });
-    if (!isAuth) {
-      navigate("/user-products/payment-address");
+
+    const unlockedGift = activeSurpriseGift ?? null;
+
+    if (giftRedirectTimerRef.current !== null) {
+      await proceedToCheckoutAddress();
       return;
     }
-    try {
-      await checkOutOfStock({
-        orderItems: selectedItems
-          .filter((i) => i.productVariantDetailId)
-          .map((i) => ({ productVariantDetailId: i.productVariantDetailId })),
-      });
-      navigate("/user-products/payment-address");
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Some items are out of stock");
+
+    if (!unlockedGift && !eligibleSurpriseGift && subTotal > 0 && subTotal < 2500) {
+      const remainingAmount = Math.max(0, 2500 - subTotal);
+
+      toast.custom(
+        (t) => (
+          <div
+            style={{
+              background: "transparent",
+              boxShadow: "none",
+              padding: 0,
+              border: "none",
+            }}
+          >
+            <SurpriseGiftReminderToast
+              remainingAmount={remainingAmount}
+              onDismiss={() => toast.dismiss(t.id)}
+            />
+          </div>
+        ),
+        {
+          id: `surprise-gift-reminder-${currentCartSignature}`,
+          duration: 7000,
+          style: {
+            background: "transparent",
+            boxShadow: "none",
+            padding: 0,
+            border: "none",
+          },
+        },
+      );
     }
+
+    if (eligibleSurpriseGift && !unlockedGift) {
+      giftUnlockPendingRef.current = true;
+      giftFlowSignatureRef.current = currentCartSignature;
+      persistCheckoutSession(eligibleSurpriseGift, location.key);
+      setGiftUnlocked(true);
+      toast.custom(
+        () => (
+          <SurpriseGiftToast
+            title="You have won a surprise gift!"
+            subtitle="Gift added to your cart. Redirecting to address in 5 seconds."
+            footerHint="Tap checkout again if you want to continue now."
+          />
+        ),
+        {
+          duration: 5000,
+          style: {
+            background: "transparent",
+            boxShadow: "none",
+            padding: 0,
+            border: "none",
+          },
+        },
+      );
+      clearGiftRedirectTimer();
+      giftRedirectTimerRef.current = window.setTimeout(() => {
+        void proceedToCheckoutAddress();
+      }, 5000);
+      return;
+    }
+
+    await proceedToCheckoutAddress();
   };
 
   if (isLoading)
@@ -666,9 +1562,13 @@ export default function Cart() {
       <div className="container py-5">
         <div className="d-flex flex-column align-items-center s-cart-cd9eb3">
           <i className="bi bi-cart-x s-cart-b5dbda" />
-          <h5 className="mt-4 text-muted">Your cart is empty</h5>
+          <h5 className="mt-4 text-muted">
+            {isBuyNowView ? "Buy Now item unavailable" : "Your cart is empty"}
+          </h5>
           <p className="text-muted">
-            Looks like you haven't added anything yet.
+            {isBuyNowView
+              ? "This temporary item is no longer available. Please open the product and tap Buy Now again."
+              : "Looks like you haven't added anything yet."}
           </p>
           <button onClick={() => navigate(prevPath)} className="s-cart-289753">
             ← Continue Shopping
@@ -680,6 +1580,52 @@ export default function Cart() {
   return (
     <>
       <div className="container s-cart-2eb199">
+        {isBuyNowView && (
+          <div
+            className="s-cart-buy-now-banner"
+            style={{
+              marginBottom: 16,
+              padding: "14px 16px",
+              borderRadius: 16,
+              border: "1px solid rgba(107, 15, 42, 0.18)",
+              background:
+                "linear-gradient(135deg, rgba(107, 15, 42, 0.08), rgba(245, 240, 230, 0.96))",
+              boxShadow: "0 10px 24px rgba(0, 0, 0, 0.04)",
+            }}
+          >
+            <div className="d-flex align-items-start gap-3 flex-wrap">
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  background: "#000000",
+                  color: "#ffffff",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  flexShrink: 0,
+                }}
+              >
+                <i className="bi bi-bag-check-fill" />
+                Buy Now
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p className="mb-1 fw-semibold s-cart-04af82">
+                  Single-item checkout mode
+                </p>
+                <p className="mb-0 s-adminnewslet-f01220">
+                  Only the product you chose for Buy Now appears here. Your main
+                  cart stays separate and unchanged.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Select All row ── */}
         <div className="s-cart-1fdbde">
           <input
@@ -696,6 +1642,8 @@ export default function Cart() {
         <div className="row g-4">
           {/* ── Left: Cart Items ── */}
           <div className="col-lg-8">
+            {activeSurpriseGift && <SurpriseGiftCard />}
+
             {cartItems.map((item: any) => (
               <div
                 key={item.cartId ?? item.productVariantId}
@@ -826,10 +1774,11 @@ export default function Cart() {
               </div>
             ))}
 
+
             {/* Clear Cart — centered below items */}
             <div className="s-cart-7a55d6">
               <button onClick={handleClearCart} className="s-cart-eda0e1">
-                Clear Shopping Cart
+                {isBuyNowView ? "Clear Buy Now Item" : "Clear Shopping Cart"}
               </button>
             </div>
           </div>
@@ -1043,6 +1992,12 @@ export default function Cart() {
                   ₹{subTotal.toLocaleString("en-IN")}.00
                 </span>
               </div>
+              {activeSurpriseGift && (
+                <div className="s-userdashboar-474527">
+                  <span className="s-cart-83be37">Surprise Gift</span>
+                  <span className="s-cart-1c5a85">₹0</span>
+                </div>
+              )}
               <p className="s-cart-a8f4aa">
                 Shipping calculated at checkout
               </p>
@@ -1070,14 +2025,14 @@ export default function Cart() {
                   onClick={handleCheckout}
                   className="s-cart-769238"
                 >
-                  Checkout Order →
+                  {isBuyNowView ? "Checkout Buy Now →" : "Checkout Order →"}
                 </button>
               ) : (
                 <button
                   onClick={handleCheckout}
                   className="s-cart-769238"
                 >
-                  Checkout as Guest →
+                  {isBuyNowView ? "Checkout Buy Now →" : "Checkout as Guest →"}
                 </button>
               )}
               <button
@@ -1121,7 +2076,7 @@ export default function Cart() {
           disabled={selectedItems.length === 0}
           className="cart-mobile-place-order__btn"
         >
-          Place Order
+          {isBuyNowView ? "Buy Now Checkout" : "Place Order"}
         </button>
       </div>
     </>

@@ -1,12 +1,21 @@
 import type { CartModel, ShippingOption } from "@/shared/types";
+import {
+  buildSurpriseGiftSignature,
+  type SurpriseGiftSelection,
+} from "@/shared/utils/surpriseGift";
 
 export type CheckoutMode = "cart" | "buyNow";
+const SURPRISE_GIFT_FLOW_VERSION = 2;
 
 export interface CheckoutSessionState {
   mode: CheckoutMode;
   items: CartModel[];
   subTotal: number;
   shipping?: ShippingOption | null;
+  surpriseGift?: SurpriseGiftSelection | null;
+  cartSignature?: string;
+  giftFlowVersion?: number;
+  giftCheckoutKey?: string | null;
   createdAt: string;
 }
 
@@ -32,6 +41,21 @@ const computeSubTotal = (items: CartModel[]) =>
     0,
   );
 
+const normalizeSurpriseGift = (
+  gift: Partial<SurpriseGiftSelection> | null | undefined,
+): SurpriseGiftSelection | null => {
+  const resolved = gift?.internalGiftId
+    ? {
+        threshold: toNumber(gift.threshold, 0),
+        internalGiftId: String(gift.internalGiftId),
+        label: String(gift.label || "Surprise Gift"),
+        displayPrice: toNumber(gift.displayPrice, 0),
+      }
+    : null;
+
+  return resolved;
+};
+
 
 export const readCheckoutSession = (): CheckoutSessionState | null => {
   if (typeof window === "undefined") return null;
@@ -45,12 +69,28 @@ export const readCheckoutSession = (): CheckoutSessionState | null => {
 
     const items = parsed.items.map(normalizeItem);
     const subTotal = toNumber(parsed.subTotal, computeSubTotal(items));
+    const cartSignature =
+      typeof parsed.cartSignature === "string"
+        ? parsed.cartSignature
+        : buildSurpriseGiftSignature(items as any);
+    const giftFlowVersion = toNumber(parsed.giftFlowVersion, 0);
+    const surpriseGift =
+      giftFlowVersion === SURPRISE_GIFT_FLOW_VERSION
+        ? normalizeSurpriseGift(parsed.surpriseGift)
+        : null;
 
     return {
       mode: parsed.mode === "buyNow" ? "buyNow" : "cart",
       items,
       subTotal,
       shipping: parsed.shipping ?? null,
+      surpriseGift,
+      cartSignature,
+      giftFlowVersion,
+      giftCheckoutKey:
+        typeof parsed.giftCheckoutKey === "string"
+          ? parsed.giftCheckoutKey
+          : null,
       createdAt:
         typeof parsed.createdAt === "string"
           ? parsed.createdAt
@@ -68,17 +108,45 @@ export const saveCheckoutSession = (session: {
   items: CartModel[];
   subTotal?: number;
   shipping?: ShippingOption | null;
+  surpriseGift?: SurpriseGiftSelection | null;
+  cartSignature?: string;
+  giftCheckoutKey?: string | null;
 }) => {
   if (typeof window === "undefined") return;
 
   const items = (session.items ?? []).map(normalizeItem);
   const subTotal = session.subTotal ?? computeSubTotal(items);
+  const cartSignature =
+    session.cartSignature ?? buildSurpriseGiftSignature(items as any);
+  const current = readCheckoutSession();
+  const hasGiftOverride = Object.prototype.hasOwnProperty.call(
+    session,
+    "surpriseGift",
+  );
+  const surpriseGift = hasGiftOverride
+    ? normalizeSurpriseGift(session.surpriseGift)
+    : current?.giftFlowVersion === SURPRISE_GIFT_FLOW_VERSION &&
+        current.cartSignature === cartSignature
+      ? normalizeSurpriseGift(current.surpriseGift)
+      : null;
+  const giftCheckoutKey = surpriseGift
+    ? hasGiftOverride
+      ? session.giftCheckoutKey ?? null
+      : current?.giftFlowVersion === SURPRISE_GIFT_FLOW_VERSION &&
+          current.cartSignature === cartSignature
+        ? current.giftCheckoutKey ?? null
+        : null
+    : null;
 
   const payload: CheckoutSessionState = {
     mode: session.mode === "buyNow" ? "buyNow" : "cart",
     items,
     subTotal,
     shipping: session.shipping ?? null,
+    surpriseGift,
+    cartSignature,
+    giftFlowVersion: SURPRISE_GIFT_FLOW_VERSION,
+    giftCheckoutKey,
     createdAt: new Date().toISOString(),
   };
 
@@ -94,12 +162,36 @@ export const updateCheckoutSessionItems = (
 
   const nextItems = updater(current.items);
   const subTotal = extras?.subTotal ?? computeSubTotal(nextItems);
+  const cartSignature =
+    extras?.cartSignature ?? buildSurpriseGiftSignature(nextItems as any);
+  const hasGiftOverride = Object.prototype.hasOwnProperty.call(
+    extras ?? {},
+    "surpriseGift",
+  );
+  const surpriseGift = hasGiftOverride
+    ? normalizeSurpriseGift(extras?.surpriseGift)
+    : current?.giftFlowVersion === SURPRISE_GIFT_FLOW_VERSION &&
+        current.cartSignature === cartSignature
+      ? normalizeSurpriseGift(current.surpriseGift)
+      : null;
+  const giftCheckoutKey = surpriseGift
+    ? hasGiftOverride
+      ? extras?.giftCheckoutKey ?? null
+      : current?.giftFlowVersion === SURPRISE_GIFT_FLOW_VERSION &&
+          current.cartSignature === cartSignature
+        ? current.giftCheckoutKey ?? null
+        : null
+    : null;
 
   const next: CheckoutSessionState = {
     mode: extras?.mode ?? current.mode,
     items: nextItems.map(normalizeItem),
     subTotal,
     shipping: extras?.shipping ?? current.shipping ?? null,
+    surpriseGift,
+    cartSignature,
+    giftFlowVersion: SURPRISE_GIFT_FLOW_VERSION,
+    giftCheckoutKey,
     createdAt: new Date().toISOString(),
   };
 

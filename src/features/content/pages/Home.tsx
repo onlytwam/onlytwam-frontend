@@ -3,12 +3,14 @@ import MobileProductCard from "@/features/products/components/MobileProductCard"
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import {
   listProducts,
   listBrands,
   listUserReviews,
   listNewArrivals,
 } from "@/features/products/api/products.api";
+import { useAuthStore } from "@/features/auth/store/authStore";
 import { useMenuStore } from "@/shared/store/menuStore";
 import { getCategories } from "@/features/auth/api/auth.api";
 import api from "@/shared/api/axiosInstance";
@@ -33,6 +35,9 @@ const publicBrandImages = [
   "/assets/brands/soie.webp",
   "/assets/brands/Triumph.png",
 ];
+
+const HOME_PASSWORD_UPDATE_TOAST_ID = "home-password-update-reminder";
+const HOME_PASSWORD_UPDATE_SEEN_KEY = "twam_home_password_update_seen";
 
 // ─── Product Slider ───────────────────────────────────────────────────────────
 function ProductSlider({
@@ -1025,6 +1030,11 @@ function MobileTestimonial({
 export default function Home() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const passwordUpdateRequired = useAuthStore(
+    (state) => state.passwordUpdateRequired,
+  );
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isSyncing = useAuthStore((state) => state.isSyncing);
   const { menus, setMenus } = useMenuStore();
   const [selectedCategoryId, setSelectedCategoryId] = useState(0);
   const [categoryProducts, setCategoryProducts] = useState<any[] | null>(null);
@@ -1173,13 +1183,117 @@ export default function Home() {
     select: dedupeByProductId,
     staleTime: 5 * 60 * 1000,
   });
+  const homeReady = bsReady && naReady && tfReady && bannerLoaded;
 
   useEffect(() => {
-    if (bsReady && naReady && tfReady && bannerLoaded) {
+    if (homeReady) {
       (window as any).__twamHomeReady = true;
       window.dispatchEvent(new Event("twam-home-ready"));
     }
-  }, [bsReady, naReady, tfReady, bannerLoaded]);
+  }, [homeReady]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!homeReady || !isAuthenticated || !passwordUpdateRequired || isSyncing) {
+      return;
+    }
+
+    if (sessionStorage.getItem(HOME_PASSWORD_UPDATE_SEEN_KEY) === "1") {
+      return;
+    }
+
+    sessionStorage.setItem(HOME_PASSWORD_UPDATE_SEEN_KEY, "1");
+    const dismissToast = () => toast.dismiss(HOME_PASSWORD_UPDATE_TOAST_ID);
+
+    toast.custom(
+      (t) => (
+        <div
+          style={{
+            display: "grid",
+            gap: 14,
+            width: "min(92vw, 360px)",
+            padding: "2px 0",
+            opacity: t.visible ? 1 : 0,
+            transform: t.visible ? "translateY(0)" : "translateY(-8px)",
+            transition: "all 180ms ease",
+          }}
+        >
+          <div style={{ display: "grid", gap: 6 }}>
+            <strong
+              style={{
+                fontSize: 15,
+                color: "var(--brand)",
+                lineHeight: 1.35,
+              }}
+            >
+              Please update your password
+            </strong>
+            <span
+              style={{
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: "var(--heirloom)",
+              }}
+            >
+              You signed in with a temporary password. Update it now to keep
+              your account secure.
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                dismissToast();
+                navigate("/account/change-password", { replace: true });
+              }}
+              style={{
+                border: "none",
+                borderRadius: 999,
+                padding: "10px 16px",
+                background: "var(--brand)",
+                color: "#fff",
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 10px 22px rgba(107,15,42,.18)",
+              }}
+            >
+              Update
+            </button>
+            <button
+              type="button"
+              onClick={dismissToast}
+              style={{
+                border: "1px solid rgba(107,15,42,.15)",
+                borderRadius: 999,
+                padding: "10px 16px",
+                background: "#fff",
+                color: "var(--brand)",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Ignore
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        id: HOME_PASSWORD_UPDATE_TOAST_ID,
+        duration: Infinity,
+      },
+    );
+
+    return () => {
+      toast.dismiss(HOME_PASSWORD_UPDATE_TOAST_ID);
+    };
+  }, [homeReady, isAuthenticated, isSyncing, navigate, passwordUpdateRequired]);
 
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],

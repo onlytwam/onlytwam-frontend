@@ -1,6 +1,6 @@
 // Fixed: API endpoints now point to correct backend routes
 // Profile update: POST /register/update  (not PUT /Account/UpdateProfile)
-// Change password: POST /register/ChangePassword (not POST /Account/ChangePassword)
+// Change password: POST /auth/ChangePassword (signed-in session)
 
 import {
   useState,
@@ -82,9 +82,10 @@ export default function UpdateProfile() {
   const editorImageRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; startOffsetX: number; startOffsetY: number } | null>(null);
 
-  const [pwForm, setPwForm]   = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwForm, setPwForm]   = useState({ newPassword: '', confirmPassword: '' });
   const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
-  const [showPw, setShowPw]   = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -319,17 +320,21 @@ export default function UpdateProfile() {
 
   const passwordMutation = useMutation({
     mutationFn: () => changePassword({
-      emailId:         profile.email,
-      currentPassword: pwForm.currentPassword,
-      newPassword:     pwForm.newPassword,
+      newPassword: pwForm.newPassword,
     }),
     onSuccess: () => {
       toast.success('Password changed successfully!');
-      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      if (user) {
+        setUser({
+          ...user,
+          isRandomPassword: false,
+        } as any);
+      }
+      setPwForm({ newPassword: '', confirmPassword: '' });
     },
     onError: (e: any) => toast.error(
       e?.response?.data?.detail || e?.response?.data?.message ||
-      'Failed to change password. Please check your current password.'
+      'Failed to change password. Please try again.'
     ),
   });
 
@@ -347,7 +352,6 @@ export default function UpdateProfile() {
 
   const validatePassword = () => {
     const e: Record<string, string> = {};
-    if (!pwForm.currentPassword) e.currentPassword = 'Current password is required';
     if (!pwForm.newPassword) e.newPassword = 'New password is required';
     else if (pwForm.newPassword.length < 6) e.newPassword = 'Min 6 characters';
     if (!pwForm.confirmPassword) e.confirmPassword = 'Confirm your password';
@@ -440,7 +444,6 @@ export default function UpdateProfile() {
   );
 
   const passwordFieldsDirty = isPasswordPage && Boolean(
-    pwForm.currentPassword ||
     pwForm.newPassword ||
     pwForm.confirmPassword
   );
@@ -474,9 +477,10 @@ export default function UpdateProfile() {
 
   discardChangesRef.current = () => {
     if (isPasswordPage) {
-      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPwForm({ newPassword: '', confirmPassword: '' });
       setPwErrors({});
-      setShowPw(false);
+      setShowNewPw(false);
+      setShowConfirmPw(false);
       return;
     }
 
@@ -511,8 +515,9 @@ export default function UpdateProfile() {
   }, [setGuard]);
 
   useEffect(() => {
-    setShowPw(false);
     setPwErrors({});
+    setShowNewPw(false);
+    setShowConfirmPw(false);
   }, [isPasswordPage]);
 
   return (
@@ -673,24 +678,32 @@ export default function UpdateProfile() {
       ) : (
         <div className="s-updateprofil-340e9f">
           {[
-            { key: 'currentPassword', label: 'Current Password *', showToggle: true },
-            { key: 'newPassword',     label: 'New Password * (min 6 chars)', showToggle: false },
-            { key: 'confirmPassword', label: 'Confirm New Password *', showToggle: false },
-          ].map(({ key, label, showToggle }) => (
+            { key: 'newPassword',     label: 'New Password * (min 6 chars)', autoComplete: 'new-password' },
+            { key: 'confirmPassword', label: 'Confirm New Password *', autoComplete: 'new-password' },
+          ].map(({ key, label, autoComplete }) => (
             <div key={key} className="s-updateprofil-246fef">
               <label className="s-addressform-f1fb64">{label}</label>
               <div className="s-updateprofil-1d5e50">
                 <input
-                  type={showToggle ? (showPw ? 'text' : 'password') : 'password'}
-                  style={{ ...err(key, pwErrors), paddingRight: showToggle ? 42 : 12 }}
+                  type={key === 'newPassword' ? (showNewPw ? 'text' : 'password') : (showConfirmPw ? 'text' : 'password')}
+                  autoComplete={autoComplete}
+                  style={{ ...err(key, pwErrors), paddingRight: 42 }}
                   value={(pwForm as any)[key]}
                   onChange={e => setPwForm(p => ({ ...p, [key]: e.target.value }))}
                 />
-                {showToggle && (
-                  <button type="button" onClick={() => setShowPw(v => !v)} className="s-updateprofil-24c8ba">
-                    <i className={`bi ${showPw ? 'bi-eye-slash' : 'bi-eye'}`} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  aria-label={key === 'newPassword'
+                    ? (showNewPw ? 'Hide new password' : 'Show new password')
+                    : (showConfirmPw ? 'Hide confirm password' : 'Show confirm password')}
+                  onClick={() => key === 'newPassword'
+                    ? setShowNewPw(v => !v)
+                    : setShowConfirmPw(v => !v)}
+                  className="s-updateprofil-24c8ba">
+                  <i className={`bi ${key === 'newPassword'
+                    ? (showNewPw ? 'bi-eye-slash' : 'bi-eye')
+                    : (showConfirmPw ? 'bi-eye-slash' : 'bi-eye')}`} />
+                </button>
               </div>
               {pwErrors[key] && <p className="s-updateprofil-ecc872">{pwErrors[key]}</p>}
             </div>

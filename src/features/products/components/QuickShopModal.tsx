@@ -519,13 +519,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     store.removeCoupon?.();
     store.setShipping?.(null);
 
-    if (hasValidToken()) {
-      store.setSelectedItems?.([buyNowItem as any]);
-      store.setSubTotal?.(Number(dispPrice || 0) * qty);
-    }
-
     onClose();
-    navigate("/user-products/payment-address?buyNow=1", {
+    navigate("/user-products/cart?buyNow=1", {
       state: { from: location.pathname + location.search },
     });
   };

@@ -5,7 +5,7 @@
 //                       Send OTP to chosen channel
 //   Step 2 (otp)      — Verify OTP → get access token + account created
 //   Step 3 (address)  — Fill address → place order
-// If phone-only used: backend sends temp password via SMS automatically.
+// If email and/or phone are used: backend sends the welcome email with the temporary password automatically.
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRef, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import api from "@/shared/api/axiosInstance";
-import { sendOtp, verifyOtpUniversal } from "@/features/auth/api/auth.api";
+import {
+  checkForgotPasswordChannels,
+  sendOtp,
+  verifyOtpUniversal,
+} from "@/features/auth/api/auth.api";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
 const GuestCart = {
@@ -161,6 +165,21 @@ export default function GuestSignup() {
     try {
       const hasEmail = !!contact.email.trim();
       const hasPhone = !!contact.phone.trim();
+      const identifiers = [
+        ...(hasEmail ? [contact.email.trim()] : []),
+        ...(hasPhone ? [contact.phone.trim()] : []),
+      ];
+
+      for (const identifier of identifiers) {
+        const registration = await checkForgotPasswordChannels(identifier);
+        if (registration.registered) {
+          toast.error(
+            "This contact is already registered. Please sign in. If you forgot your password, please reset it.",
+          );
+          setShowPicker(false);
+          return;
+        }
+      }
 
       // Send OTP — backend returns 409 if identifier already registered
       const sendParams = {
@@ -204,6 +223,17 @@ export default function GuestSignup() {
     setShowPicker(false);
     setLoading(true);
     try {
+      const identifier =
+        channel === "email" ? contact.email.trim() : contact.phone.trim();
+      const registration = await checkForgotPasswordChannels(identifier);
+      if (registration.registered) {
+        toast.error(
+          "This contact is already registered. Please sign in. If you forgot your password, please reset it.",
+        );
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+
       const sendParams = {
         email: channel === "email" ? contact.email.trim() : undefined,
         phone: channel === "phone" ? contact.phone.trim() : undefined,
