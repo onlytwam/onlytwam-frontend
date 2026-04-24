@@ -22,7 +22,7 @@ interface CartState {
   setCoupon: (coupon: any, discountAmount: number) => void;
   removeCoupon: () => void;
   setShipping: (option: ShippingOption | null) => void;
-  getSelectedItems: () => CartModel[];
+  getSelectedItems: () => CartModel[]; 
   getSubTotal: () => number;
   getTotalPayable: () => number;
   getTotalDiscount: () => number;

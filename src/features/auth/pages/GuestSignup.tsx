@@ -16,8 +16,6 @@ import api from "@/shared/api/axiosInstance";
 import { sendOtp, verifyOtpUniversal } from "@/features/auth/api/auth.api";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
-const TAX_RATE = 0.05;
-
 const GuestCart = {
   get: (): any[] => {
     try {

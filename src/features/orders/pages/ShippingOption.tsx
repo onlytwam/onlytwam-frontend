@@ -53,13 +53,9 @@ export default function ShippingOption() {
     const store = useCartStore.getState();
     store.setSelectedItems?.(session.items as any);
     store.setSubTotal?.(session.subTotal);
-<<<<<<< Updated upstream
-=======
-    store.setTaxAmount?.(session.taxAmount);
     if (!isBuyNow && session.shipping) {
       store.setShipping?.(session.shipping as any);
     }
->>>>>>> Stashed changes
   }, [isBuyNow]);
 
   const [selectedId, setSelectedId] = useState<number | null>(
@@ -75,14 +71,9 @@ export default function ShippingOption() {
     staleTime: 10 * 60 * 1000,
   });
 
-<<<<<<< Updated upstream
-  const subTotal = buyNowSession?.subTotal ?? getSubTotal();
-=======
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
-  const taxAmount = checkoutSession?.taxAmount ?? getTaxAmount();
   const checkoutItems =
     checkoutSession?.items?.length ? checkoutSession.items : getSelectedItems();
->>>>>>> Stashed changes
   const normalizedOptions: ShippingOption[] = (
     (shippingOptions as any[]) || []
   ).map((opt: any) => {
@@ -182,7 +173,6 @@ export default function ShippingOption() {
       mode: isBuyNow ? "buyNow" : "cart",
       items: checkoutItems,
       subTotal,
-      taxAmount,
       shipping: option,
     });
 

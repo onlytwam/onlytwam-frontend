@@ -8859,11 +8859,16 @@ button {
 }
 
 .s-cart-a4c113 {
-  border: 1px solid #f5f0e6;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 20px;
   position: sticky;
   top: 170px;
+  background: var(--white);
+}
+
+.cart-mobile-place-order {
+  display: none;
 }
 
 .s-cart-d1f5ec {
@@ -8876,7 +8881,7 @@ button {
 
 .s-cart-1914b7 {
   background: var(--ivory);
-  border: 1px solid #f5f0e6;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 8px 12px;
   margin-bottom: 16px;
@@ -8897,6 +8902,177 @@ button {
   margin-bottom: 16px;
 }
 
+.s-cart-coupon-entry {
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--ivory) 0%, var(--white) 100%);
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.s-cart-coupon-state {
+  margin: 0;
+  color: var(--heirloom);
+  font-size: 13px;
+}
+
+.s-cart-coupon-note {
+  margin: 0 0 10px;
+  color: var(--brand);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.s-cart-coupon-group {
+  margin-bottom: 0;
+}
+
+.s-cart-coupon-group--spaced {
+  margin-bottom: 12px;
+}
+
+.s-cart-coupon-group__title {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.s-cart-coupon-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.s-cart-coupon-apply:disabled {
+  background: var(--ivory);
+  color: var(--heirloom);
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.s-cart-6ee566:not(:disabled):hover {
+  background: var(--blush);
+}
+
+.s-cart-coupon-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--brand);
+  margin-bottom: 10px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.s-cart-coupon-toggle:hover {
+  background: var(--ivory);
+}
+
+.s-cart-coupon-panel {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 12px;
+  background: linear-gradient(180deg, var(--ivory) 0%, var(--white) 100%);
+  box-shadow: 0 10px 30px rgba(106, 1, 42, 0.06);
+  margin-bottom: 12px;
+}
+
+.s-cart-coupon-card {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  background: var(--white);
+  cursor: pointer;
+}
+
+.s-cart-coupon-card--applied,
+.s-cart-coupon-card--locked {
+  background: var(--ivory);
+}
+
+.s-cart-coupon-card--active {
+  background: var(--white);
+}
+
+.s-cart-coupon-card--applied {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.s-cart-coupon-card__info {
+  display: grid;
+  gap: 4px;
+}
+
+.s-cart-coupon-card__code {
+  font-weight: 700;
+}
+
+.s-cart-coupon-card__name {
+  font-size: 12px;
+  color: var(--heirloom);
+}
+
+.s-cart-coupon-card__meta {
+  text-align: right;
+  display: grid;
+  gap: 4px;
+}
+
+.s-cart-coupon-card__discount {
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.s-cart-coupon-card__status {
+  font-size: 12px;
+  color: var(--heirloom);
+}
+
+.s-cart-coupon-summary {
+  margin-top: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.s-cart-coupon-summary__info {
+  display: grid;
+  gap: 4px;
+}
+
+.s-cart-coupon-savings {
+  margin: 6px 0 12px;
+  font-size: 12px;
+  color: var(--heirloom);
+  font-weight: 600;
+  padding-left: 2px;
+}
+
 .s-cart-0ff409 {
   margin: 0 0 14px;
 }
@@ -8905,6 +9081,10 @@ button {
   display: flex;
   justify-content: space-between;
   margin-bottom: 6px;
+  padding: 10px 12px;
+  background: var(--ivory);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
 }
 
 .s-cart-d5c56b {
@@ -8928,8 +9108,11 @@ button {
   display: flex;
   justify-content: space-between;
   margin: 12px 0 16px;
-  border-top: 1px solid #f5f0e6;
-  padding-top: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--ivory) 0%, var(--white) 100%);
+  border-left: 4px solid var(--brand);
+  padding: 12px 14px;
 }
 
 .s-cart-4d546e {
@@ -10007,10 +10190,13 @@ button {
 }
 
 .s-orderconfirm-3a9663 {
-  background: var(--ivory);
-  border-radius: 8px;
-  padding: 12px;
+  background: linear-gradient(135deg, var(--ivory) 0%, var(--white) 100%);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--brand);
+  border-radius: 12px;
+  padding: 14px;
   margin-bottom: 12px;
+  box-shadow: 0 8px 18px rgba(107, 15, 42, 0.04);
 }
 
 .s-orderconfirm-0b9a8f {
@@ -10026,6 +10212,7 @@ button {
 .s-orderconfirm-5c2925 {
   font-weight: 700;
   font-size: 16px;
+  color: var(--brand);
 }
 
 .s-orderconfirm-39c60a {
@@ -14692,6 +14879,10 @@ button {
   font-family: var(--font-body);
 }
 
+.s-cart-769238:hover:not(:disabled) {
+  background: var(--blush);
+}
+
 .s-cart-d3b151 {
   width: 100%;
   background: transparent;
@@ -14704,6 +14895,10 @@ button {
   font-weight: 600;
   font-family: var(--font-body);
   margin-top: 8px;
+}
+
+.s-cart-d3b151:hover {
+  background: var(--ivory);
 }
 
 .s-about-936baf {
@@ -20715,19 +20910,16 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   padding: 12px 14px;
   border-radius: 14px;
   border-top: none;
-  border: 1px solid rgba(107, 15, 42, 0.08);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 250, 240, 0.96) 0%,
-    rgba(248, 237, 219, 0.96) 100%
-  );
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, var(--ivory) 0%, var(--white) 100%);
+  border-left: 4px solid var(--brand);
+  box-shadow: 0 8px 18px rgba(107, 15, 42, 0.04);
 }
 
 .checkout-summary-total > span:first-child {
   font-size: 15px;
   font-weight: 700;
-  color: #171415;
+  color: var(--heirloom);
 }
 
 .checkout-summary-total > span:last-child {
@@ -21611,11 +21803,6 @@ body:has(.checkout-shell--payment) .payment-wa-toast__button--secondary:hover {
    removes it exactly 2 seconds after scrolling stops.
    No hover transitions fire until 2s of stillness after the last scroll event.
    ══════════════════════════════════════════════════════════════════════════════ */
-
-body.home-scrolling .pc-wrap,
-body.home-scrolling .pc-card {
-  pointer-events: none !important;
-}
 
 body.home-scrolling .pc-card,
 body.home-scrolling .pc-card * {

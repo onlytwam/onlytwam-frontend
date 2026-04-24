@@ -266,22 +266,25 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '14px 16px',
-    background: C.burgundy,
+    background: `linear-gradient(135deg, ${C.ivory} 0%, #fff 100%)`,
+    border: `1.5px solid ${C.ivoryDark}`,
+    borderLeft: `5px solid ${C.burgundy}`,
     borderRadius: 2,
     marginTop: 8,
     gap: 40,
+    boxShadow: '0 10px 20px rgba(106,1,42,0.08)',
   },
   grandTotalLabel: {
     fontSize: 11,
     letterSpacing: '0.26em',
     textTransform: 'uppercase',
-    color: C.ivory,
+    color: C.muted,
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   grandTotalValue: {
     fontSize: 22,
     fontWeight: 700,
-    color: C.ivory,
+    color: C.burgundy,
     letterSpacing: '0.04em',
     fontFamily: "'EB Garamond', Georgia, serif",
   },
@@ -446,7 +449,6 @@ export default function Invoice() {
   //  Fix 3: explicitly typed TotalRow array — no implicit `any` on `green`
   const totals: TotalRow[] = [
     { label: 'Subtotal', value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}` },
-    { label: 'Tax',      value: `₹${(order.taxAmount || 0).toLocaleString('en-IN')}` },
     {
       label: 'Shipping',
       value: (order.deliveryCharge || 0) === 0

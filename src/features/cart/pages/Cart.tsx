@@ -2,7 +2,7 @@
  * Cart.tsx
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -15,6 +15,7 @@ import {
   checkOutOfStock,
   listCoupons,
 } from "@/features/cart/api/cart.api";
+import { listUserCoupons } from "@/features/orders/api/orders.api";
 import { getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
@@ -23,8 +24,7 @@ import {
   readCheckoutSession,
   saveCheckoutSession,
 } from "@/features/cart/utils/checkoutSession";
-
-const TAX_RATE = 0.05;
+import type { CouponModel } from "@/shared/types";
 
 const GuestCart = {
   get: (): any[] => {
@@ -51,6 +51,117 @@ const GuestCart = {
       ),
     ),
 };
+
+const text = (value: unknown) => String(value ?? "").trim();
+const upper = (value: unknown) => text(value).toUpperCase();
+
+const getCouponCode = (coupon: any) =>
+  upper(coupon?.couponCode ?? coupon?.code ?? coupon?.coupon_code);
+
+const getCouponDiscountType = (coupon: any) =>
+  text(coupon?.discountType ?? coupon?.discount_type ?? coupon?.type);
+
+const getCouponDiscountValue = (coupon: any) => {
+  const raw =
+    coupon?.discountValue ??
+    coupon?.discount ??
+    coupon?.discountAmount ??
+    coupon?.value ??
+    coupon?.amount;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getCouponMinOrderValue = (coupon: any) => {
+  const raw =
+    coupon?.minOrderValue ??
+    coupon?.minOrderAmount ??
+    coupon?.minOrder ??
+    coupon?.minimumOrderValue;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const getCouponMaxDiscountAmount = (coupon: any) => {
+  const raw =
+    coupon?.maxDiscountAmount ?? coupon?.maxDiscount ?? coupon?.discountCap;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const isCouponExpired = (coupon: any) => {
+  if (coupon?.isExpire === true) return true;
+  const state = text(coupon?.state).toLowerCase();
+  if (["expired", "used", "inactive", "rejected"].includes(state)) return true;
+
+  const now = Date.now();
+  const start = coupon?.startDate ? new Date(coupon.startDate).getTime() : NaN;
+  const end = coupon?.endDate ? new Date(coupon.endDate).getTime() : NaN;
+
+  if (Number.isFinite(start) && start > now) return true;
+  if (Number.isFinite(end) && end < now) return true;
+  return false;
+};
+
+const isCouponActive = (coupon: any) => coupon?.isActive !== false;
+
+const getCouponDisplayDiscount = (coupon: any) => {
+  const type = getCouponDiscountType(coupon).toLowerCase();
+  const value = getCouponDiscountValue(coupon);
+  if (value <= 0) return "Special offer";
+  if (type === "percentage" || (!type && value <= 100)) {
+    return `${value}% off`;
+  }
+  return `₹${value.toLocaleString("en-IN")} off`;
+};
+
+const calculateCouponDiscountAmount = (coupon: any, subTotal: number) => {
+  const rawValue = getCouponDiscountValue(coupon);
+  if (!Number.isFinite(rawValue) || rawValue <= 0 || subTotal <= 0) return 0;
+
+  const type = getCouponDiscountType(coupon).toLowerCase();
+  let discountAmount =
+    type === "percentage" || (!type && rawValue <= 100)
+      ? Math.round((subTotal * rawValue) / 100)
+      : rawValue;
+
+  const maxDiscount = getCouponMaxDiscountAmount(coupon);
+  if (maxDiscount > 0) {
+    discountAmount = Math.min(discountAmount, maxDiscount);
+  }
+
+  return Math.max(0, Math.min(discountAmount, subTotal));
+};
+
+const getCouponUnlockAmount = (coupon: any, subTotal: number) => {
+  const minOrderValue = getCouponMinOrderValue(coupon);
+  if (!minOrderValue || subTotal >= minOrderValue) return 0;
+  return minOrderValue - subTotal;
+};
+
+const normalizeCouponResponse = (payload: any): CouponModel[] => {
+  const list = Array.isArray(payload)
+    ? payload
+    : payload?.list ?? payload?.data ?? payload?.items ?? [];
+  return Array.isArray(list) ? list : [];
+};
+
+type CouponSource = "profile" | "general";
+
+type DisplayCoupon = CouponModel & {
+  source: CouponSource;
+};
+
+type CouponOption = {
+  coupon: DisplayCoupon;
+  code: string;
+  displayDiscount: string;
+  unlockAmount: number;
+  canApplyNow: boolean;
+};
+
+const isGeneralCoupon = (coupon: any) =>
+  coupon?.isCommon === true || !text(coupon?.toUserProfileId);
 
 function SaveForLater({
   item,
@@ -125,6 +236,29 @@ export default function Cart() {
   const [authItems, setAuthItems] = useState<any[]>([]);
   const [guestItems, setGuestItems] = useState<any[]>([]);
   const [couponInput, setCouponInput] = useState("");
+  const [isCouponDropdownOpen, setIsCouponDropdownOpen] = useState(false);
+
+  const { data: profileCoupons = [], isLoading: isProfileCouponsLoading } = useQuery({
+    queryKey: ["cart-profile-coupons", userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const res = await listUserCoupons({ userProfileId: String(userId) });
+      return normalizeCouponResponse(res);
+    },
+    enabled: isAuth && Boolean(userId),
+  });
+
+  const { data: generalCoupons = [], isLoading: isGeneralCouponsLoading } = useQuery({
+    queryKey: ["cart-general-coupons"],
+    queryFn: async () => {
+      const res = await listCoupons({
+        "Page.Size": 200,
+        "Order.Property": "CreatedDate",
+        "Order.Ascending": false,
+      });
+      return normalizeCouponResponse(res).filter(isGeneralCoupon);
+    },
+  });
 
   useEffect(() => {
     if (cartData) setAuthItems(cartData);
@@ -136,6 +270,24 @@ export default function Cart() {
       );
   }, [isAuth]);
 
+  const appliedCouponCode = getCouponCode(appliedCoupon);
+  const typedCouponInput = upper(couponInput);
+  const isApplyCouponDisabled = Boolean(
+    !typedCouponInput ||
+      (appliedCouponCode && typedCouponInput === appliedCouponCode),
+  );
+
+  useEffect(() => {
+    if (appliedCouponCode) {
+      setCouponInput(appliedCouponCode);
+      return;
+    }
+
+    if (!appliedCoupon) {
+      setCouponInput("");
+    }
+  }, [appliedCoupon, appliedCouponCode]);
+
   const cartItems = isAuth ? authItems : guestItems;
   const selectedItems = cartItems.filter((i) => i.isSelected);
   const allSelected =
@@ -146,6 +298,170 @@ export default function Cart() {
     0,
   );
   const totalPayable = Math.max(0, subTotal - (couponDiscount ?? 0));
+
+  const couponOptions = useMemo(() => {
+    const byCode = new Map<string, DisplayCoupon>();
+
+    const pushCoupon = (coupon: any, source: CouponSource) => {
+      const code = getCouponCode(coupon);
+      if (!code) return;
+
+      const normalized: DisplayCoupon = {
+        ...coupon,
+        couponCode: code,
+        source,
+      };
+
+      const existing = byCode.get(code);
+      if (!existing || (source === "profile" && existing.source !== "profile")) {
+        byCode.set(code, normalized);
+      }
+    };
+
+    generalCoupons.forEach((coupon: any) => pushCoupon(coupon, "general"));
+    profileCoupons.forEach((coupon: any) => pushCoupon(coupon, "profile"));
+
+    const all = [...byCode.values()]
+      .filter((coupon) => isCouponActive(coupon) && !isCouponExpired(coupon))
+      .map((coupon) => {
+        const code = getCouponCode(coupon);
+        const unlockAmount = getCouponUnlockAmount(coupon, subTotal);
+        const discountAmount = calculateCouponDiscountAmount(coupon, subTotal);
+
+        return {
+          coupon,
+          code,
+          displayDiscount: getCouponDisplayDiscount(coupon),
+          unlockAmount,
+          canApplyNow: unlockAmount <= 0 && discountAmount > 0,
+        } satisfies CouponOption;
+      })
+      .sort((a, b) => {
+        const sourceDiff =
+          a.coupon.source === b.coupon.source
+            ? 0
+            : a.coupon.source === "profile"
+              ? -1
+              : 1;
+        return sourceDiff || a.code.localeCompare(b.code);
+      });
+
+    return {
+      all,
+      profile: all.filter((item) => item.coupon.source === "profile"),
+      general: all.filter((item) => item.coupon.source === "general"),
+    };
+  }, [generalCoupons, profileCoupons, subTotal]);
+
+  const resolveCouponByCode = async (rawCode: string): Promise<DisplayCoupon | null> => {
+    const code = upper(rawCode);
+    if (!code) return null;
+
+    const localMatch = couponOptions.all.find((item) => item.code === code);
+    if (localMatch) return localMatch.coupon;
+
+    try {
+      const [userRes, generalRes] = await Promise.all([
+        isAuth && userId
+          ? listUserCoupons({ userProfileId: String(userId) })
+          : Promise.resolve(null),
+        listCoupons({
+          Filters: [
+            {
+              property: "CouponCode",
+              comparison: "eq",
+              value: code,
+            },
+          ],
+        }),
+      ]);
+
+      const fetchedCoupons = [
+        ...(normalizeCouponResponse(userRes) as CouponModel[]),
+        ...(normalizeCouponResponse(generalRes) as CouponModel[]),
+      ];
+
+      const match = fetchedCoupons.find((coupon) => getCouponCode(coupon) === code);
+      if (!match) return null;
+
+      return {
+        ...match,
+        couponCode: getCouponCode(match),
+        source: isGeneralCoupon(match) ? "general" : "profile",
+      };
+    } catch (error) {
+      console.error("Coupon lookup error:", error);
+      return null;
+    }
+  };
+
+  const applyCouponByCode = async (rawCode: string, showToast = true) => {
+    const code = upper(rawCode);
+    if (!code) {
+      if (showToast) toast.error("Enter a coupon code");
+      return false;
+    }
+
+    try {
+      const coupon = await resolveCouponByCode(code);
+      if (!coupon) {
+        if (showToast) toast.error("Invalid coupon");
+        return false;
+      }
+
+      if (!isCouponActive(coupon) || isCouponExpired(coupon)) {
+        if (showToast) toast.error("Invalid coupon");
+        return false;
+      }
+
+      const unlockAmount = getCouponUnlockAmount(coupon, subTotal);
+      if (unlockAmount > 0) {
+        if (showToast) {
+          toast.error(
+            `Add Rs.${unlockAmount.toLocaleString(
+              "en-IN",
+            )} more to use this coupon`,
+          );
+        }
+        return false;
+      }
+
+      const discountAmt = calculateCouponDiscountAmount(coupon, subTotal);
+      if (discountAmt <= 0) {
+        if (showToast) toast.error("Coupon not applicable on this order");
+        return false;
+      }
+
+      setCoupon(coupon, discountAmt);
+
+      if (showToast) {
+        toast.success(
+          `Coupon applied! ${getCouponDisplayDiscount(
+            coupon,
+          )} — you save Rs.${discountAmt.toLocaleString("en-IN")}`,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Coupon error:", error);
+      if (showToast) toast.error("Could not verify coupon. Please try again.");
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    const appliedCode = getCouponCode(appliedCoupon);
+    if (!appliedCode) return;
+
+    const current = couponOptions.all.find((item) => item.code === appliedCode);
+    if (!current) return;
+
+    const discountAmt = calculateCouponDiscountAmount(current.coupon, subTotal);
+    if (discountAmt > 0 && discountAmt !== couponDiscount) {
+      setCoupon(current.coupon, discountAmt);
+    }
+  }, [appliedCoupon, couponDiscount, couponOptions.all, setCoupon, subTotal]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, qty }: { id: number; qty: number }) =>
@@ -230,6 +546,17 @@ export default function Cart() {
   };
 
   const handleApplyCoupon = async () => {
+    if (!typedCouponInput) {
+      toast.error("Enter a coupon code");
+      return;
+    }
+
+    if (isApplyCouponDisabled) return;
+
+    const applied = await applyCouponByCode(typedCouponInput, true);
+    if (applied) setIsCouponDropdownOpen(false);
+    return;
+
     if (!couponInput.trim()) {
       toast.error("Enter a coupon code");
       return;
@@ -272,26 +599,45 @@ export default function Cart() {
     }
   };
 
+  const handleSelectCoupon = async (code: string) => {
+    const normalized = upper(code);
+    if (!normalized) return;
+
+    setCouponInput(normalized);
+    if (normalized === appliedCouponCode) return;
+
+    const applied = await applyCouponByCode(normalized, true);
+    if (applied) setIsCouponDropdownOpen(false);
+  };
+
+  const handleRemoveCoupon = () => {
+    removeCoupon();
+    setCouponInput("");
+    setIsCouponDropdownOpen(false);
+  };
+
   const handleCheckout = async () => {
     if (selectedItems.length === 0) {
       toast.error("Please select at least one item");
       return;
     }
+
+    if (typedCouponInput && typedCouponInput !== appliedCouponCode) {
+      const isCouponValid = await applyCouponByCode(typedCouponInput, true);
+      if (!isCouponValid) {
+        return;
+      }
+    }
     clearBuyNowSession();
     const store = useCartStore.getState();
     store.setSelectedItems?.(selectedItems);
     store.setSubTotal?.(subTotal);
-<<<<<<< Updated upstream
-=======
-    store.setTaxAmount?.(taxAmount);
     saveCheckoutSession({
       mode: "cart",
       items: selectedItems,
       subTotal,
-      taxAmount,
       shipping: selectedShipping ?? readCheckoutSession()?.shipping ?? null,
     });
->>>>>>> Stashed changes
     if (!isAuth) {
       navigate("/user-products/payment-address");
       return;
@@ -493,7 +839,162 @@ export default function Cart() {
             <div className="s-cart-a4c113">
               {/* Coupon */}
               <h6 className="s-cart-d1f5ec">Apply Coupon Code</h6>
-              {appliedCoupon ? (
+              <div className="s-cart-e57b74 s-cart-coupon-entry">
+                <input
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                  placeholder="Coupon code"
+                  className="s-cart-d635cd"
+                />
+                <button
+                  onClick={handleApplyCoupon}
+                  className="s-cart-6ee566 s-cart-coupon-apply"
+                  disabled={isApplyCouponDisabled}
+                >
+                  Apply
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCouponDropdownOpen((open) => !open)}
+                className="s-cart-coupon-toggle"
+              >
+                <span>
+                  {isCouponDropdownOpen
+                    ? "Hide available coupons"
+                    : "Available coupons"}
+                </span>
+                <i
+                  className={`bi ${
+                    isCouponDropdownOpen ? "bi-chevron-up" : "bi-chevron-down"
+                  }`}
+                />
+              </button>
+
+              {isCouponDropdownOpen && (
+                <div className="s-cart-coupon-panel">
+                  {isProfileCouponsLoading || isGeneralCouponsLoading ? (
+                    <p className="s-cart-coupon-state">
+                      Loading available coupons...
+                    </p>
+                  ) : couponOptions.all.length === 0 ? (
+                    <p className="s-cart-coupon-state">
+                      No active coupons available right now.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="s-cart-coupon-note">
+                        Tap a coupon to apply it
+                      </p>
+
+                      {couponOptions.profile.length > 0 && (
+                        <div
+                          className={`s-cart-coupon-group ${
+                            couponOptions.general.length > 0
+                              ? "s-cart-coupon-group--spaced"
+                              : ""
+                          }`}
+                        >
+                          <div className="s-cart-coupon-group__title">
+                            Your coupons
+                          </div>
+                          <div className="s-cart-coupon-grid">
+                            {couponOptions.profile.map((item) => (
+                              <button
+                                key={`${item.code}-${item.coupon.couponId ?? "profile"}`}
+                                type="button"
+                                onClick={() => void handleSelectCoupon(item.code)}
+                                disabled={item.code === appliedCouponCode}
+                                className={`s-cart-coupon-card ${
+                                  item.code === appliedCouponCode
+                                    ? "s-cart-coupon-card--applied"
+                                    : item.canApplyNow
+                                      ? "s-cart-coupon-card--active"
+                                      : "s-cart-coupon-card--locked"
+                                }`}
+                              >
+                                <div className="s-cart-coupon-card__info">
+                                  <span className="s-cart-coupon-card__code">
+                                    {item.code}
+                                  </span>
+                                  <span className="s-cart-coupon-card__name">
+                                    {item.coupon.couponName ||
+                                      "Profile coupon"}
+                                  </span>
+                                </div>
+                                <div className="s-cart-coupon-card__meta">
+                                  <div className="s-cart-coupon-card__discount">
+                                    {item.displayDiscount}
+                                  </div>
+                                  <div className="s-cart-coupon-card__status">
+                                    {item.code === appliedCouponCode
+                                      ? "Applied"
+                                      : item.canApplyNow
+                                      ? "Tap to use"
+                                      : `Need Rs.${item.unlockAmount.toLocaleString(
+                                          "en-IN",
+                                        )} more`}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {couponOptions.general.length > 0 && (
+                        <div className="s-cart-coupon-group">
+                          <div className="s-cart-coupon-group__title">
+                            General coupons
+                          </div>
+                          <div className="s-cart-coupon-grid">
+                            {couponOptions.general.map((item) => (
+                              <button
+                                key={`${item.code}-${item.coupon.couponId ?? "general"}`}
+                                type="button"
+                                onClick={() => void handleSelectCoupon(item.code)}
+                                disabled={item.code === appliedCouponCode}
+                                className={`s-cart-coupon-card ${
+                                  item.code === appliedCouponCode
+                                    ? "s-cart-coupon-card--applied"
+                                    : item.canApplyNow
+                                      ? "s-cart-coupon-card--active"
+                                      : "s-cart-coupon-card--locked"
+                                }`}
+                              >
+                                <div className="s-cart-coupon-card__info">
+                                  <span className="s-cart-coupon-card__code">
+                                    {item.code}
+                                  </span>
+                                  <span className="s-cart-coupon-card__name">
+                                    {item.coupon.couponName || "General coupon"}
+                                  </span>
+                                </div>
+                                <div className="s-cart-coupon-card__meta">
+                                  <div className="s-cart-coupon-card__discount">
+                                    {item.displayDiscount}
+                                  </div>
+                                  <div className="s-cart-coupon-card__status">
+                                    {item.code === appliedCouponCode
+                                      ? "Applied"
+                                      : item.canApplyNow
+                                      ? "Tap to use"
+                                      : `Need Rs.${item.unlockAmount.toLocaleString(
+                                          "en-IN",
+                                        )} more`}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+              {false && appliedCoupon ? (
                 <div className="s-cart-1914b7">
                   <span className="s-cart-1c5a85">
                     {(appliedCoupon as any).couponCode} applied
@@ -502,21 +1003,27 @@ export default function Cart() {
                     ✕
                   </button>
                 </div>
-              ) : (
-                <div className="s-cart-e57b74">
-                  <input
-                    value={couponInput}
-                    onChange={(e) =>
-                      setCouponInput(e.target.value.toUpperCase())
-                    }
-                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
-                    placeholder="Coupon code"
-                    className="s-cart-d635cd"
-                  />
-                  <button onClick={handleApplyCoupon} className="s-cart-6ee566">
-                    Apply
+              ) : null}
+
+              {appliedCoupon && (
+                <div
+                  className="s-cart-e57b74 s-cart-coupon-summary"
+                >
+                  <div className="s-cart-coupon-summary__info">
+                    <span className="s-cart-1c5a85">
+                      {appliedCouponCode || "Coupon"} applied
+                    </span>
+                  </div>
+                  <button onClick={handleRemoveCoupon} className="s-cart-3ecda7">
+                    x
                   </button>
                 </div>
+              )}
+
+              {couponDiscount > 0 && (
+                <p className="s-cart-coupon-savings">
+                  You have saved ₹{couponDiscount.toLocaleString("en-IN")}
+                </p>
               )}
 
               <hr className="s-cart-0ff409" />
@@ -537,7 +1044,7 @@ export default function Cart() {
                 </span>
               </div>
               <p className="s-cart-a8f4aa">
-                GST and shipping calculated at checkout
+                Shipping calculated at checkout
               </p>
 
               {couponDiscount > 0 && (
@@ -559,45 +1066,27 @@ export default function Cart() {
               {/* Checkout buttons — wrapped in fragment to avoid JSX sibling error */}
               <>
                 {isAuth ? (
-                  <button
-                    onClick={handleCheckout}
-                    className="s-cart-769238"
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "var(--blush)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "var(--brand)")
-                    }
-                  >
-                    Checkout Order →
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleCheckout}
-                    className="s-cart-769238"
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "var(--blush)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "var(--brand)")
-                    }
-                  >
-                    Checkout as Guest →
-                  </button>
-                )}
                 <button
-                  onClick={() => navigate(prevPath)}
-                  className="s-cart-d3b151"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(107,15,42,.06)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                  }}
+                  onClick={handleCheckout}
+                  className="s-cart-769238"
                 >
-                  ← Continue Shopping
+                  Checkout Order →
                 </button>
-              </>
+              ) : (
+                <button
+                  onClick={handleCheckout}
+                  className="s-cart-769238"
+                >
+                  Checkout as Guest →
+                </button>
+              )}
+              <button
+                onClick={() => navigate(prevPath)}
+                className="s-cart-d3b151"
+              >
+                ← Continue Shopping
+              </button>
+            </>
 
               <div className="s-cart-2a4b1d">
                 {["🔒 Secure", "↩️ Easy Returns", "✅ Trusted"].map((t) => (
@@ -611,7 +1100,7 @@ export default function Cart() {
         </div>
       </div>
 
-      <div className="cart-mobile-place-order" style={{ display: "none" }}>
+      <div className="cart-mobile-place-order">
         <div className="cart-mobile-place-order__meta">
           <span className="cart-mobile-place-order__count">
             {selectedItems.length} item

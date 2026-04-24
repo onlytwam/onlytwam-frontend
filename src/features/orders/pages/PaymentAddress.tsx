@@ -766,7 +766,6 @@ export default function PaymentAddress() {
     const store = useCartStore.getState();
     store.setSelectedItems?.(session.items as any);
     store.setSubTotal?.(session.subTotal);
-    store.setTaxAmount?.(session.taxAmount);
     if (!isBuyNow && session.shipping) {
       store.setShipping?.(session.shipping as any);
     }

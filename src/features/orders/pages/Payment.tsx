@@ -385,13 +385,9 @@ export default function Payment() {
     const store = useCartStore.getState();
     store.setSelectedItems?.(session.items as any);
     store.setSubTotal?.(session.subTotal);
-<<<<<<< Updated upstream
-=======
-    store.setTaxAmount?.(session.taxAmount);
     if (!isBuyNow && session.shipping) {
       store.setShipping?.(session.shipping as any);
     }
->>>>>>> Stashed changes
   }, [isBuyNow]);
 
   useEffect(() => {
@@ -414,10 +410,6 @@ export default function Payment() {
   });
 
   const cartSelectedItems = getSelectedItems();
-<<<<<<< Updated upstream
-  const selectedItems = buyNowItems.length ? buyNowItems : cartSelectedItems;
-  const subTotal = buyNowSession?.subTotal ?? getSubTotal();
-=======
   const sessionSelectedItems = checkoutSession?.items?.length
     ? checkoutSession.items
     : [];
@@ -427,8 +419,6 @@ export default function Payment() {
       ? cartSelectedItems
       : sessionSelectedItems;
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
-  const taxAmount = checkoutSession?.taxAmount ?? getTaxAmount();
->>>>>>> Stashed changes
   const shippingCost = Number(
     (selectedShipping as any)?.cost ?? 
       checkoutSession?.shipping?.cost ??

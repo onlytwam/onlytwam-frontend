@@ -316,6 +316,8 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   "/take-quiz": [{ label: "Take Quiz" }],
   "/new-arrivals": [{ label: "New Arrivals" }],
   "/best-sellers": [{ label: "Best Sellers" }],
+  "/cart": [{ label: "Cart" }],
+  "/user-products/cart": [{ label: "Cart" }],
   "/user-products/product-list": [{ label: "All Products" }],
   "/wishlist": [{ label: "My Wishlist" }],
   "/notifications": [{ label: "Notifications" }],

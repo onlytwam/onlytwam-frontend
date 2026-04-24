@@ -400,8 +400,6 @@ export default function AdminProductForm() {
 
   const mrp = Number(wVD('mrpPrice') || 0);
   const fin = Number(wVD('finalPrice') || 0);
-  const cgst = Number(wVD('cgst') || 0);
-  const sgst = Number(wVD('sgst') || 0);
 
   useEffect(() => {
     if (editVD) {
@@ -1080,7 +1078,7 @@ export default function AdminProductForm() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
-                        {['Stock', 'Size', 'Cup', 'MRP', 'Disc%', 'Final', 'CGST', 'SGST', 'Tax', 'Avail.', 'Status', ''].map(h => (
+                        {['Stock', 'Size', 'Cup', 'MRP', 'Disc%', 'Final', 'CGST', 'SGST', 'Avail.', 'Status', ''].map(h => (
                           <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, color: sub, fontWeight: 600, whiteSpace: 'nowrap' as const }}>{h}</th>
                         ))}
                       </tr>

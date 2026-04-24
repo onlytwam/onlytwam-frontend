@@ -5,11 +5,7 @@ const BUY_NOW_SESSION_KEY = "buyNowCheckout";
 export interface BuyNowSession {
   items: CartModel[];
   subTotal: number;
-<<<<<<< Updated upstream
-=======
-  taxAmount: number;
   shipping?: ShippingOption | null;
->>>>>>> Stashed changes
   createdAt: number;
 }
 
@@ -40,6 +36,7 @@ export const setBuyNowSession = (items: CartModel[]) => {
   const payload: BuyNowSession = {
     items: safeItems,
     subTotal,
+    shipping: null,
     createdAt: Date.now(),
   };
 
