@@ -18,6 +18,8 @@ import {
   resolveStateId,
 } from "@/shared/utils/addressLocation";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
+import MapPicker from "@/shared/components/MapPicker";
+import type { MapPickerResult } from "@/shared/components/MapPicker";
 
 // ── Capacitor-aware geolocation ───────────────────────────────────────────────
 // Uses @capacitor/geolocation on Android (shows native permission dialog).
@@ -171,6 +173,11 @@ export default function AddressForm() {
     "idle" | "loading" | "ok" | "error"
   >("idle");
   const [geoLoading, setGeoLoading] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapCoords, setMapCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -193,7 +200,10 @@ export default function AddressForm() {
       );
       if (addr) {
         const parsed = extractAddressParts(addr.addressLine, addr.locality);
-        const remembered = getRememberedAddressState(addr?.addressId, addr?.pinCode);
+        const remembered = getRememberedAddressState(
+          addr?.addressId,
+          addr?.pinCode,
+        );
         setForm({
           name: addr.name ?? "",
           phone: addr.phone ?? "",
@@ -201,7 +211,14 @@ export default function AddressForm() {
           locality: parsed.locality || addr.locality || "",
           city: addr.city ?? "",
           pinCode: addr.pinCode ?? "",
-          stateId: addr.stateId ?? remembered?.stateId ?? resolveStateId(states, addr.state ?? addr.stateName ?? remembered?.state ?? "") ?? null,
+          stateId:
+            addr.stateId ??
+            remembered?.stateId ??
+            resolveStateId(
+              states,
+              addr.state ?? addr.stateName ?? remembered?.state ?? "",
+            ) ??
+            null,
           addressType: addr.typeId === 2 ? "Work" : "Home",
           isDefault: addr.isDefault ?? false,
         });
@@ -281,6 +298,37 @@ export default function AddressForm() {
     }
   };
   // ─────────────────────────────────────────────────────────────────────────
+
+  // ── Map pin-point handler ──────────────────────────────────────────────────
+  // AddressForm has no separate houseNo field — addressLine holds building+street.
+  // Clears old values completely and fills fresh from map pin.
+  //   building + street → addressLine  (House no., building, street, area)
+  //   area              → locality     (Near landmark or area name)
+  //   city              → city
+  //   pinCode           → pinCode
+  //   state             → stateId (resolved via state dropdown)
+  //   name / phone      → kept as-is
+  const handleMapConfirm = (result: MapPickerResult) => {
+    const matchedStateId = resolveStateId(states, result.state);
+    setMapCoords({ lat: result.latitude, lng: result.longitude });
+    const combinedAddress = [result.building, result.street]
+      .filter(Boolean)
+      .join(", ");
+    setForm((f) => ({
+      ...f, // always keep name, phone, addressType, isDefault
+      // Only overwrite a field if map returned a value — leave blank for user to fill
+      ...(combinedAddress && { addressLine: combinedAddress }), // building + road → Address Line
+      ...(result.area && { locality: result.area }), // ward/colony     → Locality
+      ...(result.city && { city: result.city }),
+      ...(result.pinCode && { pinCode: result.pinCode }),
+      ...(matchedStateId != null && { stateId: matchedStateId }),
+    }));
+    setErrors({});
+    toast.success(
+      "📍 Location pinned! Verify and complete any missing details.",
+    );
+  };
+  // ───────────────────────────────────────────────────────────────────────────
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -384,7 +432,39 @@ export default function AddressForm() {
                 </>
               )}
             </button>
+
+            {/* ── Pin on Map button ── */}
+            <button
+              type="button"
+              onClick={() => setMapOpen(true)}
+              style={{
+                background: "var(--ivory)",
+                color: "var(--brand)",
+                border: "1.5px solid var(--brand)",
+                fontFamily: '"Trebuchet MS", Arial, sans-serif',
+                marginTop: 8,
+                cursor: "pointer",
+                padding: "10px 18px",
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 14,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <i className="bi bi-map" /> Pin on Map
+            </button>
           </div>
+
+          {/* ── MapPicker modal ── */}
+          <MapPicker
+            open={mapOpen}
+            onClose={() => setMapOpen(false)}
+            onConfirm={handleMapConfirm}
+            initialLat={mapCoords?.lat}
+            initialLng={mapCoords?.lng}
+          />
 
           <div>
             <label className="s-addressform-f1fb64">Full Name *</label>

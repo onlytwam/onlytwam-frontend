@@ -23,14 +23,14 @@ export default function VerifyOtp() {
   // Params from Login.tsx navigation
   const identifier =
     searchParams.get("identifier") || searchParams.get("email") || "";
-  const channel = (searchParams.get("channel") || "email") as "email" | "phone";
+  const channel = (searchParams.get("channel") || "email") as "email" | "whatsapp" | "sms";
   // displayIdentifier shows the masked value (e.g. vi***@gmail.com) not the raw phone/email
   const displayIdentifier = searchParams.get("display") || identifier;
 
   // Display label
-  const isPhone = channel === "phone";
-  const channelLabel = isPhone ? "phone (SMS)" : "email";
-  const channelIcon = isPhone ? "bi-phone" : "bi-envelope";
+  const isPhone = channel === "whatsapp" || channel === "sms";
+  const channelLabel = channel === "whatsapp" ? "WhatsApp" : channel === "sms" ? "SMS" : "email";
+  const channelIcon = channel === "whatsapp" ? "bi-whatsapp" : channel === "sms" ? "bi-chat-dots-fill" : "bi-envelope";
 
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
@@ -200,7 +200,7 @@ export default function VerifyOtp() {
             </div>
             {!isMobile && (
               <h5 className="s-login-b4f13d">
-                {isPhone ? "Verify Your Phone" : "Verify Your Email"}
+                {channel === "whatsapp" ? "Verify via WhatsApp" : channel === "sms" ? "Verify via SMS" : "Verify Your Email"}
               </h5>
             )}
             <p className="s-resetpasswor-4c0ccf">

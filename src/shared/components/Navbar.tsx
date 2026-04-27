@@ -4,7 +4,6 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import UserAvatar from "@/shared/components/UserAvatar";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
 import { useMenuStore } from "@/shared/store/menuStore";
-import { getCategories } from "@/features/auth/api/auth.api";
 import type { CategoryMenu } from "@/shared/types";
 import QuickCart from "@/features/cart/components/QuickCart";
 import { getGuestWishlistCount } from "@/shared/utils/guestWishlist";
@@ -12,6 +11,7 @@ import toast from "react-hot-toast";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MobileNavbar from "@/shared/components/MobileNavbar";
 import MobileCategoryBar from "@/shared/components/MobileCategoryBar";
+
 
 const TEXTS = [
   "Hello, Beautiful.",
@@ -35,19 +35,6 @@ const TEXTS = [
   "You Are TWAM. You Are Enough.",
   "Be Bold. Be Beautiful. Be TWAM.",
   "TWAM: The Real You, Unfiltered.",
-];
-
-const SEARCH_HINTS = [
-  "Amante",
-  "panties",
-  "Enamor",
-  "padded bra",
-  "Jockey",
-  "seamless",
-  "Clovia",
-  "sports bra",
-  "wireless bra",
-  "Triumph",
 ];
 
 function AssetImg({
@@ -100,19 +87,27 @@ export default function Navbar() {
     location.pathname === "/home" ||
     location.pathname.startsWith("/user-products/product-list");
 
+  const isHomePage = location.pathname === "/" || location.pathname === "/home";
+
   const [isScrolled, setIsScrolled] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showQuickCart, setShowQuickCart] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [guestCartCount, setGuestCartCount] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("guestCart") || "[]").length;
+    } catch {
+      return 0;
+    }
+  });
+  const [guestWishlistCount, setGuestWishlistCount] = useState(
+    getGuestWishlistCount(),
+  );
   const [hoveredSidebarCat, setHoveredSidebarCat] =
     useState<CategoryMenu | null>(null);
   const [activeParent, setActiveParent] = useState<CategoryMenu | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [typedText, setTypedText] = useState("");
-  const [hintIdx, setHintIdx] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [sloganIdx, setSloganIdx] = useState(0);
   const [sloganPhase, setSloganPhase] = useState<"in" | "out">("in");
 
@@ -121,17 +116,38 @@ export default function Navbar() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+  const userName = getUserName().trim() || (user as any)?.email || "Account";
+  const profileImageUrl = (user as any)?.profileImageUrl || "";
+  const displayCartCount = hasValidToken() ? cartCount : guestCartCount;
+  const displayWishlistCount = hasValidToken()
+    ? wishlistServerIds.size
+    : guestWishlistCount;
 
-  /* ── guest cart count ──────────────────────────────────── */
-  const [guestCartCount, setGuestCartCount] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("guestCart") || "[]").length;
-    } catch {
-      return 0;
-    }
-  });
   useEffect(() => {
-    const fn = () => {
+    if (menus.length > 0) return;
+
+    const cached = sessionStorage.getItem("menus");
+    if (!cached) return;
+
+    try {
+      const nextMenus = JSON.parse(cached);
+      if (Array.isArray(nextMenus) && nextMenus.length > 0) {
+        setMenus(nextMenus);
+      }
+    } catch {
+      /* ignore malformed cache */
+    }
+  }, [menus.length, setMenus]);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 2);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const syncGuestCart = () => {
       try {
         setGuestCartCount(
           JSON.parse(localStorage.getItem("guestCart") || "[]").length,
@@ -140,156 +156,49 @@ export default function Navbar() {
         setGuestCartCount(0);
       }
     };
-    window.addEventListener("guestCartUpdated", fn);
-    return () => window.removeEventListener("guestCartUpdated", fn);
-  }, []);
+    const syncGuestWishlist = () =>
+      setGuestWishlistCount(getGuestWishlistCount());
 
-  const [guestWishlistCount, setGuestWishlistCount] = useState(
-    getGuestWishlistCount,
-  );
-  useEffect(() => {
-    const fn = () => setGuestWishlistCount(getGuestWishlistCount());
-    window.addEventListener("wishlistUpdated", fn);
-    return () => window.removeEventListener("wishlistUpdated", fn);
-  }, []);
-
-  const displayCartCount = hasValidToken() ? cartCount : guestCartCount;
-  const displayWishlistCount = hasValidToken()
-    ? wishlistServerIds.size
-    : guestWishlistCount;
-  const userName = getUserName();
-  const profileImageUrl = (user as any)?.profileImageUrl || "";
-
-  /* ── body scroll lock when sidebar open ────────────────── */
-  useEffect(() => {
-    document.body.style.overflow = isMenuOpen ? "hidden" : "";
+    window.addEventListener("guestCartUpdated", syncGuestCart);
+    window.addEventListener("wishlistUpdated", syncGuestWishlist);
     return () => {
-      document.body.style.overflow = "";
+      window.removeEventListener("guestCartUpdated", syncGuestCart);
+      window.removeEventListener("wishlistUpdated", syncGuestWishlist);
     };
-  }, [isMenuOpen]);
-
-  /* ── slogan cycle ───────────────────────────────────────── */
-  useEffect(() => {
-    setSloganPhase("in");
-    const t1 = setTimeout(() => setSloganPhase("out"), 4000);
-    const t2 = setTimeout(() => {
-      setSloganIdx((i) => (i + 1) % TEXTS.length);
-      setSloganPhase("in");
-    }, 4700);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [sloganIdx]);
-
-  /* ── scroll shadow ──────────────────────────────────────── */
-  useEffect(() => {
-    const fn = () => setIsScrolled(window.scrollY > 2);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  /* ── outside-click: user menu ───────────────────────────── */
   useEffect(() => {
-    const fn = (e: MouseEvent) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      )
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setIsUserMenuOpen(false);
-    };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, []);
-
-  /* ── outside-click: search ──────────────────────────────── */
-  useEffect(() => {
-    const fn = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-
-      // Ignore clicks on the right icons area or the search bar itself
-      if (target.closest(".nb-right") || target.closest(".nb-search-region")) {
-        return;
-      }
-
-      // Close only if there's no text typed
-      if (!searchText) {
-        setSearchOpen(false);
       }
     };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, [searchText]);
 
-  /* ── auto-focus ─────────────────────────────────────────── */
-  useEffect(() => {
-    if (searchOpen) setTimeout(() => searchInput.current?.focus(), 60);
-  }, [searchOpen]);
-
-  /* ── load menus — runs on both mobile and desktop ─────── */
-  useEffect(() => {
-    const cached = sessionStorage.getItem("menus");
-    if (cached) {
-      try {
-        const p = JSON.parse(cached);
-        if (p?.length) setMenus(p);
-      } catch {}
-    }
-    getCategories({ roleId: 2 })
-      .then((cats) => {
-        if (cats?.length) {
-          setMenus(cats);
-          sessionStorage.setItem("menus", JSON.stringify(cats));
-        }
-      })
-      .catch(() => {});
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
-
-  // Mobile: render dedicated mobile components, skip desktop render
-  if (isMobile) {
-    return (
-      <>
-        <MobileNavbar showSearchHeader={showMobileSearchHeader} />
-        {showMobileCategoryBar && <MobileCategoryBar menus={menus} />}
-      </>
-    );
-  }
-
-  /* ── typing hint ────────────────────────────────────────── */
-  useEffect(() => {
-    if (!searchOpen || searchText || isListening) {
-      setTypedText("");
-      return;
-    }
-    const word = SEARCH_HINTS[hintIdx];
-    const speed = isDeleting ? 60 : 110;
-    const t = setTimeout(() => {
-      if (!isDeleting && typedText.length < word.length)
-        setTypedText(word.slice(0, typedText.length + 1));
-      else if (!isDeleting && typedText.length === word.length)
-        setTimeout(() => setIsDeleting(true), 1400);
-      else if (isDeleting && typedText.length > 0)
-        setTypedText(word.slice(0, typedText.length - 1));
-      else {
-        setIsDeleting(false);
-        setHintIdx((i) => (i + 1) % SEARCH_HINTS.length);
-      }
-    }, speed);
-    return () => clearTimeout(t);
-  }, [typedText, isDeleting, hintIdx, searchOpen, searchText, isListening]);
 
   /* ── sync search with URL ───────────────────────────────── */
   useEffect(() => {
     if (location.pathname === "/global-search") {
       const q = new URLSearchParams(location.search).get("q") || "";
       setSearchText(q);
-      if (q) setSearchOpen(true);
     } else {
       setSearchText("");
     }
   }, [location.pathname, location.search]);
 
   /* ── handlers ───────────────────────────────────────────── */
+  if (isMobile) {
+    return (
+      <>
+        <MobileNavbar showSearchHeader={showMobileSearchHeader} />
+        {showMobileCategoryBar ? <MobileCategoryBar menus={menus} /> : null}
+      </>
+    );
+  }
+
   const handleLogout = () => {
     logout();
     setIsUserMenuOpen(false);
@@ -300,11 +209,6 @@ export default function Navbar() {
     const q = searchText.trim();
     if (!q) return;
     navigate(`/global-search?q=${encodeURIComponent(q)}`);
-  };
-
-  const closeSearch = () => {
-    setSearchOpen(false);
-    setSearchText("");
   };
 
   const reloadCategory = (cat: CategoryMenu) => {
@@ -365,33 +269,16 @@ export default function Navbar() {
   return (
     <>
       <header
-        className={`nb-header${isScrolled ? " nb-header--scrolled" : ""}`}
+        className={`nb-header${
+          isHomePage ? " nb-header--home" : " nb-header--solid"
+        }${isScrolled ? " nb-header--scrolled" : ""}`}
       >
         <div className="nb-row">
-          {/* Left Side: Menu + All Products Button */}
-          <div className="nb-left">
-            <button
-              className="nb-icon-btn nb-menu-btn"
-              onClick={() => setIsMenuOpen(true)}
-              aria-label="Open menu"
-            >
-              <i className="bi bi-list" />
-            </button>
-            <button
-              className="nb-all-products-btn"
-              onClick={() => navigate("/user-products/product-list")}
-            >
-              All Products
-            </button>
-          </div>
-
-          {/* Absolute Centered Logo - Fully Clickable */}
+          {/* Logo — left */}
           <Link
             to="/"
             className="nb-logo-wrap"
-            onClick={() => {
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
             <AssetImg
               names={[
@@ -402,39 +289,62 @@ export default function Navbar() {
               alt="TWAM"
               className="nb-logo"
             />
-            <p
-              className={`nb-tagline ${sloganPhase === "in" ? "is-visible" : "is-hidden"}`}
-            >
-              {TEXTS[sloganIdx]}
-            </p>
           </Link>
 
-          {/* Search Box */}
+          {/* Categories — inline */}
+          {menus.length > 0 && (
+            <nav className="nb-inline-cats">
+              {menus.map((cat) => (
+                <div key={cat.categoryId} className="nb-inline-cat__item">
+                  <button
+                    className="nb-inline-cat__btn"
+                    onClick={() => reloadCategory(cat)}
+                  >
+                    {cat.name}
+                    {cat.children?.length > 0 && (
+                      <i className="bi bi-chevron-down nb-inline-cat__arrow" />
+                    )}
+                  </button>
+                  {cat.children?.length > 0 && (
+                    <div className="nb-inline-cat__drop">
+                      <div className="nb-inline-cat__drop-grid">
+                        {cat.children.map((sub: any) => (
+                          <button
+                            key={sub.categoryId}
+                            className="nb-inline-cat__sub"
+                            onClick={() => reloadCategory(sub)}
+                          >
+                            {sub.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </nav>
+          )}
+
+          {/* Search — always open */}
           <div
+            className="nb-search-region nb-search-region--open nb-search-always"
             ref={searchRef}
-            className={`nb-search-region${searchOpen ? " nb-search-region--open" : ""}`}
           >
             <div className="nb-inline-search">
-              {/* Mic Icon moved to left */}
               <button
-                className={`nb-mic-btn${isListening ? " nb-mic-btn--active" : ""}`}
+                className={`nb-mic-btn${
+                  isListening ? " nb-mic-btn--active" : ""
+                }`}
                 onClick={startVoice}
                 title={isListening ? "Stop" : "Voice search"}
               >
                 <i
-                  className={`bi ${isListening ? "bi-stop-circle-fill" : "bi-mic-fill"}`}
+                  className={`bi ${
+                    isListening ? "bi-stop-circle-fill" : "bi-mic-fill"
+                  }`}
                 />
               </button>
-
               <div className="nb-search-field-wrap">
-                {!searchText && (
-                  <span
-                    className={`nb-search-hint${isListening ? " nb-search-hint--listening" : ""}`}
-                  >
-                    {isListening ? "Listening…" : typedText}
-                    <span className="nb-cursor" />
-                  </span>
-                )}
                 <input
                   ref={searchInput}
                   className="nb-search-input"
@@ -442,42 +352,22 @@ export default function Navbar() {
                   onChange={(e) => setSearchText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") onSearch();
-                    if (e.key === "Escape" && !searchText) closeSearch();
                   }}
-                  placeholder=""
+                  placeholder="What are you looking for?"
                 />
               </div>
-
-              {/* Search Icon moved to right and made clickable */}
               <button
                 className="nb-inline-search__submit"
                 onClick={onSearch}
-                title="Search"
-                aria-label="Submit search"
+                aria-label="Search"
               >
                 <i className="bi bi-search" />
               </button>
             </div>
           </div>
 
-          {/* Right Icons */}
+          {/* Right icons */}
           <div className="nb-right">
-            {/* Search Toggle Icon */}
-            <button
-              className="nb-icon-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (searchOpen) {
-                  closeSearch();
-                } else {
-                  setSearchOpen(true);
-                }
-              }}
-              aria-label={searchOpen ? "Close search" : "Search"}
-            >
-              <i className={`bi ${searchOpen ? "bi-x-lg" : "bi-search"}`} />
-            </button>
-
             {/* Wishlist */}
             <button
               className="nb-icon-btn nb-icon-relative"
@@ -512,19 +402,23 @@ export default function Navbar() {
                   aria-expanded={isUserMenuOpen}
                   aria-haspopup="menu"
                 >
-                  <UserAvatar
-                    name={userName}
-                    imageUrl={profileImageUrl}
-                    size={48}
-                    fallbackMode="initial"
-                    className="nb-avatar"
-                    style={{
-                      background: "var(--brand)",
-                      color: "var(--white)",
-                      border: "none",
-                      boxShadow: "none",
-                    }}
-                  />
+                  {profileImageUrl ? (
+                    <img
+                      src={profileImageUrl}
+                      alt={userName}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    <span className="nb-initial-letter">
+                      {userName.trim().charAt(0).toUpperCase() || "?"}
+                    </span>
+                  )}
                 </button>
 
                 {isUserMenuOpen && (
@@ -653,7 +547,9 @@ export default function Navbar() {
                 return (
                   <li key={cat.categoryId}>
                     <div
-                      className={`nb-drawer__cat-row${isActive ? " nb-drawer__cat-row--active" : ""}`}
+                      className={`nb-drawer__cat-row${
+                        isActive ? " nb-drawer__cat-row--active" : ""
+                      }`}
                       onMouseEnter={() => {
                         if (hasSubs) {
                           if (sidebarHoverTimer.current)
@@ -680,7 +576,9 @@ export default function Navbar() {
                       </button>
                       {hasSubs && (
                         <span
-                          className={`nb-drawer__chevron${isActive ? " nb-drawer__chevron--open" : ""}`}
+                          className={`nb-drawer__chevron${
+                            isActive ? " nb-drawer__chevron--open" : ""
+                          }`}
                         >
                           <i className="bi bi-chevron-right" />
                         </span>
@@ -855,3 +753,5 @@ export default function Navbar() {
     </>
   );
 }
+
+

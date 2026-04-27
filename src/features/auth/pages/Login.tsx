@@ -285,22 +285,19 @@ export default function Login() {
         return;
       }
 
-      if (channels.hasEmail && channels.hasPhone) {
-        // Both channels — show picker
-        setMode("channelPicker");
-      } else {
-        // Only one channel — send immediately
-        const channel = channels.hasEmail ? "email" : "phone";
-        const maskedDisplay =
-          channel === "email" ? channels.maskedEmail : channels.maskedPhone;
-        await sendForgotPasswordOtpToChannel(id, channel);
+      if (channels.hasEmail && !channels.hasPhone) {
+        // Email only — send immediately
+        await sendForgotPasswordOtpToChannel(id, "email");
         toast.success(
-          `OTP sent to ${maskedDisplay || (channel === "email" ? "your email" : "your phone")}.`,
+          `OTP sent to ${channels.maskedEmail || "your email"}.`,
         );
         navigate(
-          `/verify-otp?identifier=${encodeURIComponent(id)}&channel=${channel}&purpose=forgot_password&display=${encodeURIComponent(maskedDisplay || "")}`,
+          `/verify-otp?identifier=${encodeURIComponent(id)}&channel=email&purpose=forgot_password&display=${encodeURIComponent(channels.maskedEmail || "")}`,
         );
         forgotForm.reset();
+      } else {
+        // Phone-only OR both — show picker (WhatsApp vs SMS choice, plus email if available)
+        setMode("channelPicker");
       }
     } catch {
       toast.error("Failed to process request. Please try again.");
@@ -310,14 +307,15 @@ export default function Login() {
   });
 
   // ── Forgot Password — Step 2: channel picker ──────────────────────────────
-  const handleChannelChoice = async (channel: "email" | "phone") => {
+  const handleChannelChoice = async (channel: "email" | "whatsapp" | "sms") => {
     setLoading(true);
     try {
       await sendForgotPasswordOtpToChannel(fpIdentifier, channel);
       const maskedDisplay =
         channel === "email" ? fpChannels?.maskedEmail : fpChannels?.maskedPhone;
+      const channelName = channel === "whatsapp" ? "WhatsApp" : channel === "sms" ? "SMS" : "email";
       toast.success(
-        `OTP sent to ${maskedDisplay || (channel === "email" ? "your email" : "your phone")}.`,
+        `OTP sent to ${maskedDisplay || `your ${channelName}`}.`,
       );
       navigate(
         `/verify-otp?identifier=${encodeURIComponent(fpIdentifier)}&channel=${channel}&purpose=forgot_password&display=${encodeURIComponent(maskedDisplay || "")}`,
@@ -660,8 +658,7 @@ export default function Login() {
                   <h5 className="s-login-b4f13d">Choose OTP Destination</h5>
                 )}
                 <p className="s-login-7a79e7">
-                  Your account has both email and phone registered. Where would
-                  you like to receive the OTP?
+                  Choose how you'd like to receive your one-time verification code.
                 </p>
                 <div
                   style={{
@@ -697,35 +694,60 @@ export default function Login() {
                     </button>
                   )}
                   {fpChannels.hasPhone && (
-                    <button
-                      onClick={() => handleChannelChoice("phone")}
-                      disabled={loading}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "12px 20px",
-                        borderRadius: 8,
-                        background: "#2ecc71",
-                        color: "#fff",
-                        border: "none",
-                        fontWeight: 600,
-                        cursor: loading ? "not-allowed" : "pointer",
-                        opacity: loading ? 0.7 : 1,
-                      }}
-                    >
-                      <i
-                        className="bi bi-phone-fill"
-                        style={{ fontSize: 18 }}
-                      />
-                      <span>
-                        Send to Phone (SMS)
-                        <br />
-                        <small style={{ fontWeight: 400, opacity: 0.8 }}>
-                          {fpChannels.maskedPhone}
-                        </small>
-                      </span>
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleChannelChoice("whatsapp")}
+                        disabled={loading}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "12px 20px",
+                          borderRadius: 8,
+                          background: "#25D366",
+                          color: "#fff",
+                          border: "none",
+                          fontWeight: 600,
+                          cursor: loading ? "not-allowed" : "pointer",
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                      >
+                        <i className="bi bi-whatsapp" style={{ fontSize: 18 }} />
+                        <span>
+                          Send via WhatsApp
+                          <br />
+                          <small style={{ fontWeight: 400, opacity: 0.8 }}>
+                            {fpChannels.maskedPhone}
+                          </small>
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleChannelChoice("sms")}
+                        disabled={loading}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "12px 20px",
+                          borderRadius: 8,
+                          background: "#6b0f2a",
+                          color: "#fff",
+                          border: "none",
+                          fontWeight: 600,
+                          cursor: loading ? "not-allowed" : "pointer",
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                      >
+                        <i className="bi bi-chat-dots-fill" style={{ fontSize: 18 }} />
+                        <span>
+                          Send via SMS
+                          <br />
+                          <small style={{ fontWeight: 400, opacity: 0.8 }}>
+                            {fpChannels.maskedPhone}
+                          </small>
+                        </span>
+                      </button>
+                    </>
                   )}
                 </div>
                 <p className="s-login-c80d80">

@@ -93,7 +93,9 @@ export default function MobileProductCard({ product }: Props) {
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/user-products/product-detail/${product.productVariantId}/${slugify(displayName)}`;
+    const url = `${window.location.origin}/user-products/product-detail/${
+      product.productVariantId
+    }/${slugify(displayName)}`;
     try {
       if (navigator.share) await navigator.share({ title: displayName, url });
       else {
@@ -105,7 +107,9 @@ export default function MobileProductCard({ product }: Props) {
 
   const goToDetail = () =>
     navigate(
-      `/user-products/product-detail/${product.productVariantId}/${slugify(displayName)}`,
+      `/user-products/product-detail/${product.productVariantId}/${slugify(
+        displayName,
+      )}`,
     );
 
   // Rating: ★ 4.1 | 15
@@ -149,7 +153,9 @@ export default function MobileProductCard({ product }: Props) {
           {brandLabel && <span className="mpc-brand">{brandLabel}</span>}
           <div className="mpc-actions">
             <button
-              className={`mpc-wishlist-btn${inWishlist ? " mpc-wishlist-btn--active" : ""}`}
+              className={`mpc-wishlist-btn${
+                inWishlist ? " mpc-wishlist-btn--active" : ""
+              }`}
               onClick={handleWishlist}
               disabled={isPending}
               aria-label={

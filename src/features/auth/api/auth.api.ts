@@ -86,18 +86,22 @@ export const registerUser = async (user: AuthenticationModel) => {
 
 // ── OTP — universal (email and/or phone) ─────────────────────────────────────
 
-/** Send OTP to email and/or phone. purpose: guest_checkout | login | verify */
+/** Send OTP to email and/or phone. purpose: guest_checkout | login | verify
+ *  channel: 'whatsapp' | 'sms' — only used when phone is given; backend defaults to 'whatsapp'
+ */
 export const sendOtp = async (params: {
   email?: string;
   phone?: string;
   purpose?: string;
+  channel?: "whatsapp" | "sms";
 }) => {
   const response = await api.post("/auth/send-otp", {
     email: params.email || undefined,
     phone: params.phone || undefined,
     purpose: params.purpose || "guest_checkout",
+    ...(params.channel ? { channel: params.channel } : {}),
   });
-  return response.data; // { success, channels: ['email'|'phone'], message }
+  return response.data; // { success, channels: ['email'|'phone'|'whatsapp'|'sms'], message }
 };
 
 /** Verify OTP. identifier = email or phone */
@@ -146,11 +150,11 @@ export const checkForgotPasswordChannels = async (identifier: string) => {
 
 /**
  * Step 2: send OTP to the chosen channel.
- * channel: 'email' | 'phone'
+ * channel: 'email' | 'whatsapp' | 'sms'
  */
 export const sendForgotPasswordOtpToChannel = async (
   identifier: string,
-  channel: "email" | "phone",
+  channel: "email" | "whatsapp" | "sms",
 ) => {
   const response = await api.post("/auth/forgot-password/send-otp", {
     identifier,

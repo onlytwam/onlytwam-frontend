@@ -12,7 +12,6 @@ import {
 } from "@/features/products/api/products.api";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useMenuStore } from "@/shared/store/menuStore";
-import { getCategories } from "@/features/auth/api/auth.api";
 import api from "@/shared/api/axiosInstance";
 import { slugify, getImageUrl } from "@/shared/utils/helpers";
 import type { CategoryMenu } from "@/shared/types";
@@ -1039,8 +1038,14 @@ export default function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(0);
   const [categoryProducts, setCategoryProducts] = useState<any[] | null>(null);
   const [quickShopId, setQuickShopId] = useState(0);
-  // Track hero banner image load — required before firing twam-home-ready
+  // Track hero banner media readiness — required before firing twam-home-ready
   const [bannerLoaded, setBannerLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setBannerLoaded(true);
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     const cached = sessionStorage.getItem("menus");
@@ -1050,14 +1055,6 @@ export default function Home() {
         if (p.length) setMenus(p);
       } catch {}
     }
-    getCategories({ roleId: 2 })
-      .then((cats) => {
-        if (cats?.length) {
-          setMenus(cats);
-          sessionStorage.setItem("menus", JSON.stringify(cats));
-        }
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1183,18 +1180,24 @@ export default function Home() {
     select: dedupeByProductId,
     staleTime: 5 * 60 * 1000,
   });
-  const homeReady = bsReady && naReady && tfReady && bannerLoaded;
+  const homeDataReady = bsReady && naReady && tfReady;
+  const homeVisualReady = bannerLoaded;
 
   useEffect(() => {
-    if (homeReady) {
+    if (homeVisualReady) {
       (window as any).__twamHomeReady = true;
       window.dispatchEvent(new Event("twam-home-ready"));
     }
-  }, [homeReady]);
+  }, [homeVisualReady]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!homeReady || !isAuthenticated || !passwordUpdateRequired || isSyncing) {
+    if (
+      !homeDataReady ||
+      !isAuthenticated ||
+      !passwordUpdateRequired ||
+      isSyncing
+    ) {
       return;
     }
 
@@ -1293,7 +1296,7 @@ export default function Home() {
     return () => {
       toast.dismiss(HOME_PASSWORD_UPDATE_TOAST_ID);
     };
-  }, [homeReady, isAuthenticated, isSyncing, navigate, passwordUpdateRequired]);
+  }, [homeDataReady, isAuthenticated, isSyncing, navigate, passwordUpdateRequired]);
 
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],
@@ -1385,20 +1388,35 @@ export default function Home() {
 
   return (
     <div className="s-home-bcf04f">
-      <section className="product-offers" aria-label="TWAM Banner">
-        <img
-          src={isMobile ? "/assets/mobile-banner.png" : "106802.png"}
-          className="img-fluid"
-          alt="TWAM Banner"
-          onLoad={() => setBannerLoaded(true)}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = isMobile
-              ? "/assets/mobile-banner.jpg"
-              : "/assets/106802.png";
-            // Still mark as loaded so the splash doesn't hang on a broken image
-            setBannerLoaded(true);
-          }}
-        />
+      <section className="twam-hero" aria-label="TWAM Hero">
+        {isMobile ? (
+          /* Mobile: keep image */
+          <img
+            src="/assets/mobile-banner.png"
+            className="twam-hero__img"
+            alt="TWAM Banner"
+            onLoad={() => setBannerLoaded(true)}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/assets/mobile-banner.jpg";
+              setBannerLoaded(true);
+            }}
+          />
+        ) : (
+          /* Desktop: fullscreen video behind transparent header */
+          <video
+            className="twam-hero__video"
+            src="/assets/hero.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            onLoadedMetadata={() => setBannerLoaded(true)}
+            onCanPlay={() => setBannerLoaded(true)}
+            onError={() => setBannerLoaded(true)}
+            poster="/assets/106802.png"
+          />
+        )}
       </section>
       <div className="section-gap" />
 

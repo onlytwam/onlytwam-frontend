@@ -66,7 +66,7 @@ export default function GuestSignup() {
   const [loading, setLoading] = useState(false);
 
   // OTP step
-  const [sentChannel, setSentChannel] = useState<"email" | "phone">("email");
+  const [sentChannel, setSentChannel] = useState<"email" | "whatsapp" | "sms">("email");
   const [showPicker, setShowPicker] = useState(false);
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [otpError, setOtpError] = useState("");
@@ -195,15 +195,17 @@ export default function GuestSignup() {
         return;
       }
 
-      // Only one given — send directly
-      const channel: "email" | "phone" = hasEmail ? "email" : "phone";
-      await sendOtp(sendParams);
-      setSentChannel(channel);
-      setResendSec(RESEND_SECONDS);
-      setStep("otp");
-      toast.success(
-        `OTP sent to your ${channel === "email" ? "email" : "phone"}.`,
-      );
+      // Only one given — if email only send directly; if phone show WhatsApp/SMS picker
+      if (hasEmail && !hasPhone) {
+        await sendOtp(sendParams);
+        setSentChannel("email");
+        setResendSec(RESEND_SECONDS);
+        setStep("otp");
+        toast.success("OTP sent to your email.");
+      } else {
+        // Phone given (with or without email) — show picker for WhatsApp vs SMS
+        setShowPicker(true);
+      }
     } catch (err: any) {
       if (err?.response?.status === 409) {
         const msg = err.response.data?.message || "";
@@ -219,12 +221,12 @@ export default function GuestSignup() {
     }
   };
 
-  const handlePickerChoice = async (channel: "email" | "phone") => {
+  const handlePickerChoice = async (channel: "email" | "whatsapp" | "sms") => {
     setShowPicker(false);
     setLoading(true);
     try {
-      const identifier =
-        channel === "email" ? contact.email.trim() : contact.phone.trim();
+      const isPhoneChannel = channel === "whatsapp" || channel === "sms";
+      const identifier = isPhoneChannel ? contact.phone.trim() : contact.email.trim();
       const registration = await checkForgotPasswordChannels(identifier);
       if (registration.registered) {
         toast.error(
@@ -235,17 +237,17 @@ export default function GuestSignup() {
       }
 
       const sendParams = {
-        email: channel === "email" ? contact.email.trim() : undefined,
-        phone: channel === "phone" ? contact.phone.trim() : undefined,
+        email: !isPhoneChannel ? contact.email.trim() : undefined,
+        phone: isPhoneChannel ? contact.phone.trim() : undefined,
         purpose: "guest_checkout",
+        channel: isPhoneChannel ? (channel as "whatsapp" | "sms") : undefined,
       };
       await sendOtp(sendParams);
       setSentChannel(channel);
       setResendSec(RESEND_SECONDS);
       setStep("otp");
-      toast.success(
-        `OTP sent to your ${channel === "email" ? "email" : "phone"}.`,
-      );
+      const channelName = channel === "whatsapp" ? "WhatsApp" : channel === "sms" ? "SMS" : "email";
+      toast.success(`OTP sent to your ${channelName}.`);
     } catch (err: any) {
       if (err?.response?.status === 409) {
         toast.error("This contact is already registered. Please sign in.");
@@ -348,15 +350,16 @@ export default function GuestSignup() {
   const handleResendOtp = async () => {
     if (resendSec > 0) return;
     try {
+      const _isPhone = sentChannel === "whatsapp" || sentChannel === "sms";
       const sendParams = {
-        email: sentChannel === "email" ? contact.email.trim() : undefined,
-        phone: sentChannel === "phone" ? contact.phone.trim() : undefined,
+        email: !_isPhone ? contact.email.trim() : undefined,
+        phone: _isPhone ? contact.phone.trim() : undefined,
         purpose: "guest_checkout",
+        channel: _isPhone ? (sentChannel as "whatsapp" | "sms") : undefined,
       };
       await sendOtp(sendParams);
-      toast.success(
-        `OTP resent to your ${sentChannel === "email" ? "email" : "phone"}.`,
-      );
+      const _ch = sentChannel === "whatsapp" ? "WhatsApp" : sentChannel === "sms" ? "SMS" : "email";
+      toast.success(`OTP resent to your ${_ch}.`);
       setResendSec(RESEND_SECONDS);
       setDigits(Array(OTP_LENGTH).fill(""));
       setOtpError("");
@@ -445,8 +448,10 @@ export default function GuestSignup() {
   };
 
   const channelDisplay =
-    sentChannel === "phone" ? contact.phone : contact.email;
-  const channelIcon = sentChannel === "phone" ? "bi-phone" : "bi-envelope";
+    sentChannel === "whatsapp" || sentChannel === "sms" ? contact.phone : contact.email;
+  const channelIcon =
+    sentChannel === "whatsapp" ? "bi-whatsapp" :
+    sentChannel === "sms" ? "bi-chat-dots-fill" : "bi-envelope";
 
   const errEl = (key: string, bag: Record<string, string>) =>
     bag[key] ? <span className="s-guestsignup-fcc3ca">{bag[key]}</span> : null;
@@ -667,32 +672,48 @@ export default function GuestSignup() {
               Where should we send the OTP?
             </h5>
             <p className="s-guestsignup-e9a4ea">
-              You provided both email and phone. Choose how to receive your
-              verification code.
+              Choose how to receive your verification code.
             </p>
-            <div className="s-addressform-be0342">
-              <button
-                onClick={() => handlePickerChoice("email")}
-                className="s-guestsignup-979ae0"
-                style={{ display: "flex", alignItems: "center", gap: 8 }}
-              >
-                <i className="bi bi-envelope-fill" /> Email
-                <br />
-                <small style={{ fontWeight: 400, opacity: 0.8 }}>
-                  {contact.email}
-                </small>
-              </button>
-              <button
-                onClick={() => handlePickerChoice("phone")}
-                className="s-guestsignup-ddaad3"
-                style={{ display: "flex", alignItems: "center", gap: 8 }}
-              >
-                <i className="bi bi-phone-fill" /> SMS (Phone)
-                <br />
-                <small style={{ fontWeight: 400, opacity: 0.8 }}>
-                  {contact.phone}
-                </small>
-              </button>
+            <div className="s-addressform-be0342" style={{ flexDirection: "column", gap: 10 }}>
+              {contact.email && (
+                <button
+                  onClick={() => handlePickerChoice("email")}
+                  className="s-guestsignup-979ae0"
+                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <i className="bi bi-envelope-fill" /> Email
+                  <br />
+                  <small style={{ fontWeight: 400, opacity: 0.8 }}>
+                    {contact.email}
+                  </small>
+                </button>
+              )}
+              {contact.phone && (
+                <>
+                  <button
+                    onClick={() => handlePickerChoice("whatsapp")}
+                    className="s-guestsignup-ddaad3"
+                    style={{ display: "flex", alignItems: "center", gap: 8, background: "#25D366" }}
+                  >
+                    <i className="bi bi-whatsapp" /> WhatsApp
+                    <br />
+                    <small style={{ fontWeight: 400, opacity: 0.8 }}>
+                      {contact.phone}
+                    </small>
+                  </button>
+                  <button
+                    onClick={() => handlePickerChoice("sms")}
+                    className="s-guestsignup-ddaad3"
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <i className="bi bi-chat-dots-fill" /> SMS
+                    <br />
+                    <small style={{ fontWeight: 400, opacity: 0.8 }}>
+                      {contact.phone}
+                    </small>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -721,7 +742,7 @@ export default function GuestSignup() {
                 }}
               >
                 We sent a {OTP_LENGTH}-digit code to your{" "}
-                {sentChannel === "phone" ? "phone" : "email"}
+                {sentChannel === "whatsapp" ? "WhatsApp" : sentChannel === "sms" ? "SMS" : "email"}
                 <br />
                 <strong>{channelDisplay}</strong>
               </p>

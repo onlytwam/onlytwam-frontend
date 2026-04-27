@@ -13,21 +13,28 @@ export default function Footer() {
 
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState(false);
   const [checking, setChecking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(false);
   const [isSubbed, setIsSubbed] = useState(false);
+  const [showChannelPicker, setShowChannelPicker] = useState(false);
 
   const handleCheck = async () => {
-    if (!email || !isValidEmail(email)) {
-      setEmailError(true);
-      return;
-    }
+    const hasEmail = !!email && isValidEmail(email);
+    const hasPhone = !!phone && /^\d{10}$/.test(phone.trim());
+    if (!hasEmail && !phone) { setEmailError(true); return; }
+    if (email && !hasEmail) { setEmailError(true); return; }
+    if (phone && !hasPhone) { setPhoneError(true); return; }
     setEmailError(false);
+    setPhoneError(false);
     setChecking(true);
     try {
-      const res = await api.get("/Newsletter/Check", { params: { email } });
-      setIsSubbed(res.data?.isSubscribed ?? false);
+      if (hasEmail) {
+        const res = await api.get("/Newsletter/Check", { params: { email } });
+        setIsSubbed(res.data?.isSubscribed ?? false);
+      }
       setChecked(true);
     } catch {
       toast.error("Could not check subscription status.");
@@ -35,10 +42,21 @@ export default function Footer() {
     setChecking(false);
   };
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (phoneChannel?: "whatsapp" | "sms") => {
+    const hasPhone = !!phone && /^\d{10}$/.test(phone.trim());
+    // If phone given and no channel chosen yet, show picker
+    if (hasPhone && !phoneChannel) {
+      setShowChannelPicker(true);
+      return;
+    }
+    setShowChannelPicker(false);
     setLoading(true);
     try {
-      await api.post("/Newsletter/Subscribe", { email });
+      await api.post("/Newsletter/Subscribe", {
+        email: email || undefined,
+        phone: hasPhone ? phone.trim() : undefined,
+        channel: phoneChannel,
+      });
       setIsSubbed(true);
       toast.success("Subscribed! Welcome to TWAM.");
     } catch {
@@ -96,7 +114,7 @@ export default function Footer() {
                 type="email"
                 inputMode="email"
                 autoComplete="off"
-                placeholder="Enter your email"
+                placeholder="Email address"
                 value={email}
                 className={`fmob-news-input${emailError ? " error" : ""}`}
                 onChange={(e) => {
@@ -111,17 +129,33 @@ export default function Footer() {
                 onClick={handleCheck}
                 disabled={checking}
               >
-                {checking ? "..." : "Join"}
+                {checking ? "..." : "→"}
               </button>
             </div>
-            {emailError && (
-              <p className="fmob-news-error">Enter a valid email</p>
+            <div className="fmob-news-input-row" style={{ marginTop: 6 }}>
+              <input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Phone (optional, for WhatsApp)"
+                maxLength={10}
+                value={phone}
+                className={`fmob-news-input${phoneError ? " error" : ""}`}
+                onChange={(e) => {
+                  setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                  setPhoneError(false);
+                  setChecked(false);
+                }}
+              />
+            </div>
+            {(emailError || phoneError) && (
+              <p className="fmob-news-error">Enter a valid email or phone</p>
             )}
-            {checked && (
+            {checked && !showChannelPicker && (
               <div className="fmob-news-actions">
                 <button
                   className={`fmob-news-action${!isSubbed ? " primary" : ""}`}
-                  onClick={handleSubscribe}
+                  onClick={() => handleSubscribe()}
                   disabled={isSubbed || loading}
                 >
                   Subscribe
@@ -133,6 +167,31 @@ export default function Footer() {
                 >
                   Unsubscribe
                 </button>
+              </div>
+            )}
+            {showChannelPicker && (
+              <div style={{ marginTop: 8 }}>
+                <p style={{ fontSize: 12, color: "var(--heirloom)", marginBottom: 6 }}>
+                  Receive updates on {phone} via:
+                </p>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    className="fmob-news-action primary"
+                    style={{ background: "#25D366", borderColor: "#25D366", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}
+                    onClick={() => handleSubscribe("whatsapp")}
+                    disabled={loading}
+                  >
+                    <i className="bi bi-whatsapp" /> WhatsApp
+                  </button>
+                  <button
+                    className="fmob-news-action primary"
+                    style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+                    onClick={() => handleSubscribe("sms")}
+                    disabled={loading}
+                  >
+                    <i className="bi bi-chat-dots-fill" /> SMS
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -296,7 +355,7 @@ export default function Footer() {
                   inputMode="email"
                   autoComplete="off"
                   name="newsletter_email"
-                  placeholder="Enter your Email ID"
+                  placeholder="Email address"
                   value={email}
                   className={`subscribe-input ${emailError ? "error" : ""}`}
                   onChange={(e) => {
@@ -305,6 +364,22 @@ export default function Footer() {
                     setChecked(false);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && handleCheck()}
+                />
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  name="newsletter_phone"
+                  placeholder="Phone (optional)"
+                  maxLength={10}
+                  value={phone}
+                  className={`subscribe-input ${phoneError ? "error" : ""}`}
+                  style={{ marginLeft: 8, maxWidth: 140 }}
+                  onChange={(e) => {
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                    setPhoneError(false);
+                    setChecked(false);
+                  }}
                 />
                 <button
                   className="subscribe-submit-btn"
@@ -315,17 +390,18 @@ export default function Footer() {
                 </button>
               </div>
 
-              <p
-                className={`subscribe-error-msg ${emailError ? "visible" : ""}`}
-              >
-                * Please enter a valid email address
+              <p className={`subscribe-error-msg ${emailError ? "visible" : ""}`}>
+                * Please enter a valid email or phone number
+              </p>
+              <p className={`subscribe-error-msg ${phoneError ? "visible" : ""}`}>
+                * Please enter a valid 10-digit phone number
               </p>
 
-              {checked && (
+              {checked && !showChannelPicker && (
                 <div className="subscribe-action-btns">
                   <button
                     className={`sub-action-btn ${!isSubbed ? "active" : "disabled"}`}
-                    onClick={handleSubscribe}
+                    onClick={() => handleSubscribe()}
                     disabled={isSubbed || loading}
                     title={isSubbed ? "Already subscribed" : "Subscribe"}
                   >
@@ -340,6 +416,38 @@ export default function Footer() {
                   >
                     {!isSubbed && <i className="bi bi-slash-circle" />}{" "}
                     Unsubscribe
+                  </button>
+                </div>
+              )}
+
+              {showChannelPicker && (
+                <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <p style={{ width: "100%", fontSize: 13, color: "var(--heirloom)", margin: "0 0 6px" }}>
+                    Receive WhatsApp updates on <strong>{phone}</strong>:
+                  </p>
+                  <button
+                    className="sub-action-btn active"
+                    style={{ background: "#25D366", borderColor: "#25D366", display: "flex", alignItems: "center", gap: 6 }}
+                    onClick={() => handleSubscribe("whatsapp")}
+                    disabled={loading}
+                  >
+                    <i className="bi bi-whatsapp" /> WhatsApp
+                  </button>
+                  <button
+                    className="sub-action-btn active"
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                    onClick={() => handleSubscribe("sms")}
+                    disabled={loading}
+                  >
+                    <i className="bi bi-chat-dots-fill" /> SMS only
+                  </button>
+                  <button
+                    className="sub-action-btn disabled"
+                    style={{ fontSize: 12 }}
+                    onClick={() => { setPhone(""); handleSubscribe(undefined); }}
+                    disabled={loading}
+                  >
+                    Skip phone
                   </button>
                 </div>
               )}

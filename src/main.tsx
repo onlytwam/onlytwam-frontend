@@ -241,93 +241,97 @@ async function bootstrap() {
   }
 }
 
-bootstrap().finally(() => {
-  ReactDOM.createRoot(document.getElementById("root")!).render(
-    <React.StrictMode>
-      <BrowserRouter>
-        <QueryClientProvider client={queryClient}>
-          <App />
-          <AppToaster />
-          {/*
-            Toast configuration:
-            position="top-center" combined with the CSS override in index.css
-            centres all notification popups on screen.
-          */}
-          {false && (
-            <Toaster
-              position="top-center"
-              containerStyle={{
-                position: "fixed",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                zIndex: 99999,
-              }}
-              toastOptions={{
-                duration: 1600,
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <App />
+        <AppToaster />
+        {/*
+          Toast configuration:
+          position="top-center" combined with the CSS override in index.css
+          centres all notification popups on screen.
+        */}
+        {false && (
+          <Toaster
+            position="top-center"
+            containerStyle={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 99999,
+            }}
+            toastOptions={{
+              duration: 1600,
+              style: {
+                fontFamily: "var(--font-heading)",
+                background: "var(--ivory)",
+                color: "var(--brand)",
+                border: "1.5px solid #9E6070",
+                borderRadius: "12px",
+                padding: "13px 20px",
+                boxShadow: "0 12px 36px rgba(107,15,42,.18)",
+                fontSize: "14px",
+                fontWeight: "600",
+                maxWidth: "360px",
+              },
+              success: {
                 style: {
-                  fontFamily: "var(--font-heading)",
-                  background: "var(--ivory)",
-                  color: "var(--brand)",
+                  background: "var(--brand)",
+                  color: "var(--ivory)",
                   border: "1.5px solid #9E6070",
-                  borderRadius: "12px",
-                  padding: "13px 20px",
-                  boxShadow: "0 12px 36px rgba(107,15,42,.18)",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  maxWidth: "360px",
                 },
-                success: {
-                  style: {
-                    background: "var(--brand)",
-                    color: "var(--ivory)",
-                    border: "1.5px solid #9E6070",
-                  },
-                  iconTheme: {
-                    primary: "var(--ivory)",
-                    secondary: "var(--brand)",
-                  },
+                iconTheme: {
+                  primary: "var(--ivory)",
+                  secondary: "var(--brand)",
                 },
-                error: {
-                  style: {
-                    background: "var(--blush)",
-                    color: "#fff",
-                    border: "1.5px solid #6B0F2A",
-                  },
-                  iconTheme: { primary: "#fff", secondary: "var(--blush)" },
+              },
+              error: {
+                style: {
+                  background: "var(--blush)",
+                  color: "#fff",
+                  border: "1.5px solid #6B0F2A",
                 },
-              }}
-            >
-              {(t) => (
-                <ToastBar toast={t}>
-                  {({ icon, message }) => (
-                    <>
-                      {icon}
-                      {message}
-                      {t.type !== "loading" && t.type !== "custom" && (
-                        <button
-                          onClick={() => toast.dismiss(t.id)}
-                          aria-label="Close"
-                          className="s-main-935245"
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = "scale(1.15)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = "scale(1)";
-                          }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </>
-                  )}
-                </ToastBar>
-              )}
-            </Toaster>
-          )}
+                iconTheme: { primary: "#fff", secondary: "var(--blush)" },
+              },
+            }}
+          >
+            {(t) => (
+              <ToastBar toast={t}>
+                {({ icon, message }) => (
+                  <>
+                    {icon}
+                    {message}
+                    {t.type !== "loading" && t.type !== "custom" && (
+                      <button
+                        onClick={() => toast.dismiss(t.id)}
+                        aria-label="Close"
+                        className="s-main-935245"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "scale(1.15)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "scale(1)";
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </>
+                )}
+              </ToastBar>
+            )}
+          </Toaster>
+        )}
+        {import.meta.env.DEV && (
           <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
-      </BrowserRouter>
-    </React.StrictMode>,
-  );
+        )}
+      </QueryClientProvider>
+    </BrowserRouter>
+  </React.StrictMode>,
+);
+
+void bootstrap().catch((error) => {
+  console.error("Bootstrap failed:", error);
 });

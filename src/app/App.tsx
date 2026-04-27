@@ -281,7 +281,6 @@ const AdminBulkUpload = lazy(
 );
 const AdminProductBulkUpload = lazy(() => import("@/features/admin/pages/AdminProductBulkUpload"));
 
-
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
 const NO_BREADCRUMB_ROUTES = ["/", "/home"];
@@ -514,7 +513,6 @@ function MainLayout() {
     <div className="s-app-22e1be">
       <AdminBar />
       <Navbar />
-      <AutoBreadcrumb />
       <main className="s-app-52dcac">
         {mobileBackHeaderTitle && (
           <MobileBackHeader

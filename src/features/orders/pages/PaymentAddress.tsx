@@ -38,6 +38,8 @@ import {
   rememberAddressState,
 } from "@/shared/utils/addressLocation";
 import api from "@/shared/api/axiosInstance";
+import MapPicker from "@/shared/components/MapPicker";
+import type { MapPickerResult } from "@/shared/components/MapPicker";
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const IVORY_DK = "var(--ivory)";
@@ -178,40 +180,6 @@ async function lookupPincode(pin: string): Promise<PinData | null> {
   }
 }
 
-// ── Reverse geocode — Nominatim (OpenStreetMap) ──────────────────────────────
-interface GeoData {
-  road: string;
-  suburb: string;
-  city: string;
-  state: string;
-  country: string;
-  postcode: string;
-}
-
-async function reverseGeocode(
-  lat: number,
-  lon: number,
-): Promise<GeoData | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`,
-      { headers: { "Accept-Language": "en" } },
-    );
-    const data = await res.json();
-    const a = data?.address ?? {};
-    return {
-      road: a.road || a.pedestrian || a.footway || "",
-      suburb: a.suburb || a.neighbourhood || a.village || a.town || "",
-      city: a.city || a.town || a.village || a.county || "",
-      state: a.state || "",
-      country: a.country || "India",
-      postcode: a.postcode || "",
-    };
-  } catch {
-    return null;
-  }
-}
-
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const inpStyle = (err?: boolean, disabled?: boolean): React.CSSProperties => ({
   width: "100%",
@@ -278,11 +246,16 @@ function AddressFormPanel({
   const [pinStatus, setPinStatus] = useState<
     "idle" | "loading" | "ok" | "error"
   >("idle");
-  const [geoLoading, setGeoLoading] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapCoords, setMapCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const upd = (key: keyof FormState) => (val: string | boolean | number | null) =>
-    setForm((f) => ({ ...f, [key]: val }));
+  const upd =
+    (key: keyof FormState) => (val: string | boolean | number | null) =>
+      setForm((f) => ({ ...f, [key]: val }));
 
   const clearErr = (...keys: string[]) =>
     setErrors((e) => {
@@ -317,7 +290,9 @@ function AddressFormPanel({
         setForm((f) => ({
           ...f,
           city: f.city.trim() ? f.city : data.city || f.city,
-          state: f.state.trim() ? f.state : matchedState?.stateName ?? data.state ?? f.state,
+          state: f.state.trim()
+            ? f.state
+            : matchedState?.stateName ?? data.state ?? f.state,
           stateId:
             f.stateId ??
             matchedState?.stateId ??
@@ -333,55 +308,43 @@ function AddressFormPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.pinCode]);
 
-  // ── Geolocation auto-fill ───────────────────────────────────────────────
-  const handleGeoFill = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      return;
-    }
-    setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const geo = await reverseGeocode(
-          pos.coords.latitude,
-          pos.coords.longitude,
-        );
-        if (!geo) {
-          toast.error(
-            "Could not fetch location details. Please fill manually.",
-          );
-          setGeoLoading(false);
-          return;
-        }
-        setForm((f) => ({
-          ...f,
-          addressLine: geo.road || f.addressLine,
-          locality: geo.suburb || f.locality,
-          city: geo.city || f.city,
-          state: resolveStateMatch(states, geo.state)?.stateName ?? geo.state ?? f.state,
-          stateId:
-            resolveStateMatch(states, geo.state)?.stateId ??
-            resolveStateId(states, geo.state) ??
-            f.stateId,
-          country: geo.country || f.country || "India",
-          pinCode: geo.postcode || f.pinCode,
-        }));
-        toast.success(
-          "Location auto-filled! Please verify and add your house / flat number.",
-        );
-        setGeoLoading(false);
-      },
-      (err) => {
-        setGeoLoading(false);
-        if (err.code === 1)
-          toast.error(
-            "Location access denied. Enable location or fill address manually.",
-          );
-        else toast.error("Could not detect location. Please fill manually.");
-      },
-      { timeout: 10000, enableHighAccuracy: true },
+  // ── Map pin-point handler ─────────────────────────────────────────────────
+  // Exact field mapping — clears old values and fills fresh from map:
+  //   result.building → houseNo      (House / Flat / Building input)
+  //   result.street   → addressLine  (Street / Colony / Road input)
+  //   result.area     → locality     (Area / Locality input)
+  //   result.city     → city
+  //   result.state    → state + stateId
+  //   result.country  → country
+  //   result.pinCode  → pinCode
+  //   name / phone    → kept as-is (personal info)
+  const handleMapConfirm = (result: MapPickerResult) => {
+    const matchedState = resolveStateMatch(states, result.state);
+    setMapCoords({ lat: result.latitude, lng: result.longitude });
+    setForm((f) => ({
+      ...f, // always keep name, phone, addressType, isDefault
+      // Only overwrite a field if map returned a value — leave blank fields for user to fill
+      ...(result.building && { houseNo: result.building }), // building name → House/Flat/Building
+      ...(result.street && { addressLine: result.street }), // road/street  → Street/Colony/Road
+      ...(result.area && { locality: result.area }), // ward/colony  → Area/Locality
+      ...(result.city && { city: result.city }),
+      ...(result.pinCode && { pinCode: result.pinCode }),
+      ...(result.country && { country: result.country }),
+      ...(result.state && {
+        state: matchedState?.stateName ?? result.state,
+        stateId:
+          matchedState?.stateId ?? resolveStateId(states, result.state) ?? null,
+      }),
+    }));
+    setErrors({});
+    toast.success(
+      result.building
+        ? `📍 "${result.building}" pinned! Add your flat/unit number if needed.`
+        : "📍 Location pinned! Fill in your building name and flat number.",
+      { duration: 4000 },
     );
   };
+  // ──────────────────────────────────────────────────────────────────────────
 
   const pinBorder =
     pinStatus === "ok"
@@ -400,28 +363,27 @@ function AddressFormPanel({
         </span>
         <button
           type="button"
-          onClick={handleGeoFill}
-          disabled={geoLoading}
+          onClick={() => setMapOpen(true)}
           className="s-paymentaddre-8db409"
           style={{
-            background: geoLoading ? "var(--ivory)" : "var(--brand)",
-            color: geoLoading ? "var(--brand)" : "#fff",
+            background: "var(--brand)",
+            color: "#fff",
             fontFamily: FONT_UI,
-            cursor: geoLoading ? "wait" : "pointer",
+            cursor: "pointer",
           }}
         >
-          {geoLoading ? (
-            <>
-              <span className="s-paymentaddre-eb8efd" /> Detecting…
-            </>
-          ) : (
-            <>
-              <i className="bi bi-geo-alt-fill s-couponslist-030edf" /> Use My
-              Location
-            </>
-          )}
+          <i className="bi bi-map s-couponslist-030edf" /> Pin on Map
         </button>
       </div>
+
+      {/* ── MapPicker modal ── */}
+      <MapPicker
+        open={mapOpen}
+        onClose={() => setMapOpen(false)}
+        onConfirm={handleMapConfirm}
+        initialLat={mapCoords?.lat}
+        initialLng={mapCoords?.lng}
+      />
 
       {/* ── Field grid ────────────────────────────────────────────────────── */}
       <div className="s-paymentaddre-50ded3">
@@ -831,7 +793,10 @@ export default function PaymentAddress() {
   useEffect(() => {
     const hydrateState = (f: FormState): FormState => {
       const match = resolveStateMatch(states, f.state);
-      if (match && (f.stateId !== match.stateId || f.state !== match.stateName)) {
+      if (
+        match &&
+        (f.stateId !== match.stateId || f.state !== match.stateName)
+      ) {
         return { ...f, stateId: match.stateId, state: match.stateName };
       }
 
@@ -885,13 +850,20 @@ export default function PaymentAddress() {
         const list = Array.isArray(current) ? current : [];
         if (editItem?.addressId) {
           return list.map((addr: any) =>
-            addr.addressId === editItem.addressId ? { ...addr, ...nextAddress } : addr,
+            addr.addressId === editItem.addressId
+              ? { ...addr, ...nextAddress }
+              : addr,
           );
         }
 
-        if (savedAddressId > 0 && list.some((addr: any) => addr.addressId === savedAddressId)) {
+        if (
+          savedAddressId > 0 &&
+          list.some((addr: any) => addr.addressId === savedAddressId)
+        ) {
           return list.map((addr: any) =>
-            addr.addressId === savedAddressId ? { ...addr, ...nextAddress } : addr,
+            addr.addressId === savedAddressId
+              ? { ...addr, ...nextAddress }
+              : addr,
           );
         }
 
@@ -1052,7 +1024,8 @@ export default function PaymentAddress() {
       toast.error("Please fix the highlighted errors");
       return;
     }
-    const state = guestForm.state.trim() || getStateLabelById(states, guestForm.stateId);
+    const state =
+      guestForm.state.trim() || getStateLabelById(states, guestForm.stateId);
     const stateId = resolveStateId(states, state) ?? guestForm.stateId ?? null;
     sessionStorage.setItem(
       "guestAddress",
@@ -1082,8 +1055,13 @@ export default function PaymentAddress() {
     if (!validate(form, setErrors)) return;
     const state = form.state.trim() || getStateLabelById(states, form.stateId);
     const stateId = resolveStateId(states, state) ?? form.stateId ?? null;
+    // Backend has no separate houseNo field — combine houseNo + addressLine into one
+    const combinedAddress = [form.houseNo, form.addressLine]
+      .filter(Boolean)
+      .join(", ");
     saveMutation.mutate({
       ...form,
+      addressLine: combinedAddress,
       state,
       stateId,
     });
@@ -1124,19 +1102,24 @@ export default function PaymentAddress() {
 
   const editAddress = (addr: any) => {
     setEditItem(addr);
-    const parsed = extractAddressParts(addr.addressLine, addr.locality);
-    const remembered = getRememberedAddressState(addr?.addressId, addr?.pinCode);
+    const remembered = getRememberedAddressState(
+      addr?.addressId,
+      addr?.pinCode,
+    );
     const state = getAddressStateLabel(addr, states);
     const resolvedStateMatch = resolveStateMatch(
       states,
       addr.state ?? addr.stateName ?? remembered?.state ?? "",
     );
+    // Backend stores houseNo + addressLine combined in addressLine.
+    // extractAddressParts splits: first segment → houseNo, rest → street
+    const parsed = extractAddressParts(addr.addressLine, addr.locality);
     setForm({
       name: addr.name ?? "",
       phone: addr.phone ?? "",
-      houseNo: parsed.houseNo,
-      addressLine: parsed.street,
-      locality: parsed.locality,
+      houseNo: parsed.houseNo, // first segment = house/flat/building
+      addressLine: parsed.street, // rest = street/colony/road
+      locality: parsed.locality || addr.locality || "",
       city: addr.city ?? "",
       state,
       stateId:
@@ -1165,7 +1148,6 @@ export default function PaymentAddress() {
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="s-paymentaddre-2e2509 s-paymentaddre-ffd8281d checkout-shell checkout-shell--address">
-
       {/* ════════════════ GUEST FLOW ════════════════ */}
       {!isAuth && (
         <>
@@ -1274,7 +1256,9 @@ export default function PaymentAddress() {
                     <button
                       type="button"
                       onClick={handleVerifyOtp}
-                      disabled={otpLoading || otpValue.length < GUEST_OTP_LENGTH}
+                      disabled={
+                        otpLoading || otpValue.length < GUEST_OTP_LENGTH
+                      }
                       className="s-paymentaddre-24677c"
                       style={{
                         background:
