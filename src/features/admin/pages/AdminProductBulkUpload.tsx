@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 // ─── API config ───────────────────────────────────────────────────────────────
-const BASE = 'http://localhost:8000/api/BulkImport/product-bulk';
-
+// ─── API config ───────────────────────────────────────────────────────────────
+const BASE = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/BulkImport/product-bulk`;
 /**
  * Reads the Bearer token from wherever your app stores it.
  * Common locations — uncomment the one that matches your setup:
