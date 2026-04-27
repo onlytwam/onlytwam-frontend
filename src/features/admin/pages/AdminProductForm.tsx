@@ -207,12 +207,24 @@ async function fileToBase64(file: File): Promise<string> {
     r.readAsDataURL(file);
   });
 }
-async function uploadFile(file: File): Promise<string> {
-  const b64 = await fileToBase64(file);
-  const res = await api.post('/FileUpload', { fileName: file.name, fileData: b64, fileType: file.type });
-  return res.data?.filePath || res.data?.fileUrl || `uploads/${file.name}`;
-}
 
+// Uploads directly to /{variantId}/images endpoint — saves to ProductImage table
+async function uploadVariantImage(
+  file: File,
+  variantId: number
+): Promise<{ productImageId: number; filePath: string }> {
+  const formData = new FormData();
+  formData.append('files', file);
+
+  const res = await api.post(`/ProductVariants/${variantId}/images`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+  // Backend returns { uploaded: N, images: [{productImageId, filePath}] }
+  const first = res.data?.images?.[0];
+  if (!first) throw new Error('Upload succeeded but no image path returned');
+  return first;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminProductForm() {
   const { id } = useParams<{ id?: string }>();
@@ -343,6 +355,32 @@ export default function AdminProductForm() {
     formState: { errors: eV },
   } = useForm({ resolver: zodResolver(variantSchema) });
 
+  const variantId = selVid ?? editV?.productVariantId;
+
+  const { data: prodImgData, refetch: refImgs } = useQuery({
+    queryKey: ['productImages', variantId],
+    queryFn: async () => {
+      if (!variantId) return [];
+
+      const res = await api.get(
+        `/ProductVariants/${variantId}/images`
+      );
+
+      return res.data || [];
+    },
+    enabled: !!variantId,
+    staleTime: 0,
+  });
+  const productImages: any[] = useMemo(() => prodImgData ?? [], [prodImgData]);
+
+  // Add a delete mutation
+  const delProductImage = useMutation({
+    mutationFn: (imageId: number) =>
+      api.delete(`/ProductVariants/${selVid ?? editV?.productVariantId}/images/${imageId}`),
+    onSuccess: () => refImgs(),
+    onError: () => toast.error('Failed to remove image'),
+  });
+
   // Watch boolean fields to drive Toggle visuals
   const isBestSellerVal = !!wV('isBestSeller');
   const isReturnVal = !!wV('isReturnAvailable');
@@ -353,40 +391,32 @@ export default function AdminProductForm() {
       sV('variantName', editV.variantName ?? '');
       sV('variantProductCode', editV.variantProductCode ?? editV.productCode ?? editV.variantCode ?? '');
       sV('variantDescription', editV.variantDescription ?? '');
-      // FIX-V1: set null so coercion doesn't produce 0
       sV('fabricId', editV.fabricId ?? null);
-      // FIX-V2: populate taxHSNCodeId from existing variant data
       sV('taxHSNCodeId', editV.taxHSNCodeId ?? null);
-      // FIX-V5: use sV() for all booleans so zod schema receives them
       sV('isBestSeller', !!editV.isBestSeller);
       sV('isReturnAvailable', !!editV.isReturnAvailable);
       sV('isCupSize', !!editV.isCupSize);
       setColorHex(safeColorHex(editV.color, editV.colorHex));
-      const rawImgs = editV.images;
-      const imgs: string[] = Array.isArray(rawImgs)
-        ? rawImgs.filter((x: unknown) => typeof x === 'string' && x.length > 0)
-        : typeof editV.image === 'string' && editV.image
-          ? [editV.image]
-          : [];
-      setExistingImgs(imgs);
     } else {
-      // FIX-V7: explicitly reset all fields including booleans
       resetV({
-        variantName: '',
-        variantProductCode: '',
-        variantDescription: '',
-        fabricId: null,
-        taxHSNCodeId: null,
-        isBestSeller: false,
-        isReturnAvailable: false,
-        isCupSize: false,
+        variantName: '', variantProductCode: '', variantDescription: '',
+        fabricId: null, taxHSNCodeId: null,
+        isBestSeller: false, isReturnAvailable: false, isCupSize: false,
       });
       setColorHex('#888888');
       setExistingImgs([]);
     }
+    // Always clear local state on form open
     setImgPreviews([]);
     setUploadedPaths([]);
+    setPendingFiles([]);
   }, [editV, resetV, sV]);
+
+  useEffect(() => {
+    if (productImages.length > 0) {
+      setExistingImgs(productImages.map((img: any) => img.filePath));
+    }
+  }, [productImages]);
 
   // ── VD form ───────────────────────────────────────────────────────────────────
   const {
@@ -430,26 +460,41 @@ export default function AdminProductForm() {
   }, [mrp, fin, sVD]);
 
   // ── Image upload ──────────────────────────────────────────────────────────────
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+
   const processFiles = async (files: File[]) => {
     const valid = files.filter(f => {
       if (f.size > 2 * 1024 * 1024) { toast.error(`${f.name} exceeds 2 MB`); return false; }
       return true;
     });
     if (!valid.length) return;
+
+    // Always show local previews immediately
     valid.forEach(f => {
       const r = new FileReader();
       r.onload = ev => setImgPreviews(p => [...p, ev.target?.result as string]);
       r.readAsDataURL(f);
     });
-    setUploading(true);
-    try {
-      const paths = await Promise.all(valid.map(uploadFile));
-      setUploadedPaths(p => [...p, ...paths]);
-      toast.success(`${valid.length} image${valid.length > 1 ? 's' : ''} uploaded`);
-    } catch {
-      toast.error('Upload failed — check file size and try again');
-    } finally {
-      setUploading(false);
+
+    const currentVariantId = editV?.productVariantId ?? null;
+
+    if (currentVariantId) {
+      // EDIT MODE: variant exists → upload to DB right now
+      setUploading(true);
+      try {
+        await Promise.all(valid.map(f => uploadVariantImage(f, currentVariantId)));
+        toast.success(`${valid.length} image${valid.length > 1 ? 's' : ''} uploaded`);
+        refImgs(); // refresh from DB
+        setImgPreviews([]); // clear previews — DB images will show instead
+      } catch (e: any) {
+        toast.error(e?.response?.data?.detail || 'Upload failed');
+      } finally {
+        setUploading(false);
+      }
+    } else {
+      // ADD MODE: no variant yet → queue files, upload after variant save
+      setPendingFiles(p => [...p, ...valid]);
+      toast('Images queued — will upload after variant is saved', { icon: 'ℹ️' });
     }
   };
 
@@ -505,7 +550,6 @@ export default function AdminProductForm() {
       if (!savedPid || savedPid === 0)
         throw new Error('Please save the product before adding variants.');
 
-      // Duplicate name guard
       if (!editV) {
         const exists = variants.some(
           (v: any) => v.variantName?.toLowerCase().trim() === data.variantName?.toLowerCase().trim()
@@ -513,16 +557,12 @@ export default function AdminProductForm() {
         if (exists) throw new Error(`Variant "${data.variantName}" already exists.`);
       }
 
-      // FIX-V3: images as plain string array (not objects)
-      const allImagePaths = [...existingImgs, ...uploadedPaths];
-
       const payload: Record<string, any> = {
         variantName: data.variantName,
-        productCode: data.variantProductCode,   // API field is productCode
+        productCode: data.variantProductCode,
         productId: savedPid,
         variantDescription: data.variantDescription || null,
         fabricId: data.fabricId || null,
-        // FIX-V2: send taxHSNCodeId (number | null) — derived from dropdown
         taxHSNCodeId: data.taxHSNCodeId || null,
         isBestSeller: !!data.isBestSeller,
         isReturnAvailable: !!data.isReturnAvailable,
@@ -531,25 +571,40 @@ export default function AdminProductForm() {
         colorHex: colorHex || '#888888',
         userProfileId: getUserId(),
         createdBy: getUserId(),
-        // FIX-V3: plain string array
-        images: allImagePaths,
-        image: allImagePaths[0] || null,
+        // image fields — will be updated after image upload if new variant
+        images: existingImgs,
+        image: existingImgs[0] || null,
         state: editV ? 'Modified' : 'Created',
       };
-
-      console.log('[saveVar] payload →', payload);
 
       const res = editV
         ? await api.put(`/ProductVariants/${editV.productVariantId}`, payload)
         : await api.post('/ProductVariants', payload);
 
-      return res.data;
+      const savedVariant = res.data;
+      const newVariantId: number =
+        savedVariant?.productVariantId ?? savedVariant?.id ?? savedVariant?.data?.productVariantId;
+
+      // ── Upload queued images now that we have a variantId ──
+      if (pendingFiles.length > 0 && newVariantId) {
+        try {
+          await Promise.all(pendingFiles.map(f => uploadVariantImage(f, newVariantId)));
+        } catch (e: any) {
+          // Don't block variant save — warn user instead
+          toast.error('Variant saved but some images failed to upload. Edit variant to retry.');
+        }
+      }
+
+      return { ...savedVariant, _newVariantId: newVariantId };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success(editV ? 'Variant updated!' : 'Variant created!');
       setShowVF(false);
       setEditV(null);
-      resetImages();
+      setPendingFiles([]);
+      setImgPreviews([]);
+      setUploadedPaths([]);
+      setExistingImgs([]);
       refV();
     },
     onError: (e: any) => {
@@ -557,7 +612,6 @@ export default function AdminProductForm() {
         e instanceof Error
           ? e.message
           : e?.response?.data?.detail || e?.response?.data?.title || 'Failed to save variant';
-      console.error('[saveVar] error →', e?.response?.data ?? e);
       toast.error(msg);
     },
   });
@@ -992,28 +1046,52 @@ export default function AdminProductForm() {
                 {/* Image thumbnails */}
                 {(existingImgs.length > 0 || imgPreviews.length > 0) && (
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const, marginBottom: 20 }}>
-                    {existingImgs.map((src, i) => {
-                      const s = safeImageUrl(src);
+                    {/* Image thumbnails — DB images (edit mode) */}
+                    {productImages.map((img: any) => {
+                      const s = safeImageUrl(img.filePath);
                       return (
-                        <div key={`e${i}`} style={{ position: 'relative', width: 100, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                          {s && <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.png'; }} />}
-                          <button type="button"
-                            onClick={() => setExistingImgs(p => p.filter((_, j) => j !== i))}
-                            style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: primary, color: '#fff', border: 'none', fontSize: 14, cursor: 'pointer', fontWeight: 700, padding: 0, lineHeight: '22px', textAlign: 'center' }}>×</button>
+                        <div key={img.productImageId}
+                          style={{ position: 'relative', width: 100, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                          {s && <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.png'; }} />}
+                          <div style={{
+                            position: 'absolute', bottom: 2, left: 4, fontSize: 10, color: '#fff',
+                            background: 'rgba(0,0,0,0.5)', borderRadius: 4, padding: '1px 4px'
+                          }}>saved</div>
+                          <button type="button" onClick={() => delProductImage.mutate(img.productImageId)}
+                            style={{
+                              position: 'absolute', top: 4, right: 4, width: 22, height: 22,
+                              borderRadius: '50%', background: primary, color: '#fff', border: 'none',
+                              fontSize: 14, cursor: 'pointer', fontWeight: 700, padding: 0,
+                              lineHeight: '22px', textAlign: 'center'
+                            }}>×</button>
                         </div>
                       );
                     })}
+
+                    {/* Local previews — queued files (add mode) or upload-in-progress */}
                     {imgPreviews.map((src, i) => (
-                      <div key={`n${i}`} style={{ position: 'relative', width: 100, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                      <div key={`preview-${i}`}
+                        style={{ position: 'relative', width: 100, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
                         <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        {i < uploadedPaths.length && (
-                          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 18, height: 18, borderRadius: '50%', background: '#2e7d32', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ color: '#fff', fontSize: 11 }}>✓</span>
-                          </div>
+                        {/* "queued" badge for new variant pending files */}
+                        {!editV && (
+                          <div style={{
+                            position: 'absolute', bottom: 2, left: 4, fontSize: 10, color: '#fff',
+                            background: 'rgba(245,127,23,0.85)', borderRadius: 4, padding: '1px 4px'
+                          }}>queued</div>
                         )}
                         <button type="button"
-                          onClick={() => { setImgPreviews(p => p.filter((_, j) => j !== i)); setUploadedPaths(p => p.filter((_, j) => j !== i)); }}
-                          style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: primary, color: '#fff', border: 'none', fontSize: 14, cursor: 'pointer', fontWeight: 700, padding: 0, lineHeight: '22px', textAlign: 'center' }}>×</button>
+                          onClick={() => {
+                            setImgPreviews(p => p.filter((_, j) => j !== i));
+                            setPendingFiles(p => p.filter((_, j) => j !== i));
+                          }}
+                          style={{
+                            position: 'absolute', top: 4, right: 4, width: 22, height: 22,
+                            borderRadius: '50%', background: primary, color: '#fff', border: 'none',
+                            fontSize: 14, cursor: 'pointer', fontWeight: 700, padding: 0,
+                            lineHeight: '22px', textAlign: 'center'
+                          }}>×</button>
                       </div>
                     ))}
                   </div>
