@@ -40,8 +40,8 @@ export default function Unsubscribe() {
             </h1>
             <p className="s-unsubscribe-df13b8">
               This unsubscribe link is invalid or has expired. Please contact us at{' '}
-              <a href="mailto:customersupport@onlytwam.com" className="s-unsubscribe-76d778">
-                customersupport@onlytwam.com
+              <a href="mailto:customercustomersupport@onlytwam.com" className="s-unsubscribe-76d778">
+                customercustomersupport@onlytwam.com
               </a>
             </p>
           </>

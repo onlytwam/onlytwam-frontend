@@ -280,7 +280,11 @@ const AdminBulkUpload = lazy(
   () => import("@/features/admin/pages/AdminBulkUpload"),
 );
 const AdminProductBulkUpload = lazy(() => import("@/features/admin/pages/AdminProductBulkUpload"));
-
+const AdminMDM = lazy(() => import("@/features/admin/pages/AdminMDM"));
+const SalesRevenueReports = lazy(() => import("@/features/admin/pages/SalesRevenueReports"));
+const CustomerReports = lazy(() => import("@/features/admin/pages/CustomerReports"));
+const OrderFulfillmentReports = lazy(() => import("@/features/admin/pages/OrderFulfillmentReports"));
+const PaymentCheckout = lazy(() => import("@/features/admin/pages/PaymentCheckout"));
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
 const NO_BREADCRUMB_ROUTES = ["/", "/home"];
@@ -912,6 +916,11 @@ export default function App() {
             <Route path="coupons" element={<AdminCoupons />} />
             <Route path="support" element={<AdminSupportRequests />} />
             <Route path="blog" element={<AdminBlog />} />
+               <Route path="mdm" element={<AdminMDM />} />
+            <Route path="sales-reports" element={<SalesRevenueReports />} />
+            <Route path="customer-reports" element={<CustomerReports />} />
+            <Route path="order-fulfillment-reports" element={<OrderFulfillmentReports />} />
+            <Route path="payment-checkout-reports" element={<PaymentCheckout />} />
           </Route>
 
           {/* ── Fallback ─────────────────────────────────────────────────── */}

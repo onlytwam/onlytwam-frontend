@@ -23,7 +23,7 @@ export default function OurStores() {
               </div>
               <div className="s-ourstores-ac0d93">
                 <i className="bi bi-clock-fill s-ourstores-f951cf" />
-                <span>Mon–Sat: 10:00 AM – 8:00 PM</span>
+                <span>Mon–Sat to All Days: 10:00 AM – 9:00 PM</span>
               </div>
               <a href="https://maps.google.com/?q=TWAM+store+Hyderabad" target="_blank" rel="noopener noreferrer"
                 className="s-ourstores-bf19d5">

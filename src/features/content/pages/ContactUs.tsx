@@ -23,9 +23,9 @@ export default function ContactUs() {
   };
 
   const contactInfo = [
-    { icon: 'bi-envelope',   label: 'Email',   value: 'support@onlytwam.com' },
-    { icon: 'bi-telephone',  label: 'Phone',   value: '+91 98765 43210' },
-    { icon: 'bi-clock',      label: 'Hours',   value: 'Mon–Sat, 9 AM – 6 PM IST' },
+    { icon: 'bi-envelope',   label: 'Email',   value: 'customersupport@onlytwam.com' },
+    { icon: 'bi-telephone',  label: 'Phone',   value: '+91 7036534449' },
+    { icon: 'bi-clock',      label: 'Hours',   value: 'Mon–Sat to All Days: 9 AM – 9 PM IST' },
     { icon: 'bi-geo-alt',    label: 'Address', value: 'Only TWAM HQ, India' },
   ];
 
@@ -100,7 +100,7 @@ export default function ContactUs() {
             <div className="s-contactus-b168a0">
               <p className="s-contactus-d8d032">Follow Us</p>
               <div className="s-contactus-5627cc">
-                {[{ icon: 'bi-instagram', label: 'Instagram', url: '#' }, { icon: 'bi-facebook', label: 'Facebook', url: '#' }, { icon: 'bi-whatsapp', label: 'WhatsApp', url: '#' }].map(({ icon, label, url }) => (
+                {[{ icon: 'bi-instagram', label: 'Instagram', url: 'https://www.instagram.com/onlytwam/' }, { icon: 'bi-facebook', label: 'Facebook', url: 'https://www.facebook.com/onlyTwam/' }, { icon: 'bi-whatsapp', label: 'WhatsApp', url: '#' }].map(({ icon, label, url }) => (
                   <a key={label} href={url} className="s-contactus-111fde">
                     <div className="s-contactus-31c18b">
                       <i className={`bi ${icon} s-contactus-d72715`} />

@@ -491,7 +491,7 @@ export default function Invoice() {
             <div style={styles.addressSection}>
               <div style={styles.addressBox}>
                 <div style={styles.addressLabel}>Bill / Ship To</div>
-                <div style={styles.addressName}>{order.shippingAddress.name}</div>
+                <div style={styles.addressName}>{order.shippingAddress.nam}</div>
                 <div style={styles.addressLine}>
                   {[
                     order.shippingAddress.addressLine,
