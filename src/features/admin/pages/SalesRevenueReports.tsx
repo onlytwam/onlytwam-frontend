@@ -1,3 +1,4 @@
+// Admin Sales Revenue Reports Page
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from '@/shared/api/axiosInstance';
@@ -14,27 +15,27 @@ import { useQuery } from "@tanstack/react-query";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type DatePickerType = "date" | "month-week" | "month" | "year";
-type SelectType = "Product" | "Category" | "Brand";
-type DateMode = "Month Range" | "Week Range";
+type SelectType     = "Product" | "Category" | "Brand";
+type DateMode       = "Month Range" | "Week Range";
 
 interface ApiOrder {
-    orderId: string;
+    OrderId: string;
     customerName: string;
-    productName: string;
-    orderDate: string;
-    quantity: number;
-    totalAmount: number;
-    orderStatus: string;
+    ProductName: string;
+    OrderDate: string;
+    Quantity: number;
+    TotalAmount: number;
+    State: string;
 }
 
 interface Order {
-    id: string;
-    customer: string;
-    product: string;
-    date: string;
-    qty: number;
-    amount: number;
-    status: "completed" | "pending" | "cancelled";
+    OrderId: string;
+    // customer: string;
+    ProductName: string;
+    OrderDate: string;
+    Quantity: number;
+    TotalAmount: number;
+    State: "completed" | "pending" | "cancelled";
 }
 
 interface ReportResult {
@@ -53,53 +54,52 @@ interface SubOption {
 
 interface DateRange {
     start: Date | null;
-    end: Date | null;
+    end:   Date | null;
 }
 
 interface ReportRow {
-    type?: string;
-    Type?: string;
-    name?: string;
-    Name?: string;
-    productName?: string;
+    type?:         string;
+    Type?:         string;
+    name?:         string;
+    Name?:         string;
+    productName?:  string;
     categoryName?: string;
-    brandName?: string;
-    unitsSold?: number;
-    UnitsSold?: number;
-    units_sold?: number;
-    totalOrders?: number;
-    TotalOrders?: number;
+    brandName?:    string;
+    unitsSold?:    number;
+    UnitsSold?:    number;
+    units_sold?:   number;
+    totalOrders?:  number;
+    TotalOrders?:  number;
     total_orders?: number;
-    grossRevenue?: number;
     GrossRevenue?: number;
-    gross_revenue?: number;
+    gross_revenue?:number;
     taxableValue?: number;
     TaxableValue?: number;
-    taxable_value?: number;
-    gstAmount?: number;
-    GstAmount?: number;
-    gst_amount?: number;
+    taxable_value?:number;
+    gstAmount?:    number;
+    GstAmount?:    number;
+    gst_amount?:   number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const REPORT_TABS = [
-    { id: 0, label: "Daily/Weekly/Monthly Sales Report", icon: "📅" },
+    { id: 0, label: "Daily/Weekly/Monthly Sales Report",   icon: "📅" },
     { id: 1, label: "Sales by Product / Category / Brand", icon: "🏷️" },
-    { id: 2, label: "Sales by Region / Location", icon: "🏠" },
-    { id: 3, label: "Top-Selling Products", icon: "⭐" },
-    { id: 4, label: "Low-Performing Products", icon: "📉" },
-    { id: 5, label: "Gross Revenue vs. Net Revenue", icon: "💵" },
-    { id: 6, label: "Sales by Device / Platform", icon: "📱" },
-    { id: 7, label: "Coupon/Discount Usage Report", icon: "🎟️" },
+    { id: 2, label: "Sales by Region / Location",          icon: "🏠" },
+    { id: 3, label: "Top-Selling Products",                icon: "⭐" },
+    { id: 4, label: "Low-Performing Products",             icon: "📉" },
+    { id: 5, label: "Gross Revenue vs. Net Revenue",       icon: "💵" },
+    { id: 6, label: "Sales by Device / Platform",          icon: "📱" },
+    { id: 7, label: "Coupon/Discount Usage Report",        icon: "🎟️" },
 ];
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const TYPE_OPTIONS: { label: string; value: SelectType; api: string }[] = [
-    { label: "Product", value: "Product", api: "/Products" },
-    { label: "Category", value: "Category", api: "/Category" },
-    { label: "Brand", value: "Brand", api: "/Brand" },
+    { label: "Product",  value: "Product",  api: "/Products"  },
+    { label: "Category", value: "Category", api: "/Category"  },
+    { label: "Brand",    value: "Brand",    api: "/Brand"     },
 ];
 
 const DATE_MODES: DateMode[] = ["Month Range", "Week Range"];
@@ -114,13 +114,13 @@ const fmtINR = (n: number | null | undefined) =>
 
 function mapApiOrder(raw: ApiOrder): Order {
     return {
-        id: raw.orderId,
-        customer: raw.customerName ?? "-",
-        product: raw.productName ?? "-",
-        date: raw.orderDate ?? "",
-        qty: raw.quantity ?? 0,
-        amount: raw.totalAmount ?? 0,
-        status: (raw.orderStatus?.toLowerCase() as Order["status"]) ?? "pending",
+        OrderId:       raw.OrderId       ?? raw.OrderId       ?? raw.OrderId       ?? "—",
+        // customerName: raw.customerName  ?? "-",
+        ProductName:  raw.ProductName   ?? "-",
+        OrderDate:     raw.OrderDate     ?? "",
+        Quantity:      raw.Quantity      ?? 0,
+        TotalAmount:   raw.TotalAmount   ?? 0,
+        State:   (raw.State?.toLowerCase() as Order["State"]) ?? "pending",
     };
 }
 
@@ -141,11 +141,11 @@ function getWeeks(year: number): { label: string; start: Date; end: Date }[] {
     const yearStart = startOfYear(new Date(year, 0, 1));
     for (let w = 0; w < 52; w++) {
         const wStart = startOfWeek(addWeeks(yearStart, w), { weekStartsOn: 1 });
-        const wEnd = endOfWeek(wStart, { weekStartsOn: 1 });
+        const wEnd   = endOfWeek(wStart, { weekStartsOn: 1 });
         weeks.push({
             label: `W${w + 1}: ${format(wStart, "d MMM")} – ${format(wEnd, "d MMM")}`,
             start: wStart,
-            end: wEnd,
+            end:   wEnd,
         });
     }
     return weeks;
@@ -177,10 +177,10 @@ const cellStyle: React.CSSProperties = {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const StatusBadge: React.FC<{ status: Order["status"] }> = ({ status }) => {
-    const styles: Record<Order["status"], React.CSSProperties> = {
+const StatusBadge: React.FC<{ status: Order["State"] }> = ({ status }) => {
+    const styles: Record<Order["State"], React.CSSProperties> = {
         completed: { background: "#ebfbee", color: "#2f9e44" },
-        pending: { background: "#fff9db", color: "#e67700" },
+        pending:   { background: "#fff9db", color: "#e67700" },
         cancelled: { background: "#fff5f5", color: "#e03131" },
     };
     return (
@@ -240,14 +240,14 @@ function Spinner() {
 
 function downloadOrdersExcel(data: Order[], label: string) {
     const rows = data.map((r, i) => ({
-        "#": i + 1,
-        "Order ID": r.id,
-        "Customer": r.customer,
-        "Product": r.product,
-        "Date": fmtDate(r.date),
-        "Qty": r.qty,
-        "Amount": r.amount,
-        "Status": r.status,
+        "#":         i + 1,
+        "Order ID":  r.OrderId,
+        // "Customer":  r.customer,
+        "Product":   r.ProductName,
+        "Date":      fmtDate(r.OrderDate),
+        "Qty":       r.Quantity,
+        "Amount":    r.TotalAmount,
+        "Status":    r.State,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -273,9 +273,9 @@ function downloadOrdersPDF(
     autoTable(doc, {
         startY: 34,
         head: [["#", "Order ID", "Customer", "Product", "Date", "Qty", "Amount", "Status"]],
-        body: data.map((r, i) => [i + 1, r.id, r.customer, r.product, fmtDate(r.date), r.qty, fmtINR(r.amount), r.status]),
-        headStyles: { fillColor: [224, 49, 49], fontSize: 9 },
-        bodyStyles: { fontSize: 9 },
+        body: data.map((r, i) => [i + 1, r.OrderId,  r.ProductName, fmtDate(r.OrderDate), r.Quantity, fmtINR(r.TotalAmount), r.State]),
+        headStyles:         { fillColor: [224, 49, 49], fontSize: 9 },
+        bodyStyles:         { fontSize: 9 },
         alternateRowStyles: { fillColor: [255, 245, 245] },
     });
     doc.save(`Sales_Report_${label.replace(/[^a-z0-9]/gi, "_")}.pdf`);
@@ -284,20 +284,20 @@ function downloadOrdersPDF(
 // ─── Panel 0 : Daily / Weekly / Monthly / Yearly ─────────────────────────────
 
 const DailySalesPanel: React.FC = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const ym = today.slice(0, 7);
+    const today   = new Date().toISOString().split("T")[0];
+    const ym      = today.slice(0, 7);
     const curYear = new Date().getFullYear().toString();
 
     const [pickerType, setPickerType] = useState<DatePickerType>("month-week");
     const [singleDate, setSingleDate] = useState(today);
-    const [monthVal, setMonthVal] = useState(ym);
-    const [yearVal, setYearVal] = useState(curYear);
-    const [mwStart, setMwStart] = useState(() => `${ym}-01`);
-    const [mwEnd, setMwEnd] = useState(today);
+    const [monthVal,   setMonthVal]   = useState(ym);
+    const [yearVal,    setYearVal]    = useState(curYear);
+    const [mwStart,    setMwStart]    = useState(() => `${ym}-01`);
+    const [mwEnd,      setMwEnd]      = useState(today);
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [report, setReport] = useState<ReportResult | null>(null);
+    const [error,   setError]   = useState<string | null>(null);
+    const [report,  setReport]  = useState<ReportResult | null>(null);
 
     const buildRange = (): { from: string; to: string; label: string; type: string } | null => {
         if (pickerType === "date") {
@@ -309,8 +309,8 @@ const DailySalesPanel: React.FC = () => {
         }
         if (pickerType === "month") {
             const [y, m] = monthVal.split("-");
-            const from = `${monthVal}-01`;
-            const to = new Date(Number(y), Number(m), 0).toISOString().split("T")[0];
+            const from   = `${monthVal}-01`;
+            const to     = new Date(Number(y), Number(m), 0).toISOString().split("T")[0];
             return { from, to, label: "Monthly — " + new Date(from).toLocaleDateString("en-IN", { month: "long", year: "numeric" }), type: "monthly" };
         }
         if (pickerType === "year") {
@@ -324,18 +324,18 @@ const DailySalesPanel: React.FC = () => {
         if (!range) return;
         setLoading(true); setReport(null); setError(null);
         try {
-            const res = await api.get("/Report/OrderList", {
+            const res  = await api.get("/Report/OrderList", {
                 params: { type: range.type, fromDate: range.from, toDate: range.to },
             });
             const json = res.data;
             const rawList: ApiOrder[] = Array.isArray(json)
                 ? json
                 : (json.data ?? json.orders ?? json.result ?? json.list ?? []);
-            const data = rawList.map(mapApiOrder);
-            const total = data.reduce((a, r) => a + r.amount, 0);
-            const orders = data.length;
-            const avg = orders ? Math.round(total / orders) : 0;
-            const completed = data.filter(r => r.status === "completed").length;
+            const data      = rawList.map(mapApiOrder);
+            const total     = data.reduce((a, r) => a + r.TotalAmount, 0);
+            const orders    = data.length;
+            const avg       = orders ? Math.round(total / orders) : 0;
+            const completed = data.filter(r => r.State === "completed").length;
             setReport({ label: range.label, data, total, orders, avg, completed });
         } catch (err: any) {
             setError(err?.response?.data?.detail || err.message || "Failed to load report.");
@@ -347,10 +347,10 @@ const DailySalesPanel: React.FC = () => {
     const clearAll = () => { setReport(null); setError(null); };
 
     const pickerOptions: { value: DatePickerType; label: string }[] = [
-        { value: "date", label: "Single Date" },
+        { value: "date",       label: "Single Date"        },
         { value: "month-week", label: "Month & Week Range" },
-        { value: "month", label: "Month" },
-        { value: "year", label: "Year" },
+        { value: "month",      label: "Month"              },
+        { value: "year",       label: "Year"               },
     ];
 
     return (
@@ -467,10 +467,10 @@ const DailySalesPanel: React.FC = () => {
                         </div>
 
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
-                            <StatCard label="Total Revenue" value={fmtINR(report.total)} note="↑ from last period" noteUp />
-                            <StatCard label="Total Orders" value={report.orders} note="↑ active" noteUp />
-                            <StatCard label="Avg Order Value" value={fmtINR(report.avg)} note="per order" noteUp />
-                            <StatCard label="Completed" value={report.completed}
+                            <StatCard label="Total Revenue"   value={fmtINR(report.total)} note="↑ from last period" noteUp />
+                            <StatCard label="Total Orders"    value={report.orders}         note="↑ active" noteUp />
+                            <StatCard label="Avg Order Value" value={fmtINR(report.avg)}    note="per order" noteUp />
+                            <StatCard label="Completed"       value={report.completed}
                                 note={`${Math.round((report.completed / report.orders) * 100)}% success rate`}
                                 noteUp={report.completed === report.orders} />
                         </div>
@@ -486,15 +486,15 @@ const DailySalesPanel: React.FC = () => {
                                 </thead>
                                 <tbody>
                                     {report.data.map((row, i) => (
-                                        <tr key={row.id} style={{ borderBottom: "0.5px solid #f8f0f0", background: i % 2 === 0 ? "#fff" : "#fff9f9" }}>
+                                        <tr key={row.OrderId} style={{ borderBottom: "0.5px solid #f8f0f0", background: i % 2 === 0 ? "#fff" : "#fff9f9" }}>
                                             <td style={{ padding: "11px 14px", color: "#adb5bd", fontSize: 11 }}>{i + 1}</td>
-                                            <td style={{ padding: "11px 14px", fontWeight: 600, color: "#4361ee" }}>{row.id}</td>
-                                            <td style={{ padding: "11px 14px" }}>{row.customer}</td>
-                                            <td style={{ padding: "11px 14px" }}>{row.product}</td>
-                                            <td style={{ padding: "11px 14px", color: "#868e96" }}>{fmtDate(row.date)}</td>
-                                            <td style={{ padding: "11px 14px", textAlign: "center" }}>{row.qty}</td>
-                                            <td style={{ padding: "11px 14px", fontWeight: 700 }}>{fmtINR(row.amount)}</td>
-                                            <td style={{ padding: "11px 14px" }}><StatusBadge status={row.status} /></td>
+                                            <td style={{ padding: "11px 14px", fontWeight: 600, color: "#4361ee" }}>{row.OrderId}</td>
+                                            {/* <td style={{ padding: "11px 14px" }}>{row.customerName}</td> */}
+                                            <td style={{ padding: "11px 14px" }}>{row.ProductName}</td>
+                                            <td style={{ padding: "11px 14px", color: "#868e96" }}>{fmtDate(row.OrderDate)}</td>
+                                            <td style={{ padding: "11px 14px", textAlign: "center" }}>{row.Quantity}</td>
+                                            <td style={{ padding: "11px 14px", fontWeight: 700 }}>{fmtINR(row.TotalAmount)}</td>
+                                            <td style={{ padding: "11px 14px" }}><StatusBadge status={row.State} /></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -516,12 +516,12 @@ interface MonthRangePickerProps {
 
 function MonthRangePicker({ value, onChange }: MonthRangePickerProps) {
     const now = new Date();
-    const [viewYear, setViewYear] = useState<number>(now.getFullYear());
+    const [viewYear, setViewYear]   = useState<number>(now.getFullYear());
     const [selecting, setSelecting] = useState<"start" | "end">("start");
-    const [hovered, setHovered] = useState<string | null>(null);
+    const [hovered, setHovered]     = useState<string | null>(null);
 
     const startKey = value.start ? format(value.start, "yyyy-MM") : null;
-    const endKey = value.end ? format(value.end, "yyyy-MM") : null;
+    const endKey   = value.end   ? format(value.end,   "yyyy-MM") : null;
 
     function cellKey(y: number, m: number) {
         return `${y}-${String(m + 1).padStart(2, "0")}`;
@@ -547,7 +547,7 @@ function MonthRangePicker({ value, onChange }: MonthRangePickerProps) {
         const eKey = endKey || hovered;
         if (!eKey) return false;
         const lo = startKey < eKey ? startKey : eKey;
-        const hi = startKey < eKey ? eKey : startKey;
+        const hi = startKey < eKey ? eKey     : startKey;
         return key > lo && key < hi;
     }
 
@@ -560,9 +560,9 @@ function MonthRangePicker({ value, onChange }: MonthRangePickerProps) {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                 {MONTHS.map((mo, m) => {
-                    const key = cellKey(viewYear, m);
+                    const key    = cellKey(viewYear, m);
                     const active = key === startKey || key === endKey;
-                    const range = inRange(key);
+                    const range  = inRange(key);
                     return (
                         <div
                             key={m}
@@ -602,13 +602,13 @@ interface WeekRangePickerProps {
 
 function WeekRangePicker({ value, onChange }: WeekRangePickerProps) {
     const now = new Date();
-    const [viewYear, setViewYear] = useState<number>(now.getFullYear());
+    const [viewYear, setViewYear]   = useState<number>(now.getFullYear());
     const [selecting, setSelecting] = useState<"start" | "end">("start");
-    const [hovered, setHovered] = useState<number | null>(null);
+    const [hovered, setHovered]     = useState<number | null>(null);
 
-    const weeks = getWeeks(viewYear);
+    const weeks     = getWeeks(viewYear);
     const startTime = value.start?.getTime() ?? null;
-    const endTime = value.end?.getTime() ?? null;
+    const endTime   = value.end?.getTime()   ?? null;
 
     function isActive(idx: number) {
         const t = weeks[idx].start.getTime();
@@ -616,7 +616,7 @@ function WeekRangePicker({ value, onChange }: WeekRangePickerProps) {
     }
 
     function inRange(idx: number): boolean {
-        const t = weeks[idx].start.getTime();
+        const t  = weeks[idx].start.getTime();
         const lo = startTime ?? Infinity;
         const hi = endTime ?? (hovered != null ? weeks[hovered].start.getTime() : -Infinity);
         if (!startTime) return false;
@@ -648,7 +648,7 @@ function WeekRangePicker({ value, onChange }: WeekRangePickerProps) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 4 }}>
                 {weeks.map((w, idx) => {
                     const active = isActive(idx);
-                    const range = inRange(idx);
+                    const range  = inRange(idx);
                     return (
                         <div
                             key={idx}
@@ -682,13 +682,13 @@ function WeekRangePicker({ value, onChange }: WeekRangePickerProps) {
 // ─── Custom Select ────────────────────────────────────────────────────────────
 
 interface CustomSelectProps {
-    label: string;
-    value: string;
-    options: SubOption[];
-    onChange: (v: string) => void;
+    label:       string;
+    value:       string;
+    options:     SubOption[];
+    onChange:    (v: string) => void;
     placeholder: string;
-    loading: boolean;
-    error?: boolean;
+    loading:     boolean;
+    error?:      boolean;
 }
 
 function CustomSelect({ label, value, options, onChange, placeholder, loading, error }: CustomSelectProps) {
@@ -776,9 +776,9 @@ function CustomSelect({ label, value, options, onChange, placeholder, loading, e
 // ─── Date Picker Field ────────────────────────────────────────────────────────
 
 interface DatePickerFieldProps {
-    dateMode: DateMode;
-    setDateMode: (m: DateMode) => void;
-    dateRange: DateRange;
+    dateMode:     DateMode;
+    setDateMode:  (m: DateMode) => void;
+    dateRange:    DateRange;
     setDateRange: (v: DateRange) => void;
 }
 
@@ -820,8 +820,8 @@ function DatePickerField({ dateMode, setDateMode, dateRange, setDateRange }: Dat
             >
                 <span>{display || "Month & Week Range"}</span>
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                    <rect x="3" y="4" width="14" height="14" rx="2" stroke="#6A012A" strokeWidth="1.5" />
-                    <path d="M7 2v4M13 2v4M3 9h14" stroke="#6A012A" strokeWidth="1.5" strokeLinecap="round" />
+                    <rect x="3" y="4" width="14" height="14" rx="2" stroke="#6A012A" strokeWidth="1.5"/>
+                    <path d="M7 2v4M13 2v4M3 9h14" stroke="#6A012A" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
             </div>
 
@@ -853,7 +853,7 @@ function DatePickerField({ dateMode, setDateMode, dateRange, setDateRange }: Dat
 
                     {dateMode === "Month Range"
                         ? <MonthRangePicker value={dateRange} onChange={setDateRange} />
-                        : <WeekRangePicker value={dateRange} onChange={setDateRange} />
+                        : <WeekRangePicker  value={dateRange} onChange={setDateRange} />
                     }
 
                     {dateRange.start && dateRange.end && (
@@ -882,10 +882,10 @@ function ChartPanel({ data }: { data: ReportRow[] }) {
     if (!data || data.length === 0) return null;
 
     const chartData = data.map(row => ({
-        name: getRowName(row).slice(0, 20),
-        Revenue: getVal(row, "grossRevenue", "GrossRevenue", "gross_revenue") ?? 0,
+        name:    getRowName(row).slice(0, 20),
+        Revenue: getVal(row, "GrossRevenue", "GrossRevenue", "gross_revenue") ?? 0,
         Taxable: getVal(row, "taxableValue", "TaxableValue", "taxable_value") ?? 0,
-        GST: getVal(row, "gstAmount", "GstAmount", "gst_amount") ?? 0,
+        GST:     getVal(row, "gstAmount",    "GstAmount",    "gst_amount")    ?? 0,
     }));
 
     return (
@@ -899,13 +899,13 @@ function ChartPanel({ data }: { data: ReportRow[] }) {
                     <XAxis dataKey="name" tick={{ fontSize: 11, fontFamily: "'DM Sans', sans-serif" }} />
                     <YAxis tick={{ fontSize: 11, fontFamily: "'DM Sans', sans-serif" }} />
                     <Tooltip
-                        formatter={(val: any) => `₹${val.toLocaleString("en-IN")}`}
+                        formatter={(val: number) => `₹${val.toLocaleString("en-IN")}`}
                         contentStyle={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, borderRadius: 8 }}
                     />
                     <Legend wrapperStyle={{ fontSize: 12, fontFamily: "'DM Sans', sans-serif" }} />
-                    <Bar dataKey="Revenue" fill="#6A012A" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Taxable" fill="#E57368" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="GST" fill="#F09C94" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Revenue" fill="#6A012A" radius={[4,4,0,0]} />
+                    <Bar dataKey="Taxable" fill="#E57368" radius={[4,4,0,0]} />
+                    <Bar dataKey="GST"     fill="#F09C94" radius={[4,4,0,0]} />
                 </BarChart>
             </ResponsiveContainer>
         </div>
@@ -916,17 +916,17 @@ function ChartPanel({ data }: { data: ReportRow[] }) {
 
 const SalesByCategoryReport: React.FC = () => {
     const [selectType, setSelectType] = useState<SelectType>("Product");
-    const [subValue, setSubValue] = useState<string>("");
-    const [dateMode, setDateMode] = useState<DateMode>("Month Range");
-    const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
-    const [runParams, setRunParams] = useState<Record<string, string> | null>(null);
-    const [showChart, setShowChart] = useState(false);
+    const [subValue,   setSubValue]   = useState<string>("");
+    const [dateMode,   setDateMode]   = useState<DateMode>("Month Range");
+    const [dateRange,  setDateRange]  = useState<DateRange>({ start: null, end: null });
+    const [runParams,  setRunParams]  = useState<Record<string, string> | null>(null);
+    const [showChart,  setShowChart]  = useState(false);
 
     const typeConfig = TYPE_OPTIONS.find(t => t.value === selectType)!;
 
     const { data: subData, isLoading: subLoading, isError: subError } = useQuery<SubOption[]>({
         queryKey: ["subOptions", selectType],
-        queryFn: async () => {
+        queryFn:  async () => {
             const res = await api.get(typeConfig.api);
             const raw = res.data;
 
@@ -961,7 +961,7 @@ const SalesByCategoryReport: React.FC = () => {
     const subOptions: SubOption[] = subData ?? [];
 
     // Log API response shape in dev to help debug field mapping
-    if (import.meta.env.NODE_ENV !== "production" && subData) {
+    if (process.env.NODE_ENV !== "production" && subData) {
         console.log(`[subOptions:${selectType}]`, subData.slice(0, 2));
     }
 
@@ -978,9 +978,9 @@ const SalesByCategoryReport: React.FC = () => {
 
     const { data: reportData, isLoading: running, isError: hasError } = useQuery<ReportRow[]>({
         queryKey: ["salesReport", runParams],
-        queryFn: async () => {
+        queryFn:  async () => {
             if (!runParams) return [];
-            const res = await api.get("/api/Report/ProductsCategoryReport", { params: runParams });
+            const res = await api.get("/Report/ProductsCategoryReport", { params: runParams });
             return Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.items || []);
         },
         enabled: !!runParams,
@@ -990,8 +990,8 @@ const SalesByCategoryReport: React.FC = () => {
     function handleRun() {
         if (!subValue) return;
         const params: Record<string, string> = { type: selectType, id: subValue, dateMode };
-        if (dateRange.start) params.startDate = format(dateRange.start, "yyyy-MM-dd");
-        if (dateRange.end) params.endDate = format(dateRange.end, "yyyy-MM-dd");
+        if (dateRange.start) params.fromDate = format(dateRange.start, "yyyy-MM-dd");
+        if (dateRange.end)   params.toDate   = format(dateRange.end,   "yyyy-MM-dd");
         setRunParams(params);
     }
 
@@ -1004,15 +1004,15 @@ const SalesByCategoryReport: React.FC = () => {
     function handleDownloadExcel() {
         if (!reportData || reportData.length === 0) return;
         const sheetData = [
-            ["Type", "Name", "Units Sold", "Total Orders", "Gross Revenue", "Taxable Value", "GST Amount"],
+            ["Type","Name","Units Sold","Total Orders","Gross Revenue","Taxable Value","GST Amount"],
             ...reportData.map(r => [
                 r.type || r.Type || "P",
                 getRowName(r),
-                getVal(r, "unitsSold", "UnitsSold", "units_sold"),
-                getVal(r, "totalOrders", "TotalOrders", "total_orders"),
-                getVal(r, "grossRevenue", "GrossRevenue", "gross_revenue"),
+                getVal(r, "unitsSold",    "UnitsSold",    "units_sold"),
+                getVal(r, "totalOrders",  "TotalOrders",  "total_orders"),
+                getVal(r, "GrossRevenue", "GrossRevenue", "gross_revenue"),
                 getVal(r, "taxableValue", "TaxableValue", "taxable_value"),
-                getVal(r, "gstAmount", "GstAmount", "gst_amount"),
+                getVal(r, "gstAmount",    "GstAmount",    "gst_amount"),
             ]),
         ];
         const wb = XLSX.utils.book_new();
@@ -1035,15 +1035,15 @@ const SalesByCategoryReport: React.FC = () => {
         }
         autoTable(doc, {
             startY: 28,
-            head: [["Type", "Name", "Units Sold", "Total Orders", "Gross Revenue", "Taxable Value", "GST Amount"]],
+            head: [["Type","Name","Units Sold","Total Orders","Gross Revenue","Taxable Value","GST Amount"]],
             body: reportData.map(r => [
                 r.type || r.Type || "P",
                 getRowName(r),
-                String(getVal(r, "unitsSold", "UnitsSold", "units_sold") ?? "—"),
-                String(getVal(r, "totalOrders", "TotalOrders", "total_orders") ?? "—"),
-                fmtINR(getVal(r, "grossRevenue", "GrossRevenue", "gross_revenue")),
+                String(getVal(r, "unitsSold",    "UnitsSold",    "units_sold")   ?? "—"),
+                String(getVal(r, "totalOrders",  "TotalOrders",  "total_orders") ?? "—"),
+                fmtINR(getVal(r, "GrossRevenue", "GrossRevenue", "gross_revenue")),
                 fmtINR(getVal(r, "taxableValue", "TaxableValue", "taxable_value")),
-                fmtINR(getVal(r, "gstAmount", "GstAmount", "gst_amount")),
+                fmtINR(getVal(r, "gstAmount",    "GstAmount",    "gst_amount")),
             ]),
             headStyles: { fillColor: [192, 57, 43], textColor: 255, fontSize: 9 },
             bodyStyles: { fontSize: 9 },
@@ -1054,19 +1054,15 @@ const SalesByCategoryReport: React.FC = () => {
     }
 
     const hasRun = !!runParams;
-    const rows = reportData ?? [];
+    const rows   = reportData ?? [];
 
     return (
         <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#fff", minHeight: "100vh", padding: "32px 36px" }}>
+            <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-
-            {/* <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A0A0A", margin: "0 0 28px", letterSpacing: "-0.3px" }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A0A0A", margin: "0 0 28px", letterSpacing: "-0.3px" }}>
                 Sales by Product / Category / Brand
-            </h1> */}
-            <div style={{ background: "linear-gradient(135deg,#6A012A,#fff)", padding: "18px 24px", borderBottom: "0.5px solid #6A012A" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Sales by Product / Category / Brand</div>
-                <div style={{ fontSize: 12, color: "#fff", marginTop: 3 }}>Select date range and generate your sales report</div>
-            </div>
+            </h1>
 
             {/* Filter Row */}
             <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -1165,7 +1161,7 @@ const SalesByCategoryReport: React.FC = () => {
                             <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #F0E0E0" }}>
                                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                                     <colgroup>
-                                        <col style={{ width: "6%" }} />
+                                        <col style={{ width: "6%"  }} />
                                         <col style={{ width: "26%" }} />
                                         <col style={{ width: "11%" }} />
                                         <col style={{ width: "13%" }} />
@@ -1175,7 +1171,7 @@ const SalesByCategoryReport: React.FC = () => {
                                     </colgroup>
                                     <thead>
                                         <tr style={{ background: "#6A012A" }}>
-                                            {["Type", "Name", "Units Sold", "Total Orders", "Gross Revenue", "Taxable Value", "GST Amount"].map(h => (
+                                            {["Type","Name","Units Sold","Total Orders","Gross Revenue","Taxable Value","GST Amount"].map(h => (
                                                 <th key={h} style={{
                                                     padding: "13px 14px", textAlign: "left", fontSize: 13,
                                                     fontWeight: 600, color: "#fff",
@@ -1203,11 +1199,11 @@ const SalesByCategoryReport: React.FC = () => {
                                                 >
                                                     <td style={cellStyle}>{row.type || row.Type || "P"}</td>
                                                     <td style={{ ...cellStyle, fontWeight: 500 }}>{getRowName(row)}</td>
-                                                    <td style={cellStyle}>{getVal(row, "unitsSold", "UnitsSold", "units_sold") ?? "—"}</td>
+                                                    <td style={cellStyle}>{getVal(row, "unitsSold",   "UnitsSold",   "units_sold")   ?? "—"}</td>
                                                     <td style={cellStyle}>{getVal(row, "totalOrders", "TotalOrders", "total_orders") ?? "—"}</td>
-                                                    <td style={cellStyle}>{fmtINR(getVal(row, "grossRevenue", "GrossRevenue", "gross_revenue"))}</td>
-                                                    <td style={cellStyle}>{fmtINR(getVal(row, "taxableValue", "TaxableValue", "taxable_value"))}</td>
-                                                    <td style={cellStyle}>{fmtINR(getVal(row, "gstAmount", "GstAmount", "gst_amount"))}</td>
+                                                    <td style={cellStyle}>{fmtINR(getVal(row, "GrossRevenue", "GrossRevenue", "gross_revenue"))}</td>
+                                                    <td style={cellStyle}>{fmtINR(getVal(row, "TaxableValue", "TaxableValue", "taxable_value"))}</td>
+                                                    <td style={cellStyle}>{fmtINR(getVal(row, "GstAmount",    "GstAmount",    "gst_amount"))}</td>
                                                 </tr>
                                             ))
                                         )}
@@ -1233,13 +1229,13 @@ const SalesByCategoryReport: React.FC = () => {
 // ─── Panel 2 : Sales by Region / Location ────────────────────────────────────
 
 interface RegionRow {
-    region?: string; Region?: string; state?: string; State?: string;
-    totalOrders?: number; TotalOrders?: number; total_orders?: number;
-    customers?: number; Customers?: number;
-    unitsSold?: number; UnitsSold?: number; units_sold?: number;
-    grossRevenue?: number; GrossRevenue?: number; gross_revenue?: number;
-    taxableValue?: number; TaxableValue?: number; taxable_value?: number;
-    gstAmount?: number; GstAmount?: number; gst_amount?: number;
+    region?:       string; Region?:       string; state?:        string; State?:        string;
+    totalOrders?:  number; TotalOrders?:  number; total_orders?: number;
+    customers?:    number; Customers?:    number;
+    unitsSold?:    number; UnitsSold?:    number; units_sold?:   number;
+    grossRevenue?: number; GrossRevenue?: number; gross_revenue?:number;
+    taxableValue?: number; TaxableValue?: number; taxable_value?:number;
+    gstAmount?:    number; GstAmount?:    number; gst_amount?:   number;
 }
 
 function getRegionVal(row: RegionRow, ...keys: (keyof RegionRow)[]): number | null {
@@ -1252,24 +1248,24 @@ function getRegionName(row: RegionRow): string {
 }
 
 const INDIAN_STATES = [
-    "All States", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala",
-    "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha",
-    "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
-    "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
-    "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir",
-    "Ladakh", "Lakshadweep", "Puducherry",
+    "All States","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh",
+    "Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
+    "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha",
+    "Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh",
+    "Uttarakhand","West Bengal","Andaman and Nicobar Islands","Chandigarh",
+    "Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
+    "Ladakh","Lakshadweep","Puducherry",
 ];
 
 const SalesByRegionReport: React.FC = () => {
-    const [state, setState] = useState<string>("All States");
-    const [dateMode, setDateMode] = useState<DateMode>("Month Range");
-    const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
-    const [runParams, setRunParams] = useState<Record<string, string> | null>(null);
+    const [state,      setState]     = useState<string>("All States");
+    const [dateMode,   setDateMode]  = useState<DateMode>("Month Range");
+    const [dateRange,  setDateRange] = useState<DateRange>({ start: null, end: null });
+    const [runParams,  setRunParams] = useState<Record<string, string> | null>(null);
 
     const { data: reportData, isLoading: running, isError: hasError } = useQuery<RegionRow[]>({
         queryKey: ["regionReport", runParams],
-        queryFn: async () => {
+        queryFn:  async () => {
             if (!runParams) return [];
             const res = await api.get("/Report/SalesByRegionReport", { params: runParams });
             const raw = res.data;
@@ -1284,9 +1280,8 @@ const SalesByRegionReport: React.FC = () => {
     function handleRun() {
         const params: Record<string, string> = {};
         if (state && state !== "All States") params.state = state;
-        if (dateRange.start) params.startDate = format(dateRange.start, "yyyy-MM-dd");
-        if (dateRange.end) params.endDate = format(dateRange.end, "yyyy-MM-dd");
-        params.dateMode = dateMode;
+        if (dateRange.start) params.fromDate = format(dateRange.start, "yyyy-MM-dd");
+        if (dateRange.end)   params.toDate   = format(dateRange.end,   "yyyy-MM-dd");
         setRunParams(params);
     }
 
@@ -1300,20 +1295,20 @@ const SalesByRegionReport: React.FC = () => {
     function handleExcel() {
         if (!reportData?.length) return;
         const sheetData = [
-            ["Region / State", "Total Orders", "Customers", "Units Sold", "Gross Revenue", "Taxable Value", "GST Amount"],
+            ["Region / State","Total Orders","Customers","Units Sold","Gross Revenue","Taxable Value","GST Amount"],
             ...reportData.map(r => [
                 getRegionName(r),
-                getRegionVal(r, "totalOrders", "TotalOrders", "total_orders") ?? "—",
-                getRegionVal(r, "customers", "Customers") ?? "—",
-                getRegionVal(r, "unitsSold", "UnitsSold", "units_sold") ?? "—",
+                getRegionVal(r, "totalOrders",  "TotalOrders",  "total_orders")  ?? "—",
+                getRegionVal(r, "customers",    "Customers")                      ?? "—",
+                getRegionVal(r, "unitsSold",    "UnitsSold",    "units_sold")    ?? "—",
                 getRegionVal(r, "grossRevenue", "GrossRevenue", "gross_revenue") ?? 0,
                 getRegionVal(r, "taxableValue", "TaxableValue", "taxable_value") ?? 0,
-                getRegionVal(r, "gstAmount", "GstAmount", "gst_amount") ?? 0,
+                getRegionVal(r, "gstAmount",    "GstAmount",    "gst_amount")    ?? 0,
             ]),
         ];
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(sheetData);
-        ws["!cols"] = [22, 14, 12, 12, 18, 16, 14].map(w => ({ wch: w }));
+        ws["!cols"] = [22,14,12,12,18,16,14].map(w => ({ wch: w }));
         XLSX.utils.book_append_sheet(wb, ws, "Region Report");
         XLSX.writeFile(wb, `sales_by_region_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`);
     }
@@ -1325,29 +1320,29 @@ const SalesByRegionReport: React.FC = () => {
         doc.text("Sales by Region / Location", 14, 16);
         if (dateRange.start && dateRange.end) {
             doc.setFontSize(9); doc.setTextColor(120);
-            doc.text(`Period: ${format(dateRange.start, "dd MMM yyyy")} → ${format(dateRange.end, "dd MMM yyyy")}`, 14, 23);
+            doc.text(`Period: ${format(dateRange.start,"dd MMM yyyy")} → ${format(dateRange.end,"dd MMM yyyy")}`, 14, 23);
         }
         autoTable(doc, {
             startY: 28,
-            head: [["Region / State", "Total Orders", "Customers", "Units Sold", "Gross Revenue", "Taxable Value", "GST Amount"]],
+            head: [["Region / State","Total Orders","Customers","Units Sold","Gross Revenue","Taxable Value","GST Amount"]],
             body: reportData.map(r => [
                 getRegionName(r),
-                String(getRegionVal(r, "totalOrders", "TotalOrders", "total_orders") ?? "—"),
-                String(getRegionVal(r, "customers", "Customers") ?? "—"),
-                String(getRegionVal(r, "unitsSold", "UnitsSold", "units_sold") ?? "—"),
-                fmtINR(getRegionVal(r, "grossRevenue", "GrossRevenue", "gross_revenue")),
-                fmtINR(getRegionVal(r, "taxableValue", "TaxableValue", "taxable_value")),
-                fmtINR(getRegionVal(r, "gstAmount", "GstAmount", "gst_amount")),
+                String(getRegionVal(r,"totalOrders","TotalOrders","total_orders") ?? "—"),
+                String(getRegionVal(r,"customers","Customers") ?? "—"),
+                String(getRegionVal(r,"unitsSold","UnitsSold","units_sold") ?? "—"),
+                fmtINR(getRegionVal(r,"grossRevenue","GrossRevenue","gross_revenue")),
+                fmtINR(getRegionVal(r,"taxableValue","TaxableValue","taxable_value")),
+                fmtINR(getRegionVal(r,"gstAmount","GstAmount","gst_amount")),
             ]),
-            headStyles: { fillColor: [192, 57, 43], textColor: 255, fontSize: 9 },
+            headStyles: { fillColor: [192,57,43], textColor: 255, fontSize: 9 },
             bodyStyles: { fontSize: 9 },
-            alternateRowStyles: { fillColor: [255, 248, 248] },
+            alternateRowStyles: { fillColor: [255,248,248] },
         });
         doc.save(`sales_by_region_${format(new Date(), "yyyyMMdd_HHmm")}.pdf`);
     }
 
-    const rows = reportData ?? [];
-    const hasRun = !!runParams;
+    const rows    = reportData ?? [];
+    const hasRun  = !!runParams;
 
     const thStyle: React.CSSProperties = {
         padding: "13px 16px", textAlign: "left", fontSize: 13,
@@ -1357,13 +1352,9 @@ const SalesByRegionReport: React.FC = () => {
 
     return (
         <div style={{ fontFamily: "'DM Sans', sans-serif", padding: "28px 32px", minHeight: 400 }}>
-            {/* <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1A0A0A", margin: "0 0 24px", letterSpacing: "-0.3px" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1A0A0A", margin: "0 0 24px", letterSpacing: "-0.3px" }}>
                 Sales by Region / Location
-            </h2> */}
-            <div style={{ background: "linear-gradient(135deg,#6A012A,#fff)", padding: "18px 24px", borderBottom: "0.5px solid #6A012A" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}> Sales by Region / Location</div>
-                <div style={{ fontSize: 12, color: "#fff", marginTop: 3 }}>Select Region Location and generate your sales report</div>
-            </div>
+            </h2>
 
             {/* Filter Row */}
             <div style={{ display: "flex", gap: 20, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 24 }}>
@@ -1469,12 +1460,12 @@ const SalesByRegionReport: React.FC = () => {
                                             onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#fff"; }}
                                         >
                                             <td style={{ ...cellStyle, fontWeight: 500 }}>{getRegionName(row)}</td>
-                                            <td style={cellStyle}>{getRegionVal(row, "totalOrders", "TotalOrders", "total_orders") ?? "—"}</td>
-                                            <td style={cellStyle}>{getRegionVal(row, "customers", "Customers") ?? "—"}</td>
-                                            <td style={cellStyle}>{getRegionVal(row, "unitsSold", "UnitsSold", "units_sold") ?? "—"}</td>
-                                            <td style={cellStyle}>{fmtINR(getRegionVal(row, "grossRevenue", "GrossRevenue", "gross_revenue"))}</td>
-                                            <td style={cellStyle}>{fmtINR(getRegionVal(row, "taxableValue", "TaxableValue", "taxable_value"))}</td>
-                                            <td style={cellStyle}>{fmtINR(getRegionVal(row, "gstAmount", "GstAmount", "gst_amount"))}</td>
+                                            <td style={cellStyle}>{getRegionVal(row,"totalOrders","TotalOrders","total_orders") ?? "—"}</td>
+                                            <td style={cellStyle}>{getRegionVal(row,"customers","Customers") ?? "—"}</td>
+                                            <td style={cellStyle}>{getRegionVal(row,"unitsSold","UnitsSold","units_sold") ?? "—"}</td>
+                                            <td style={cellStyle}>{fmtINR(getRegionVal(row,"grossRevenue","GrossRevenue","gross_revenue"))}</td>
+                                            <td style={cellStyle}>{fmtINR(getRegionVal(row,"taxableValue","TaxableValue","taxable_value"))}</td>
+                                            <td style={cellStyle}>{fmtINR(getRegionVal(row,"gstAmount","GstAmount","gst_amount"))}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1497,13 +1488,13 @@ const SalesByRegionReport: React.FC = () => {
 // ─── Panel 3 & 4 : Top-Selling / Low-Performing Products ─────────────────────
 
 interface TopLowRow {
-    rank?: number; Rank?: number;
-    productName?: string; ProductName?: string; name?: string; Name?: string;
-    unitsSold?: number; UnitsSold?: number; units_sold?: number;
-    totalOrders?: number; TotalOrders?: number; total_orders?: number;
-    grossRevenue?: number; GrossRevenue?: number; gross_revenue?: number;
-    category?: string; Category?: string; categoryName?: string;
-    brand?: string; Brand?: string; brandName?: string;
+    rank?:         number; Rank?:         number;
+    productName?:  string; ProductName?:  string; name?: string; Name?: string;
+    unitsSold?:    number; UnitsSold?:    number; units_sold?:   number;
+    totalOrders?:  number; TotalOrders?:  number; total_orders?: number;
+    grossRevenue?: number; GrossRevenue?: number; gross_revenue?:number;
+    category?:     string; Category?:     string; categoryName?: string;
+    brand?:        string; Brand?:        string; brandName?:    string;
 }
 
 function getTopLowVal(row: TopLowRow, ...keys: (keyof TopLowRow)[]): number | null {
@@ -1527,12 +1518,12 @@ const TopLowSellingPanel: React.FC<TopLowPanelProps> = ({ mode }) => {
     const isTop = mode === "top";
     const title = isTop ? "Top-Selling Products" : "Low-Performing Products";
 
-    const [rank, setRank] = useState<number>(1);
+    const [rank,      setRank]      = useState<number>(1);
     const [runParams, setRunParams] = useState<Record<string, string> | null>(null);
 
     const { data: reportData, isLoading: running, isError: hasError } = useQuery<TopLowRow[]>({
         queryKey: ["topLowReport", mode, runParams],
-        queryFn: async () => {
+        queryFn:  async () => {
             if (!runParams) return [];
             const res = await api.get("/Report/TopLowSellingReport", { params: runParams });
             const raw = res.data;
@@ -1546,7 +1537,10 @@ const TopLowSellingPanel: React.FC<TopLowPanelProps> = ({ mode }) => {
     });
 
     function handleRun() {
-        setRunParams({ type: mode, rank: String(rank) });
+        setRunParams({
+            reportType: mode,   // "top" | "low"
+            topN:       String(rank),
+        });
     }
 
     function handleClearAll() {
@@ -1557,49 +1551,49 @@ const TopLowSellingPanel: React.FC<TopLowPanelProps> = ({ mode }) => {
     function handleExcel() {
         if (!reportData?.length) return;
         const sheetData = [
-            ["Rank", "Product Name", "Units Sold", "Total Orders", "Gross Revenue", "Category", "Brand"],
+            ["Rank","Product Name","Units Sold","Total Orders","Gross Revenue","Category","Brand"],
             ...reportData.map((r, i) => [
-                getTopLowVal(r, "rank", "Rank") ?? i + 1,
+                getTopLowVal(r,"rank","Rank") ?? i + 1,
                 getTopLowName(r),
-                getTopLowVal(r, "unitsSold", "UnitsSold", "units_sold") ?? "—",
-                getTopLowVal(r, "totalOrders", "TotalOrders", "total_orders") ?? "—",
-                getTopLowVal(r, "grossRevenue", "GrossRevenue", "gross_revenue") ?? 0,
+                getTopLowVal(r,"unitsSold","UnitsSold","units_sold") ?? "—",
+                getTopLowVal(r,"totalOrders","TotalOrders","total_orders") ?? "—",
+                getTopLowVal(r,"grossRevenue","GrossRevenue","gross_revenue") ?? 0,
                 getTopLowCategory(r),
                 getTopLowBrand(r),
             ]),
         ];
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(sheetData);
-        ws["!cols"] = [8, 30, 12, 14, 18, 18, 16].map(w => ({ wch: w }));
+        ws["!cols"] = [8,30,12,14,18,18,16].map(w => ({ wch: w }));
         XLSX.utils.book_append_sheet(wb, ws, title);
-        XLSX.writeFile(wb, `${mode}_selling_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`);
+        XLSX.writeFile(wb, `${mode}_selling_${format(new Date(),"yyyyMMdd_HHmm")}.xlsx`);
     }
 
     function handlePDF() {
         if (!reportData?.length) return;
         const doc = new jsPDF({ orientation: "landscape" });
-        doc.setFontSize(14); doc.setTextColor(192, 57, 43);
+        doc.setFontSize(14); doc.setTextColor(192,57,43);
         doc.text(title, 14, 16);
         autoTable(doc, {
             startY: 24,
-            head: [["Rank", "Product Name", "Units Sold", "Total Orders", "Gross Revenue", "Category", "Brand"]],
+            head: [["Rank","Product Name","Units Sold","Total Orders","Gross Revenue","Category","Brand"]],
             body: reportData.map((r, i) => [
-                String(getTopLowVal(r, "rank", "Rank") ?? i + 1),
+                String(getTopLowVal(r,"rank","Rank") ?? i + 1),
                 getTopLowName(r),
-                String(getTopLowVal(r, "unitsSold", "UnitsSold", "units_sold") ?? "—"),
-                String(getTopLowVal(r, "totalOrders", "TotalOrders", "total_orders") ?? "—"),
-                fmtINR(getTopLowVal(r, "grossRevenue", "GrossRevenue", "gross_revenue")),
+                String(getTopLowVal(r,"unitsSold","UnitsSold","units_sold") ?? "—"),
+                String(getTopLowVal(r,"totalOrders","TotalOrders","total_orders") ?? "—"),
+                fmtINR(getTopLowVal(r,"grossRevenue","GrossRevenue","gross_revenue")),
                 getTopLowCategory(r),
                 getTopLowBrand(r),
             ]),
-            headStyles: { fillColor: [192, 57, 43], textColor: 255, fontSize: 9 },
+            headStyles: { fillColor: [192,57,43], textColor: 255, fontSize: 9 },
             bodyStyles: { fontSize: 9 },
-            alternateRowStyles: { fillColor: [255, 248, 248] },
+            alternateRowStyles: { fillColor: [255,248,248] },
         });
-        doc.save(`${mode}_selling_${format(new Date(), "yyyyMMdd_HHmm")}.pdf`);
+        doc.save(`${mode}_selling_${format(new Date(),"yyyyMMdd_HHmm")}.pdf`);
     }
 
-    const rows = reportData ?? [];
+    const rows   = reportData ?? [];
     const hasRun = !!runParams;
 
     const thStyle: React.CSSProperties = {
@@ -1610,11 +1604,10 @@ const TopLowSellingPanel: React.FC<TopLowPanelProps> = ({ mode }) => {
 
     return (
         <div style={{ fontFamily: "'DM Sans', sans-serif", padding: "28px 32px", minHeight: 400 }}>
-         
-            <div style={{ background: "linear-gradient(135deg,#6A012A,#fff)", padding: "18px 24px", borderBottom: "0.5px solid #6A012A" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}> {title} </div>
-                <div style={{ fontSize: 12, color: "#fff", marginTop: 3 }}>Enter Rank to generate your sales report</div>
-            </div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1A0A0A", margin: "0 0 24px", letterSpacing: "-0.3px" }}>
+                {title}
+            </h2>
+
             {/* Filter Row */}
             <div style={{ display: "flex", gap: 20, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 24 }}>
                 {/* Rank input */}
@@ -1685,8 +1678,8 @@ const TopLowSellingPanel: React.FC<TopLowPanelProps> = ({ mode }) => {
                                         <th style={thStyle}>Rank</th>
                                         <th style={thStyle}>Product Name</th>
                                         <th style={thStyle}>Units Sold</th>
-                                        <th style={thStyle}>Total Orders</th>
-                                        <th style={thStyle}>Gross Revenue</th>
+                                        <th style={thStyle}>{isTop ? "Total Orders" : "Orders"}</th>
+                                        <th style={thStyle}>{isTop ? "Gross Revenue" : "Revenue"}</th>
                                         <th style={thStyle}>Category</th>
                                         <th style={thStyle}>Brand</th>
                                     </tr>
@@ -1705,11 +1698,11 @@ const TopLowSellingPanel: React.FC<TopLowPanelProps> = ({ mode }) => {
                                             onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#FFF5F5"; }}
                                             onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#fff"; }}
                                         >
-                                            <td style={cellStyle}>{getTopLowVal(row, "rank", "Rank") ?? i + 1}</td>
+                                            <td style={cellStyle}>{getTopLowVal(row,"rank","Rank") ?? i + 1}</td>
                                             <td style={{ ...cellStyle, fontWeight: 500 }}>{getTopLowName(row)}</td>
-                                            <td style={cellStyle}>{getTopLowVal(row, "unitsSold", "UnitsSold", "units_sold") ?? "—"}</td>
-                                            <td style={cellStyle}>{getTopLowVal(row, "totalOrders", "TotalOrders", "total_orders") ?? "—"}</td>
-                                            <td style={cellStyle}>{fmtINR(getTopLowVal(row, "grossRevenue", "GrossRevenue", "gross_revenue"))}</td>
+                                            <td style={cellStyle}>{getTopLowVal(row,"unitsSold","UnitsSold","units_sold") ?? "—"}</td>
+                                            <td style={cellStyle}>{getTopLowVal(row,"totalOrders","TotalOrders","total_orders") ?? "—"}</td>
+                                            <td style={cellStyle}>{fmtINR(getTopLowVal(row,"grossRevenue","GrossRevenue","gross_revenue"))}</td>
                                             <td style={cellStyle}>{getTopLowCategory(row)}</td>
                                             <td style={cellStyle}>{getTopLowBrand(row)}</td>
                                         </tr>
@@ -1730,6 +1723,334 @@ const TopLowSellingPanel: React.FC<TopLowPanelProps> = ({ mode }) => {
     );
 };
 
+
+// ─── Panel 5 : Gross Revenue vs. Net Revenue ─────────────────────────────────
+
+interface GrossNetRow {
+    productName?:  string; ProductName?:  string; name?: string; Name?: string;
+    category?:     string; Category?:     string; categoryName?: string; CategoryName?: string;
+    brand?:        string; Brand?:        string; brandName?:    string; BrandName?:    string;
+    grossRevenue?: number; GrossRevenue?: number; gross_revenue?: number;
+    netRevenue?:   number; NetRevenue?:   number; net_revenue?:   number;
+    taxAmount?:    number; TaxAmount?:    number; tax_amount?:    number;
+    discount?:     number; Discount?:     number;
+    totalOrders?:  number; TotalOrders?:  number; total_orders?:  number;
+    unitsSold?:    number; UnitsSold?:    number; units_sold?:    number;
+}
+
+function getGNVal(row: GrossNetRow, ...keys: (keyof GrossNetRow)[]): number | null {
+    for (const k of keys) { const v = row[k]; if (v != null) return v as number; }
+    return null;
+}
+function getGNName(row: GrossNetRow): string {
+    return row.productName || row.ProductName || row.name || row.Name || "—";
+}
+function getGNCat(row: GrossNetRow): string {
+    return row.category || row.Category || row.categoryName || row.CategoryName || "—";
+}
+function getGNBrand(row: GrossNetRow): string {
+    return row.brand || row.Brand || row.brandName || row.BrandName || "—";
+}
+
+const GrossNetRevenuePanel: React.FC = () => {
+    const [category,  setCategory]  = useState<string>("");
+    const [brand,     setBrand]     = useState<string>("");
+    const [dateMode,  setDateMode]  = useState<DateMode>("Month Range");
+    const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
+    const [runParams, setRunParams] = useState<Record<string, string> | null>(null);
+
+    // Fetch categories
+    const { data: catData, isLoading: catLoading } = useQuery<SubOption[]>({
+        queryKey: ["gnCategories"],
+        queryFn:  async () => {
+            const res = await api.get("/Category");
+            const raw = res.data;
+            const items: Record<string, unknown>[] = Array.isArray(raw) ? raw
+                : (raw?.data ?? raw?.items ?? raw?.result ?? raw?.Data ?? raw?.Items ?? []);
+            return items.map(i => ({
+                value: String(i.id ?? i.Id ?? i.categoryId ?? i.CategoryId ?? ""),
+                label: String(i.name ?? i.Name ?? i.categoryName ?? i.CategoryName ?? ""),
+            })).filter(o => o.value && o.label);
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // Fetch brands
+    const { data: brandData, isLoading: brandLoading } = useQuery<SubOption[]>({
+        queryKey: ["gnBrands"],
+        queryFn:  async () => {
+            const res = await api.get("/Brand");
+            const raw = res.data;
+            const items: Record<string, unknown>[] = Array.isArray(raw) ? raw
+                : (raw?.data ?? raw?.items ?? raw?.result ?? raw?.Data ?? raw?.Items ?? []);
+            return items.map(i => ({
+                value: String(i.id ?? i.Id ?? i.brandId ?? i.BrandId ?? ""),
+                label: String(i.name ?? i.Name ?? i.brandName ?? i.BrandName ?? ""),
+            })).filter(o => o.value && o.label);
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const catOptions:   SubOption[] = catData   ?? [];
+    const brandOptions: SubOption[] = brandData ?? [];
+
+    const { data: reportData, isLoading: running, isError: hasError } = useQuery<GrossNetRow[]>({
+        queryKey: ["grossNetReport", runParams],
+        queryFn:  async () => {
+            if (!runParams) return [];
+            const res = await api.get("/Report/NetVsRevenueReport", { params: runParams });
+            const raw = res.data;
+            if (Array.isArray(raw)) return raw;
+            const wrapper = raw?.data ?? raw?.items ?? raw?.result ?? raw?.list
+                ?? raw?.Data ?? raw?.Items ?? raw?.Result ?? [];
+            return Array.isArray(wrapper) ? wrapper : [];
+        },
+        enabled: !!runParams,
+        retry: false,
+    });
+
+    function handleRun() {
+        const params: Record<string, string> = {};
+        if (category) params.categoryId = category;
+        if (brand)    params.brandId    = brand;
+        if (dateRange.start) params.fromDate = format(dateRange.start, "yyyy-MM-dd");
+        if (dateRange.end)   params.toDate   = format(dateRange.end,   "yyyy-MM-dd");
+        setRunParams(params);
+    }
+
+    function handleClearAll() {
+        setCategory(""); setBrand("");
+        setDateRange({ start: null, end: null });
+        setDateMode("Month Range"); setRunParams(null);
+    }
+
+    function handleExcel() {
+        if (!reportData?.length) return;
+        const sheetData = [
+            ["Product Name","Category","Brand","Gross Revenue","Net Revenue","Tax Amount","Discount","Total Orders","Units Sold"],
+            ...reportData.map(r => [
+                getGNName(r), getGNCat(r), getGNBrand(r),
+                getGNVal(r,"grossRevenue","GrossRevenue","gross_revenue") ?? 0,
+                getGNVal(r,"netRevenue",  "NetRevenue",  "net_revenue")   ?? 0,
+                getGNVal(r,"taxAmount",   "TaxAmount",   "tax_amount")    ?? 0,
+                getGNVal(r,"discount",    "Discount")                     ?? 0,
+                getGNVal(r,"totalOrders", "TotalOrders", "total_orders")  ?? "—",
+                getGNVal(r,"unitsSold",   "UnitsSold",   "units_sold")    ?? "—",
+            ]),
+        ];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        ws["!cols"] = [28,18,16,16,14,14,12,14,12].map(w => ({ wch: w }));
+        XLSX.utils.book_append_sheet(wb, ws, "Gross vs Net Revenue");
+        XLSX.writeFile(wb, `gross_net_revenue_${format(new Date(),"yyyyMMdd_HHmm")}.xlsx`);
+    }
+
+    function handlePDF() {
+        if (!reportData?.length) return;
+        const doc = new jsPDF({ orientation: "landscape" });
+        doc.setFontSize(14); doc.setTextColor(192,57,43);
+        doc.text("Gross Revenue vs. Net Revenue", 14, 16);
+        if (dateRange.start && dateRange.end) {
+            doc.setFontSize(9); doc.setTextColor(120);
+            doc.text(`Period: ${format(dateRange.start,"dd MMM yyyy")} → ${format(dateRange.end,"dd MMM yyyy")}`, 14, 23);
+        }
+        autoTable(doc, {
+            startY: 28,
+            head: [["Product Name","Category","Brand","Gross Revenue","Net Revenue","Tax Amount","Discount"]],
+            body: reportData.map(r => [
+                getGNName(r), getGNCat(r), getGNBrand(r),
+                fmtINR(getGNVal(r,"grossRevenue","GrossRevenue","gross_revenue")),
+                fmtINR(getGNVal(r,"netRevenue","NetRevenue","net_revenue")),
+                fmtINR(getGNVal(r,"taxAmount","TaxAmount","tax_amount")),
+                fmtINR(getGNVal(r,"discount","Discount")),
+            ]),
+            headStyles: { fillColor: [192,57,43], textColor: 255, fontSize: 9 },
+            bodyStyles: { fontSize: 9 },
+            alternateRowStyles: { fillColor: [255,248,248] },
+        });
+        doc.save(`gross_net_revenue_${format(new Date(),"yyyyMMdd_HHmm")}.pdf`);
+    }
+
+    const rows   = reportData ?? [];
+    const hasRun = !!runParams;
+
+    // Underline dropdown style matching screenshot
+    const dropdownWrap: React.CSSProperties = { flex: "0 0 260px" };
+    const dropLabel: React.CSSProperties = {
+        fontSize: 11, color: "#888", fontWeight: 500,
+        marginBottom: 4, fontFamily: "'DM Sans', sans-serif",
+    };
+    const dropTrigger = (selected: SubOption | undefined, placeholder: string, loading: boolean): React.CSSProperties => ({
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 14px 10px 0", borderBottom: "1.5px solid #6A012A",
+        background: "#FFF8F8", cursor: loading ? "not-allowed" : "pointer",
+        minHeight: 42, fontFamily: "'DM Sans', sans-serif", fontSize: 15,
+        fontWeight: 600, color: selected ? "#1A0A0A" : "#AAA", userSelect: "none",
+    });
+
+    const thStyle: React.CSSProperties = {
+        padding: "13px 16px", textAlign: "left", fontSize: 13,
+        fontWeight: 600, color: "#fff",
+        fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+    };
+
+    return (
+        <div style={{ fontFamily: "'DM Sans', sans-serif", padding: "28px 32px", minHeight: 400 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1A0A0A", margin: "0 0 24px", letterSpacing: "-0.3px" }}>
+                Gross Revenue vs. Net Revenue
+            </h2>
+
+            {/* Filter Row */}
+            <div style={{ display: "flex", gap: 24, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 24 }}>
+
+                {/* Parent Category */}
+                <div style={dropdownWrap}>
+                    <div style={dropLabel}>Parent Category</div>
+                    <div style={{ position: "relative" }}>
+                        <select
+                            value={category}
+                            onChange={e => setCategory(e.target.value)}
+                            disabled={catLoading}
+                            style={{
+                                width: "100%", padding: "10px 32px 10px 0",
+                                border: "none", borderBottom: "1.5px solid #6A012A",
+                                background: "#FFF8F8", fontSize: 15, fontWeight: 600,
+                                color: category ? "#1A0A0A" : "#AAA",
+                                outline: "none", cursor: "pointer",
+                                appearance: "none", fontFamily: "'DM Sans', sans-serif",
+                                borderRadius: 0,
+                            }}
+                        >
+                            <option value="">{ catLoading ? "Loading..." : "All Categories" }</option>
+                            {catOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                        <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", color: "#6A012A", pointerEvents: "none" }}>▾</span>
+                    </div>
+                </div>
+
+                {/* Brand */}
+                <div style={dropdownWrap}>
+                    <div style={dropLabel}>Brand</div>
+                    <div style={{ position: "relative" }}>
+                        <select
+                            value={brand}
+                            onChange={e => setBrand(e.target.value)}
+                            disabled={brandLoading}
+                            style={{
+                                width: "100%", padding: "10px 32px 10px 0",
+                                border: "none", borderBottom: "1.5px solid #6A012A",
+                                background: "#FFF8F8", fontSize: 15, fontWeight: 600,
+                                color: brand ? "#1A0A0A" : "#AAA",
+                                outline: "none", cursor: "pointer",
+                                appearance: "none", fontFamily: "'DM Sans', sans-serif",
+                                borderRadius: 0,
+                            }}
+                        >
+                            <option value="">{ brandLoading ? "Loading..." : "All Brands" }</option>
+                            {brandOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                        <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", color: "#6A012A", pointerEvents: "none" }}>▾</span>
+                    </div>
+                </div>
+
+                {/* Date Picker */}
+                <div style={{ flex: "0 0 320px" }}>
+                    <div style={dropLabel}>Month &amp; Week Range</div>
+                    <DatePickerField
+                        dateMode={dateMode} setDateMode={setDateMode}
+                        dateRange={dateRange} setDateRange={setDateRange}
+                    />
+                </div>
+
+                {/* Spacer + Buttons */}
+                <div style={{ flex: 1 }} />
+                <button onClick={handleRun} style={{
+                    background: "#6A012A", color: "#fff", border: "none",
+                    borderRadius: 24, padding: "11px 32px", fontSize: 14,
+                    fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                    boxShadow: "0 4px 14px rgba(192,57,43,0.3)", whiteSpace: "nowrap",
+                }}>Run</button>
+                <button onClick={handleClearAll} style={{
+                    background: "#6A012A", color: "#fff", border: "none",
+                    borderRadius: 24, padding: "11px 32px", fontSize: 14,
+                    fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                    whiteSpace: "nowrap",
+                }}>ClearAll</button>
+            </div>
+
+            {/* Results */}
+            {hasRun && !running && rows.length === 0 && !hasError && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 0", color: "#BCC0C8" }}>
+                    <svg width="90" height="90" viewBox="0 0 90 90" fill="none">
+                        <circle cx="45" cy="45" r="45" fill="#F0F2F5"/>
+                        <circle cx="38" cy="36" r="16" stroke="#BCC0C8" strokeWidth="5" fill="none"/>
+                        <line x1="49" y1="48" x2="68" y2="67" stroke="#BCC0C8" strokeWidth="5" strokeLinecap="round"/>
+                        <rect x="28" y="52" width="28" height="18" rx="3" fill="#BCC0C8" opacity="0.4"/>
+                    </svg>
+                    <div style={{ marginTop: 14, fontSize: 14, color: "#999", fontFamily: "'DM Sans', sans-serif" }}>No Data Available</div>
+                </div>
+            )}
+
+            {hasRun && running && <Spinner />}
+
+            {hasRun && !running && rows.length > 0 && (
+                <>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginBottom: 16 }}>
+                        <button onClick={handleExcel} style={{
+                            background: "#6A012A", color: "#fff", border: "none", borderRadius: 24,
+                            padding: "9px 24px", fontSize: 13, fontWeight: 600,
+                            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}>Excel Download</button>
+                        <button onClick={handlePDF} style={{
+                            background: "#6A012A", color: "#fff", border: "none", borderRadius: 24,
+                            padding: "9px 24px", fontSize: 13, fontWeight: 600,
+                            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}>Pdf Download</button>
+                    </div>
+                    <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #F0E0E0" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                                <tr style={{ background: "#C0968A" }}>
+                                    <th style={thStyle}>Product Name</th>
+                                    <th style={thStyle}>Category</th>
+                                    <th style={thStyle}>Brand</th>
+                                    <th style={thStyle}>Gross Revenue</th>
+                                    <th style={thStyle}>Net Revenue</th>
+                                    <th style={thStyle}>Tax Amount</th>
+                                    <th style={thStyle}>Discount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((row, i) => (
+                                    <tr key={i}
+                                        style={{ background: "#fff", borderBottom: "1px solid #EEE", transition: "background 0.12s" }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#FFF5F5"; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#fff"; }}
+                                    >
+                                        <td style={{ ...cellStyle, fontWeight: 500 }}>{getGNName(row)}</td>
+                                        <td style={cellStyle}>{getGNCat(row)}</td>
+                                        <td style={cellStyle}>{getGNBrand(row)}</td>
+                                        <td style={cellStyle}>{fmtINR(getGNVal(row,"grossRevenue","GrossRevenue","gross_revenue"))}</td>
+                                        <td style={cellStyle}>{fmtINR(getGNVal(row,"netRevenue","NetRevenue","net_revenue"))}</td>
+                                        <td style={cellStyle}>{fmtINR(getGNVal(row,"taxAmount","TaxAmount","tax_amount"))}</td>
+                                        <td style={cellStyle}>{fmtINR(getGNVal(row,"discount","Discount"))}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
+
+            {!hasRun && (
+                <div style={{ textAlign: "center", padding: "56px 0", color: "#C0AAAA", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>
+                    Select filters and click <strong style={{ color: "#6A012A" }}>Run</strong> to generate the report.
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ─── Root Page ────────────────────────────────────────────────────────────────
 
 const Sales_RevenueReports: React.FC = () => {
@@ -1742,7 +2063,7 @@ const Sales_RevenueReports: React.FC = () => {
         <SalesByRegionReport />,
         <TopLowSellingPanel mode="top" />,
         <TopLowSellingPanel mode="low" />,
-        <ComingSoon title="Gross Revenue vs. Net Revenue" />,
+        <GrossNetRevenuePanel />,
         <ComingSoon title="Sales by Device / Platform" />,
         <ComingSoon title="Coupon/Discount Usage Report" />,
     ];
