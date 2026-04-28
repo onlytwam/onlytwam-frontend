@@ -1,16 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from '@/shared/api/axiosInstance';
-
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// Remove: import * as XLSX from 'xlsx';
+// Remove: import jsPDF from 'jspdf';
+// Remove: import autoTable from 'jspdf-autotable';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line,
 } from "recharts";
-import { format } from "date-fns";          // ✅ fixed: was imported from "crypto-js"
+import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import DatePicker from "react-datepicker";   // ✅ added missing import
+import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
