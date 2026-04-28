@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from '@/shared/api/axiosInstance';
-import * as XLSX from 'xlsx';
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -188,22 +188,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 // ─── Download Helpers ─────────────────────────────────────────────────────────
 
-function downloadExcel(data: Order[], label: string) {
-    const rows = data.map((r, i) => ({
-        "#":         i + 1,
-        "Order ID":  r.id,
-        "Customer":  r.customer,
-        "Product":   r.product,
-        "Date":      fmtDate(r.date),
-        "Qty":       r.qty,
-        "Amount":    r.amount,
-        "Status":    r.status,
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sales Report");
-    XLSX.writeFile(wb, `Sales_Report_${label.replace(/[^a-z0-9]/gi, "_")}.xlsx`);
-}
+
 
 function downloadPDF(
     data: Order[],
