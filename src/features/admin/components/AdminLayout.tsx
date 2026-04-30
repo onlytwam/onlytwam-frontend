@@ -18,6 +18,8 @@ const ALL_NAV = [
   { path: '/admin/bulk-import',     icon: 'bi-upload',           label: 'Bulk Upload', roles: [1,3,4] },
   { path: '/admin/product-bulk-upload', icon: 'bi-upload', label: 'Product Bulk Upload', roles: [1,3,4] },
   { path: '/admin/categories',      icon: 'bi-folder',           label: 'Categories',       roles: [1,4] },
+  { path: '/admin/store-settings',      icon: 'bi-folder',           label: 'Store Settings',       roles: [1,3,4] },
+  { path: '/admin/Billing',      icon: 'bi-folder',           label: 'Billing',       roles: [1,3,4] },
   // { path: '/admin/brands',          icon: 'bi-bookmark-star',    label: 'Brands',           roles: [1,4] },
   // { path: '/admin/sizes',           icon: 'bi-rulers',           label: 'Sizes',            roles: [1,3] },
   {path: '/admin/MDM', icon: 'bi-diagram-3', label: 'MDM', roles: [1,3,4]},
