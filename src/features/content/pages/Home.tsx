@@ -1501,59 +1501,44 @@ function DesktopFeaturedSection({
         paddingBottom: 12,
       }}
     >
-      {/* Title — clicking navigates to the section page */}
-      {viewAllPath ? (
-        <a
-          href={viewAllPath}
-          onClick={(e) => { e.preventDefault(); navigate(viewAllPath); }}
-          style={{
-            textAlign: "center",
-            color: "#6b0f2a",
-            fontFamily:
-              '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
-            fontSize: "2rem",
-            fontWeight: 600,
-            letterSpacing: "0.02em",
-            margin: "0 0 14px",
-            flexShrink: 0,
-            cursor: "pointer",
-            textDecoration: "none",
-            display: "block",
-            transition: "opacity 0.18s",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "0.72";
-            (e.currentTarget as HTMLElement).style.textDecoration = "underline";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.opacity = "1";
-            (e.currentTarget as HTMLElement).style.textDecoration = "none";
-          }}
-        >
-          {title}
-        </a>
-      ) : (
-        <h2
-          style={{
-            textAlign: "center",
-            color: "#6b0f2a",
-            fontFamily:
-              '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
-            fontSize: "2rem",
-            fontWeight: 600,
-            letterSpacing: "0.02em",
-            margin: "0 0 14px",
-            flexShrink: 0,
-          }}
-        >
-          {title}
-        </h2>
-      )}
+      {/* Title — sits above the image on white, identical to ShopByCategorySection */}
+      <h2
+        onClick={viewAllPath ? () => navigate(viewAllPath) : undefined}
+        style={{
+          textAlign: "center",
+          color: "#6b0f2a",
+          fontFamily:
+            '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+          fontSize: "2rem",
+          fontWeight: 600,
+          letterSpacing: "0.02em",
+          margin: "0 0 14px",
+          flexShrink: 0,
+          cursor: viewAllPath ? "pointer" : undefined,
+          transition: "opacity 0.18s",
+        }}
+        onMouseEnter={
+          viewAllPath
+            ? (e) => {
+                (e.currentTarget as HTMLElement).style.opacity = "0.72";
+                (e.currentTarget as HTMLElement).style.textDecoration =
+                  "underline";
+              }
+            : undefined
+        }
+        onMouseLeave={
+          viewAllPath
+            ? (e) => {
+                (e.currentTarget as HTMLElement).style.opacity = "1";
+                (e.currentTarget as HTMLElement).style.textDecoration = "none";
+              }
+            : undefined
+        }
+      >
+        {title}
+      </h2>
 
-      {/* Image viewport — locked to 21:8 aspect ratio.
-           Clicking anywhere on the banner (outside the card panel) navigates
-           to the section page. The card panel stops propagation so product
-           card interactions (add to cart, quick shop, etc.) are unaffected. */}
+      {/* Image viewport — locked to 21:8 aspect ratio */}
       <div
         ref={bannerContainerRef}
         style={{
@@ -1561,10 +1546,8 @@ function DesktopFeaturedSection({
           width: "100%",
           aspectRatio: "21 / 7",
           overflow: "hidden",
-          cursor: viewAllPath ? "pointer" : undefined,
         }}
         onWheel={onWheel}
-        onClick={viewAllPath ? () => navigate(viewAllPath) : undefined}
       >
         {/* Background image fills only this middle zone */}
         <img
@@ -1582,9 +1565,7 @@ function DesktopFeaturedSection({
           }}
         />
 
-        {/* Card panel — floated left or right over the image.
-             stopPropagation prevents the banner click handler from firing
-             when the user interacts with the product card. */}
+        {/* Card panel — floated left or right over the image */}
         <div
           style={{
             position: "absolute",
@@ -1600,7 +1581,6 @@ function DesktopFeaturedSection({
                 : "flex-end",
             padding: cardSide === "center" ? "0" : "0 60px",
           }}
-          onClick={(e) => e.stopPropagation()}
         >
           {cardPanel}
         </div>

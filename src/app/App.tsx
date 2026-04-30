@@ -276,7 +276,10 @@ const AdminProductForm = lazy(
 const AdminCategories = lazy(
   () => import("@/features/admin/pages/AdminCategories"),
 );
-const AdminBrands = lazy(() => import("@/features/admin/pages/AdminBrands"));
+const AdminBrands = lazy(async () => {
+  const mod = await import("@/features/admin/pages/AdminBrands");
+  return { default: (mod as any).default ?? (mod as any).AdminBrands };
+});
 const AdminSizes = lazy(() => import("@/features/admin/pages/AdminSizes"));
 const AdminUsers = lazy(() => import("@/features/admin/pages/AdminUsers"));
 const AdminCoupons = lazy(() => import("@/features/admin/pages/AdminCoupons"));
@@ -284,12 +287,16 @@ const AdminSupportRequests = lazy(
   () => import("@/features/admin/pages/AdminSupportRequests"),
 );
 const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"));
-const AdminBulkUpload = lazy(
-  () => import("@/features/admin/pages/AdminBulkUpload"),
-);
-const AdminProductBulkUpload = lazy(
-  () => import("@/features/admin/pages/AdminProductBulkUpload"),
-);
+const AdminBulkUpload = lazy(async () => {
+  const mod = await import("@/features/admin/pages/AdminBulkUpload");
+  return { default: (mod as any).default ?? (mod as any).AdminBulkUpload };
+});
+const AdminProductBulkUpload = lazy(async () => {
+  const mod = await import("@/features/admin/pages/AdminProductBulkUpload");
+  return {
+    default: (mod as any).default ?? (mod as any).AdminProductBulkUpload,
+  };
+});
 
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
