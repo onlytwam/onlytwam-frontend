@@ -66,16 +66,24 @@ const CAT_IMAGE_MAP: { pattern: RegExp; file: string }[] = [
   { pattern: /bestsell/i, file: "BestSellers.jpg" },
   { pattern: /bikini/i, file: "Bikini.jpg" },
   { pattern: /boy.?short/i, file: "Boy Shorts.jpg" },
+<<<<<<< Updated upstream
   { pattern: /brief/i, file: "Brief.png" },
   { pattern: /cami/i, file: "Camisoles.jpg" },
   { pattern: /high.waist|high.leg/i, file: "High-Waist & High-Leg.jpg" },
   { pattern: /hipster/i, file: "Hipster.jpg" },
   { pattern: /lace/i, file: "Lace.jpg" },
   { pattern: /leak.?proof|leakproof/i, file: "leakproof.jpg" },
+=======
+  { pattern: /brief/i, file: "briefs.jpg" },
+  { pattern: /cami/i, file: "Camisoles.jpg" },
+  { pattern: /high.waist|high.leg/i, file: "High-Waist & High-Leg.jpg" },
+  { pattern: /hipster/i, file: "Hipster.jpg" },
+>>>>>>> Stashed changes
   { pattern: /lingerie.?set/i, file: "Lingerie Sets.jpg" },
   { pattern: /new.?arrival/i, file: "New Arrivals.jpg" },
   { pattern: /only.?twam/i, file: "Only TWAM.jpg" },
   { pattern: /plus/i, file: "Plus Size.jpg" },
+<<<<<<< Updated upstream
   {
     pattern: /non.?padded|non.?wired/i,
     file: "Non-Padded and Non-Wired Bra.png",
@@ -90,6 +98,12 @@ const CAT_IMAGE_MAP: { pattern: RegExp; file: string }[] = [
   { pattern: /swim/i, file: "Swim Wear.jpg" },
   { pattern: /t.?shirt.?bra/i, file: "T-Shirt Bras.jpg" },
   { pattern: /teen/i, file: "Teen Bras.jpg" },
+=======
+  { pattern: /seamless.?pant/i, file: "Seamless Panty.jpg" },
+  { pattern: /shape/i, file: "Shapewear.jpg" },
+  { pattern: /sleep/i, file: "Sleepwear.jpg" },
+  { pattern: /sport/i, file: "Sports Bras.jpg" },
+>>>>>>> Stashed changes
   { pattern: /thong|g.?string/i, file: "Thongs & V-Strings.jpg" },
 ];
 

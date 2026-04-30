@@ -247,6 +247,13 @@ const Notifications = lazy(
 const Wishlist = lazy(() => import("@/features/account/pages/Wishlist"));
 import { useWishlistLoader } from "@/features/account/hooks/useWishlist";
 import { useCartLoader } from "@/features/cart/hooks/useCart";
+import PaymentCheckout from "@/features/admin/pages/PaymentCheckout";
+import OrderFulfillmentReports from "@/features/admin/pages/OrderFulfillmentReports";
+import SalesRevenueReports from "@/features/admin/pages/SalesRevenueReports";
+import CustomerReports from "@/features/admin/pages/CustomerReports";
+import AdminStoreSettings from "@/features/admin/pages/AdminStoreSettings";
+import AdminBilling from "@/features/admin/pages/AdminBilling";
+import AdminMDM from "@/features/admin/pages/AdminMDM";
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 const AdminLayout = lazy(
