@@ -1,28 +1,65 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/features/auth/store/authStore';
-import { listCart, deleteCartItem, updateCart } from '@/features/cart/api/cart.api';
-import { getImageUrl } from '@/shared/utils/helpers';
-import { resolveHex } from '@/shared/utils/colorHelpers';
-import { useOverlayBackDismiss } from '@/shared/hooks/useOverlayBackDismiss';
-import toast from 'react-hot-toast';
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "@/features/auth/store/authStore";
+import {
+  listCart,
+  deleteCartItem,
+  updateCart,
+} from "@/features/cart/api/cart.api";
+import { getImageUrl } from "@/shared/utils/helpers";
+import { resolveHex } from "@/shared/utils/colorHelpers";
+import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
+import toast from "react-hot-toast";
 
-interface Props { onClose: () => void; }
+/** Merge duplicate cart rows that share the same productVariantDetailId */
+function mergeCartDuplicates(rawItems: any[]): any[] {
+  const seen = new Map<string, any>();
+  const order: string[] = [];
+  for (const item of rawItems) {
+    // Use productVariantDetailId as the unique key; fall back to cartId so nothing is lost
+    const key =
+      item.productVariantDetailId != null
+        ? String(item.productVariantDetailId)
+        : `cart-${item.cartId}`;
+    if (seen.has(key)) {
+      // Accumulate quantity onto the first occurrence; keep the lowest cartId
+      const existing = seen.get(key)!;
+      const addedQty =
+        Number(item.processedQuantity) || Number(item.quantity) || 1;
+      existing.processedQuantity = (existing.processedQuantity || 1) + addedQty;
+      existing.quantity = existing.processedQuantity;
+      // Collect extra cartIds so we can delete them after the user changes qty/removes
+      existing._extraCartIds = [...(existing._extraCartIds ?? []), item.cartId];
+    } else {
+      seen.set(key, {
+        ...item,
+        processedQuantity:
+          Number(item.processedQuantity) || Number(item.quantity) || 1,
+      });
+      order.push(key);
+    }
+  }
+  return order.map((k) => seen.get(k)!);
+}
+
+interface Props {
+  onClose: () => void;
+}
 
 export default function QuickCart({ onClose }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const prevPath = location.pathname + location.search;
-  const qc       = useQueryClient();
+  const qc = useQueryClient();
   const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
   const { dismiss, dismissThen } = useOverlayBackDismiss(onClose);
   const panelRef = useRef<HTMLDivElement>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    const fn = (e: KeyboardEvent) => e.key === 'Escape' && dismiss();
-    document.addEventListener('keydown', fn);
+    const fn = (e: KeyboardEvent) => e.key === "Escape" && dismiss();
+    document.addEventListener("keydown", fn);
     const handlePointerDown = (event: PointerEvent) => {
       const panel = panelRef.current;
       if (!panel) return;
@@ -34,92 +71,114 @@ export default function QuickCart({ onClose }: Props) {
         dismiss();
       }
     };
-    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener("pointerdown", handlePointerDown, true);
     const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener('keydown', fn);
-      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener("keydown", fn);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
       document.body.style.overflow = prev;
     };
   }, [dismiss]);
 
   const { data: cartData, isLoading } = useQuery({
-    queryKey: ['quick-cart', getUserId()],
-    queryFn:  () => listCart({ userProfileId: getUserId() }),
-    enabled:  hasValidToken(),
+    queryKey: ["quick-cart", getUserId()],
+    queryFn: () => listCart({ userProfileId: getUserId() }),
+    enabled: hasValidToken(),
   });
 
   const [guestItems, setGuestItemsState] = useState<any[]>(() => {
     if (hasValidToken()) return [];
-    try { return JSON.parse(localStorage.getItem('guestCart') || '[]'); } catch { return []; }
+    try {
+      return JSON.parse(localStorage.getItem("guestCart") || "[]");
+    } catch {
+      return [];
+    }
   });
 
   useEffect(() => {
     if (hasValidToken()) return;
     const sync = () => {
-      try { setGuestItemsState(JSON.parse(localStorage.getItem('guestCart') || '[]')); } catch {}
+      try {
+        setGuestItemsState(
+          JSON.parse(localStorage.getItem("guestCart") || "[]"),
+        );
+      } catch {}
     };
-    window.addEventListener('guestCartUpdated', sync);
-    return () => window.removeEventListener('guestCartUpdated', sync);
+    window.addEventListener("guestCartUpdated", sync);
+    return () => window.removeEventListener("guestCartUpdated", sync);
   }, []);
 
-  const items = hasValidToken() ? (cartData?.list ?? cartData ?? []) : guestItems;
-  const total = items.reduce((s: number, i: any) =>
-    s + ((i.finalPrice || i.price || 0) * (i.quantity || i.processedQuantity || 1)), 0);
+  const rawItems = hasValidToken()
+    ? cartData?.list ?? cartData ?? []
+    : guestItems;
+  // Merge any duplicate rows (same productVariantDetailId) that may already exist in DB
+  const items = useMemo(() => mergeCartDuplicates(rawItems), [rawItems]);
+  const total = items.reduce(
+    (s: number, i: any) =>
+      s +
+      (i.finalPrice || i.price || 0) * (i.quantity || i.processedQuantity || 1),
+    0,
+  );
 
   // ── Remove mutation ────────────────────────────────────────────────────────
   const removeMut = useMutation({
     mutationFn: (cartId: number) => deleteCartItem(cartId),
     onSuccess: () => {
-      toast.success('Removed');
+      toast.success("Removed");
       setCartCount(Math.max(0, (cartCount || 1) - 1));
-      qc.invalidateQueries({ queryKey: ['quick-cart'] });
-      qc.invalidateQueries({ queryKey: ['cart'] });
-      qc.invalidateQueries({ queryKey: ['cart-bootstrap'] });
+      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+      qc.invalidateQueries({ queryKey: ["cart"] });
+      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
     },
-    onError: () => toast.error('Failed to remove item'),
+    onError: () => toast.error("Failed to remove item"),
   });
 
   // ── Update mutation — FIX: send cartId in body as CartUpdate schema requires it ──
   const updateMut = useMutation({
     mutationFn: ({ id, qty }: { id: number; qty: number }) =>
-      updateCart(id, { cartId: id, quantity: qty }),   // ← cartId required in body
+      updateCart(id, { cartId: id, quantity: qty }), // ← cartId required in body
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['quick-cart'] });
-      qc.invalidateQueries({ queryKey: ['cart'] });
+      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+      qc.invalidateQueries({ queryKey: ["cart"] });
     },
-    onError: () => toast.error('Failed to update quantity'),
+    onError: () => toast.error("Failed to update quantity"),
   });
 
   // ── Guest helpers ──────────────────────────────────────────────────────────
-  const removeGuest = (pvId: number) => {
-    const updated = guestItems.filter((i: any) => i.productVariantId !== pvId);
-    localStorage.setItem('guestCart', JSON.stringify(updated));
-    window.dispatchEvent(new Event('guestCartUpdated'));
-    toast.success('Removed');
+  const removeGuest = (pvdId: number) => {
+    const updated = guestItems.filter(
+      (i: any) => i.productVariantDetailId !== pvdId,
+    );
+    localStorage.setItem("guestCart", JSON.stringify(updated));
+    window.dispatchEvent(new Event("guestCartUpdated"));
+    toast.success("Removed");
   };
 
-  const changeGuestQty = (pvId: number, qty: number) => {
+  const changeGuestQty = (pvdId: number, qty: number) => {
     if (qty < 1) return;
     const updated = guestItems.map((i: any) =>
-      i.productVariantId === pvId ? { ...i, quantity: qty, processedQuantity: qty } : i
+      i.productVariantDetailId === pvdId
+        ? { ...i, quantity: qty, processedQuantity: qty }
+        : i,
     );
-    localStorage.setItem('guestCart', JSON.stringify(updated));
-    window.dispatchEvent(new Event('guestCartUpdated'));
+    localStorage.setItem("guestCart", JSON.stringify(updated));
+    window.dispatchEvent(new Event("guestCartUpdated"));
   };
 
   // ── Increase qty with stock check ─────────────────────────────────────────
   const handleIncrease = (item: any) => {
-    const qty      = item.processedQuantity || item.quantity || 1;
-    const maxStock = item.stockQuantity ?? null;  // stockQuantity comes from API for logged-in users
+    const qty = item.processedQuantity || item.quantity || 1;
+    const maxStock = item.stockQuantity ?? null; // stockQuantity comes from API for logged-in users
 
     if (maxStock !== null && qty >= maxStock) {
       toast.error(
         maxStock === 0
-          ? 'This item is out of stock'
-          : `Only ${maxStock} unit${maxStock !== 1 ? 's' : ''} available in stock`,
-        { icon: '⚠️' }
+          ? "This item is out of stock"
+          : `Only ${maxStock} unit${
+              maxStock !== 1 ? "s" : ""
+            } available in stock`,
+        { icon: "⚠️" },
       );
       return;
     }
@@ -127,7 +186,7 @@ export default function QuickCart({ onClose }: Props) {
     if (hasValidToken()) {
       updateMut.mutate({ id: item.cartId, qty: qty + 1 });
     } else {
-      changeGuestQty(item.productVariantId, qty + 1);
+      changeGuestQty(item.productVariantDetailId, qty + 1);
     }
   };
 
@@ -136,10 +195,10 @@ export default function QuickCart({ onClose }: Props) {
     const qty = item.processedQuantity || item.quantity || 1;
     if (qty <= 1) {
       if (hasValidToken()) removeMut.mutate(item.cartId);
-      else removeGuest(item.productVariantId);
+      else removeGuest(item.productVariantDetailId);
     } else {
       if (hasValidToken()) updateMut.mutate({ id: item.cartId, qty: qty - 1 });
-      else changeGuestQty(item.productVariantId, qty - 1);
+      else changeGuestQty(item.productVariantDetailId, qty - 1);
     }
   };
 
@@ -181,7 +240,6 @@ export default function QuickCart({ onClose }: Props) {
           swipeStartRef.current = null;
         }}
       >
-
         {/* ── Header ── */}
         <div className="s-quickcart-f272f0">
           <div className="s-adminbar-877368">
@@ -191,8 +249,9 @@ export default function QuickCart({ onClose }: Props) {
               <span className="s-quickcart-ea3ac8">{items.length}</span>
             )}
           </div>
-          <button onClick={dismiss}
-            className="s-adminsupport-40536d">×</button>
+          <button onClick={dismiss} className="s-adminsupport-40536d">
+            ×
+          </button>
         </div>
 
         {/* ── Items list ── */}
@@ -206,130 +265,183 @@ export default function QuickCart({ onClose }: Props) {
               <i className="bi bi-cart-x s-quickcart-78b615" />
               <h4 className="s-quickcart-14d4fb">Your cart is empty</h4>
               <p className="s-addresslist-92985e">Add items to get started</p>
-              <button onClick={() => dismissThen(() => navigate(prevPath))}
-                className="s-quickcart-552d28">
+              <button
+                onClick={() => dismissThen(() => navigate(prevPath))}
+                className="s-quickcart-552d28"
+              >
                 Continue Shopping
               </button>
             </div>
-          ) : items.map((item: any, idx: number) => {
-            const qty      = item.processedQuantity || item.quantity || 1;
-            const price    = item.finalPrice || item.price || 0;
-            const mrp      = item.mrpPrice || item.oldPrice || 0;
-            const rawImg   = item.imageURL || item.image || item.selectedImage || '';
-            const img      = getImageUrl(rawImg);
-            const name     = item.productName || item.name || '';
-            const colorHex   = resolveHex(item.colorHex ?? item.color ?? item.Color);
-            const colorLabel = item.colorName ?? item.color ?? item.Color ?? '';
-            const bandSize = item.size || item.bandSize || '';
-            const cupSize  = item.cupSize || '';
-            const maxStock = item.stockQuantity ?? null;
-            const atMax    = maxStock !== null && qty >= maxStock;
+          ) : (
+            items.map((item: any, idx: number) => {
+              const qty = item.processedQuantity || item.quantity || 1;
+              const price = item.finalPrice || item.price || 0;
+              const mrp = item.mrpPrice || item.oldPrice || 0;
+              const rawImg =
+                item.imageURL || item.image || item.selectedImage || "";
+              const img = getImageUrl(rawImg);
+              const name = item.productName || item.name || "";
+              const colorHex = resolveHex(
+                item.colorHex ?? item.color ?? item.Color,
+              );
+              const colorLabel =
+                item.colorName ?? item.color ?? item.Color ?? "";
+              const bandSize = item.size || item.bandSize || "";
+              const cupSize = item.cupSize || "";
+              const maxStock = item.stockQuantity ?? null;
+              const atMax = maxStock !== null && qty >= maxStock;
 
-            return (
-              <div key={item.cartId || idx} className="s-quickcart-49bd81">
-
-                {/* Image */}
-                <div className="s-quickcart-2c6bd4"
-                  onClick={() => dismissThen(() => navigate(`/user-products/product-detail/${item.productVariantId}/product`))}>
-                  <img src={img} alt={name}
-                    className="s-quickcart-2b92d4"
-                    onError={e => { (e.target as HTMLImageElement).src = '/assets/category-bg.png'; }} />
-                </div>
-
-                {/* Details */}
-                <div className="s-userdashboar-7aa8c4">
-
-                  {/* Name */}
-                  <h5 className="s-quickcart-e5f653"
-                    onClick={() => dismissThen(() => navigate(`/user-products/product-detail/${item.productVariantId}/product`))}>
-                    {name}
-                    {(item.brandName || item.brand)
-                      ? <span className="s-quickcart-a94e44">({item.brandName || item.brand})</span>
-                      : null}
-                  </h5>
-
-                  {/* Color + Band/Cup size */}
-                  {(colorLabel || bandSize || cupSize) && (
-                    <div className="s-quickcart-0419ed">
-                      {colorLabel && (
-                        <span className="s-quickcart-b02946">
-                          <span className="s-adminsizes-b54cfc">Color:</span>
-                          <span className="s-quickcart-b68aaf" style={ {background: colorHex} } />
-                          <span>{colorLabel}</span>
-                        </span>
-                      )}
-                      {bandSize && (
-                        <span className="s-adminnewslet-f01220">
-                          <span className="s-adminsizes-b54cfc">Band Size: </span>
-                          <strong>{bandSize}</strong>
-                        </span>
-                      )}
-                      {cupSize && (
-                        <span className="s-adminnewslet-f01220">
-                          <span className="s-adminsizes-b54cfc">Cup Size: </span>
-                          <strong>{cupSize}</strong>
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Stock warning badge */}
-                  {maxStock !== null && maxStock <= 3 && maxStock > 0 && (
-                    <div className="s-quickcart-382f33">
-                      ⚠️ Only {maxStock} left in stock
-                    </div>
-                  )}
-
-                  {/* Price + Qty + Delete row */}
-                  <div className="s-quickcart-addeec">
-
-                    {/* Qty controls */}
-                    <div className="s-quickcart-f7ab1b">
-                      <button
-                        onClick={() => handleDecrease(item)}
-                        disabled={removeMut.isPending || updateMut.isPending}
-                        className="s-quickcart-456b82" style={{ opacity: (removeMut.isPending || updateMut.isPending) ? 0.5 : 1 }}>
-                        −
-                      </button>
-                      <span className="s-quickcart-b8376f">
-                        {qty}
-                      </span>
-                      <button
-                        onClick={() => handleIncrease(item)}
-                        disabled={updateMut.isPending || atMax}
-                        title={atMax ? `Max stock: ${maxStock}` : 'Increase quantity'}
-                        className="s-quickcart-65fdad" style={ {cursor: atMax ? 'not-allowed' : 'pointer', color: atMax ? 'var(--ivory)' : 'var(--brand)', opacity: updateMut.isPending ? 0.5 : 1} }>
-                        +
-                      </button>
-                    </div>
-
-                    {/* Price */}
-                    <div className="s-quickcart-f66ceb">
-                      <div className="s-quickcart-c3a94f">
-                        ₹{(price * qty).toLocaleString('en-IN')}
-                      </div>
-                      {mrp > price && (
-                        <div className="s-quickcart-b469ce">
-                          ₹{(mrp * qty).toLocaleString('en-IN')}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Delete */}
-                    <button
-                      onClick={() => {
-                        if (hasValidToken()) removeMut.mutate(item.cartId);
-                        else removeGuest(item.productVariantId);
+              return (
+                <div key={item.cartId || idx} className="s-quickcart-49bd81">
+                  {/* Image */}
+                  <div
+                    className="s-quickcart-2c6bd4"
+                    onClick={() =>
+                      dismissThen(() =>
+                        navigate(
+                          `/user-products/product-detail/${item.productVariantId}/product`,
+                        ),
+                      )
+                    }
+                  >
+                    <img
+                      src={img}
+                      alt={name}
+                      className="s-quickcart-2b92d4"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "/assets/category-bg.png";
                       }}
-                      disabled={removeMut.isPending}
-                      className="s-quickcart-424294" style={ {opacity: removeMut.isPending ? 0.5 : 1} }>
-                      <i className="bi bi-trash3 s-addresslist-92985e" />
-                    </button>
+                    />
+                  </div>
+
+                  {/* Details */}
+                  <div className="s-userdashboar-7aa8c4">
+                    {/* Name */}
+                    <h5
+                      className="s-quickcart-e5f653"
+                      onClick={() =>
+                        dismissThen(() =>
+                          navigate(
+                            `/user-products/product-detail/${item.productVariantId}/product`,
+                          ),
+                        )
+                      }
+                    >
+                      {name}
+                      {item.brandName || item.brand ? (
+                        <span className="s-quickcart-a94e44">
+                          ({item.brandName || item.brand})
+                        </span>
+                      ) : null}
+                    </h5>
+
+                    {/* Color + Band/Cup size */}
+                    {(colorLabel || bandSize || cupSize) && (
+                      <div className="s-quickcart-0419ed">
+                        {colorLabel && (
+                          <span className="s-quickcart-b02946">
+                            <span className="s-adminsizes-b54cfc">Color:</span>
+                            <span
+                              className="s-quickcart-b68aaf"
+                              style={{ background: colorHex }}
+                            />
+                            <span>{colorLabel}</span>
+                          </span>
+                        )}
+                        {bandSize && (
+                          <span className="s-adminnewslet-f01220">
+                            <span className="s-adminsizes-b54cfc">
+                              Band Size:{" "}
+                            </span>
+                            <strong>{bandSize}</strong>
+                          </span>
+                        )}
+                        {cupSize && (
+                          <span className="s-adminnewslet-f01220">
+                            <span className="s-adminsizes-b54cfc">
+                              Cup Size:{" "}
+                            </span>
+                            <strong>{cupSize}</strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Stock warning badge */}
+                    {maxStock !== null && maxStock <= 3 && maxStock > 0 && (
+                      <div className="s-quickcart-382f33">
+                        ⚠️ Only {maxStock} left in stock
+                      </div>
+                    )}
+
+                    {/* Price + Qty + Delete row */}
+                    <div className="s-quickcart-addeec">
+                      {/* Qty controls */}
+                      <div className="s-quickcart-f7ab1b">
+                        <button
+                          onClick={() => handleDecrease(item)}
+                          disabled={removeMut.isPending || updateMut.isPending}
+                          className="s-quickcart-456b82"
+                          style={{
+                            opacity:
+                              removeMut.isPending || updateMut.isPending
+                                ? 0.5
+                                : 1,
+                          }}
+                        >
+                          −
+                        </button>
+                        <span className="s-quickcart-b8376f">{qty}</span>
+                        <button
+                          onClick={() => handleIncrease(item)}
+                          disabled={updateMut.isPending || atMax}
+                          title={
+                            atMax
+                              ? `Max stock: ${maxStock}`
+                              : "Increase quantity"
+                          }
+                          className="s-quickcart-65fdad"
+                          style={{
+                            cursor: atMax ? "not-allowed" : "pointer",
+                            color: atMax ? "var(--ivory)" : "var(--brand)",
+                            opacity: updateMut.isPending ? 0.5 : 1,
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* Price */}
+                      <div className="s-quickcart-f66ceb">
+                        <div className="s-quickcart-c3a94f">
+                          ₹{(price * qty).toLocaleString("en-IN")}
+                        </div>
+                        {mrp > price && (
+                          <div className="s-quickcart-b469ce">
+                            ₹{(mrp * qty).toLocaleString("en-IN")}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Delete */}
+                      <button
+                        onClick={() => {
+                          if (hasValidToken()) removeMut.mutate(item.cartId);
+                          else removeGuest(item.productVariantDetailId);
+                        }}
+                        disabled={removeMut.isPending}
+                        className="s-quickcart-424294"
+                        style={{ opacity: removeMut.isPending ? 0.5 : 1 }}
+                      >
+                        <i className="bi bi-trash3 s-addresslist-92985e" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
         {/* ── Footer ── */}
@@ -337,28 +449,38 @@ export default function QuickCart({ onClose }: Props) {
           <div className="s-quickcart-6b5f6f">
             <div className="s-quickcart-4b986c">
               <span className="s-quickcart-08341f">
-                {items.length} item{items.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
-                {items.reduce((s: number, i: any) => s + (i.processedQuantity || i.quantity || 1), 0)} qty total
+                {items.length} item{items.length !== 1 ? "s" : ""} &nbsp;·&nbsp;
+                {items.reduce(
+                  (s: number, i: any) =>
+                    s + (i.processedQuantity || i.quantity || 1),
+                  0,
+                )}{" "}
+                qty total
               </span>
               <span className="s-quickcart-65e3d5">
-                ₹{total.toLocaleString('en-IN')}
+                ₹{total.toLocaleString("en-IN")}
               </span>
             </div>
             <div className="s-adminblog-b43398">
               <button
-                onClick={() => dismissThen(() => navigate('/user-products/cart', { state: { from: location.pathname + location.search } }))}
-                className="s-quickcart-febadd">
+                onClick={() =>
+                  dismissThen(() =>
+                    navigate("/user-products/cart", {
+                      state: { from: location.pathname + location.search },
+                    }),
+                  )
+                }
+                className="s-quickcart-febadd"
+              >
                 View Cart & Checkout
               </button>
-              <button onClick={dismiss}
-                className="s-quickcart-ec24cf">
+              <button onClick={dismiss} className="s-quickcart-ec24cf">
                 Continue Shopping
               </button>
             </div>
           </div>
         )}
       </div>
-
-      </>
+    </>
   );
 }

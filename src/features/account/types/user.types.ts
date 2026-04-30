@@ -9,6 +9,7 @@ export interface User {
   middleName?: string;
   lastName?: string;
   phoneNumber?: string;
+  dateOfBirth?: string;
   profileImageUrl?: string;
   roleId: number;
   isRandomPassword?: boolean;
@@ -21,6 +22,7 @@ export interface AuthenticationModel {
   emailId: string;
   password: string;
   phoneNumber: string;
+  dateOfBirth?: string;
 }
 
 export interface LoginRequest {

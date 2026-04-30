@@ -15,7 +15,12 @@ import {
   checkOutOfStock,
   listCoupons,
 } from "@/features/cart/api/cart.api";
-import { listUserCoupons } from "@/features/orders/api/orders.api";
+import {
+  listUserCoupons,
+  validatePhysicalCoupon,
+  markDigitalCouponUsed,
+  markPhysicalCouponUsed,
+} from "@/features/orders/api/orders.api";
 import { getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
@@ -36,6 +41,34 @@ import {
 } from "@/shared/utils/surpriseGift";
 import type { CouponModel } from "@/shared/types";
 
+/** Merge duplicate cart rows that share the same productVariantDetailId */
+function mergeCartDuplicates(rawItems: any[]): any[] {
+  const seen = new Map<string, any>();
+  const order: string[] = [];
+  for (const item of rawItems) {
+    const key =
+      item.productVariantDetailId != null
+        ? String(item.productVariantDetailId)
+        : `cart-${item.cartId}`;
+    if (seen.has(key)) {
+      const existing = seen.get(key)!;
+      const addedQty =
+        Number(item.processedQuantity) || Number(item.quantity) || 1;
+      existing.processedQuantity = (existing.processedQuantity || 1) + addedQty;
+      existing.quantity = existing.processedQuantity;
+      existing._extraCartIds = [...(existing._extraCartIds ?? []), item.cartId];
+    } else {
+      seen.set(key, {
+        ...item,
+        processedQuantity:
+          Number(item.processedQuantity) || Number(item.quantity) || 1,
+      });
+      order.push(key);
+    }
+  }
+  return order.map((k) => seen.get(k)!);
+}
+
 const GuestCart = {
   get: (): any[] => {
     try {
@@ -48,14 +81,14 @@ const GuestCart = {
     localStorage.setItem("guestCart", JSON.stringify(items));
     window.dispatchEvent(new Event("guestCartUpdated"));
   },
-  remove: (pvId: number) =>
+  remove: (pvdId: number) =>
     GuestCart.set(
-      GuestCart.get().filter((i: any) => i.productVariantId !== pvId),
+      GuestCart.get().filter((i: any) => i.productVariantDetailId !== pvdId),
     ),
-  updateQty: (pvId: number, qty: number) =>
+  updateQty: (pvdId: number, qty: number) =>
     GuestCart.set(
       GuestCart.get().map((i: any) =>
-        i.productVariantId === pvId
+        i.productVariantDetailId === pvdId
           ? { ...i, processedQuantity: qty, quantity: qty }
           : i,
       ),
@@ -64,9 +97,8 @@ const GuestCart = {
 
 const normalizeBuyNowItems = (items: any[] = []) =>
   items.map((item: any) => {
-    const processedQuantity = Number(
-      item.processedQuantity ?? item.quantity ?? 1,
-    ) || 1;
+    const processedQuantity =
+      Number(item.processedQuantity ?? item.quantity ?? 1) || 1;
 
     return {
       ...item,
@@ -77,92 +109,74 @@ const normalizeBuyNowItems = (items: any[] = []) =>
     };
   });
 
-function SurpriseGiftToast({
-  title,
-  subtitle,
-  footerHint,
-}: {
-  title: string;
-  subtitle: string;
-  footerHint?: string;
-}) {
+function SurpriseGiftToast({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div
       style={{
+        position: "relative",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        gap: 12,
-        minWidth: 0,
-        maxWidth: 380,
-        padding: "14px 16px",
-        borderRadius: 18,
+        width: 300,
+        padding: "28px 20px 22px",
+        borderRadius: 22,
         background: "linear-gradient(180deg, #fffaf5 0%, #ffffff 100%)",
         border: "1px solid rgba(107,15,42,0.14)",
-        boxShadow: "0 18px 36px rgba(107,15,42,0.16)",
+        boxShadow: "0 20px 48px rgba(107,15,42,0.18)",
+        textAlign: "center",
       }}
     >
-      <div
+      {/* ── Close × ── */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDismiss();
+        }}
+        aria-label="Close"
         style={{
-          width: 44,
-          height: 44,
-          borderRadius: 14,
-          display: "grid",
-          placeItems: "center",
-          background: "linear-gradient(145deg, #6b0f2a, #9e6070)",
-          color: "#fff",
-          boxShadow: "0 10px 22px rgba(107,15,42,0.2)",
-          flexShrink: 0,
+          position: "absolute",
+          top: 10,
+          right: 12,
+          border: "none",
+          background: "transparent",
+          color: "var(--heirloom, #9e6070)",
+          cursor: "pointer",
+          fontSize: 18,
+          lineHeight: 1,
+          padding: 4,
+          zIndex: 2,
         }}
       >
-        <span style={{ fontSize: 20 }} aria-hidden="true">
-          🎉
-        </span>
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 11,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "var(--heirloom)",
-            marginBottom: 2,
-          }}
-        >
-          Surprise unlocked
-        </div>
-        <div
-          style={{
-            fontSize: 14,
-            fontWeight: 700,
-            lineHeight: 1.35,
-            color: "var(--brand)",
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            fontSize: 12,
-            lineHeight: 1.4,
-            color: "var(--heirloom)",
-            marginTop: 3,
-          }}
-        >
-          {subtitle}
-        </div>
-        {footerHint && (
-          <div
-            style={{
-              fontSize: 11,
-              lineHeight: 1.4,
-              color: "var(--heirloom)",
-              opacity: 0.8,
-              marginTop: 4,
-            }}
-          >
-            {footerHint}
-          </div>
-        )}
+        <i className="bi bi-x-lg" />
+      </button>
+
+      {/* ── Gift image ── */}
+      <img
+        src="/assets/Gift.png"
+        alt="Surprise gift"
+        style={{
+          width: 120,
+          height: 120,
+          objectFit: "contain",
+          marginBottom: 14,
+          filter: "drop-shadow(0 8px 20px rgba(107,15,42,0.18))",
+        }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
+
+      {/* ── Text ── */}
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: "var(--brand, #6b0f2a)",
+          lineHeight: 1.35,
+        }}
+      >
+        You won a surprise gift!
       </div>
     </div>
   );
@@ -300,8 +314,7 @@ function SurpriseGiftCard() {
               position: "absolute",
               inset: 12,
               borderRadius: 16,
-              background:
-                "linear-gradient(145deg, #6b0f2a 0%, #9e6070 100%)",
+              background: "linear-gradient(145deg, #6b0f2a 0%, #9e6070 100%)",
               boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18)",
             }}
           />
@@ -810,6 +823,8 @@ export default function Cart() {
     selectedShipping,
     setCoupon,
     removeCoupon,
+    setPhysicalCouponCode,
+    physicalCouponCode,
   } = useCartStore();
 
   const isAuth = hasValidToken();
@@ -836,28 +851,31 @@ export default function Cart() {
   const [cartItemsHydrated, setCartItemsHydrated] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [isCouponDropdownOpen, setIsCouponDropdownOpen] = useState(false);
+  // physicalCouponCode & setPhysicalCouponCode come from cartStore destructure above
 
-  const { data: profileCoupons = [], isLoading: isProfileCouponsLoading } = useQuery({
-    queryKey: ["cart-profile-coupons", userId],
-    queryFn: async () => {
-      if (!userId) return [];
-      const res = await listUserCoupons({ userProfileId: String(userId) });
-      return normalizeCouponResponse(res);
-    },
-    enabled: isAuth && Boolean(userId),
-  });
+  const { data: profileCoupons = [], isLoading: isProfileCouponsLoading } =
+    useQuery({
+      queryKey: ["cart-profile-coupons", userId],
+      queryFn: async () => {
+        if (!userId) return [];
+        const res = await listUserCoupons({ userProfileId: String(userId) });
+        return normalizeCouponResponse(res);
+      },
+      enabled: isAuth && Boolean(userId),
+    });
 
-  const { data: generalCoupons = [], isLoading: isGeneralCouponsLoading } = useQuery({
-    queryKey: ["cart-general-coupons"],
-    queryFn: async () => {
-      const res = await listCoupons({
-        "Page.Size": 200,
-        "Order.Property": "CreatedDate",
-        "Order.Ascending": false,
-      });
-      return normalizeCouponResponse(res).filter(isGeneralCoupon);
-    },
-  });
+  const { data: generalCoupons = [], isLoading: isGeneralCouponsLoading } =
+    useQuery({
+      queryKey: ["cart-general-coupons"],
+      queryFn: async () => {
+        const res = await listCoupons({
+          "Page.Size": 200,
+          "Order.Property": "CreatedDate",
+          "Order.Ascending": false,
+        });
+        return normalizeCouponResponse(res).filter(isGeneralCoupon);
+      },
+    });
 
   useEffect(() => {
     setCartItemsHydrated(false);
@@ -893,6 +911,60 @@ export default function Cart() {
     setBuyNowItems(normalizeBuyNowItems(getBuyNowSession()?.items ?? []));
   }, [isBuyNowView]);
 
+  // Fix 1: When user navigates BACK from Buy Now cart without paying,
+  // add the buyNow item(s) into their real cart.
+  useEffect(() => {
+    if (!isBuyNowView) return;
+    return () => {
+      if (didProceedToCheckoutRef.current) return; // user intentionally checked out
+      const session = getBuyNowSession();
+      if (!session?.items?.length) return;
+
+      if (isAuth && userId) {
+        // Logged-in: queue items in localStorage for useCartLoader to process
+        const pending = session.items.map((item: any) => ({
+          productVariantDetailId: item.productVariantDetailId,
+          productId: item.productId,
+          productVariantId: item.productVariantId,
+          state: "Created",
+          userProfileId: userId,
+          quantity: item.processedQuantity || 1,
+        }));
+        localStorage.setItem("pendingBuyNowCartAdd", JSON.stringify(pending));
+      } else {
+        // Guest: merge buyNow item(s) into guestCart synchronously
+        const gc: any[] = (() => {
+          try {
+            return JSON.parse(localStorage.getItem("guestCart") || "[]");
+          } catch {
+            return [];
+          }
+        })();
+        session.items.forEach((item: any) => {
+          const key = `${item.productVariantId}-${item.productVariantDetailId}`;
+          const idx = gc.findIndex(
+            (x: any) =>
+              `${x.productVariantId}-${x.productVariantDetailId}` === key,
+          );
+          if (idx >= 0) {
+            gc[idx].quantity =
+              (gc[idx].quantity || 1) + (item.processedQuantity || 1);
+            gc[idx].processedQuantity = gc[idx].quantity;
+          } else {
+            gc.push({
+              ...item,
+              quantity: item.processedQuantity || 1,
+              isSelected: true,
+            });
+          }
+        });
+        localStorage.setItem("guestCart", JSON.stringify(gc));
+        window.dispatchEvent(new Event("guestCartUpdated"));
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBuyNowView, isAuth, userId]);
+
   const appliedCouponCode = getCouponCode(appliedCoupon);
   const typedCouponInput = upper(couponInput);
   const isApplyCouponDisabled = Boolean(
@@ -911,11 +983,11 @@ export default function Cart() {
     }
   }, [appliedCoupon, appliedCouponCode]);
 
-  const cartItems = isBuyNowView
-    ? buyNowItems
-    : isAuth
-    ? authItems
-    : guestItems;
+  const cartItems = useMemo(() => {
+    const raw = isBuyNowView ? buyNowItems : isAuth ? authItems : guestItems;
+    // Merge any duplicate rows (same productVariantDetailId) that may already exist in DB
+    return mergeCartDuplicates(raw);
+  }, [isBuyNowView, buyNowItems, isAuth, authItems, guestItems]);
   const selectedItems = cartItems.filter((i) => i.isSelected);
   const allSelected =
     cartItems.length > 0 && selectedItems.length === cartItems.length;
@@ -936,6 +1008,8 @@ export default function Cart() {
   const giftFlowSignatureRef = useRef<string | null>(null);
   const giftRedirectTimerRef = useRef<number | null>(null);
   const checkoutTransitionInProgressRef = useRef(false);
+  // Track if user proceeded to payment so we know NOT to add to cart on back
+  const didProceedToCheckoutRef = useRef(false);
   const [giftUnlocked, setGiftUnlocked] = useState<boolean>(() =>
     Boolean(
       currentCheckoutSession?.giftCheckoutKey === location.key &&
@@ -965,6 +1039,7 @@ export default function Cart() {
   const proceedToCheckoutAddress = async () => {
     if (checkoutTransitionInProgressRef.current) return;
     checkoutTransitionInProgressRef.current = true;
+    didProceedToCheckoutRef.current = true; // mark that user intentionally proceeded
     clearGiftRedirectTimer();
     giftUnlockPendingRef.current = false;
     giftFlowSignatureRef.current = null;
@@ -978,7 +1053,9 @@ export default function Cart() {
     persistCheckoutSession(
       surpriseGift,
       surpriseGift
-        ? checkoutSession?.giftCheckoutKey ?? currentCheckoutSession?.giftCheckoutKey ?? location.key
+        ? checkoutSession?.giftCheckoutKey ??
+            currentCheckoutSession?.giftCheckoutKey ??
+            location.key
         : null,
     );
 
@@ -1076,7 +1153,10 @@ export default function Cart() {
       };
 
       const existing = byCode.get(code);
-      if (!existing || (source === "profile" && existing.source !== "profile")) {
+      if (
+        !existing ||
+        (source === "profile" && existing.source !== "profile")
+      ) {
         byCode.set(code, normalized);
       }
     };
@@ -1084,8 +1164,25 @@ export default function Cart() {
     generalCoupons.forEach((coupon: any) => pushCoupon(coupon, "general"));
     profileCoupons.forEach((coupon: any) => pushCoupon(coupon, "profile"));
 
+    // Collect product IDs currently in the cart for product-specific coupon filtering
+    const cartProductIds = new Set(
+      (isBuyNowView ? buyNowItems : isAuth ? authItems : guestItems)
+        .map((item: any) => item.productId)
+        .filter(Boolean),
+    );
+
     const all = [...byCode.values()]
-      .filter((coupon) => isCouponActive(coupon) && !isCouponExpired(coupon))
+      .filter((coupon) => {
+        if (!isCouponActive(coupon) || isCouponExpired(coupon)) return false;
+        // Product-specific coupons: only show if the product is in the cart
+        if ((coupon as any).couponType === "product_specific") {
+          return (
+            (coupon as any).productId &&
+            cartProductIds.has((coupon as any).productId)
+          );
+        }
+        return true;
+      })
       .map((coupon) => {
         const code = getCouponCode(coupon);
         const unlockAmount = getCouponUnlockAmount(coupon, subTotal);
@@ -1104,8 +1201,8 @@ export default function Cart() {
           a.coupon.source === b.coupon.source
             ? 0
             : a.coupon.source === "profile"
-              ? -1
-              : 1;
+            ? -1
+            : 1;
         return sourceDiff || a.code.localeCompare(b.code);
       });
 
@@ -1116,7 +1213,9 @@ export default function Cart() {
     };
   }, [generalCoupons, profileCoupons, subTotal]);
 
-  const resolveCouponByCode = async (rawCode: string): Promise<DisplayCoupon | null> => {
+  const resolveCouponByCode = async (
+    rawCode: string,
+  ): Promise<DisplayCoupon | null> => {
     const code = upper(rawCode);
     if (!code) return null;
 
@@ -1144,7 +1243,9 @@ export default function Cart() {
         ...(normalizeCouponResponse(generalRes) as CouponModel[]),
       ];
 
-      const match = fetchedCoupons.find((coupon) => getCouponCode(coupon) === code);
+      const match = fetchedCoupons.find(
+        (coupon) => getCouponCode(coupon) === code,
+      );
       if (!match) return null;
 
       return {
@@ -1154,6 +1255,35 @@ export default function Cart() {
       };
     } catch (error) {
       console.error("Coupon lookup error:", error);
+      return null;
+    }
+  };
+
+  /**
+   * Try to validate a physical (store-issued) coupon code.
+   * Returns discount % if valid, null otherwise.
+   * Sets physicalCouponCode state so MarkUsed can be called after order.
+   */
+  const resolvePhysicalCoupon = async (
+    rawCode: string,
+  ): Promise<number | null> => {
+    const code = upper(rawCode);
+    if (!code) return null;
+    try {
+      const result = await validatePhysicalCoupon({
+        couponCode: code,
+        userProfileId: userId ? String(userId) : undefined,
+      });
+      if (result.valid && result.discount) {
+        setPhysicalCouponCode(code);
+        return result.discount;
+      }
+      return null;
+    } catch (err: any) {
+      // 409 = already used globally
+      if (err?.response?.status === 409) {
+        toast.error("This physical coupon has already been used");
+      }
       return null;
     }
   };
@@ -1168,6 +1298,38 @@ export default function Cart() {
     try {
       const coupon = await resolveCouponByCode(code);
       if (!coupon) {
+        // Try as a physical coupon
+        const physDiscount = await resolvePhysicalCoupon(code);
+        if (physDiscount !== null) {
+          // Build a synthetic coupon object for cart state
+          const synthCoupon: any = {
+            couponCode: code,
+            couponName: "Physical Coupon",
+            discount: physDiscount,
+            discountType: "percentage",
+            isActive: true,
+            isCommon: false,
+            couponType: "physical",
+            source: "profile",
+          };
+          const discountAmt = calculateCouponDiscountAmount(
+            synthCoupon,
+            subTotal,
+          );
+          if (discountAmt <= 0) {
+            if (showToast) toast.error("Coupon not applicable on this order");
+            return false;
+          }
+          setCoupon(synthCoupon, discountAmt);
+          if (showToast) {
+            toast.success(
+              `Physical coupon applied! ${physDiscount}% off — you save ₹${discountAmt.toLocaleString(
+                "en-IN",
+              )}`,
+            );
+          }
+          return true;
+        }
         if (showToast) toast.error("Invalid coupon");
         return false;
       }
@@ -1266,13 +1428,12 @@ export default function Cart() {
   const handleQtyChange = (item: any, qty: number) => {
     if (qty < 1) return;
     if (isBuyNowView) {
-      syncBuyNowItems(
-        (prev) =>
-          prev.map((i) =>
-            i.productVariantId === item.productVariantId
-              ? { ...i, processedQuantity: qty, quantity: qty }
-              : i,
-          ),
+      syncBuyNowItems((prev) =>
+        prev.map((i) =>
+          i.productVariantDetailId === item.productVariantDetailId
+            ? { ...i, processedQuantity: qty, quantity: qty }
+            : i,
+        ),
       );
       return;
     }
@@ -1286,10 +1447,10 @@ export default function Cart() {
         ),
       );
     } else {
-      GuestCart.updateQty(item.productVariantId, qty);
+      GuestCart.updateQty(item.productVariantDetailId, qty);
       setGuestItems((prev) =>
         prev.map((i) =>
-          i.productVariantId === item.productVariantId
+          i.productVariantDetailId === item.productVariantDetailId
             ? { ...i, processedQuantity: qty, quantity: qty }
             : i,
         ),
@@ -1302,7 +1463,8 @@ export default function Cart() {
       syncBuyNowItems(
         (prev) =>
           prev.filter(
-            (i: any) => i.productVariantId !== item.productVariantId,
+            (i: any) =>
+              i.productVariantDetailId !== item.productVariantDetailId,
           ),
         "Item removed",
       );
@@ -1310,10 +1472,10 @@ export default function Cart() {
     }
     if (isAuth) deleteMutation.mutate(item.cartId);
     else {
-      GuestCart.remove(item.productVariantId);
+      GuestCart.remove(item.productVariantDetailId);
       setGuestItems((prev) => {
         const updated = prev.filter(
-          (i: any) => i.productVariantId !== item.productVariantId,
+          (i: any) => i.productVariantDetailId !== item.productVariantDetailId,
         );
         window.dispatchEvent(new Event("guestCartUpdated"));
         return updated;
@@ -1326,7 +1488,7 @@ export default function Cart() {
     if (isBuyNowView) {
       syncBuyNowItems((prev) =>
         prev.map((i) =>
-          i.productVariantId === item.productVariantId
+          i.productVariantDetailId === item.productVariantDetailId
             ? { ...i, isSelected: !i.isSelected }
             : i,
         ),
@@ -1337,7 +1499,7 @@ export default function Cart() {
       arr.map((i) => {
         const match = isAuth
           ? i.cartId === item.cartId
-          : i.productVariantId === item.productVariantId;
+          : i.productVariantDetailId === item.productVariantDetailId;
         return match ? { ...i, isSelected: !i.isSelected } : i;
       });
     isAuth ? setAuthItems(fn) : setGuestItems(fn);
@@ -1385,15 +1547,15 @@ export default function Cart() {
       return;
     }
     try {
-        const res = await listCoupons({
-          Filters: [
-            {
-              property: "CouponCode",
-              comparison: "eq",
-              value: couponInput.trim(),
-            },
-          ],
-        });
+      const res = await listCoupons({
+        Filters: [
+          {
+            property: "CouponCode",
+            comparison: "eq",
+            value: couponInput.trim(),
+          },
+        ],
+      });
       const coupon = res?.list?.[0];
       if (!coupon) {
         toast.error("Invalid coupon code");
@@ -1437,6 +1599,34 @@ export default function Cart() {
     removeCoupon();
     setCouponInput("");
     setIsCouponDropdownOpen(false);
+    setPhysicalCouponCode(null);
+  };
+
+  /**
+   * Call this after a successful order is placed to permanently mark the coupon as used.
+   * Pass the created orderId so it is recorded for audit purposes.
+   */
+  const markAppliedCouponUsed = async (orderId?: number) => {
+    if (!userId) return;
+    try {
+      if (physicalCouponCode) {
+        await markPhysicalCouponUsed({
+          couponCode: physicalCouponCode,
+          userProfileId: String(userId),
+          orderId,
+        });
+        setPhysicalCouponCode(null);
+      } else if (appliedCoupon && (appliedCoupon as any).couponId) {
+        await markDigitalCouponUsed({
+          couponId: (appliedCoupon as any).couponId,
+          userProfileId: String(userId),
+          orderId,
+        });
+      }
+    } catch (err) {
+      // Non-fatal: log but do not interrupt the order success flow
+      console.error("Failed to mark coupon used:", err);
+    }
   };
 
   const persistCheckoutSession = (
@@ -1485,7 +1675,12 @@ export default function Cart() {
       return;
     }
 
-    if (!unlockedGift && !eligibleSurpriseGift && subTotal > 0 && subTotal < 2500) {
+    if (
+      !unlockedGift &&
+      !eligibleSurpriseGift &&
+      subTotal > 0 &&
+      subTotal < 2500
+    ) {
       const remainingAmount = Math.max(0, 2500 - subTotal);
 
       toast.custom(
@@ -1523,13 +1718,7 @@ export default function Cart() {
       persistCheckoutSession(eligibleSurpriseGift, location.key);
       setGiftUnlocked(true);
       toast.custom(
-        () => (
-          <SurpriseGiftToast
-            title="You have won a surprise gift!"
-            subtitle="Gift added to your cart. Redirecting to address in 5 seconds."
-            footerHint="Tap checkout again if you want to continue now."
-          />
-        ),
+        (t) => <SurpriseGiftToast onDismiss={() => toast.dismiss(t.id)} />,
         {
           duration: 5000,
           style: {
@@ -1570,7 +1759,10 @@ export default function Cart() {
               ? "This temporary item is no longer available. Please open the product and tap Buy Now again."
               : "Looks like you haven't added anything yet."}
           </p>
-          <button onClick={() => navigate(prevPath)} className="s-cart-289753">
+          <button
+            onClick={() => navigate("/all-products")}
+            className="s-cart-289753"
+          >
             ← Continue Shopping
           </button>
         </div>
@@ -1774,7 +1966,6 @@ export default function Cart() {
               </div>
             ))}
 
-
             {/* Clear Cart — centered below items */}
             <div className="s-cart-7a55d6">
               <button onClick={handleClearCart} className="s-cart-eda0e1">
@@ -1851,16 +2042,20 @@ export default function Cart() {
                           <div className="s-cart-coupon-grid">
                             {couponOptions.profile.map((item) => (
                               <button
-                                key={`${item.code}-${item.coupon.couponId ?? "profile"}`}
+                                key={`${item.code}-${
+                                  item.coupon.couponId ?? "profile"
+                                }`}
                                 type="button"
-                                onClick={() => void handleSelectCoupon(item.code)}
+                                onClick={() =>
+                                  void handleSelectCoupon(item.code)
+                                }
                                 disabled={item.code === appliedCouponCode}
                                 className={`s-cart-coupon-card ${
                                   item.code === appliedCouponCode
                                     ? "s-cart-coupon-card--applied"
                                     : item.canApplyNow
-                                      ? "s-cart-coupon-card--active"
-                                      : "s-cart-coupon-card--locked"
+                                    ? "s-cart-coupon-card--active"
+                                    : "s-cart-coupon-card--locked"
                                 }`}
                               >
                                 <div className="s-cart-coupon-card__info">
@@ -1868,8 +2063,7 @@ export default function Cart() {
                                     {item.code}
                                   </span>
                                   <span className="s-cart-coupon-card__name">
-                                    {item.coupon.couponName ||
-                                      "Profile coupon"}
+                                    {item.coupon.couponName || "Profile coupon"}
                                   </span>
                                 </div>
                                 <div className="s-cart-coupon-card__meta">
@@ -1900,16 +2094,20 @@ export default function Cart() {
                           <div className="s-cart-coupon-grid">
                             {couponOptions.general.map((item) => (
                               <button
-                                key={`${item.code}-${item.coupon.couponId ?? "general"}`}
+                                key={`${item.code}-${
+                                  item.coupon.couponId ?? "general"
+                                }`}
                                 type="button"
-                                onClick={() => void handleSelectCoupon(item.code)}
+                                onClick={() =>
+                                  void handleSelectCoupon(item.code)
+                                }
                                 disabled={item.code === appliedCouponCode}
                                 className={`s-cart-coupon-card ${
                                   item.code === appliedCouponCode
                                     ? "s-cart-coupon-card--applied"
                                     : item.canApplyNow
-                                      ? "s-cart-coupon-card--active"
-                                      : "s-cart-coupon-card--locked"
+                                    ? "s-cart-coupon-card--active"
+                                    : "s-cart-coupon-card--locked"
                                 }`}
                               >
                                 <div className="s-cart-coupon-card__info">
@@ -1955,15 +2153,16 @@ export default function Cart() {
               ) : null}
 
               {appliedCoupon && (
-                <div
-                  className="s-cart-e57b74 s-cart-coupon-summary"
-                >
+                <div className="s-cart-e57b74 s-cart-coupon-summary">
                   <div className="s-cart-coupon-summary__info">
                     <span className="s-cart-1c5a85">
                       {appliedCouponCode || "Coupon"} applied
                     </span>
                   </div>
-                  <button onClick={handleRemoveCoupon} className="s-cart-3ecda7">
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="s-cart-3ecda7"
+                  >
                     x
                   </button>
                 </div>
@@ -1998,9 +2197,7 @@ export default function Cart() {
                   <span className="s-cart-1c5a85">₹0</span>
                 </div>
               )}
-              <p className="s-cart-a8f4aa">
-                Shipping calculated at checkout
-              </p>
+              <p className="s-cart-a8f4aa">Shipping calculated at checkout</p>
 
               {couponDiscount > 0 && (
                 <div className="s-userdashboar-474527">
@@ -2021,27 +2218,23 @@ export default function Cart() {
               {/* Checkout buttons — wrapped in fragment to avoid JSX sibling error */}
               <>
                 {isAuth ? (
+                  <button onClick={handleCheckout} className="s-cart-769238">
+                    {isBuyNowView ? "Checkout Buy Now →" : "Checkout Order →"}
+                  </button>
+                ) : (
+                  <button onClick={handleCheckout} className="s-cart-769238">
+                    {isBuyNowView
+                      ? "Checkout Buy Now →"
+                      : "Checkout as Guest →"}
+                  </button>
+                )}
                 <button
-                  onClick={handleCheckout}
-                  className="s-cart-769238"
+                  onClick={() => navigate("/all-products")}
+                  className="s-cart-d3b151"
                 >
-                  {isBuyNowView ? "Checkout Buy Now →" : "Checkout Order →"}
+                  ← Continue Shopping
                 </button>
-              ) : (
-                <button
-                  onClick={handleCheckout}
-                  className="s-cart-769238"
-                >
-                  {isBuyNowView ? "Checkout Buy Now →" : "Checkout as Guest →"}
-                </button>
-              )}
-              <button
-                onClick={() => navigate(prevPath)}
-                className="s-cart-d3b151"
-              >
-                ← Continue Shopping
-              </button>
-            </>
+              </>
 
               <div className="s-cart-2a4b1d">
                 {["🔒 Secure", "↩️ Easy Returns", "✅ Trusted"].map((t) => (

@@ -19,7 +19,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   loginWithPassword,
-  registerUser,
   checkForgotPasswordChannels,
   sendForgotPasswordOtpToChannel,
   getCategories,
@@ -58,32 +57,7 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-const signupSchema = z
-  .object({
-    firstName: z.string().min(1, "First Name is required").max(500),
-    middleName: z.string().max(500).optional(),
-    lastName: z.string().min(1, "Last Name is required").max(500),
-    email: z.string().optional(),
-    phoneNumber: z.string().optional(),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string().min(1, "Confirm password is required"),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  })
-  .refine((d) => d.email?.trim() || d.phoneNumber?.trim(), {
-    message: "Email or phone number is required",
-    path: ["email"],
-  })
-  .refine((d) => !d.email || isEmail(d.email), {
-    message: "Invalid email address",
-    path: ["email"],
-  })
-  .refine((d) => !d.phoneNumber || isPhone(d.phoneNumber), {
-    message: "10-digit phone number required",
-    path: ["phoneNumber"],
-  });
+const signupSchema = z.object({ _placeholder: z.string().optional() }); // kept for type-compat, unused
 
 const forgotSchema = z
   .object({
@@ -94,7 +68,7 @@ const forgotSchema = z
     path: ["identifier"],
   });
 
-type Mode = "signin" | "signup" | "forgot" | "channelPicker";
+type Mode = "signin" | "forgot" | "channelPicker";
 
 function extractErrorMessage(err: any): string {
   const data = err?.response?.data;
@@ -120,8 +94,7 @@ export default function Login() {
   const isMobile = useIsMobile();
 
   const redirectTo = searchParams.get("redirect") || "/";
-  const initialMode: Mode =
-    (location.state as any)?.mode === "signup" ? "signup" : "signin";
+  const initialMode: Mode = "signin";
   const [mode, setMode] = useState<Mode>(initialMode);
   const [hidePass, setHidePass] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -138,11 +111,7 @@ export default function Login() {
   useEffect(() => {
     if (!isAuthenticated || isSyncing) return;
     navigate(
-      getPostLoginPath(
-        user?.roleId ?? 0,
-        user?.isRandomPassword,
-        redirectTo,
-      ),
+      getPostLoginPath(user?.roleId ?? 0, user?.isRandomPassword, redirectTo),
       { replace: true },
     );
   }, [
@@ -158,29 +127,15 @@ export default function Login() {
     resolver: zodResolver(loginSchema),
     defaultValues: { identifier: "", password: "" },
   });
-  const signupForm = useForm({
-    resolver: zodResolver(signupSchema),
-    defaultValues: {
-      firstName: "",
-      middleName: "",
-      lastName: "",
-      email: "",
-      phoneNumber: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
   const forgotForm = useForm({
     resolver: zodResolver(forgotSchema),
     defaultValues: { identifier: "" },
   });
 
   const mobileHeaderTitle =
-    mode === "signup"
-      ? "Create Account"
-      : mode === "forgot" || mode === "channelPicker"
-        ? "Forgot Password"
-        : "Sign In";
+    mode === "forgot" || mode === "channelPicker"
+      ? "Forgot Password"
+      : "Sign In";
 
   // ── Sign In ───────────────────────────────────────────────────────────────
   const handleLogin = loginForm.handleSubmit(async (data) => {
@@ -232,42 +187,6 @@ export default function Login() {
     }
   });
 
-  // ── Sign Up ───────────────────────────────────────────────────────────────
-  const handleSignup = signupForm.handleSubmit(async (data) => {
-    setLoading(true);
-    try {
-      await registerUser({
-        firstName: data.firstName,
-        middleName: data.middleName || "",
-        lastName: data.lastName,
-        emailId: data.email || undefined,
-        password: encryptPassword(data.password),
-        phoneNumber: data.phoneNumber || undefined,
-      } as any);
-      toast.success("Account created! Please sign in.");
-      setMode("signin");
-      signupForm.reset();
-    } catch (err: any) {
-      const errors =
-        err?.response?.data?.errors || err?.response?.data?.detail?.errors;
-      if (Array.isArray(errors)) {
-        toast.error(
-          errors
-            .map((e: any) =>
-              e.code === "DuplicateUserName"
-                ? "Email or phone already registered"
-                : e.description,
-            )
-            .join(", "),
-        );
-      } else {
-        toast.error("Registration failed. Please try again.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  });
-
   // ── Forgot Password — Step 1: check channels ──────────────────────────────
   const handleForgot = forgotForm.handleSubmit(async (data) => {
     setLoading(true);
@@ -288,11 +207,13 @@ export default function Login() {
       if (channels.hasEmail && !channels.hasPhone) {
         // Email only — send immediately
         await sendForgotPasswordOtpToChannel(id, "email");
-        toast.success(
-          `OTP sent to ${channels.maskedEmail || "your email"}.`,
-        );
+        toast.success(`OTP sent to ${channels.maskedEmail || "your email"}.`);
         navigate(
-          `/verify-otp?identifier=${encodeURIComponent(id)}&channel=email&purpose=forgot_password&display=${encodeURIComponent(channels.maskedEmail || "")}`,
+          `/verify-otp?identifier=${encodeURIComponent(
+            id,
+          )}&channel=email&purpose=forgot_password&display=${encodeURIComponent(
+            channels.maskedEmail || "",
+          )}`,
         );
         forgotForm.reset();
       } else {
@@ -313,12 +234,19 @@ export default function Login() {
       await sendForgotPasswordOtpToChannel(fpIdentifier, channel);
       const maskedDisplay =
         channel === "email" ? fpChannels?.maskedEmail : fpChannels?.maskedPhone;
-      const channelName = channel === "whatsapp" ? "WhatsApp" : channel === "sms" ? "SMS" : "email";
-      toast.success(
-        `OTP sent to ${maskedDisplay || `your ${channelName}`}.`,
-      );
+      const channelName =
+        channel === "whatsapp"
+          ? "WhatsApp"
+          : channel === "sms"
+          ? "SMS"
+          : "email";
+      toast.success(`OTP sent to ${maskedDisplay || `your ${channelName}`}.`);
       navigate(
-        `/verify-otp?identifier=${encodeURIComponent(fpIdentifier)}&channel=${channel}&purpose=forgot_password&display=${encodeURIComponent(maskedDisplay || "")}`,
+        `/verify-otp?identifier=${encodeURIComponent(
+          fpIdentifier,
+        )}&channel=${channel}&purpose=forgot_password&display=${encodeURIComponent(
+          maskedDisplay || "",
+        )}`,
       );
     } catch {
       toast.error("Failed to send OTP. Please try again.");
@@ -331,10 +259,7 @@ export default function Login() {
   const errMsg = (msg?: string) =>
     msg ? <div className="invalid-feedback s-login-78f9a3">{msg}</div> : null;
 
-  const bgImage =
-    mode === "signup"
-      ? "/assets/images/signup-bg.jpg"
-      : "/assets/images/forgot-bg.jpg";
+  const bgImage = "/assets/images/forgot-bg.jpg";
 
   return (
     <>
@@ -364,11 +289,9 @@ export default function Login() {
           />
           <div className="s-login-da6116">
             <p className="s-login-f18190">
-              {mode === "signup"
-                ? '"Every body deserves a perfect fit."'
-                : mode === "forgot" || mode === "channelPicker"
-                  ? "No worries — we'll get you back in."
-                  : "Welcome Back, Beautiful."}
+              {mode === "forgot" || mode === "channelPicker"
+                ? "No worries — we'll get you back in."
+                : "Welcome Back, Beautiful."}
             </p>
             <p className="s-login-6854c0">Only TWAM — Crafted with love.</p>
           </div>
@@ -428,7 +351,9 @@ export default function Login() {
                     <div className="s-updateprofil-1d5e50">
                       <input
                         {...loginForm.register("password")}
-                        className={`${inputCls(loginForm.formState.errors.password)} s-login-51c683`}
+                        className={`${inputCls(
+                          loginForm.formState.errors.password,
+                        )} s-login-51c683`}
                         type={hidePass ? "password" : "text"}
                         placeholder="Enter password"
                       />
@@ -438,7 +363,9 @@ export default function Login() {
                         className="s-login-af8e0d"
                       >
                         <i
-                          className={`bi ${hidePass ? "bi-eye-slash" : "bi-eye"}`}
+                          className={`bi ${
+                            hidePass ? "bi-eye-slash" : "bi-eye"
+                          }`}
                         />
                       </button>
                     </div>
@@ -468,136 +395,10 @@ export default function Login() {
                 <p className="s-login-89ef73">
                   Don't have an account?{" "}
                   <button
-                    onClick={() => setMode("signup")}
+                    onClick={() => navigate("/register")}
                     className="s-login-182bea"
                   >
                     Sign Up
-                  </button>
-                </p>
-              </>
-            )}
-
-            {/* ── SIGN UP */}
-            {mode === "signup" && (
-              <>
-                {!isMobile && <h5 className="s-login-b4f13d">Sign Up</h5>}
-                <p className="s-login-7a79e7">
-                  "Every body deserves a perfect fit."
-                </p>
-                <form onSubmit={handleSignup}>
-                  <div className="s-login-9f425c">
-                    {(["firstName", "middleName", "lastName"] as const).map(
-                      (key, i) => (
-                        <div key={key}>
-                          <label className="s-login-4d06e1">
-                            {["First Name *", "Middle", "Last Name *"][i]}
-                          </label>
-                          <input
-                            {...signupForm.register(key)}
-                            className={inputCls(
-                              (signupForm.formState.errors as any)[key],
-                            )}
-                          />
-                          {errMsg(
-                            (signupForm.formState.errors as any)[key]?.message,
-                          )}
-                        </div>
-                      ),
-                    )}
-                  </div>
-                  <div className="s-login-863afe">
-                    {/* Email — optional if phone given */}
-                    <div className="s-adminproduct-02d219">
-                      <label className="s-login-4d06e1">Email</label>
-                      <input
-                        {...signupForm.register("email")}
-                        className={inputCls(signupForm.formState.errors.email)}
-                        type="email"
-                        placeholder="you@example.com (optional if phone given)"
-                      />
-                      {errMsg(signupForm.formState.errors.email?.message)}
-                    </div>
-                    {/* Phone — optional if email given */}
-                    <div className="s-adminproduct-02d219">
-                      <label className="s-login-4d06e1">Phone Number</label>
-                      <input
-                        {...signupForm.register("phoneNumber")}
-                        className={inputCls(
-                          signupForm.formState.errors.phoneNumber,
-                        )}
-                        type="tel"
-                        placeholder="10-digit (optional if email given)"
-                        maxLength={10}
-                      />
-                      {errMsg(signupForm.formState.errors.phoneNumber?.message)}
-                    </div>
-                    <div
-                      className="s-adminproduct-02d219"
-                      style={{ gridColumn: "1/-1" }}
-                    >
-                      <p
-                        style={{
-                          fontSize: 12,
-                          color: "var(--heirloom)",
-                          marginBottom: 4,
-                        }}
-                      >
-                        * At least one of email or phone number is required.
-                      </p>
-                    </div>
-                    {/* Password fields */}
-                    {(
-                      [
-                        {
-                          key: "password",
-                          label: "Password *",
-                          type: hidePass ? "password" : "text",
-                        },
-                        {
-                          key: "confirmPassword",
-                          label: "Confirm Pass *",
-                          type: "password",
-                        },
-                      ] as const
-                    ).map(({ key, label, type }) => (
-                      <div
-                        key={key as string}
-                        className="s-adminproduct-02d219"
-                      >
-                        <label className="s-login-4d06e1">{label}</label>
-                        <input
-                          {...signupForm.register(key as any)}
-                          className={inputCls(
-                            (signupForm.formState.errors as any)[key],
-                          )}
-                          type={type}
-                        />
-                        {errMsg(
-                          (signupForm.formState.errors as any)[key as string]
-                            ?.message,
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="s-login-8c5379"
-                    style={{
-                      cursor: loading ? "not-allowed" : "pointer",
-                      opacity: loading ? 0.7 : 1,
-                    }}
-                  >
-                    {loading ? "Creating account…" : "Sign Up"}
-                  </button>
-                </form>
-                <p className="s-login-5d4ce1">
-                  Already have an account?{" "}
-                  <button
-                    onClick={() => setMode("signin")}
-                    className="s-login-182bea"
-                  >
-                    Sign In
                   </button>
                 </p>
               </>
@@ -658,7 +459,8 @@ export default function Login() {
                   <h5 className="s-login-b4f13d">Choose OTP Destination</h5>
                 )}
                 <p className="s-login-7a79e7">
-                  Choose how you'd like to receive your one-time verification code.
+                  Choose how you'd like to receive your one-time verification
+                  code.
                 </p>
                 <div
                   style={{
@@ -712,7 +514,10 @@ export default function Login() {
                           opacity: loading ? 0.7 : 1,
                         }}
                       >
-                        <i className="bi bi-whatsapp" style={{ fontSize: 18 }} />
+                        <i
+                          className="bi bi-whatsapp"
+                          style={{ fontSize: 18 }}
+                        />
                         <span>
                           Send via WhatsApp
                           <br />
@@ -738,7 +543,10 @@ export default function Login() {
                           opacity: loading ? 0.7 : 1,
                         }}
                       >
-                        <i className="bi bi-chat-dots-fill" style={{ fontSize: 18 }} />
+                        <i
+                          className="bi bi-chat-dots-fill"
+                          style={{ fontSize: 18 }}
+                        />
                         <span>
                           Send via SMS
                           <br />

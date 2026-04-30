@@ -433,8 +433,8 @@ function ProductSlider({
                   product={p}
                   onQuickShop={onQuickShop}
                   showDiscountTag={false}
-                  singleColorOnly={true}
-                  compact={true}
+                  singleColorOnly={false}
+                  compact={false}
                   enableHoverImageTransition={
                     !featuredSpotlightEnabled || distFromCenter === 0
                   }
@@ -784,6 +784,864 @@ function MobileProductSlider({
 }
 
 // ─── TWAM Featured Section ───────────────────────────────────────────────────
+// ─── Shop By Category Section ────────────────────────────────────────────────
+const SHOP_CATEGORIES = [
+  {
+    name: "All Products",
+    image: "/assets/categories/All.png",
+    keywords: [] as string[],
+    directPath: "/all-products",
+  },
+  {
+    name: "Bra",
+    image: "/assets/categories/Bra.png",
+    keywords: ["bra", "bras"],
+  },
+  {
+    name: "Panties",
+    image: "/assets/categories/Panties.png",
+    keywords: ["pant", "pantie"],
+  },
+  {
+    name: "Essentials",
+    image: "/assets/categories/Essentials.png",
+    keywords: ["essential"],
+  },
+  {
+    name: "Leakproof",
+    image: "/assets/categories/Leakproof.png",
+    keywords: ["leak"],
+  },
+  {
+    name: "Activewear",
+    image: "/assets/categories/Activewear.png",
+    keywords: ["active"],
+  },
+  {
+    name: "Swimwear",
+    image: "/assets/categories/Swimwear.png",
+    keywords: ["swim"],
+  },
+];
+
+const SHOP_CAT_TOTAL = SHOP_CATEGORIES.length;
+
+function ShopByCategorySection() {
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const { menus } = useMenuStore();
+
+  // Use a ref alongside state so callbacks never capture stale currentIdx
+  const [currentIdx, _setCurrentIdx] = useState(0);
+  const currentIdxRef = useRef(0);
+  const setCurrentIdx = useCallback((idx: number) => {
+    currentIdxRef.current = idx;
+    _setCurrentIdx(idx);
+  }, []);
+
+  // Slide animation state
+  const [nextIdx, setNextIdx] = useState<number | null>(null); // incoming slide index
+  const [slideDir, setSlideDir] = useState<1 | -1>(1); // 1 = next, -1 = prev
+  const [transiting, setTransiting] = useState(false); // CSS transition active
+  const slidingRef = useRef(false); // guard against re-entry
+
+  // Wheel / trackpad debounce
+  const wheelCooldownRef = useRef(false);
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Resolve categoryId for each banner by fuzzy-matching against live menus
+  const resolvePath = useCallback(
+    (cat: (typeof SHOP_CATEGORIES)[0]) => {
+      if ("directPath" in cat && cat.directPath) return cat.directPath;
+      const allMenus: CategoryMenu[] = [];
+      const collect = (items: CategoryMenu[]) => {
+        items.forEach((m) => {
+          allMenus.push(m);
+          if (m.children?.length) collect(m.children);
+        });
+      };
+      collect(menus);
+      const found = allMenus.find((m) =>
+        cat.keywords.some((kw) => m.name.toLowerCase().includes(kw)),
+      );
+      return found?.categoryId
+        ? `/user-products/product-list/${found.categoryId}`
+        : `/user-products/product-list?search=${encodeURIComponent(cat.name)}`;
+    },
+    [menus],
+  );
+
+  // ── Slide advance ──────────────────────────────────────────────────────────
+  // Flow:
+  //   1. Set nextIdx + slideDir  → incoming slide renders off-screen (no transition yet)
+  //   2. Double-rAF              → setTransiting(true) → CSS slide kicks in for both slides
+  //   3. After 480 ms            → commit currentIdx, clear nextIdx / transiting
+  const advance = useCallback(
+    (dir: 1 | -1 = 1) => {
+      if (slidingRef.current) return;
+      slidingRef.current = true;
+      setSlideDir(dir);
+      const newIdx =
+        (currentIdxRef.current + dir + SHOP_CAT_TOTAL) % SHOP_CAT_TOTAL;
+      setNextIdx(newIdx);
+
+      // Allow the incoming slide to render at its off-screen start position
+      // before enabling the CSS transition (double-rAF ensures paint happens first)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTransiting(true);
+        });
+      });
+
+      setTimeout(() => {
+        setCurrentIdx(newIdx);
+        setNextIdx(null);
+        setTransiting(false);
+        slidingRef.current = false;
+      }, 480);
+    },
+    [setCurrentIdx],
+  );
+
+  const restartTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => advance(1), 5000);
+  }, [advance]);
+
+  useEffect(() => {
+    restartTimer();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [restartTimer]);
+
+  const goNext = () => {
+    if (!slidingRef.current) {
+      advance(1);
+      restartTimer();
+    }
+  };
+  const goPrev = () => {
+    if (!slidingRef.current) {
+      advance(-1);
+      restartTimer();
+    }
+  };
+
+  // ── Mouse-pad / wheel scroll ───────────────────────────────────────────────
+  const onWheel = (e: React.WheelEvent) => {
+    if (wheelCooldownRef.current || slidingRef.current) return;
+    // Prefer horizontal delta (trackpad swipe) but fall back to vertical
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (Math.abs(delta) < 20) return; // ignore tiny micro-scrolls
+    wheelCooldownRef.current = true;
+    setTimeout(() => {
+      wheelCooldownRef.current = false;
+    }, 700);
+    advance(delta > 0 ? 1 : -1);
+    restartTimer();
+  };
+
+  if (isMobile) return null;
+
+  const current = SHOP_CATEGORIES[currentIdx];
+  const incoming = nextIdx !== null ? SHOP_CATEGORIES[nextIdx] : null;
+
+  // ── Shared styles ──────────────────────────────────────────────────────────
+  const arrowBtn: React.CSSProperties = {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    zIndex: 10,
+    background: "rgba(255,255,255,0.88)",
+    backdropFilter: "blur(10px)",
+    WebkitBackdropFilter: "blur(10px)",
+    border: "none",
+    borderRadius: "50%",
+    width: 48,
+    height: 48,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.14), 0 1px 6px rgba(0,0,0,0.08)",
+    transition: "transform 0.18s ease, box-shadow 0.18s ease",
+  };
+
+  const SLIDE_TRANSITION = "transform 0.48s cubic-bezier(0.4, 0, 0.2, 1)";
+
+  // ── Slide renderer ─────────────────────────────────────────────────────────
+  // Each slide is absolutely-positioned inside the overflow:hidden container.
+  // slideStyle controls the translateX and transition so slides can enter/exit.
+  const renderSlide = (
+    cat: (typeof SHOP_CATEGORIES)[0],
+    slideStyle: React.CSSProperties,
+    onSlideClick: () => void,
+  ) => (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        cursor: "pointer",
+        ...slideStyle,
+      }}
+      onClick={onSlideClick}
+    >
+      {/* Banner image */}
+      <img
+        src={cat.image}
+        alt={cat.name}
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        }}
+      />
+
+      {/* ── Shop Now button — bottom-right, 3 cm from each edge ────────────── */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(resolvePath(cat));
+        }}
+        style={{
+          position: "absolute",
+          bottom: "3cm",
+          right: "3cm",
+          background: "rgba(255,255,255,0.97)",
+          border: "none",
+          borderRadius: 2,
+          padding: "14px 36px",
+          fontSize: 13,
+          fontWeight: 800,
+          color: "#6b0f2a",
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          cursor: "pointer",
+          fontFamily: '"Trebuchet MS","Gill Sans",Arial,sans-serif',
+          boxShadow:
+            "0 8px 32px rgba(0,0,0,0.28), 0 2px 10px rgba(107,15,42,0.22)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+          zIndex: 3,
+          whiteSpace: "nowrap",
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+        }}
+      >
+        Shop Now
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ flexShrink: 0 }}
+        >
+          <path
+            d="M2 7h10M8 3l4 4-4 4"
+            stroke="#6b0f2a"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+
+  return (
+    <section
+      style={{
+        background: "#fff",
+        display: "flex",
+        flexDirection: "column",
+        paddingTop: 20,
+        paddingBottom: 12,
+      }}
+    >
+      {/* Title */}
+      <h2
+        style={{
+          textAlign: "center",
+          color: "#6b0f2a",
+          fontFamily:
+            '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+          fontSize: "2rem",
+          fontWeight: 600,
+          letterSpacing: "0.02em",
+          margin: "0 0 14px",
+          flexShrink: 0,
+        }}
+      >
+        Shop by Category
+      </h2>
+
+      {/* ── Carousel viewport — locked to 21:8 aspect ratio ────────────────── */}
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: "21 / 7",
+          overflow: "hidden",
+          lineHeight: 0,
+        }}
+        onWheel={onWheel}
+      >
+        {/* Left arrow */}
+        <button
+          onClick={goPrev}
+          aria-label="Previous category"
+          style={{ ...arrowBtn, left: 20, zIndex: 10 }}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12.5 4.5L7 10l5.5 5.5"
+              stroke="#6b0f2a"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+
+        {/* Outgoing slide (current) — slides out in the advance direction */}
+        {renderSlide(
+          current,
+          {
+            transform: transiting
+              ? `translateX(${slideDir === 1 ? "-100%" : "100%"})`
+              : "translateX(0)",
+            transition: transiting ? SLIDE_TRANSITION : "none",
+            zIndex: 1,
+          },
+          () => navigate(resolvePath(current)),
+        )}
+
+        {/* Incoming slide (next) — slides in from the opposite side */}
+        {incoming &&
+          renderSlide(
+            incoming,
+            {
+              transform: transiting
+                ? "translateX(0)"
+                : `translateX(${slideDir === 1 ? "100%" : "-100%"})`,
+              transition: transiting ? SLIDE_TRANSITION : "none",
+              zIndex: 2,
+            },
+            () => navigate(resolvePath(incoming)),
+          )}
+
+        {/* Right arrow */}
+        <button
+          onClick={goNext}
+          aria-label="Next category"
+          style={{ ...arrowBtn, right: 20, zIndex: 10 }}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M7.5 4.5L13 10l-5.5 5.5"
+              stroke="#6b0f2a"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {/* Dot indicators */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 8,
+          padding: "14px 0 0",
+          flexShrink: 0,
+        }}
+      >
+        {SHOP_CATEGORIES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              if (slidingRef.current) return;
+              setCurrentIdx(i);
+              restartTimer();
+            }}
+            aria-label={`Go to ${SHOP_CATEGORIES[i].name}`}
+            style={{
+              width: i === currentIdx ? 24 : 8,
+              height: 8,
+              borderRadius: 4,
+              border: "none",
+              background: i === currentIdx ? "#6b0f2a" : "#d4a0ad",
+              cursor: "pointer",
+              padding: 0,
+              transition: "width 0.3s ease, background 0.3s ease",
+            }}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── Desktop Featured Section (Best Sellers / New Arrivals) ──────────────────
+// Full-viewport section with a fixed background image and a single navigable
+// product card on the left (Best Sellers) or right (New Arrivals).
+// Supports auto-advance, mouse-wheel / trackpad scrolling, and arrow navigation —
+// exactly like ShopByCategorySection.
+function DesktopFeaturedSection({
+  title,
+  products,
+  onQuickShop,
+  bgImage,
+  cardSide,
+  viewAllPath,
+}: {
+  title: string;
+  products: any[];
+  onQuickShop: (id: number) => void;
+  bgImage: string;
+  cardSide: "left" | "right" | "center";
+  viewAllPath?: string;
+}) {
+  const navigate = useNavigate();
+  const total = products.length;
+
+  // Use a ref alongside state so timer callbacks never capture stale index
+  const [currentIdx, _setCurrentIdx] = useState(0);
+  const currentIdxRef = useRef(0);
+  const setCurrentIdx = useCallback((idx: number) => {
+    currentIdxRef.current = idx;
+    _setCurrentIdx(idx);
+  }, []);
+
+  // Slide animation state (same pattern as ShopByCategorySection)
+  const [nextIdx, setNextIdx] = useState<number | null>(null);
+  const [slideDir, setSlideDir] = useState<1 | -1>(1);
+  const [transiting, setTransiting] = useState(false);
+  const slidingRef = useRef(false);
+  const wheelCooldownRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const advance = useCallback(
+    (dir: 1 | -1 = 1) => {
+      if (slidingRef.current || total === 0) return;
+      slidingRef.current = true;
+      setSlideDir(dir);
+      const newIdx = (currentIdxRef.current + dir + total) % total;
+      setNextIdx(newIdx);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTransiting(true);
+        });
+      });
+      setTimeout(() => {
+        setCurrentIdx(newIdx);
+        setNextIdx(null);
+        setTransiting(false);
+        slidingRef.current = false;
+      }, 450);
+    },
+    [total, setCurrentIdx],
+  );
+
+  const restartTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => advance(1), 4500);
+  }, [advance]);
+
+  useEffect(() => {
+    restartTimer();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [restartTimer]);
+
+  const onWheel = (e: React.WheelEvent) => {
+    if (wheelCooldownRef.current || slidingRef.current) return;
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (Math.abs(delta) < 20) return;
+    wheelCooldownRef.current = true;
+    setTimeout(() => {
+      wheelCooldownRef.current = false;
+    }, 700);
+    advance(delta > 0 ? 1 : -1);
+    restartTimer();
+  };
+
+  // ── Dynamic card sizing — hooks MUST be before any early return ──────────
+  // We measure the banner height via ResizeObserver, then use CSS transform:scale()
+  // to fit the natural-size ProductCard (260×475) into the available banner area
+  // with ~0.5 cm (~19 px) padding on top and bottom.
+  // Using transform:scale means NO content is ever cropped — the browser scales
+  // the whole card visually without altering its layout box.
+  const NATURAL_CARD_W = 260;
+  const NATURAL_CARD_H = 475;
+  const BANNER_PAD_PX = 19; // 0.5 cm at 96 dpi
+
+  const bannerContainerRef = useRef<HTMLDivElement>(null);
+  const [bannerH, setBannerH] = useState(0);
+  useEffect(() => {
+    const el = bannerContainerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setBannerH(entry.contentRect.height);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // Scale so the card fills (bannerH - 2×pad) vertically; never exceeds 1.0
+  const cardScale =
+    bannerH > 0
+      ? Math.min(1, (bannerH - BANNER_PAD_PX * 2) / NATURAL_CARD_H)
+      : NATURAL_CARD_H > 0
+      ? 1
+      : 1;
+  // Viewport pixel dimensions = natural size × scale (no overflow, no scrollbar)
+  const CARD_W = Math.round(NATURAL_CARD_W * cardScale);
+  const CARD_H = Math.round(NATURAL_CARD_H * cardScale);
+
+  if (total === 0) return null;
+
+  const currentProduct = products[currentIdx];
+  const nextProduct = nextIdx !== null ? products[nextIdx] : null;
+  const SLIDE_T = "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)";
+
+  const arrowBtnStyle: React.CSSProperties = {
+    background: "rgba(255,255,255,0.88)",
+    backdropFilter: "blur(10px)",
+    WebkitBackdropFilter: "blur(10px)",
+    border: "none",
+    borderRadius: "50%",
+    width: 48,
+    height: 48,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.14), 0 1px 6px rgba(0,0,0,0.08)",
+    flexShrink: 0,
+    zIndex: 5,
+  };
+
+  const ChevronLeft = () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M12.5 4.5L7 10l5.5 5.5"
+        stroke="#6b0f2a"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const ChevronRight = () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M7.5 4.5L13 10l-5.5 5.5"
+        stroke="#6b0f2a"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const cardPanel = (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 18,
+        transform: cardSide === "center" ? "translateX(250px)" : undefined,
+      }}
+      onWheel={onWheel}
+    >
+      {/* Prev arrow */}
+      <button
+        onClick={() => {
+          advance(-1);
+          restartTimer();
+        }}
+        aria-label="Previous product"
+        style={arrowBtnStyle}
+      >
+        <ChevronLeft />
+      </button>
+
+      {/* Card viewport — fixed to the scaled pixel size so overflow:hidden
+           never produces a scrollbar. The inner ProductCards are rendered at
+           their natural size (NATURAL_CARD_W × NATURAL_CARD_H) then shrunk
+           with CSS transform:scale so all content stays fully visible. */}
+      <div
+        style={{
+          position: "relative",
+          width: CARD_W,
+          height: CARD_H,
+          overflow: "hidden", // safe: exact size = scaled card, no overflow
+          flexShrink: 0,
+        }}
+      >
+        {/* Outgoing card — slide wrapper then scale wrapper */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transform: transiting
+              ? `translateX(${slideDir === 1 ? "-100%" : "100%"})`
+              : "translateX(0)",
+            transition: transiting ? SLIDE_T : "none",
+          }}
+        >
+          <div
+            style={{
+              transform: `scale(${cardScale})`,
+              transformOrigin: "top left",
+              width: NATURAL_CARD_W,
+              height: NATURAL_CARD_H,
+            }}
+          >
+            <ProductCard
+              product={currentProduct}
+              onQuickShop={onQuickShop}
+              showDiscountTag={false}
+              singleColorOnly={false}
+              compact={false}
+              enableHoverImageTransition={true}
+            />
+          </div>
+        </div>
+
+        {/* Incoming card */}
+        {nextProduct && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              transform: transiting
+                ? "translateX(0)"
+                : `translateX(${slideDir === 1 ? "100%" : "-100%"})`,
+              transition: transiting ? SLIDE_T : "none",
+            }}
+          >
+            <div
+              style={{
+                transform: `scale(${cardScale})`,
+                transformOrigin: "top left",
+                width: NATURAL_CARD_W,
+                height: NATURAL_CARD_H,
+              }}
+            >
+              <ProductCard
+                product={nextProduct}
+                onQuickShop={onQuickShop}
+                showDiscountTag={false}
+                singleColorOnly={false}
+                compact={false}
+                enableHoverImageTransition={true}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Next arrow */}
+      <button
+        onClick={() => {
+          advance(1);
+          restartTimer();
+        }}
+        aria-label="Next product"
+        style={arrowBtnStyle}
+      >
+        <ChevronRight />
+      </button>
+    </div>
+  );
+
+  return (
+    <section
+      style={{
+        background: "#fff",
+        display: "flex",
+        flexDirection: "column",
+        paddingTop: 20,
+        paddingBottom: 12,
+      }}
+    >
+      {/* Title — clicking navigates to the section page */}
+      {viewAllPath ? (
+        <a
+          href={viewAllPath}
+          onClick={(e) => { e.preventDefault(); navigate(viewAllPath); }}
+          style={{
+            textAlign: "center",
+            color: "#6b0f2a",
+            fontFamily:
+              '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+            fontSize: "2rem",
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+            margin: "0 0 14px",
+            flexShrink: 0,
+            cursor: "pointer",
+            textDecoration: "none",
+            display: "block",
+            transition: "opacity 0.18s",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "0.72";
+            (e.currentTarget as HTMLElement).style.textDecoration = "underline";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "1";
+            (e.currentTarget as HTMLElement).style.textDecoration = "none";
+          }}
+        >
+          {title}
+        </a>
+      ) : (
+        <h2
+          style={{
+            textAlign: "center",
+            color: "#6b0f2a",
+            fontFamily:
+              '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+            fontSize: "2rem",
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+            margin: "0 0 14px",
+            flexShrink: 0,
+          }}
+        >
+          {title}
+        </h2>
+      )}
+
+      {/* Image viewport — locked to 21:8 aspect ratio.
+           Clicking anywhere on the banner (outside the card panel) navigates
+           to the section page. The card panel stops propagation so product
+           card interactions (add to cart, quick shop, etc.) are unaffected. */}
+      <div
+        ref={bannerContainerRef}
+        style={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: "21 / 7",
+          overflow: "hidden",
+          cursor: viewAllPath ? "pointer" : undefined,
+        }}
+        onWheel={onWheel}
+        onClick={viewAllPath ? () => navigate(viewAllPath) : undefined}
+      >
+        {/* Background image fills only this middle zone */}
+        <img
+          src={bgImage}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
+            zIndex: 0,
+          }}
+        />
+
+        {/* Card panel — floated left or right over the image.
+             stopPropagation prevents the banner click handler from firing
+             when the user interacts with the product card. */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent:
+              cardSide === "center"
+                ? "center"
+                : cardSide === "left"
+                ? "flex-start"
+                : "flex-end",
+            padding: cardSide === "center" ? "0" : "0 60px",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {cardPanel}
+        </div>
+      </div>
+
+      {/* Dot indicators — sits below the image on white, identical to ShopByCategorySection */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 8,
+          padding: "14px 0 0",
+          flexShrink: 0,
+        }}
+      >
+        {products.slice(0, Math.min(total, 14)).map((_, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              if (slidingRef.current) return;
+              setCurrentIdx(i);
+              restartTimer();
+            }}
+            aria-label={`Go to product ${i + 1}`}
+            style={{
+              width: i === currentIdx ? 24 : 8,
+              height: 8,
+              borderRadius: 4,
+              border: "none",
+              background: i === currentIdx ? "#6b0f2a" : "#d4a0ad",
+              cursor: "pointer",
+              padding: 0,
+              transition: "width 0.3s ease, background 0.3s ease",
+            }}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function TwamFeaturedSection({
   products,
   onQuickShop,
@@ -936,7 +1794,7 @@ function MobileTestimonial({
               key={j}
               style={{
                 fontSize: 12,
-                color: j < (r.rating ?? 5) ? "#6b0f2a" : "#f5f0e6",
+                color: j < (r.rating ?? 5) ? "#6b0f2a" : "#e0e0e0",
               }}
             >
               ★
@@ -1131,12 +1989,14 @@ export default function Home() {
   }, []);
 
   const dedupeByProductId = (d: any) => {
-    const seen = new Set<number>();
-    return (d?.list ?? []).filter((p: any) => {
-      if (seen.has(p.productId)) return false;
-      seen.add(p.productId);
-      return true;
-    });
+    const map = new Map<number, any>();
+    for (const p of d?.list ?? []) {
+      if (!map.has(p.productId)) {
+        map.set(p.productId, { ...p, allVariants: [] });
+      }
+      map.get(p.productId).allVariants.push(p);
+    }
+    return Array.from(map.values());
   };
 
   const { data: bestSellersProducts = [], isSuccess: bsReady } = useQuery({
@@ -1296,7 +2156,13 @@ export default function Home() {
     return () => {
       toast.dismiss(HOME_PASSWORD_UPDATE_TOAST_ID);
     };
-  }, [homeDataReady, isAuthenticated, isSyncing, navigate, passwordUpdateRequired]);
+  }, [
+    homeDataReady,
+    isAuthenticated,
+    isSyncing,
+    navigate,
+    passwordUpdateRequired,
+  ]);
 
   const { data: reviewsRaw } = useQuery({
     queryKey: ["reviews-home"],
@@ -1405,7 +2271,7 @@ export default function Home() {
           /* Desktop: fullscreen video behind transparent header */
           <video
             className="twam-hero__video"
-            src="/assets/hero.mp4"
+            src="/assets/hero-3.mp4"
             autoPlay
             muted
             loop
@@ -1420,13 +2286,40 @@ export default function Home() {
       </section>
       <div className="section-gap" />
 
-      <TwamFeaturedSection
-        products={twamFeaturedProducts}
-        onQuickShop={setQuickShopId}
-      />
+      {/* Desktop: Shop by Category banner carousel */}
+      {!isMobile && <ShopByCategorySection />}
+
+      {/* Mobile: keep TWAM Featured slider */}
+      {isMobile && (
+        <TwamFeaturedSection
+          products={twamFeaturedProducts}
+          onQuickShop={setQuickShopId}
+        />
+      )}
 
       {isMobile && reviews.length > 0 && (
         <MobileTestimonial reviews={reviews} navigate={navigate} />
+      )}
+
+      <div className="section-gap" />
+
+      {/* —— TWAM Brand Section —— */}
+      {isMobile ? (
+        <MobileProductSlider
+          title="TWAM"
+          products={twamFeaturedProducts}
+          onQuickShop={setQuickShopId}
+          variant="twam"
+        />
+      ) : (
+        <DesktopFeaturedSection
+          title="twam"
+          products={twamFeaturedProducts}
+          onQuickShop={setQuickShopId}
+          bgImage="/assets/home/twam1.png"
+          cardSide="center"
+          viewAllPath="/only-twam"
+        />
       )}
 
       <div className="section-gap" />
@@ -1440,28 +2333,14 @@ export default function Home() {
           variant="bestsellers"
         />
       ) : (
-        <section
-          className="best-sellers home-product-section home-product-section--white s-home-42eb71"
-          style={{ position: "relative", overflow: "hidden" }}
-        >
-          <img
-            src="/assets/best-sellers.png"
-            alt=""
-            aria-hidden="true"
-            className="desktop-section-bg desktop-section-bg--bs"
-          />
-          <div
-            className="container"
-            style={{ position: "relative", zIndex: 1 }}
-          >
-            <SectionTitle title="Best Sellers" highlight />
-            <ProductSlider
-              products={products}
-              onQuickShop={setQuickShopId}
-              viewAllPath="/best-sellers"
-            />
-          </div>
-        </section>
+        <DesktopFeaturedSection
+          title="Best Sellers"
+          products={products}
+          onQuickShop={setQuickShopId}
+          bgImage="/assets/home/Bestsellers.png"
+          cardSide="left"
+          viewAllPath="/best-sellers"
+        />
       )}
       <div className="section-gap" />
 
@@ -1474,34 +2353,18 @@ export default function Home() {
           variant="new"
         />
       ) : (
-        <section
-          className="best-sellers home-product-section home-product-section--ivory s-home-51e4ca"
-          style={{ position: "relative", overflow: "hidden" }}
-        >
-          <img
-            src="/assets/new-arrivals.png"
-            alt=""
-            aria-hidden="true"
-            className="desktop-section-bg desktop-section-bg--new"
-          />
-          <div
-            className="container"
-            style={{ position: "relative", zIndex: 1 }}
-          >
-            <SectionTitle title="New Arrivals" highlight />
-            <ProductSlider
-              products={newArrivals}
-              onQuickShop={setQuickShopId}
-              viewAllPath="/new-arrivals"
-              autoScrollIntervalMs={6000}
-              pauseAutoScrollOnHover={true}
-            />
-          </div>
-        </section>
+        <DesktopFeaturedSection
+          title="New Arrivals"
+          products={newArrivals}
+          onQuickShop={setQuickShopId}
+          bgImage="/assets/home/Newarrivals.png"
+          cardSide="right"
+          viewAllPath="/new-arrivals"
+        />
       )}
       <div className="section-gap" />
 
-      {isMobile ? (
+      {isMobile && (
         <section
           className="mob-promise-card"
           style={{
@@ -1601,48 +2464,6 @@ export default function Home() {
             Shop Full Collection
           </button>
         </section>
-      ) : (
-        <section className="home-product-section home-product-section--white s-home-7af910">
-          <div className="container">
-            <SectionTitle title="Shop by Category" highlight />
-            <div className="category-buttons s-home-5e0218">
-              {menus.map((cat: CategoryMenu) => (
-                <button
-                  key={cat.categoryId}
-                  onClick={() => handleCategorySelect(cat)}
-                  className={`${
-                    selectedCategoryId === cat.categoryId ? "active" : ""
-                  } s-home-2574d7`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-            <div
-              className="s-home-slider-header s-home-slider-header--tight"
-              style={{ marginTop: -14 }}
-            >
-              <button
-                onClick={() => navigate(selectedCategoryPath)}
-                className="s-home-54af6d"
-              >
-                View All
-              </button>
-            </div>
-            {categoryProducts === null ? (
-              <div className="s-home-0b4322">
-                <div className="s-home-0349cd" />
-              </div>
-            ) : categoryProducts.length > 0 ? (
-              <ProductSlider
-                products={categoryProducts}
-                onQuickShop={setQuickShopId}
-              />
-            ) : (
-              <p className="s-home-374f3d">No products in this category yet.</p>
-            )}
-          </div>
-        </section>
       )}
 
       {reviews.length > 0 && !isMobile && (
@@ -1724,9 +2545,7 @@ export default function Home() {
                                 } s-home-b3de66`}
                                 style={{
                                   color:
-                                    j < r.rating
-                                      ? "var(--blush)"
-                                      : "var(--ivory)",
+                                    j < r.rating ? "var(--blush)" : "#e0e0e0",
                                 }}
                               />
                             ))}

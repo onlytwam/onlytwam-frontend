@@ -20,7 +20,7 @@ import {
   createReview,
   listProducts,
 } from "@/features/products/api/products.api";
-import { addToCart } from "@/features/cart/api/cart.api";
+import { addToCart, updateCart, listCart } from "@/features/cart/api/cart.api";
 import { formatPrice, slugify, getImageUrl } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { setBuyNowSession } from "@/shared/utils/checkoutSession";
@@ -969,6 +969,18 @@ export default function ProductDetail() {
       toast.error(e?.response?.data?.detail || "Failed to add to cart"),
   });
 
+  const updateCartMutation = useMutation({
+    mutationFn: ({ id, qty }: { id: number; qty: number }) =>
+      updateCart(id, { cartId: id, quantity: qty }),
+    onSuccess: () => {
+      toast.success("Cart updated!");
+      qc.invalidateQueries({ queryKey: ["cart"] });
+      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+    },
+    onError: () => toast.error("Failed to update cart"),
+  });
+
   const reviewMutation = useMutation({
     mutationFn: (data: any) => createReview(data),
     onSuccess: () => {
@@ -1017,17 +1029,53 @@ export default function ProductDetail() {
     if (showToast) toast.success("Added to cart!");
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!validate()) return;
     if (hasValidToken()) {
-      cartMutation.mutate({
-        productVariantDetailId: selectedPVDId,
-        productId: product?.productId,
-        productVariantId: currentVId,
-        state: "Created",
-        userProfileId: getUserId(),
-        quantity,
-      });
+      try {
+        // Always fetch fresh cart from server — cache is often empty when
+        // the user navigates directly to the product page without opening the cart
+        const res = await qc.fetchQuery({
+          queryKey: ["cart-bootstrap", getUserId()],
+          queryFn: () => listCart({ userProfileId: getUserId() }),
+          staleTime: 10_000, // reuse if fetched in last 10 s
+        });
+        const cartList: any[] = res?.list ?? (Array.isArray(res) ? res : []);
+
+        // Find existing item with same product + size + color (productVariantDetailId)
+        const existing = cartList.find(
+          (item: any) =>
+            String(item.productVariantDetailId) === String(selectedPVDId),
+        );
+
+        if (existing?.cartId) {
+          // Same variant already in cart → just increase quantity
+          const newQty =
+            (Number(existing.quantity) ||
+              Number(existing.processedQuantity) ||
+              1) + quantity;
+          updateCartMutation.mutate({ id: existing.cartId, qty: newQty });
+        } else {
+          cartMutation.mutate({
+            productVariantDetailId: selectedPVDId,
+            productId: product?.productId,
+            productVariantId: currentVId,
+            state: "Created",
+            userProfileId: getUserId(),
+            quantity,
+          });
+        }
+      } catch {
+        // Network error fallback — just add (avoids silent failure)
+        cartMutation.mutate({
+          productVariantDetailId: selectedPVDId,
+          productId: product?.productId,
+          productVariantId: currentVId,
+          state: "Created",
+          userProfileId: getUserId(),
+          quantity,
+        });
+      }
     } else {
       persistGuestCart();
     }

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import UserAvatar from "@/shared/components/UserAvatar";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
@@ -11,7 +11,6 @@ import toast from "react-hot-toast";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MobileNavbar from "@/shared/components/MobileNavbar";
 import MobileCategoryBar from "@/shared/components/MobileCategoryBar";
-
 
 const TEXTS = [
   "Hello, Beautiful.",
@@ -88,6 +87,29 @@ export default function Navbar() {
     location.pathname.startsWith("/user-products/product-list");
 
   const isHomePage = location.pathname === "/" || location.pathname === "/home";
+
+  // Detect which top-level category is currently active (including subcategories)
+  const urlCategoryId = useMemo(() => {
+    const match = location.pathname.match(
+      /\/user-products\/product-list\/(\d+)/,
+    );
+    return match ? Number(match[1]) : null;
+  }, [location.pathname]);
+
+  const isCategoryActive = useCallback(
+    (cat: CategoryMenu): boolean => {
+      if (!urlCategoryId) return false;
+      if (cat.categoryId === urlCategoryId) return true;
+      const checkChildren = (children: CategoryMenu[]): boolean =>
+        children?.some(
+          (child) =>
+            child.categoryId === urlCategoryId ||
+            checkChildren(child.children ?? []),
+        ) ?? false;
+      return checkChildren(cat.children ?? []);
+    },
+    [urlCategoryId],
+  );
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -297,7 +319,9 @@ export default function Navbar() {
               {menus.map((cat) => (
                 <div key={cat.categoryId} className="nb-inline-cat__item">
                   <button
-                    className="nb-inline-cat__btn"
+                    className={`nb-inline-cat__btn${
+                      isCategoryActive(cat) ? " nb-inline-cat__btn--active" : ""
+                    }`}
                     onClick={() => reloadCategory(cat)}
                   >
                     {cat.name}
@@ -753,5 +777,3 @@ export default function Navbar() {
     </>
   );
 }
-
-

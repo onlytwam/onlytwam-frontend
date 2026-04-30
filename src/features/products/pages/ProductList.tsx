@@ -31,36 +31,55 @@ import ProductToolbar from "@/features/products/components/ProductToolbar";
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 
-// ─── Category images (merged from both versions) ──────────────────────────────
+// ─── Category images ──────────────────────────────────────────────────────────
+// NOTE: Order matters — more specific patterns must come BEFORE general ones.
+// e.g. "Bridal Bras" must match /bridal/ before it can fall through to /\bbra/.
 const CAT_IMAGE_MAP: { pattern: RegExp; file: string }[] = [
-  { pattern: /active/i, file: "Active Wear.jpg" },
+  // ── 6 New hero banner images (broad match so any variant of the name works) ─
+  { pattern: /swim\s*wear/i, file: "Swimwear.png" },
+  { pattern: /activewear|active\s*wear/i, file: "Activewear.png" },
+  { pattern: /leak.?proof|leakproof/i, file: "Leakproof.png" },
+  { pattern: /essentials?/i, file: "Essentials.png" },
+  { pattern: /panties|panty/i, file: "Panties.png" },
+  // ── All bra sub-types BEFORE the general bra catch-all ──────────────────────
   { pattern: /balconette/i, file: "Balconette Bras.jpg" },
   { pattern: /bandeau/i, file: "Bandeau Bras.jpg" },
   { pattern: /beginner/i, file: "Beginners Bras.jpg" },
+  { pattern: /bridal/i, file: "Bridal Bras.jpg" },
+  { pattern: /cotton/i, file: "Cotton Bras.jpg" },
+  { pattern: /everyday/i, file: "Everyday Bras.jpg" },
+  { pattern: /full.?cover/i, file: "Full Coverage Bras.jpg" },
+  { pattern: /lace/i, file: "Lace.jpg" },
+  { pattern: /mastectomy/i, file: "Mastectomy Bras.jpg" },
+  { pattern: /minimiz/i, file: "Minimizer Bras.jpg" },
+  { pattern: /nurs/i, file: "Nursing Bras.jpg" },
+  { pattern: /push.?up/i, file: "Push Up Bras.jpg" },
+  { pattern: /seamless.?bra/i, file: "Seamless Bras.jpg" },
+  { pattern: /sport.*bra|bra.*sport/i, file: "Sports Bras.jpg" },
+  { pattern: /strapless/i, file: "Strapless Bras.jpg" },
+  { pattern: /t.?shirt.?bra/i, file: "T-Shirt Bras.jpg" },
+  { pattern: /teen/i, file: "Teen Bras.jpg" },
+  { pattern: /wire.?free|wireless/i, file: "Wireless Bras.jpg" },
+  // ── General bra catch-all (matches "Bra", "Bras", "Women's Bras", "All Bras")
+  { pattern: /\bbras?\b/i, file: "Bra.png" },
+  // ── Everything else ──────────────────────────────────────────────────────────
   { pattern: /bestsell/i, file: "BestSellers.jpg" },
   { pattern: /bikini/i, file: "Bikini.jpg" },
   { pattern: /boy.?short/i, file: "Boy Shorts.jpg" },
-  { pattern: /^bras?$/i, file: "bras.jpg" },
-  { pattern: /bridal/i, file: "Bridal Bras.jpg" },
   { pattern: /brief/i, file: "Brief.png" },
   { pattern: /cami/i, file: "Camisoles.jpg" },
-  { pattern: /cotton/i, file: "Cotton Bras.jpg" },
-  { pattern: /essential/i, file: "essentials.jpg" },
-  { pattern: /everyday/i, file: "Everyday Bras.jpg" },
-  { pattern: /full.?cover/i, file: "Full Coverage Bras.jpg" },
   { pattern: /high.waist|high.leg/i, file: "High-Waist & High-Leg.jpg" },
   { pattern: /hipster/i, file: "Hipster.jpg" },
   { pattern: /lace/i, file: "Lace.jpg" },
   { pattern: /leak.?proof|leakproof/i, file: "leakproof.jpg" },
   { pattern: /lingerie.?set/i, file: "Lingerie Sets.jpg" },
-  { pattern: /mastectomy/i, file: "Mastectomy Bras.jpg" },
-  { pattern: /minimiz/i, file: "Minimizer Bras.jpg" },
   { pattern: /new.?arrival/i, file: "New Arrivals.jpg" },
-  { pattern: /nurs/i, file: "Nursing Bras.jpg" },
   { pattern: /only.?twam/i, file: "Only TWAM.jpg" },
-  { pattern: /panty|panties/i, file: "Panties.jpg" },
   { pattern: /plus/i, file: "Plus Size.jpg" },
-  { pattern: /non.?padded|non.?wired/i, file: "Non-Padded and Non-Wired Bra.png" },
+  {
+    pattern: /non.?padded|non.?wired/i,
+    file: "Non-Padded and Non-Wired Bra.png",
+  },
   { pattern: /push.?up/i, file: "Push up Bras.jpg" },
   { pattern: /seamless.?bra/i, file: "Seamless Bras.jpg" },
   { pattern: /seamless.?pant/i, file: "Seamless Panty.jpg" },
@@ -72,7 +91,6 @@ const CAT_IMAGE_MAP: { pattern: RegExp; file: string }[] = [
   { pattern: /t.?shirt.?bra/i, file: "T-Shirt Bras.jpg" },
   { pattern: /teen/i, file: "Teen Bras.jpg" },
   { pattern: /thong|g.?string/i, file: "Thongs & V-Strings.jpg" },
-  { pattern: /wire.?free|wireless/i, file: "Wireless Bras.jpg" },
 ];
 
 function getCategoryImage(name: string): string | null {
@@ -354,7 +372,17 @@ export default function ProductList() {
   return (
     <div style={{ fontFamily: FONTS }}>
       {categoryImage && (
-        <div className="category-hero-banner">
+        <div
+          className="category-hero-banner"
+          style={{
+            width: "100%",
+            aspectRatio: "3 / 1",
+            overflow: "hidden",
+            margin: 0,
+            padding: 0,
+            lineHeight: 0,
+          }}
+        >
           <img
             src={categoryImage}
             alt={categoryName}
@@ -362,7 +390,9 @@ export default function ProductList() {
             style={{
               display: "block",
               width: "100%",
-              height: "auto",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
             }}
           />
         </div>

@@ -5,6 +5,36 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import { isValidEmail } from "@/shared/utils/helpers";
 import toast from "react-hot-toast";
 import api from "@/shared/api/axiosInstance";
+
+const SHIPPING_FEATURES = [
+  { icon: "bi bi-cursor",       title: "Free Shipping",       sub: "Orders over ₹5000" },
+  { icon: "bi bi-arrow-repeat", title: "Free Returns",        sub: "Within 15 days" },
+  { icon: "bi bi-lock",         title: "100% Payment Secure", sub: "Payment Online" },
+  { icon: "bi bi-tag",          title: "Affordable Price",    sub: "Guaranteed" },
+];
+
+function ShippingBar() {
+  return (
+    <section className="shipping_section s-home-bcf04f">
+      <div className="container">
+        <div className="shipping_inner">
+          {SHIPPING_FEATURES.map((f) => (
+            <div key={f.title} className="single_shipping">
+              <div className="shipping_icon">
+                <i className={`${f.icon} icons`} />
+              </div>
+              <div className="shipping_text">
+                <h3 className="s-home-2574d7">{f.title}</h3>
+                <p className="s-home-3ab850">{f.sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Footer() {
   const navigate = useNavigate();
   const { hasValidToken } = useAuthStore();
@@ -24,9 +54,18 @@ export default function Footer() {
   const handleCheck = async () => {
     const hasEmail = !!email && isValidEmail(email);
     const hasPhone = !!phone && /^\d{10}$/.test(phone.trim());
-    if (!hasEmail && !phone) { setEmailError(true); return; }
-    if (email && !hasEmail) { setEmailError(true); return; }
-    if (phone && !hasPhone) { setPhoneError(true); return; }
+    if (!hasEmail && !phone) {
+      setEmailError(true);
+      return;
+    }
+    if (email && !hasEmail) {
+      setEmailError(true);
+      return;
+    }
+    if (phone && !hasPhone) {
+      setPhoneError(true);
+      return;
+    }
     setEmailError(false);
     setPhoneError(false);
     setChecking(true);
@@ -89,7 +128,9 @@ export default function Footer() {
 
   if (isMobile) {
     return (
-      <footer id="footer" className="footer-mobile">
+      <>
+        <ShippingBar />
+        <footer id="footer" className="footer-mobile">
         {/* Main footer body — warm ivory */}
         <div className="fmob-body">
           {/* Logo + tagline */}
@@ -171,13 +212,26 @@ export default function Footer() {
             )}
             {showChannelPicker && (
               <div style={{ marginTop: 8 }}>
-                <p style={{ fontSize: 12, color: "var(--heirloom)", marginBottom: 6 }}>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--heirloom)",
+                    marginBottom: 6,
+                  }}
+                >
                   Receive updates on {phone} via:
                 </p>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button
                     className="fmob-news-action primary"
-                    style={{ background: "#25D366", borderColor: "#25D366", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}
+                    style={{
+                      background: "#25D366",
+                      borderColor: "#25D366",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 12,
+                    }}
                     onClick={() => handleSubscribe("whatsapp")}
                     disabled={loading}
                   >
@@ -185,7 +239,12 @@ export default function Footer() {
                   </button>
                   <button
                     className="fmob-news-action primary"
-                    style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+                    style={{
+                      fontSize: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
                     onClick={() => handleSubscribe("sms")}
                     disabled={loading}
                   >
@@ -296,6 +355,11 @@ export default function Footer() {
                   label: "Instagram",
                 },
                 {
+                  href: "https://x.com/TulasiTwam",
+                  icon: "twitter.svg",
+                  label: "Twitter",
+                },
+                {
                   href: "https://wa.link/y2zqo7",
                   icon: "whatsapp.svg",
                   label: "WhatsApp",
@@ -328,12 +392,15 @@ export default function Footer() {
             <p className="fmob-copy">© {currentYear} TWAM</p>
           </div>
         </div>
-      </footer>
+        </footer>
+      </>
     );
   }
 
   return (
-    <footer id="footer" className="footer">
+    <>
+      <ShippingBar />
+      <footer id="footer" className="footer">
       <div className="container footer-container">
         {/* Newsletter Section */}
         <div className="subscribe-section">
@@ -390,17 +457,23 @@ export default function Footer() {
                 </button>
               </div>
 
-              <p className={`subscribe-error-msg ${emailError ? "visible" : ""}`}>
+              <p
+                className={`subscribe-error-msg ${emailError ? "visible" : ""}`}
+              >
                 * Please enter a valid email or phone number
               </p>
-              <p className={`subscribe-error-msg ${phoneError ? "visible" : ""}`}>
+              <p
+                className={`subscribe-error-msg ${phoneError ? "visible" : ""}`}
+              >
                 * Please enter a valid 10-digit phone number
               </p>
 
               {checked && !showChannelPicker && (
                 <div className="subscribe-action-btns">
                   <button
-                    className={`sub-action-btn ${!isSubbed ? "active" : "disabled"}`}
+                    className={`sub-action-btn ${
+                      !isSubbed ? "active" : "disabled"
+                    }`}
                     onClick={() => handleSubscribe()}
                     disabled={isSubbed || loading}
                     title={isSubbed ? "Already subscribed" : "Subscribe"}
@@ -409,7 +482,9 @@ export default function Footer() {
                   </button>
 
                   <button
-                    className={`sub-action-btn ${isSubbed ? "active" : "disabled"}`}
+                    className={`sub-action-btn ${
+                      isSubbed ? "active" : "disabled"
+                    }`}
                     onClick={handleUnsubscribe}
                     disabled={!isSubbed || loading}
                     title={!isSubbed ? "Not subscribed" : "Unsubscribe"}
@@ -421,13 +496,33 @@ export default function Footer() {
               )}
 
               {showChannelPicker && (
-                <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <p style={{ width: "100%", fontSize: 13, color: "var(--heirloom)", margin: "0 0 6px" }}>
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <p
+                    style={{
+                      width: "100%",
+                      fontSize: 13,
+                      color: "var(--heirloom)",
+                      margin: "0 0 6px",
+                    }}
+                  >
                     Receive WhatsApp updates on <strong>{phone}</strong>:
                   </p>
                   <button
                     className="sub-action-btn active"
-                    style={{ background: "#25D366", borderColor: "#25D366", display: "flex", alignItems: "center", gap: 6 }}
+                    style={{
+                      background: "#25D366",
+                      borderColor: "#25D366",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                     onClick={() => handleSubscribe("whatsapp")}
                     disabled={loading}
                   >
@@ -444,7 +539,10 @@ export default function Footer() {
                   <button
                     className="sub-action-btn disabled"
                     style={{ fontSize: 12 }}
-                    onClick={() => { setPhone(""); handleSubscribe(undefined); }}
+                    onClick={() => {
+                      setPhone("");
+                      handleSubscribe(undefined);
+                    }}
                     disabled={loading}
                   >
                     Skip phone
@@ -632,7 +730,11 @@ export default function Footer() {
                 icon: "instagram.svg",
                 label: "Instagram",
               },
-              { href: "#", icon: "twitter.svg", label: "Twitter" },
+              {
+                href: "https://x.com/TulasiTwam",
+                icon: "twitter.svg",
+                label: "Twitter",
+              },
               {
                 href: "https://wa.link/y2zqo7",
                 icon: "whatsapp.svg",
@@ -665,5 +767,6 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+    </>
   );
 }
