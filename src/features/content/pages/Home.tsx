@@ -1,6 +1,13 @@
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -476,45 +483,6 @@ function SectionTitle({
         {title}
       </h2>
     </div>
-  );
-}
-
-function ShippingBar() {
-  return (
-    <section className="shipping_section s-home-bcf04f">
-      <div className="container">
-        <div className="shipping_inner">
-          {[
-            {
-              icon: "bi bi-cursor",
-              title: "Free Shipping",
-              sub: "Orders over ₹5000",
-            },
-            {
-              icon: "bi bi-arrow-repeat",
-              title: "Free Returns",
-              sub: "Within 15 days",
-            },
-            {
-              icon: "bi bi-lock",
-              title: "100% Payment Secure",
-              sub: "Payment Online",
-            },
-            { icon: "bi bi-tag", title: "Affordable Price", sub: "Guaranteed" },
-          ].map((f) => (
-            <div key={f.title} className="single_shipping">
-              <div className="shipping_icon">
-                <i className={`${f.icon} icons`} />
-              </div>
-              <div className="shipping_text">
-                <h3 className="s-home-2574d7">{f.title}</h3>
-                <p className="s-home-3ab850">{f.sub}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -1287,21 +1255,46 @@ function DesktopFeaturedSection({
     restartTimer();
   };
 
-  // ── Dynamic card sizing — hooks MUST be before any early return ──────────
-  // We measure the banner height via ResizeObserver, then use CSS transform:scale()
-  // to fit the natural-size ProductCard (260×475) into the available banner area
-  // with ~0.5 cm (~19 px) padding on top and bottom.
-  // Using transform:scale means NO content is ever cropped — the browser scales
-  // the whole card visually without altering its layout box.
+  // ── Dynamic card sizing ───────────────────────────────────────────────────
+  // The card must fill (bannerHeight - 2 × 0.5 cm padding) vertically.
+  //
+  // Problem with the old approach (useState(0) + useEffect):
+  //   bannerH starts at 0 → cardScale = 1 → card renders full-size on the
+  //   first paint. useEffect fires AFTER paint, so browsers like Edge that
+  //   paint eagerly show the oversized card for one frame (or longer).
+  //
+  // Fix:
+  //   1. Seed bannerH from window.innerWidth × (7/21) so the very first
+  //      render already produces a correct scale estimate.
+  //   2. Use useLayoutEffect to read the real DOM height and correct the
+  //      estimate BEFORE the browser paints (eliminates the flash entirely).
+  //   3. Keep ResizeObserver for viewport/window resize events.
   const NATURAL_CARD_W = 260;
   const NATURAL_CARD_H = 475;
-  const BANNER_PAD_PX = 19; // 0.5 cm at 96 dpi
+  const BANNER_PAD_PX = 19; // ≈ 0.5 cm at 96 dpi
 
   const bannerContainerRef = useRef<HTMLDivElement>(null);
-  const [bannerH, setBannerH] = useState(0);
-  useEffect(() => {
+
+  // Seed with a real estimate so render #1 is already scaled correctly.
+  // aspectRatio is 21:7 so height = width × (7/21).
+  const [bannerH, setBannerH] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth * (7 / 21);
+    }
+    return 500; // SSR fallback — close enough
+  });
+
+  // useLayoutEffect fires synchronously after DOM mutations but BEFORE paint.
+  // This guarantees the corrected scale is applied on the very first frame,
+  // in every browser (Chrome, Edge, Safari, Firefox).
+  useLayoutEffect(() => {
     const el = bannerContainerRef.current;
     if (!el) return;
+
+    // Read actual height immediately (correct for scrollbars, padding, etc.)
+    setBannerH(el.getBoundingClientRect().height);
+
+    // Keep updated on resize
     const obs = new ResizeObserver(([entry]) => {
       setBannerH(entry.contentRect.height);
     });
@@ -1309,14 +1302,9 @@ function DesktopFeaturedSection({
     return () => obs.disconnect();
   }, []);
 
-  // Scale so the card fills (bannerH - 2×pad) vertically; never exceeds 1.0
-  const cardScale =
-    bannerH > 0
-      ? Math.min(1, (bannerH - BANNER_PAD_PX * 2) / NATURAL_CARD_H)
-      : NATURAL_CARD_H > 0
-      ? 1
-      : 1;
-  // Viewport pixel dimensions = natural size × scale (no overflow, no scrollbar)
+  // Scale so the card fits (bannerH − 2×pad) vertically; cap at 1.0
+  const cardScale = Math.min(1, (bannerH - BANNER_PAD_PX * 2) / NATURAL_CARD_H);
+  // Viewport box = scaled pixel dimensions (no overflow, no scrollbar)
   const CARD_W = Math.round(NATURAL_CARD_W * cardScale);
   const CARD_H = Math.round(NATURAL_CARD_H * cardScale);
 
@@ -1388,6 +1376,7 @@ function DesktopFeaturedSection({
         transform: cardSide === "center" ? "translateX(250px)" : undefined,
       }}
       onWheel={onWheel}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Prev arrow */}
       <button
@@ -1538,7 +1527,7 @@ function DesktopFeaturedSection({
         {title}
       </h2>
 
-      {/* Image viewport — locked to 21:8 aspect ratio */}
+      {/* Image viewport — locked to 21:7 aspect ratio */}
       <div
         ref={bannerContainerRef}
         style={{
@@ -1546,8 +1535,10 @@ function DesktopFeaturedSection({
           width: "100%",
           aspectRatio: "21 / 7",
           overflow: "hidden",
+          cursor: viewAllPath ? "pointer" : undefined,
         }}
         onWheel={onWheel}
+        onClick={viewAllPath ? () => navigate(viewAllPath) : undefined}
       >
         {/* Background image fills only this middle zone */}
         <img
@@ -1565,7 +1556,9 @@ function DesktopFeaturedSection({
           }}
         />
 
-        {/* Card panel — floated left or right over the image */}
+        {/* Card panel — floated left or right over the image.
+            stopPropagation is on cardPanel itself (the arrows+card div),
+            so only those elements block the banner's navigate click. */}
         <div
           style={{
             position: "absolute",
@@ -1580,9 +1573,10 @@ function DesktopFeaturedSection({
                 ? "flex-start"
                 : "flex-end",
             padding: cardSide === "center" ? "0" : "0 60px",
+            pointerEvents: "none",
           }}
         >
-          {cardPanel}
+          <div style={{ pointerEvents: "auto" }}>{cardPanel}</div>
         </div>
       </div>
 
@@ -2546,8 +2540,6 @@ export default function Home() {
 
       <div className="section-gap" />
       <BrandsSection logos={logos} />
-      <div className="section-gap" />
-      <ShippingBar />
 
       {quickShopId > 0 && (
         <QuickShopModal

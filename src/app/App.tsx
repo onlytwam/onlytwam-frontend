@@ -255,6 +255,10 @@ import AdminStoreSettings from "@/features/admin/pages/AdminStoreSettings";
 import AdminBilling from "@/features/admin/pages/AdminBilling";
 import AdminMDM from "@/features/admin/pages/AdminMDM";
 
+const AdminSurpriseGifts = lazy(
+  () => import("@/features/admin/pages/AdminSurpriseGifts"),
+);
+
 // ── Admin pages ───────────────────────────────────────────────────────────────
 const AdminLayout = lazy(
   () => import("@/features/admin/components/AdminLayout"),
@@ -948,6 +952,7 @@ export default function App() {
               path="payment-checkout-reports"
               element={<PaymentCheckout />}
             />
+            <Route path="surprise-gifts" element={<AdminSurpriseGifts />} />
           </Route>
 
           {/* ── Fallback ─────────────────────────────────────────────────── */}

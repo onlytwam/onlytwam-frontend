@@ -2108,8 +2108,11 @@ button {
   background: none;
   border: none;
   cursor: pointer;
-  width: clamp(38px, 2.9vw, 44px);
-  height: clamp(38px, 2.9vw, 44px);
+  /* Fixed integer px — clamp() resolves to fractional values (e.g. 41.3px)
+     which shift any absolutely-positioned child to a sub-pixel coordinate.
+     40px is always a whole pixel → badge SVG origin is always integer. */
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2117,6 +2120,9 @@ button {
   font-size: 21px;
   color: #ffffff;
   transition: background 0.2s;
+  /* New stacking context — GPU composites this element as a unit,
+     snapping it to the nearest physical pixel on the screen. */
+  transform: translateZ(0);
 }
 
 .nb-icon-btn:hover {
@@ -2129,26 +2135,11 @@ button {
 
 .nb-icon-relative {
   position: relative;
+  overflow: visible;
 }
 
-.nb-badge {
-  position: absolute;
-  top: 4px;
-  right: 3px;
-  background: var(--brand);
-  color: var(--white);
-  border-radius: 50%;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 2px;
-  font-size: 8px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  border: 1.5px solid var(--white);
-}
+/* .nb-badge is now rendered as inline SVG in Navbar.tsx (SvgBadge component).
+   SVG renders at native device-pixel ratio — always crisp, never blurry. */
 
 .nb-login-btn {
   border-radius: 50% !important;
