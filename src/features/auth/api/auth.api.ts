@@ -24,6 +24,9 @@ export function encryptPassword(plain: string): string {
   return encrypted.toString();
 }
 
+
+
+
 // ── Login — accepts email OR phone number ─────────────────────────────────────
 export const loginWithPassword = async (
   identifier: string,
@@ -51,29 +54,63 @@ export const getUserInfo = async (token?: string) => {
   return response.data;
 };
 
+// export const normalizeUserInfo = (raw: any) => ({
+//   userId: raw.sub || raw.UserId || "",
+//   email: raw.email_id || raw.email || "",
+//   roleId: Number(raw.RoleId || raw.roleId || 0),
+//   firstName: raw.FirstName || raw.first_name || "",
+//   middleName: raw.MiddleName || raw.middle_name || "",
+//   lastName: raw.LastName || raw.last_name || "",
+//   name: raw.name || `${raw.FirstName || ""} ${raw.LastName || ""}`.trim(),
+//   phoneNumber: raw.PhoneNumber || raw.phone_number || "",
+//   profileImageUrl:
+//     raw.ProfileImageUrl || raw.profileImageUrl || raw.profile_image_url || "",
+//   isActive: raw.is_active !== undefined ? raw.is_active : true,
+//   isRandomPassword: (() => {
+//     const value =
+//       raw.IsRandomPassword ??
+//       raw.is_random_password ??
+//       raw.isRandomPassword ??
+//       false;
+//     if (typeof value === "boolean") return value;
+//     if (typeof value === "number") return value !== 0;
+//     if (typeof value === "string") {
+//       const normalized = value.trim().toLowerCase();
+//       return ["1", "true", "yes", "on"].includes(normalized);
+//     }
+//     return Boolean(value);
+//   })(),
+// });
+
+
+
+
+
 export const normalizeUserInfo = (raw: any) => ({
-  userId: raw.sub || raw.UserId || "",
-  email: raw.email_id || raw.email || "",
-  roleId: Number(raw.RoleId || raw.roleId || 0),
-  firstName: raw.FirstName || raw.first_name || "",
-  middleName: raw.MiddleName || raw.middle_name || "",
-  lastName: raw.LastName || raw.last_name || "",
-  name: raw.name || `${raw.FirstName || ""} ${raw.LastName || ""}`.trim(),
-  phoneNumber: raw.PhoneNumber || raw.phone_number || "",
-  profileImageUrl:
-    raw.ProfileImageUrl || raw.profileImageUrl || raw.profile_image_url || "",
-  isActive: raw.is_active !== undefined ? raw.is_active : true,
+  userId:          raw.sub || raw.UserId || "",
+  email:           raw.email_id || raw.email || "",
+  roleId:          Number(raw.RoleId || raw.roleId || 0),
+  firstName:       raw.FirstName || raw.first_name || "",
+  middleName:      raw.MiddleName || raw.middle_name || "",
+  lastName:        raw.LastName || raw.last_name || "",
+  name:            raw.name || `${raw.FirstName || ""} ${raw.LastName || ""}`.trim(),
+  phoneNumber:     raw.PhoneNumber || raw.phone_number || "",
+  profileImageUrl: raw.ProfileImageUrl || raw.profileImageUrl || raw.profile_image_url || "",
+  isActive:        raw.is_active !== undefined ? raw.is_active : true,
+  
+  // ── ADD THESE TWO ──────────────────────────────────────────────
+  storeId:       raw.storeId       ?? raw.StoreId       ?? raw.store_id       ?? null,
+  warehouseId:   raw.warehouseId   ?? raw.WarehouseId   ?? raw.warehouse_id   ?? null,
+  warehouseName: raw.warehouseName ?? raw.WarehouseName ?? raw.warehouse_name ?? "",
+  storeName:     raw.storeName     ?? raw.StoreName     ?? raw.store_name     ?? "",
+  // ───────────────────────────────────────────────────────────────
+
   isRandomPassword: (() => {
-    const value =
-      raw.IsRandomPassword ??
-      raw.is_random_password ??
-      raw.isRandomPassword ??
-      false;
+    const value = raw.IsRandomPassword ?? raw.is_random_password ?? raw.isRandomPassword ?? false;
     if (typeof value === "boolean") return value;
     if (typeof value === "number") return value !== 0;
     if (typeof value === "string") {
-      const normalized = value.trim().toLowerCase();
-      return ["1", "true", "yes", "on"].includes(normalized);
+      return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
     }
     return Boolean(value);
   })(),

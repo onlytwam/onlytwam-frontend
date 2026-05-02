@@ -249,8 +249,8 @@ import { useCartLoader } from "@/features/cart/hooks/useCart";
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 const AdminLayout = lazy(
-  () => import("@/features/admin/components/AdminLayout"),
-);
+  () => import("@/features/admin/components/AdminLayout"),);
+
 const AdminDashboard = lazy(
   () => import("@/features/admin/pages/AdminDashboard"),
 );
@@ -275,11 +275,7 @@ const AdminCoupons = lazy(() => import("@/features/admin/pages/AdminCoupons"));
 const AdminSupportRequests = lazy(
   () => import("@/features/admin/pages/AdminSupportRequests"),
 );
-const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"));
-const AdminBulkUpload = lazy(
-  () => import("@/features/admin/pages/AdminBulkUpload"),
-);
-const AdminProductBulkUpload = lazy(() => import("@/features/admin/pages/AdminProductBulkUpload"));
+const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"))
 const AdminMDM = lazy(() => import("@/features/admin/pages/AdminMDM"));
 const SalesRevenueReports = lazy(() => import("@/features/admin/pages/SalesRevenueReports"));
 const CustomerReports = lazy(() => import("@/features/admin/pages/CustomerReports"));
@@ -287,6 +283,20 @@ const OrderFulfillmentReports = lazy(() => import("@/features/admin/pages/OrderF
 const PaymentCheckout = lazy(() => import("@/features/admin/pages/PaymentCheckout"));
 const SiteAnalytics = lazy(() => import("@/features/admin/pages/SiteAnalytics"));
 const InventoryProductReports = lazy(() => import("@/features/admin/pages/StockLevelReport"));
+
+const AdminBulkUpload = lazy(async () => {
+  const mod = await import("@/features/admin/pages/AdminBulkUpload");
+  return { default: (mod as any).default ?? (mod as any).AdminBulkUpload };
+});
+const AdminProductBulkUpload = lazy(async () => {
+  const mod = await import("@/features/admin/pages/AdminProductBulkUpload");
+  return {
+    default: (mod as any).default ?? (mod as any).AdminProductBulkUpload,
+  };
+});
+const AdminSalesChannels = lazy(() =>import("@/features/admin/pages/AdminSalesChannels"));
+const AdminStoreSettings = lazy(() => import("@/features/admin/pages/AdminStoreSettings"));
+const AdminBilling = lazy(() => import("@/features/admin/pages/AdminBilling"));
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
 const NO_BREADCRUMB_ROUTES = ["/", "/home"];
@@ -918,7 +928,11 @@ export default function App() {
             <Route path="coupons" element={<AdminCoupons />} />
             <Route path="support" element={<AdminSupportRequests />} />
             <Route path="blog" element={<AdminBlog />} />
-               <Route path="mdm" element={<AdminMDM />} />
+            <Route path="mdm" element={<AdminMDM />} />
+            <Route path="mdm" element={<AdminMDM />} />
+            <Route path="store-settings" element={<AdminStoreSettings />} />
+            <Route path="billing" element={<AdminBilling />} />
+            <Route path="sales-channels" element={<AdminSalesChannels />} />
             <Route path="sales-reports" element={<SalesRevenueReports />} />
             <Route path="customer-reports" element={<CustomerReports />} />
             <Route path="order-fulfillment-reports" element={<OrderFulfillmentReports />} />
