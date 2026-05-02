@@ -3792,17 +3792,21 @@
   .mpsl-card--top {
     border-radius: 10px;
     overflow: hidden;
-    background: #fff;
+    background: transparent;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     margin-top: 0;
+    position: relative;
+    height: 260px;
   }
 
   .mpsl-card--bottom {
     border-radius: 10px;
     overflow: hidden;
-    background: #fff;
+    background: transparent;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    margin-top: 100px;
+    margin-top: 80px;
+    position: relative;
+    height: 260px;
   }
 
   .mpsl-arrow {
@@ -3948,7 +3952,7 @@
   }
   .mpsl-wrap--bestsellers .mpsl-card--top,
   .mpsl-wrap--bestsellers .mpsl-card--bottom {
-    background: #f5f0e6;
+    background: transparent;
   }
   .mpsl-wrap--bestsellers .mpsl-dots .mpsl-dot {
     background: rgba(0, 0, 0, 0.15);
@@ -3993,7 +3997,7 @@
   }
   .mpsl-wrap--new .mpsl-card--top,
   .mpsl-wrap--new .mpsl-card--bottom {
-    background: #fff;
+    background: transparent;
     box-shadow: 0 2px 12px rgba(107, 15, 42, 0.08);
   }
   .mpsl-wrap--new .mpsl-arrow {

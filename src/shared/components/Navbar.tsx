@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import UserAvatar from "@/shared/components/UserAvatar";
 import { useWishlistStore } from "@/shared/store/wishlistStore";
@@ -11,7 +11,6 @@ import toast from "react-hot-toast";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MobileNavbar from "@/shared/components/MobileNavbar";
 import MobileCategoryBar from "@/shared/components/MobileCategoryBar";
-
 
 const TEXTS = [
   "Hello, Beautiful.",
@@ -36,6 +35,90 @@ const TEXTS = [
   "Be Bold. Be Beautiful. Be TWAM.",
   "TWAM: The Real You, Unfiltered.",
 ];
+
+/**
+ * SvgBadge — pixel-perfect badge identical in quality to Bootstrap icon glyphs.
+ *
+ * Key decisions:
+ * 1. SVG not CSS — SVG renders via the vector engine (same as icon fonts).
+ *    No blur from fractional parent widths.
+ * 2. High internal resolution — viewBox is 4× the CSS pixel size.
+ *    The browser rasterises 4× worth of detail then downscales on the GPU,
+ *    giving the same crispness as a Retina/HiDPI display on any screen.
+ * 3. Integer CSS size — width/height are whole px so the SVG origin
+ *    always lands on a whole CSS pixel.
+ * 4. geometricPrecision text — uses the full sub-pixel type hinter,
+ *    same quality as browser UI chrome text.
+ */
+function SvgBadge({ count }: { count: number }) {
+  const label = count > 99 ? "99+" : String(count);
+  const isWide = label.length > 1;
+
+  // CSS display size (whole pixels → integer origin)
+  const W = isWide ? 22 : 18;
+  const H = 18;
+
+  // Internal viewBox at 4× for high-fidelity rasterisation
+  const SCALE = 4;
+  const VW = W * SCALE; // e.g. 72 or 88
+  const VH = H * SCALE; // 72
+  const RX = (H * SCALE) / 2; // fully rounded
+  const SW = 1.5 * SCALE; // stroke width in viewBox units
+  const FS = (isWide ? 9 : 10.5) * SCALE; // font size in viewBox units
+  const cx = VW / 2;
+  const cy = VH / 2;
+
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${VW} ${VH}`}
+      aria-hidden="true"
+      focusable="false"
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        /* translate(-25%, 25%) centres the badge on the icon's top-right
+           corner — standard e-commerce badge placement */
+        transform: "translate(25%, -25%)",
+        pointerEvents: "none",
+        display: "block",
+        /* Prevent the browser ever rounding down detail during compositing */
+        imageRendering: "pixelated" as any,
+      }}
+    >
+      {/* Pill / circle — geometricPrecision for smooth anti-aliased curves */}
+      <rect
+        x={SW / 2}
+        y={SW / 2}
+        width={VW - SW}
+        height={VH - SW}
+        rx={RX - SW / 2}
+        ry={RX - SW / 2}
+        fill="var(--brand)"
+        stroke="white"
+        strokeWidth={SW}
+        shapeRendering="geometricPrecision"
+      />
+      {/* Number — same rendering path as the icon font glyphs */}
+      <text
+        x={cx}
+        y={cy}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="white"
+        fontSize={FS}
+        fontWeight="900"
+        fontFamily="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+        textRendering="geometricPrecision"
+        style={{ userSelect: "none" }}
+      >
+        {label}
+      </text>
+    </svg>
+  );
+}
 
 function AssetImg({
   names,
@@ -88,6 +171,29 @@ export default function Navbar() {
     location.pathname.startsWith("/user-products/product-list");
 
   const isHomePage = location.pathname === "/" || location.pathname === "/home";
+
+  // Detect which top-level category is currently active (including subcategories)
+  const urlCategoryId = useMemo(() => {
+    const match = location.pathname.match(
+      /\/user-products\/product-list\/(\d+)/,
+    );
+    return match ? Number(match[1]) : null;
+  }, [location.pathname]);
+
+  const isCategoryActive = useCallback(
+    (cat: CategoryMenu): boolean => {
+      if (!urlCategoryId) return false;
+      if (cat.categoryId === urlCategoryId) return true;
+      const checkChildren = (children: CategoryMenu[]): boolean =>
+        children?.some(
+          (child) =>
+            child.categoryId === urlCategoryId ||
+            checkChildren(child.children ?? []),
+        ) ?? false;
+      return checkChildren(cat.children ?? []);
+    },
+    [urlCategoryId],
+  );
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -297,7 +403,9 @@ export default function Navbar() {
               {menus.map((cat) => (
                 <div key={cat.categoryId} className="nb-inline-cat__item">
                   <button
-                    className="nb-inline-cat__btn"
+                    className={`nb-inline-cat__btn${
+                      isCategoryActive(cat) ? " nb-inline-cat__btn--active" : ""
+                    }`}
                     onClick={() => reloadCategory(cat)}
                   >
                     {cat.name}
@@ -380,7 +488,7 @@ export default function Navbar() {
             >
               <i className="bi bi-heart" />
               {displayWishlistCount > 0 && (
-                <span className="nb-badge">{displayWishlistCount}</span>
+                <SvgBadge count={displayWishlistCount} />
               )}
             </button>
 
@@ -474,9 +582,7 @@ export default function Navbar() {
               aria-label="Cart"
             >
               <i className="bi bi-bag" />
-              {displayCartCount > 0 && (
-                <span className="nb-badge">{displayCartCount}</span>
-              )}
+              {displayCartCount > 0 && <SvgBadge count={displayCartCount} />}
             </button>
           </div>
         </div>
@@ -753,5 +859,3 @@ export default function Navbar() {
     </>
   );
 }
-
-

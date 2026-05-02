@@ -1,70 +1,79 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useRef, useState } from "react";
 
 // ─── API config ───────────────────────────────────────────────────────────────
-const BASE = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/BulkImport/product-bulk`;
+const BASE = `${
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"
+}/BulkImport/product-bulk`;
 
 function getToken() {
   // 1. localStorage (most common)
   return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('authToken') ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("authToken") ||
     // 2. sessionStorage fallback
-    sessionStorage.getItem('token') ||
-    sessionStorage.getItem('access_token') ||
+    sessionStorage.getItem("token") ||
+    sessionStorage.getItem("access_token") ||
     null
   );
 }
 
-async function apiFetch(path, options = {}) {
-  const token = getToken();
-
-  if (!token) {
-    throw new Error('Not authenticated — please log in again.');
-  }
-
+async function apiFetch(path: string, options: RequestInit = {}) {
   const isFormData = options.body instanceof FormData;
 
   const headers = {
     // Only set Content-Type for non-FormData (browser sets it + boundary automatically)
-    ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
-    'Authorization': `Bearer ${token}`,
+    ...(!isFormData ? { "Content-Type": "application/json" } : {}),
+    Authorization: `Bearer ${getToken()}`,
     ...(options.headers || {}),
   };
 
   let res;
   try {
     res = await fetch(`${BASE}${path}`, { ...options, headers });
-  } catch (networkErr) {
-    throw new Error(`Network error — is the server running? (${networkErr.message})`);
+  } catch (networkErr: unknown) {
+    const message =
+      networkErr instanceof Error ? networkErr.message : String(networkErr);
+    throw new Error(`Network error — is the server running? (${message})`);
   }
 
   // Handle specific HTTP error codes with clear messages
   if (!res.ok) {
     if (res.status === 401) {
       // Token expired or invalid — clear it so next request forces re-login
-      localStorage.removeItem('token');
-      localStorage.removeItem('access_token');
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('access_token');
-      throw new Error('Session expired — please log in again. (401 Unauthorized)');
+      localStorage.removeItem("token");
+      localStorage.removeItem("access_token");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("access_token");
+      throw new Error(
+        "Session expired — please log in again. (401 Unauthorized)",
+      );
     }
     if (res.status === 403) {
-      throw new Error('You do not have permission to perform this action. (403 Forbidden)');
+      throw new Error(
+        "You do not have permission to perform this action. (403 Forbidden)",
+      );
     }
     if (res.status === 404) {
       throw new Error(`Endpoint not found: ${BASE}${path} (404)`);
     }
     if (res.status === 422) {
-      let detail = 'Validation error';
+      let detail = "Validation error";
       try {
         const body = await res.json();
         if (Array.isArray(body?.detail)) {
-          detail = body.detail.map(d => `${d.loc?.join('.')}: ${d.msg}`).join('; ');
-        } else if (typeof body?.detail === 'string') {
+          detail = body.detail
+            .map(
+              (d: { loc?: string[]; msg: string }) =>
+                `${d.loc?.join(".")}: ${d.msg}`,
+            )
+            .join("; ");
+        } else if (typeof body?.detail === "string") {
           detail = body.detail;
         }
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
       throw new Error(detail);
     }
     // Generic error fallback
@@ -72,7 +81,9 @@ async function apiFetch(path, options = {}) {
     try {
       const body = await res.json();
       errMsg = body?.detail || body?.message || errMsg;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     throw new Error(errMsg);
   }
 
@@ -202,19 +213,30 @@ const S = `
   .err-banner{background:var(--err-bg);border:1px solid var(--err-bd);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--err);margin-bottom:16px;display:flex;gap:8px;align-items:flex-start;line-height:1.6;}
 `;
 
-const STEPS = ['Download Template', 'Upload File', 'Preview & Validate', 'Import'];
+const STEPS = [
+  "Download Template",
+  "Upload File",
+  "Preview & Validate",
+  "Import",
+];
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
-function StepBar({ active }) {
+function StepBar({ active }: { active: number }) {
   return (
     <div className="steps">
       {STEPS.map((label, i) => {
         const n = i + 1;
-        const isDone = n < active, isActive = n === active;
+        const isDone = n < active,
+          isActive = n === active;
         return (
-          <div key={n} className={`step${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}>
-            <div className="step-n">{isDone ? '✓' : n}</div>
+          <div
+            key={n}
+            className={`step${isActive ? " active" : ""}${
+              isDone ? " done" : ""
+            }`}
+          >
+            <div className="step-n">{isDone ? "✓" : n}</div>
             {label}
           </div>
         );
@@ -226,25 +248,51 @@ function StepBar({ active }) {
 function HowItWorks() {
   return (
     <div className="how">
-      <div className="how-title">📋 New flat-sheet format — one row per variant</div>
+      <div className="how-title">
+        📋 New flat-sheet format — one row per variant
+      </div>
       <div className="how-flow">
         {[
-          { color: '#7C3AED', bg: '#F5F2FF', bd: '#C2AFFC', label: 'Product columns', key: 'Product Code, Name, Brand ID…' },
-          { color: '#2563EB', bg: '#EFF6FF', bd: '#93C5FD', label: 'Variant columns',  key: 'Variant Code, Name, Color…' },
-          { color: '#059669', bg: '#F0FDF4', bd: '#6EE7B7', label: 'Size slots ×5',   key: 'Size ID, MRP, Final Price, Stock…' },
+          {
+            color: "#7C3AED",
+            bg: "#F5F2FF",
+            bd: "#C2AFFC",
+            label: "Product columns",
+            key: "Product Code, Name, Brand ID…",
+          },
+          {
+            color: "#2563EB",
+            bg: "#EFF6FF",
+            bd: "#93C5FD",
+            label: "Variant columns",
+            key: "Variant Code, Name, Color…",
+          },
+          {
+            color: "#059669",
+            bg: "#F0FDF4",
+            bd: "#6EE7B7",
+            label: "Size slots ×5",
+            key: "Size ID, MRP, Final Price, Stock…",
+          },
         ].map((c, i) => (
           <React.Fragment key={c.label}>
-            <div className="how-card" style={{ border: `1.5px solid ${c.bd}`, background: c.bg }}>
-              <div className="how-card-name" style={{ color: c.color }}>{c.label}</div>
+            <div
+              className="how-card"
+              style={{ border: `1.5px solid ${c.bd}`, background: c.bg }}
+            >
+              <div className="how-card-name" style={{ color: c.color }}>
+                {c.label}
+              </div>
               <div className="how-card-key">{c.key}</div>
             </div>
-            {i < 2 && <span style={{ color: '#C4B9B0', fontSize: 18 }}>→</span>}
+            {i < 2 && <span style={{ color: "#C4B9B0", fontSize: 18 }}>→</span>}
           </React.Fragment>
         ))}
       </div>
       <div className="how-warn">
-        ⚠️ Rows with validation errors are shown in preview but <strong>skipped on import</strong>.
-        Variants with no valid size slots and products with no valid variants are also excluded.
+        ⚠️ Rows with validation errors are shown in preview but{" "}
+        <strong>skipped on import</strong>. Variants with no valid size slots
+        and products with no valid variants are also excluded.
       </div>
     </div>
   );
@@ -259,17 +307,50 @@ function AuthWarning() {
       <span style={{ fontSize: 20 }}>⚠️</span>
       <div>
         <strong>No auth token found — all requests will return 401</strong>
-        Make sure you are logged in. The token is read from{' '}
-        <code>localStorage.token</code> or <code>localStorage.access_token</code>.
+        Make sure you are logged in. The token is read from{" "}
+        <code>localStorage.token</code> or{" "}
+        <code>localStorage.access_token</code>.
         <br />
-        If your app stores it elsewhere, update the <code>getToken()</code> function
-        at the top of this file.
+        If your app stores it elsewhere, update the <code>getToken()</code>{" "}
+        function at the top of this file.
       </div>
     </div>
   );
 }
 
-function PreviewTable({ rows }) {
+interface PreviewRow {
+  [key: string]: string | number | boolean | null | undefined | string[];
+  issues?: string[];
+}
+
+interface PreviewResult {
+  totalSizeRows: number;
+  validRows: number;
+  errorRows: number;
+  willImportProducts: number;
+  willImportVariants: number;
+  willImportDetails: number;
+  rows: PreviewRow[];
+  canImport: boolean;
+  columns: string[];
+}
+
+interface ImportResult {
+  insertedProducts: number;
+  insertedVariants: number;
+  insertedDetails: number;
+  skippedRows: number;
+  message: string;
+}
+
+interface LogItem {
+  status: "success" | "error" | "skipped";
+  code: string;
+  type: string;
+  message: string;
+}
+
+function PreviewTable({ rows }: { rows: PreviewRow[] }) {
   return (
     <div className="tbl-wrap">
       <table>
@@ -290,25 +371,33 @@ function PreviewTable({ rows }) {
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className={r.status === 'Error' ? 'row-err' : ''}>
-              <td className="mono">{r.row}</td>
+            <tr key={i} className={r.status === "Error" ? "row-err" : ""}>
+              <td className="mono">{r._row}</td>
               <td>
-                {r.status === 'OK'
-                  ? <span className="status-ok">✓ OK</span>
-                  : <span className="status-err">✕ Error</span>}
+                {r.status === "OK" ? (
+                  <span className="status-ok">✓ OK</span>
+                ) : (
+                  <span className="status-err">✕ Error</span>
+                )}
               </td>
-              <td className="mono">{r.productCode || '—'}</td>
-              <td>{r.productName || '—'}</td>
-              <td className="mono">{r.variantCode || '—'}</td>
-              <td>{r.color || '—'}</td>
-              <td className="mono">{r.sizeId ?? '—'}</td>
-              <td className="mono">{r.mrpPrice ?? '—'}</td>
-              <td className="mono">{r.finalPrice ?? '—'}</td>
-              <td className="mono">{r.stockQty ?? '—'}</td>
+              <td className="mono">{r.productCode || "—"}</td>
+              <td>{r.productName || "—"}</td>
+              <td className="mono">{r.variantCode || "—"}</td>
+              <td>{r.color || "—"}</td>
+              <td className="mono">{r.sizeId ?? "—"}</td>
+              <td className="mono">{r.mrpPrice ?? "—"}</td>
+              <td className="mono">{r.finalPrice ?? "—"}</td>
+              <td className="mono">{r.stockQty ?? "—"}</td>
               <td>
-                {r.issues?.length > 0
-                  ? r.issues.map((iss, j) => <div key={j} className="issue-item">• {iss}</div>)
-                  : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
+                {(r.issues?.length ?? 0) > 0 ? (
+                  r.issues!.map((iss, j) => (
+                    <div key={j} className="issue-item">
+                      • {iss}
+                    </div>
+                  ))
+                ) : (
+                  <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>
+                )}
               </td>
             </tr>
           ))}
@@ -318,126 +407,161 @@ function PreviewTable({ rows }) {
   );
 }
 
-// ─── main component ───────────────────────────────────────────────────────────
-export default function App() {
-  const fileRef = useRef(null);
-  const feedRef = useRef(null);
+// ── Component ──────────────────────────────────────────────────────────────────
+export default function AdminProductBulkUpload() {
+  type Stage =
+    | "idle"
+    | "previewing"
+    | "previewed"
+    | "importing"
+    | "done"
+    | "error";
 
-  const [stage, setStage]         = useState('idle');
-  const [isDragging, setDrag]     = useState(false);
-  const [file, setFile]           = useState(null);
-  const [preview, setPreview]     = useState(null);
-  const [result, setResult]       = useState(null);
-  const [importErr, setImportErr] = useState('');
-  const [logs, setLogs]           = useState([]);
-
-  useEffect(() => {
-    if (feedRef.current) feedRef.current.scrollTop = 0;
-  }, [logs.length]);
+  const [stage, setStage] = React.useState<Stage>("idle");
+  const [file, setFile] = React.useState<File | null>(null);
+  const [preview, setPreview] = React.useState<PreviewResult | null>(null);
+  const [result, setResult] = React.useState<ImportResult | null>(null);
+  const [logs, setLogs] = React.useState<LogItem[]>([]);
+  const [importErr, setImportErr] = React.useState("");
+  const [isDragging, setDrag] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const feedRef = React.useRef<HTMLDivElement>(null);
 
   // ── download template ──
   const downloadTemplate = async () => {
     try {
-      const res  = await apiFetch('/template', { method: 'GET' });
+      const res = await apiFetch("/template", { method: "GET" });
       const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = 'twam_product_bulk_template.xlsx';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "twam_product_bulk_template.xlsx";
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch (e) {
-      setImportErr(e.message);
-      setStage('error');
+    } catch (e: unknown) {
+      setImportErr(e instanceof Error ? e.message : String(e));
+      setStage("error");
     }
   };
 
   // ── preview ──
-  const previewFile = useCallback(async (f) => {
-    if (!f?.name.endsWith('.xlsx')) {
-      alert('Please upload a .xlsx file only.');
+  const previewFile = useCallback(async (f: File) => {
+    if (!f?.name.endsWith(".xlsx")) {
+      alert("Please upload a .xlsx file only.");
       return;
     }
     setFile(f);
-    setStage('previewing');
+    setStage("previewing");
     setPreview(null);
-    setImportErr('');
+    setImportErr("");
     try {
       const fd = new FormData();
-      fd.append('file', f);
-      const res  = await apiFetch('/preview', { method: 'POST', body: fd });
+      fd.append("file", f);
+      const res = await apiFetch("/preview", { method: "POST", body: fd });
       const data = await res.json();
       setPreview(data);
-      setStage('previewed');
-    } catch (e) {
-      setImportErr(e.message);
-      setStage('error');
+      setStage("previewed");
+    } catch (e: unknown) {
+      setImportErr(e instanceof Error ? e.message : String(e));
+      setStage("error");
     }
   }, []);
 
-  const handleInput = (e) => {
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) previewFile(f);
-    e.target.value = null;
+    e.target.value = "";
+  };
+
+  // ── reset ──
+  const reset = () => {
+    setStage("idle");
+    setFile(null);
+    setPreview(null);
+    setResult(null);
+    setLogs([]);
+    setImportErr("");
   };
 
   // ── import ──
   const runImport = async () => {
     if (!file) return;
-    setStage('importing');
+    setStage("importing");
     setLogs([]);
     setResult(null);
-    setImportErr('');
+    setImportErr("");
     try {
       const fd = new FormData();
-      fd.append('file', file);
-      const res  = await apiFetch('/import', { method: 'POST', body: fd });
+      fd.append("file", file);
+      const res = await apiFetch("/import", { method: "POST", body: fd });
       const data = await res.json();
       setResult(data);
 
       // Build synthetic feed from summary counts
-      const feed = [];
+      const feed: LogItem[] = [];
       if (data.insertedProducts > 0)
-        feed.push({ status: 'success', code: 'Products', type: 'Batch',
-                    message: `${data.insertedProducts} product(s) inserted` });
+        feed.push({
+          status: "success",
+          code: "Products",
+          type: "Batch",
+          message: `${data.insertedProducts} product(s) inserted`,
+        });
       if (data.insertedVariants > 0)
-        feed.push({ status: 'success', code: 'Variants', type: 'Batch',
-                    message: `${data.insertedVariants} variant(s) inserted` });
+        feed.push({
+          status: "success",
+          code: "Variants",
+          type: "Batch",
+          message: `${data.insertedVariants} variant(s) inserted`,
+        });
       if (data.insertedDetails > 0)
-        feed.push({ status: 'success', code: 'Details', type: 'Batch',
-                    message: `${data.insertedDetails} size detail(s) inserted` });
+        feed.push({
+          status: "success",
+          code: "Details",
+          type: "Batch",
+          message: `${data.insertedDetails} size detail(s) inserted`,
+        });
       if (data.skippedRows > 0)
-        feed.push({ status: 'skipped', code: 'Skipped', type: 'Rows',
-                    message: `${data.skippedRows} row(s) skipped due to validation errors` });
+        feed.push({
+          status: "skipped",
+          code: "Skipped",
+          type: "Rows",
+          message: `${data.skippedRows} row(s) skipped due to validation errors`,
+        });
       setLogs(feed);
-      setStage('done');
-    } catch (e) {
-      setImportErr(e.message);
-      setStage('error');
+      setStage("done");
+    } catch (e: unknown) {
+      setImportErr(e instanceof Error ? e.message : String(e));
+      setStage("error");
     }
   };
 
-  const reset = () => {
-    setStage('idle'); setFile(null); setPreview(null);
-    setResult(null); setLogs([]); setImportErr('');
-  };
-
-  const activeStep = { idle: 1, previewing: 2, previewed: 3, importing: 4, done: 4, error: 2 }[stage] || 1;
+  const activeStep =
+    (
+      {
+        idle: 1,
+        previewing: 2,
+        previewed: 3,
+        importing: 4,
+        done: 4,
+        error: 2,
+      } as Record<Stage, number>
+    )[stage] || 1;
 
   return (
     <>
       <style>{S}</style>
       <div className="wrap">
-
         {/* header */}
         <div className="hdr">
           <div className="hdr-left">
             <h1>Product Bulk Upload</h1>
             <p>Flat Excel sheet → Products · Variants · Sizes in one go</p>
           </div>
-          <button className="dl-btn" onClick={downloadTemplate}>⬇ Download Template</button>
+          <button className="dl-btn" onClick={downloadTemplate}>
+            ⬇ Download Template
+          </button>
         </div>
 
         <StepBar active={activeStep} />
@@ -448,43 +572,59 @@ export default function App() {
         <HowItWorks />
 
         {/* ── IDLE ── */}
-        {stage === 'idle' && (
+        {stage === "idle" && (
           <div className="card">
             <div className="card-ttl">Upload Excel File</div>
             <div
-              className={`drop${isDragging ? ' drag' : ''}`}
-              onDragOver={e => { e.preventDefault(); setDrag(true); }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={e => {
-                e.preventDefault(); setDrag(false);
-                if (e.dataTransfer.files[0]) previewFile(e.dataTransfer.files[0]);
+              className={`drop${isDragging ? " drag" : ""}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDrag(true);
               }}
-              onClick={() => fileRef.current.click()}
+              onDragLeave={() => setDrag(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDrag(false);
+                if (e.dataTransfer.files[0])
+                  previewFile(e.dataTransfer.files[0]);
+              }}
+              onClick={() => fileRef.current?.click()}
             >
               <span className="drop-ico">📊</span>
               <div className="drop-title">Drag & drop your .xlsx file here</div>
-              <div className="drop-sub">One flat sheet — product + variant + sizes in every row</div>
+              <div className="drop-sub">
+                One flat sheet — product + variant + sizes in every row
+              </div>
               <div className="drop-badge">.xlsx only</div>
-              <input type="file" ref={fileRef} onChange={handleInput} hidden accept=".xlsx" />
+              <input
+                type="file"
+                ref={fileRef}
+                onChange={handleInput}
+                hidden
+                accept=".xlsx"
+              />
             </div>
             <div className="tip">
-              💡 First time? Click <strong>Download Template</strong> above — includes all required columns, a sample row, and field notes.
+              💡 First time? Click <strong>Download Template</strong> above —
+              includes all required columns, a sample row, and field notes.
             </div>
           </div>
         )}
 
         {/* ── PREVIEWING ── */}
-        {stage === 'previewing' && (
+        {stage === "previewing" && (
           <div className="card">
             <div className="dots">
-              <span className="dot" /><span className="dot" /><span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
               <div style={{ marginTop: 12 }}>Parsing & validating file…</div>
             </div>
           </div>
         )}
 
         {/* ── PREVIEWED ── */}
-        {stage === 'previewed' && preview && (
+        {stage === "previewed" && preview && (
           <div className="card">
             <div className="card-ttl">Preview — {file?.name}</div>
 
@@ -504,7 +644,8 @@ export default function App() {
               <div className="pstat imp">
                 <div className="pstat-n">{preview.willImportProducts}</div>
                 <div className="pstat-l" style={{ fontSize: 10 }}>
-                  Products / {preview.willImportVariants} Variants / {preview.willImportDetails} Details
+                  Products / {preview.willImportVariants} Variants /{" "}
+                  {preview.willImportDetails} Details
                 </div>
               </div>
             </div>
@@ -513,41 +654,50 @@ export default function App() {
 
             {!preview.canImport && (
               <div className="err-banner">
-                ✕ &nbsp;No valid rows to import. Fix the errors above and re-upload.
+                ✕ &nbsp;No valid rows to import. Fix the errors above and
+                re-upload.
               </div>
             )}
 
             <div className="btn-row">
-              <button className="btn btn-ghost" onClick={reset}>← Re-upload</button>
+              <button className="btn btn-ghost" onClick={reset}>
+                ← Re-upload
+              </button>
               <button
                 className="btn btn-green"
                 onClick={runImport}
                 disabled={!preview.canImport}
               >
                 {preview.errorRows > 0
-                  ? `Import (skip ${preview.errorRows} error row${preview.errorRows > 1 ? 's' : ''}) →`
-                  : 'Start Import →'}
+                  ? `Import (skip ${preview.errorRows} error row${
+                      preview.errorRows > 1 ? "s" : ""
+                    }) →`
+                  : "Start Import →"}
               </button>
             </div>
           </div>
         )}
 
         {/* ── IMPORTING ── */}
-        {stage === 'importing' && (
+        {stage === "importing" && (
           <div className="card">
             <div className="card-ttl">
               Importing…
               <span className="badge badge-run">⏳ Running</span>
             </div>
             <div className="dots">
-              <span className="dot" /><span className="dot" /><span className="dot" />
-              <div style={{ marginTop: 12 }}>Inserting records into the database…</div>
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
+              <div style={{ marginTop: 12 }}>
+                Inserting records into the database…
+              </div>
             </div>
           </div>
         )}
 
         {/* ── DONE ── */}
-        {stage === 'done' && result && (
+        {stage === "done" && result && (
           <div className="card">
             <div className="card-ttl">
               Import Complete
@@ -556,60 +706,83 @@ export default function App() {
 
             <div className="pills">
               {result.insertedProducts > 0 && (
-                <span className="pill pill-ok">✓ {result.insertedProducts} Product{result.insertedProducts > 1 ? 's' : ''}</span>
+                <span className="pill pill-ok">
+                  ✓ {result.insertedProducts} Product
+                  {result.insertedProducts > 1 ? "s" : ""}
+                </span>
               )}
               {result.insertedVariants > 0 && (
-                <span className="pill pill-ok">✓ {result.insertedVariants} Variant{result.insertedVariants > 1 ? 's' : ''}</span>
+                <span className="pill pill-ok">
+                  ✓ {result.insertedVariants} Variant
+                  {result.insertedVariants > 1 ? "s" : ""}
+                </span>
               )}
               {result.insertedDetails > 0 && (
-                <span className="pill pill-ok">✓ {result.insertedDetails} Size Detail{result.insertedDetails > 1 ? 's' : ''}</span>
+                <span className="pill pill-ok">
+                  ✓ {result.insertedDetails} Size Detail
+                  {result.insertedDetails > 1 ? "s" : ""}
+                </span>
               )}
               {result.skippedRows > 0 && (
-                <span className="pill pill-skip">– {result.skippedRows} row{result.skippedRows > 1 ? 's' : ''} skipped</span>
+                <span className="pill pill-skip">
+                  – {result.skippedRows} row{result.skippedRows > 1 ? "s" : ""}{" "}
+                  skipped
+                </span>
               )}
             </div>
 
             <div className="feed" ref={feedRef}>
-              {logs.length === 0
-                ? <div className="feed-empty">No activity logged.</div>
-                : logs.map((log, i) => {
-                    const map = { success: ['log-ok', '✓'], error: ['log-err', '✕'], skipped: ['log-skip', '–'] };
-                    const [cls, ico] = map[log.status] || ['log-skip', '–'];
-                    return (
-                      <div key={i} className={`log-row ${cls}`}>
-                        <span className="log-ico">{ico}</span>
-                        <div style={{ flex: 1 }}>
-                          <span className="log-code">{log.code}</span>
-                          <span className="log-tag">{log.type}</span>
-                          <div className="log-msg">{log.message}</div>
-                        </div>
+              {logs.length === 0 ? (
+                <div className="feed-empty">No activity logged.</div>
+              ) : (
+                logs.map((log, i) => {
+                  const map = {
+                    success: ["log-ok", "✓"],
+                    error: ["log-err", "✕"],
+                    skipped: ["log-skip", "–"],
+                  };
+                  const [cls, ico] = map[log.status] || ["log-skip", "–"];
+                  return (
+                    <div key={i} className={`log-row ${cls}`}>
+                      <span className="log-ico">{ico}</span>
+                      <div style={{ flex: 1 }}>
+                        <span className="log-code">{log.code}</span>
+                        <span className="log-tag">{log.type}</span>
+                        <div className="log-msg">{log.message}</div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             <div className="btn-row">
-              <button className="btn btn-ghost" onClick={reset}>Upload Another File</button>
+              <button className="btn btn-ghost" onClick={reset}>
+                Upload Another File
+              </button>
             </div>
           </div>
         )}
 
         {/* ── ERROR ── */}
-        {stage === 'error' && (
+        {stage === "error" && (
           <div className="card">
             <div className="err-banner">
               <span style={{ fontSize: 16 }}>✕</span>
               <div>
-                <strong style={{ display: 'block', marginBottom: 4 }}>Request failed</strong>
+                <strong style={{ display: "block", marginBottom: 4 }}>
+                  Request failed
+                </strong>
                 {importErr}
               </div>
             </div>
             <div className="btn-row">
-              <button className="btn btn-ghost" onClick={reset}>← Try Again</button>
+              <button className="btn btn-ghost" onClick={reset}>
+                ← Try Again
+              </button>
             </div>
           </div>
         )}
-
       </div>
     </>
   );

@@ -211,7 +211,9 @@ function buildAddressLine(data: any): string {
     return cleanedLine;
   }
 
-  return normalizeAddressLine([houseNo, cleanedLine].filter(Boolean).join(", "));
+  return normalizeAddressLine(
+    [houseNo, cleanedLine].filter(Boolean).join(", "),
+  );
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────
@@ -274,5 +276,51 @@ export const updateOrderStatusAdmin = async (payload: {
   remarks?: string;
 }) => {
   const response = await api.post("/Ekart/UpdateStatus", payload);
+  return response.data;
+};
+
+// ── Coupon Utilities ──────────────────────────────────────────────────────────
+
+/**
+ * Validate a physical (store-issued) coupon code.
+ * Returns { valid, discount, description, message } or throws on already-used.
+ */
+export const validatePhysicalCoupon = async (params: {
+  couponCode: string;
+  userProfileId?: string;
+}) => {
+  const response = await api.post("/Coupons/Physical/Validate", params);
+  return response.data as {
+    valid: boolean;
+    couponCode: string;
+    discount: number | null;
+    description: string | null;
+    message: string;
+  };
+};
+
+/**
+ * Mark a digital coupon as used after a successful order.
+ * Call this immediately after createOrder succeeds.
+ */
+export const markDigitalCouponUsed = async (params: {
+  couponId: number;
+  userProfileId: string;
+  orderId?: number;
+}) => {
+  const response = await api.post("/Coupons/MarkUsed", params);
+  return response.data;
+};
+
+/**
+ * Mark a physical coupon as used after a successful order.
+ * Call this immediately after createOrder succeeds.
+ */
+export const markPhysicalCouponUsed = async (params: {
+  couponCode: string;
+  userProfileId: string;
+  orderId?: number;
+}) => {
+  const response = await api.post("/Coupons/Physical/MarkUsed", params);
   return response.data;
 };

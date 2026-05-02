@@ -83,28 +83,7 @@ const reports = [
       </svg>
     ),
   },
-  {
-    name: "Marketing & Campaign Reports",
-    desc: "Measure campaign ROI, reach, and conversion funnels.",
-    route: "/admin/marketing-campaign-reports",
-    icon: "📣",
-    badge: "Growth",
-    badgeBg: "#EEEDFE", badgeColor: "#534AB7",
-    bg: "#F2F1FF",
-    svg: (
-      <svg width="120" height="90" viewBox="0 0 120 90" fill="none">
-        <circle cx="60" cy="45" r="32" fill="#CECBF6" opacity="0.5" />
-        <circle cx="60" cy="45" r="22" fill="#AFA9EC" opacity="0.6" />
-        <circle cx="60" cy="45" r="13" fill="#7F77DD" />
-        <path d="M60 13 L60 45" stroke="#534AB7" strokeWidth="2" />
-        <path d="M60 45 L87 28" stroke="#534AB7" strokeWidth="2" />
-        <path d="M60 45 L85 63" stroke="#534AB7" strokeWidth="2" />
-        <circle cx="60" cy="13" r="4" fill="#3C3489" />
-        <circle cx="87" cy="28" r="4" fill="#3C3489" />
-        <circle cx="85" cy="63" r="4" fill="#3C3489" />
-      </svg>
-    ),
-  },
+ 
   {
     name: "Inventory & Product Reports",
     desc: "Track stock levels, product performance, and reorder alerts.",
@@ -128,6 +107,7 @@ const reports = [
     name: "Site Analytics & User Behavior",
     desc: "Understand traffic sources, bounce rates, and user journeys.",
     icon: "🔍",
+    route: "/admin/site-analytics",
     badge: "Analytics",
     badgeBg: "#E6F1FB", badgeColor: "#185FA5",
     bg: "#EDF5FF",
@@ -157,6 +137,28 @@ const reports = [
         <rect x="58" y="64" width="4" height="16" rx="2" fill="#5F5E5A" />
         <rect x="10" y="43" width="16" height="4" rx="2" fill="#5F5E5A" />
         <rect x="94" y="43" width="16" height="4" rx="2" fill="#5F5E5A" />
+      </svg>
+    ),
+  },
+   {
+    name: "Marketing & Campaign Reports",
+    desc: "Measure campaign ROI, reach, and conversion funnels.",
+    route: "/admin/marketing-campaign-reports",
+    icon: "📣",
+    badge: "Growth",
+    badgeBg: "#EEEDFE", badgeColor: "#534AB7",
+    bg: "#F2F1FF",
+    svg: (
+      <svg width="120" height="90" viewBox="0 0 120 90" fill="none">
+        <circle cx="60" cy="45" r="32" fill="#CECBF6" opacity="0.5" />
+        <circle cx="60" cy="45" r="22" fill="#AFA9EC" opacity="0.6" />
+        <circle cx="60" cy="45" r="13" fill="#7F77DD" />
+        <path d="M60 13 L60 45" stroke="#534AB7" strokeWidth="2" />
+        <path d="M60 45 L87 28" stroke="#534AB7" strokeWidth="2" />
+        <path d="M60 45 L85 63" stroke="#534AB7" strokeWidth="2" />
+        <circle cx="60" cy="13" r="4" fill="#3C3489" />
+        <circle cx="87" cy="28" r="4" fill="#3C3489" />
+        <circle cx="85" cy="63" r="4" fill="#3C3489" />
       </svg>
     ),
   },

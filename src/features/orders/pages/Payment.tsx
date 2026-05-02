@@ -210,7 +210,9 @@ export default function Payment() {
   const buyNowSession = isBuyNow ? getBuyNowSession() : null;
   const buyNowItems = buyNowSession?.items?.length ? buyNowSession.items : [];
   const checkoutSession = isBuyNow ? buyNowSession : readCheckoutSession();
-  const checkoutPaymentPath = `/user-products/payment${isBuyNow ? "?buyNow=1" : ""}`;
+  const checkoutPaymentPath = `/user-products/payment${
+    isBuyNow ? "?buyNow=1" : ""
+  }`;
 
   // Ref to hold the polling interval so we can clear it from anywhere
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -333,7 +335,10 @@ export default function Payment() {
   }, [dismissDesktopWhatsappPrompt]);
 
   const armCloseFallback = useCallback(
-    (onExpire: () => void | Promise<void>, message = "Payment window closed. Waiting for confirmation...") => {
+    (
+      onExpire: () => void | Promise<void>,
+      message = "Payment window closed. Waiting for confirmation...",
+    ) => {
       if (paymentResolvedRef.current || closeFallbackRef.current) return;
 
       toast(message, { duration: 4000 });
@@ -416,13 +421,13 @@ export default function Payment() {
   const selectedItems = buyNowItems.length
     ? buyNowItems
     : cartSelectedItems.length
-      ? cartSelectedItems
-      : sessionSelectedItems;
+    ? cartSelectedItems
+    : sessionSelectedItems;
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
   const shippingCost = Number(
-    (selectedShipping as any)?.cost ?? 
+    (selectedShipping as any)?.cost ??
       checkoutSession?.shipping?.cost ??
-      (selectedShipping as any)?.deliveryCharges ?? 
+      (selectedShipping as any)?.deliveryCharges ??
       checkoutSession?.shipping?.deliveryCharges ??
       0,
   );
@@ -450,7 +455,9 @@ export default function Payment() {
           getRememberedAddressState(
             deliveryAddress.addressId,
             deliveryAddress.pinCode,
-          )?.stateId ?? deliveryAddress.stateId ?? null,
+          )?.stateId ??
+          deliveryAddress.stateId ??
+          null,
       }
     : null;
 
@@ -762,6 +769,8 @@ export default function Payment() {
       // Internal-only metadata for fulfillment and ekart handling.
       surpriseGiftInternalId: surpriseGift?.internalGiftId ?? null,
       surpriseGiftThreshold: surpriseGift?.threshold ?? null,
+      // Pass the numeric rule ID so backend can link the OrderSurpriseGift record
+      surpriseGiftRuleId: surpriseGift?.giftRuleId ?? null,
       orderItems: selectedItems.map((i: any) => ({
         productId: i.productId,
         // FIX: include productVariantId so OrderItems.ProductVariantId is stored in DB.

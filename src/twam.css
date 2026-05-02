@@ -222,7 +222,7 @@ button {
 /* --- Shipping Bar ------------------------------------------------------------ */
 .shipping_section {
   padding: 20px 0 20px;
-  background: var(--ivory);
+  background: #ffffff;
 }
 
 .shipping_inner {
@@ -243,11 +243,12 @@ button {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--white);
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-color);
+  border: 1.5px solid var(--brand);
+  flex-shrink: 0;
 }
 
 .shipping_icon .icons {
@@ -671,7 +672,7 @@ button {
 /* --- Testimonials ------------------------------------------------------------ */
 .testimonial-section {
   padding: 0;
-  background: var(--ivory);
+  background: #fff;
 }
 
 .testimonial-card {
@@ -726,8 +727,8 @@ button {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: var(--ivory);
-  border: 2px solid var(--border-color);
+  background: #fff;
+  border: 2px solid var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1267,7 +1268,7 @@ button {
 
 /* --- Footer ------------------------------------------------------------------ */
 .footer {
-  background: var(--ivory);
+  background: #fff;
 }
 
 .footer-links {
@@ -1351,10 +1352,10 @@ button {
 }
 
 .subscribe-section {
-  background: var(--brand-soft);
-  border: 1px solid var(--border-color);
+  background: #fff;
+  border: 1px solid var(--brand);
   border-radius: var(--radius);
-  box-shadow: 0 6px 28px rgba(107, 15, 42, 0.12);
+  box-shadow: none;
   padding: 30px 22px 30px;
   margin-bottom: 28px;
   position: relative;
@@ -1362,13 +1363,13 @@ button {
 }
 
 .footer {
-  background: var(--ivory-dark);
-  border-top: 1px solid var(--border-color);
+  background: #fff;
+  border-top: 1px solid var(--brand);
   padding-top: 14px;
 }
 
 .footer-bottom {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--brand);
   padding: 20px 0;
 }
 
@@ -1685,8 +1686,8 @@ button {
 
 /* --- Subscribe Section ----------------------------------------------------- */
 .subscribe-section {
-  background: var(--ivory);
-  border: 1px solid var(--border-color);
+  background: #fff;
+  border: 1px solid var(--brand);
   padding: 40px 16px 32px;
   margin-bottom: 32px;
 }
@@ -1722,8 +1723,8 @@ button {
 
 /* --- Footer ----------------------------------------------------------------- */
 .footer {
-  background: var(--brand-soft);
-  border-top: 1px solid var(--border-color);
+  background: #fff;
+  border-top: 1px solid var(--brand);
   margin-top: 30px;
 }
 
@@ -1854,13 +1855,13 @@ button {
   background: #6b0f2a;
 }
 .nb-header--scrolled {
-  box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
 }
 .nb-header--home.nb-header--scrolled {
-  background: rgba(107,15,42,0.96);
+  background: rgba(107, 15, 42, 0.96);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 2px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
 }
 
 /* -- Row Layout - 3-Column Flexbox -------------------------- */
@@ -1934,7 +1935,6 @@ button {
   display: block;
 }
 
-
 .nb-brand-text {
   font-family: "Trebuchet MS", Georgia, serif;
   font-size: 32px;
@@ -1975,7 +1975,7 @@ button {
   min-width: 0;
   max-width: clamp(220px, 24vw, 344px);
   width: clamp(220px, 24vw, 344px);
-  margin-left: auto;  /* pushes search + icons to the right */
+  margin-left: auto; /* pushes search + icons to the right */
   margin-right: 10px;
 }
 .nb-search-always {
@@ -2108,8 +2108,11 @@ button {
   background: none;
   border: none;
   cursor: pointer;
-  width: clamp(38px, 2.9vw, 44px);
-  height: clamp(38px, 2.9vw, 44px);
+  /* Fixed integer px — clamp() resolves to fractional values (e.g. 41.3px)
+     which shift any absolutely-positioned child to a sub-pixel coordinate.
+     40px is always a whole pixel → badge SVG origin is always integer. */
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2117,6 +2120,9 @@ button {
   font-size: 21px;
   color: #ffffff;
   transition: background 0.2s;
+  /* New stacking context — GPU composites this element as a unit,
+     snapping it to the nearest physical pixel on the screen. */
+  transform: translateZ(0);
 }
 
 .nb-icon-btn:hover {
@@ -2129,26 +2135,11 @@ button {
 
 .nb-icon-relative {
   position: relative;
+  overflow: visible;
 }
 
-.nb-badge {
-  position: absolute;
-  top: 4px;
-  right: 3px;
-  background: var(--brand);
-  color: var(--white);
-  border-radius: 50%;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 2px;
-  font-size: 8px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  border: 1.5px solid var(--white);
-}
+/* .nb-badge is now rendered as inline SVG in Navbar.tsx (SvgBadge component).
+   SVG renders at native device-pixel ratio — always crisp, never blurry. */
 
 .nb-login-btn {
   border-radius: 50% !important;
@@ -2205,7 +2196,7 @@ button {
 }
 
 .nb-user-btn:hover {
-  background: rgba(255,255,255,0.15) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
   border: none !important;
   box-shadow: none !important;
   transform: none;
@@ -2801,18 +2792,17 @@ button {
 
 /* -- MAIN FOOTER BACKGROUND -- */
 .footer {
-  /* HARD FORCING WARM IVORY: This overrides any global body colors */
-  background-color: var(--ivory) !important;
-  border-top: 1px solid var(--border);
+  /* White background with burgundy outline */
+  background-color: #ffffff !important;
+  border: 1.5px solid var(--brand);
   margin-top: 40px;
   font-family: var(--font-body);
   color: var(--black);
 
-  /* 3D Box Effect styling */
+  /* Rounded card shape */
   margin: 40px 24px 24px;
   border-radius: 20px;
-  box-shadow: 0 24px 50px rgba(107, 15, 42, 0.08),
-    0 6px 16px rgba(107, 15, 42, 0.04);
+  box-shadow: 0 4px 24px rgba(107, 15, 42, 0.06);
   overflow: hidden;
 }
 
@@ -2830,9 +2820,8 @@ button {
 
 /* -- SUBSCRIBE SECTION -- */
 .subscribe-section {
-  /* HARD FORCING PURE WHITE */
   background-color: #ffffff !important;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--brand);
   padding: 32px 24px;
   margin-bottom: 40px;
   border-radius: 12px;
@@ -2868,6 +2857,7 @@ button {
 
 .subscribe-form-col {
   flex: 1 1 300px;
+  min-width: 0;
 }
 
 .subscribe-label {
@@ -2883,20 +2873,30 @@ button {
 .subscribe-input-group {
   display: flex;
   gap: 0;
+  min-width: 0;
+  width: 100%;
 }
 
 .subscribe-input {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 10px 14px;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--brand);
   border-radius: 6px 0 0 6px;
   font-size: 13px;
   outline: none;
   border-right: none;
   font-family: var(--font-body);
-  background-color: var(--ivory) !important;
+  background-color: #ffffff !important;
   color: var(--black);
   transition: border-color 0.15s;
+}
+
+/* Phone input sits beside email with a gap — give it its own full border */
+.subscribe-input + .subscribe-input {
+  border-radius: 6px;
+  border-right: 1.5px solid var(--brand);
+  flex: 0 0 auto;
 }
 
 .subscribe-input:focus {
@@ -3123,10 +3123,9 @@ button {
 
 /* -- FOOTER BOTTOM BAR -- */
 .footer-bottom {
-  border-top: 1px solid var(--border);
+  border-top: 1.5px solid var(--brand);
   padding: 16px 0;
-  background-color: var(--ivory) !important;
-  /* HARD FORCING WARM IVORY */
+  background-color: #ffffff !important;
 }
 
 .footer-bottom-inner {
@@ -3812,13 +3811,11 @@ button {
   flex-direction: column;
   font-family: var(--font-body);
   background: transparent;
-  border: 1.5px solid rgba(158, 96, 112, 0.35);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.1),
-    0 1px 3px rgba(107, 15, 42, 0.08);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.4s ease, border-color 0.4s ease;
+  border: none;
+  box-shadow: none;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-style: preserve-3d;
-  will-change: transform, opacity, box-shadow, filter;
+  will-change: transform, opacity;
   overflow: visible;
 }
 
@@ -3857,17 +3854,14 @@ button {
 }
 
 .pc-card:hover:not(.pc-card--tear-away) {
-  transform: translateY(-8px) scale(1.02);
-  border-color: rgba(107, 15, 42, 0.55);
-  box-shadow: 0 32px 64px rgba(107, 15, 42, 0.22),
-    0 14px 28px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(107, 15, 42, 0.1);
+  transform: none;
 }
 
 .pc-card-solid-bg {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: #ffffff;
+  background: transparent;
   border-radius: 12px;
 }
 
@@ -3886,7 +3880,8 @@ button {
   width: 100%;
   height: 100%;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
+  background: transparent;
 }
 
 .pc-card--tear-away {
@@ -3923,6 +3918,14 @@ button {
   flex-shrink: 0;
   padding: 0;
   border-radius: 12px 12px 0 0;
+  border: 1px solid rgba(107, 15, 42, 0.22);
+  box-shadow: none;
+  outline: none;
+  transition: border-color 0.25s ease;
+}
+
+.pc-card:hover:not(.pc-card--tear-away) .pc-image-wrap {
+  border-color: rgba(107, 15, 42, 0.42);
 }
 
 .pc-discount-corner {
@@ -4827,6 +4830,7 @@ button {
   flex-direction: column;
   gap: 7px;
   flex: 1;
+  background: transparent;
 }
 
 /* -- Row 1: swatches left | brand right ----------------------------------- */
@@ -4889,9 +4893,8 @@ button {
 }
 
 .pc-swatch-dot.selected {
-  border-color: var(--brand);
-  transform: scale(1.25);
-  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--brand);
+  border: 2px solid var(--brand);
+  transform: scale(1.15);
 }
 
 /* The clean, minimal right arrow */
@@ -4959,18 +4962,6 @@ button {
   -webkit-box-orient: vertical;
   overflow: hidden;
   width: fit-content;
-
-  /* THE EFFECT: Prepares an invisible underline */
-  background-image: linear-gradient(var(--brand), var(--brand));
-  background-size: 0% 1.5px;
-  /* 0% width initially */
-  background-repeat: no-repeat;
-  background-position: left bottom;
-  transition: background-size 0.3s ease;
-}
-
-.pc-card:hover:not(.pc-card--tear-away) .pc-name {
-  background-size: 100% 1.5px;
 }
 
 .pc-prices,
@@ -4993,6 +4984,16 @@ button {
   line-height: 1.2;
   font-family: var(--font-body);
   opacity: 0.5;
+}
+
+@media (min-width: 769px) {
+  .pc-mrp,
+  .pc-old-price {
+    color: #000;
+    -webkit-text-stroke: 0.7px rgba(0, 0, 0, 0.4);
+    text-decoration-color: #fff;
+    opacity: 0.85;
+  }
 }
 
 .pc-price {
@@ -9569,28 +9570,153 @@ button {
   margin-top: 24px;
 }
 
-.s-helpcenter-796419 {
-  background: var(--ivory);
-  padding: 48px 16px;
+/* ── HELP CENTER PAGE ─────────────────────────────────────────── */
+.hc-page {
+  background: #ffffff;
+  min-height: 60vh;
+}
+
+/* Hero banner */
+.hc-hero {
+  background: #ffffff;
+  padding: 56px 16px 40px;
   text-align: center;
-  border-bottom: 1px solid #f5f0e6;
+  border-bottom: 1px solid #f0e8ee;
 }
 
-.s-helpcenter-8a6bd7 {
+.hc-hero-title {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
   font-weight: 800;
+  color: var(--black);
+  margin: 0;
 }
 
-.s-helpcenter-91a8f5 {
-  padding: 48px 16px;
-  max-width: 800px;
-  color: var(--heirloom);
-  line-height: 1.9;
+/* Content wrapper */
+.hc-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px 24px 72px;
+  background: #ffffff;
 }
 
-.s-helpcenter-0c50be {
+/* "Frequently Asked Questions" heading — burgundy */
+.hc-faq-heading {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
   font-weight: 700;
-  margin-top: 0px;
+  color: var(--brand);          /* burgundy */
+  text-align: center;
+  margin: 0 0 40px;
 }
+
+/* FAQ list */
+.hc-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Individual item */
+.hc-faq-item {
+  background: #f8f5f7;
+  border: 1px solid #ede4e9;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.hc-faq-item:hover {
+  box-shadow: 0 4px 16px rgba(107, 15, 42, 0.08);
+}
+
+/* Trigger button */
+.hc-faq-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+}
+
+.hc-faq-question {
+  font-family: var(--font-body);
+  font-size: 0.97rem;
+  font-weight: 500;
+  color: #2a2a2a;
+  line-height: 1.4;
+}
+
+/* Arrow chevron */
+.hc-faq-arrow {
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--brand);
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+  display: inline-block;
+}
+
+.hc-faq-arrow.open {
+  transform: rotate(90deg);
+}
+
+/* Answer panel */
+.hc-faq-answer {
+  padding: 0 20px 18px;
+  animation: hcFadeIn 0.2s ease;
+}
+
+.hc-faq-answer p {
+  margin: 0;
+  font-size: 0.93rem;
+  color: #555;
+  line-height: 1.7;
+}
+
+@keyframes hcFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Contact CTA */
+.hc-contact-cta {
+  margin-top: 48px;
+  text-align: center;
+  padding: 28px 24px;
+  background: #fdf8fa;
+  border: 1px solid #ede4e9;
+  border-radius: 12px;
+}
+
+.hc-contact-text {
+  margin: 0;
+  font-size: 0.97rem;
+  color: #444;
+}
+
+.hc-contact-link {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hc-contact-link:hover {
+  opacity: 0.8;
+}
+/* ── END HELP CENTER PAGE ─────────────────────────────────────── */
+
+/* keep old selectors as no-ops so nothing breaks if referenced */
+.s-helpcenter-796419 {}
+.s-helpcenter-8a6bd7 {}
+.s-helpcenter-91a8f5 {}
+.s-helpcenter-0c50be {}
 
 .s-home-1e81b6 {
   position: relative;
@@ -15025,10 +15151,7 @@ button {
 }
 
 .s-home-eb8359 {
-  text-align: center;
-  color: var(--brand);
-  padding: 20px 0;
-  font-family: var(--font-heading);
+  display: none;
 }
 
 .s-home-54af6d {
@@ -15179,28 +15302,15 @@ button {
 
 .s-home-be6933 {
   margin: 0px;
-  background: `linear-gradient(
-      135deg,
-      var(--ivory) 0%,
-      rgba(245, 240, 230, 0.5) 100%
-    )
-    `;
-  padding: 30px 0;
+  background: #ffffff;
+  padding: 10px 0 30px;
   overflow: hidden;
   position: relative;
   transform-style: preserve-3d;
 }
 
 .s-home-b9d256 {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: radial-gradient(
-    circle at 20% 50%,
-    rgba(107, 15, 42, 0.05) 0%,
-    transparent 50%
-  );
-  pointer-events: none;
+  display: none;
 }
 
 .s-home-68cb82 {
@@ -15349,6 +15459,15 @@ button {
 
 .home-product-section {
   position: relative;
+}
+
+/* Collapse section when it has no visible children (only hidden no-products text) */
+.home-product-section:not(:has(.s-home-1e81b6)) {
+  padding: 0 !important;
+}
+
+.best-sellers:not(:has(.s-home-1e81b6)) {
+  padding: 0 !important;
 }
 
 .home-product-section--ivory {
@@ -17101,14 +17220,14 @@ button {
 }
 
 .product-toolbar {
-  border-bottom: 1px solid rgba(107,15,42,0.1);
+  border-bottom: 1px solid rgba(107, 15, 42, 0.1);
   background: #fff;
   position: sticky;
   top: 64px;
   z-index: 100;
   padding: 5px 0;
   transition: padding 0.2s, box-shadow 0.2s;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
 .product-toolbar__inner {
@@ -18708,8 +18827,8 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   z-index: 900;
   background: #fff;
   padding: 5px 28px;
-  border-bottom: 1px solid rgba(107,15,42,0.1);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(107, 15, 42, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .bc-shell {
@@ -21094,7 +21213,11 @@ body:has(.checkout-shell--payment) .payment-wa-toast {
   gap: 0;
   border: 1px solid rgba(107, 15, 42, 0.12);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, #ffffff 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 253, 248, 0.98) 0%,
+    #ffffff 100%
+  );
   box-shadow: 0 24px 60px rgba(107, 15, 42, 0.16);
   padding: 18px;
   color: #171415;
@@ -21174,11 +21297,8 @@ body:has(.checkout-shell--payment) .payment-wa-toast__button {
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease,
-    opacity 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+    border-color 0.15s ease, opacity 0.15s ease;
 }
 
 body:has(.checkout-shell--payment) .payment-wa-toast__button:active {
@@ -22110,7 +22230,9 @@ body.home-scrolling .pc-name {
 
 /* ── Logo — absolute centred ────────────────────────────────── */
 
-.nb-brand-text { display: none; }
+.nb-brand-text {
+  display: none;
+}
 
 /* ── Desktop Category Bar ────────────────────────────────────── */
 .nb-catbar {
@@ -22128,14 +22250,14 @@ body.home-scrolling .pc-name {
   padding: 0 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;  /* spread items across full width */
+  justify-content: space-between; /* spread items across full width */
   height: 42px;
   overflow: visible;
 }
 
 .nb-catbar__item {
   position: relative;
-  flex: 1;                          /* each item takes equal share of full width */
+  flex: 1; /* each item takes equal share of full width */
   display: flex;
   justify-content: center;
 }
@@ -22237,12 +22359,20 @@ body.home-scrolling .pc-name {
   align-items: center;
   gap: 4px;
 }
-.nb-inline-cat__btn:hover { border-bottom-color: rgba(255,255,255,0.7); }
+.nb-inline-cat__btn:hover {
+  border-bottom-color: rgba(255, 255, 255, 0.7);
+}
+.nb-inline-cat__btn--active {
+  border-bottom-color: #fff !important;
+}
 .nb-inline-cat__arrow {
-  font-size: 9px; opacity: 0.8;
+  font-size: 9px;
+  opacity: 0.8;
   transition: transform 0.2s;
 }
-.nb-inline-cat__item:hover .nb-inline-cat__arrow { transform: rotate(180deg); }
+.nb-inline-cat__item:hover .nb-inline-cat__arrow {
+  transform: rotate(180deg);
+}
 .nb-inline-cat__drop {
   display: none;
   position: absolute;
@@ -22250,14 +22380,16 @@ body.home-scrolling .pc-name {
   left: 0;
   right: 0;
   background: #fff;
-  border: 1px solid rgba(107,15,42,0.1);
+  border: 1px solid rgba(107, 15, 42, 0.1);
   border-radius: 0 0 16px 16px;
-  box-shadow: 0 14px 36px rgba(0,0,0,0.14);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
   width: 100%;
   padding: 24px 36px 28px;
   z-index: 500;
 }
-.nb-inline-cat__item:hover .nb-inline-cat__drop { display: block; }
+.nb-inline-cat__item:hover .nb-inline-cat__drop {
+  display: block;
+}
 .nb-inline-cat__drop-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -22266,20 +22398,32 @@ body.home-scrolling .pc-name {
   width: 100%;
 }
 .nb-inline-cat__sub {
-  background: none; border: none;
+  background: none;
+  border: none;
   padding: 12px 14px;
   font-family: "Trebuchet MS", Arial, sans-serif;
-  font-size: 14px; color: #333;
+  font-size: 14px;
+  color: #333;
   line-height: 1.45;
-  cursor: pointer; text-align: left;
-  width: 100%; border-radius: 8px;
-  display: flex; align-items: center; gap: 6px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   transition: background 0.15s, color 0.15s;
 }
-.nb-inline-cat__sub:hover { background: rgba(107,15,42,0.07); color: #6b0f2a; }
+.nb-inline-cat__sub:hover {
+  background: rgba(107, 15, 42, 0.07);
+  color: #6b0f2a;
+}
 .nb-inline-cat__sub-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: #6b0f2a; flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6b0f2a;
+  flex-shrink: 0;
 }
 
 @media (max-width: 1440px) {
@@ -22312,7 +22456,9 @@ body.home-scrolling .pc-name {
 }
 
 /* Remove old catbar if still present */
-.nb-catbar { display: none !important; }
+.nb-catbar {
+  display: none !important;
+}
 
 /* ── Fullscreen hero (video / image) ────────────────────────── */
 .twam-hero {
@@ -22343,23 +22489,36 @@ body.home-scrolling .pc-name {
 .twam-hero::before {
   content: "";
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 180px;
-  background: linear-gradient(to bottom,
-    rgba(0,0,0,0.45) 0%,
-    rgba(0,0,0,0) 100%);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
   z-index: 1;
   pointer-events: none;
 }
 
-/* Home page: remove top padding so video fills from very top */
-.s-home-bcf04f {
+/* Home page: remove top padding so video fills from very top — target only the page wrapper div, not the shipping section */
+div.s-home-bcf04f {
   padding-top: 0 !important;
   margin-top: -64px !important;
   overflow-x: hidden;
 }
 
-.nb-search-input::placeholder { color: #aaa; font-size: 13px; }
+/* Shipping section: ensure it never inherits the negative margin */
+section.s-home-bcf04f {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.nb-search-input::placeholder {
+  color: #aaa;
+  font-size: 13px;
+}
 .nb-search-always .nb-inline-search {
   border-radius: 30px;
   background: #ffffff !important;
@@ -22367,7 +22526,7 @@ body.home-scrolling .pc-name {
   pointer-events: all !important;
   transform: scaleX(1) !important;
   border: none !important;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Home page — all header icons white */
@@ -22375,9 +22534,8 @@ body.home-scrolling .pc-name {
   color: #ffffff !important;
 }
 .nb-header--home .nb-icon-btn:hover {
-  background: rgba(255,255,255,0.15) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
 }
-
 
 .nb-user-btn .s-useravatar-615f53,
 .nb-user-btn .nb-avatar,
@@ -22419,18 +22577,36 @@ body.home-scrolling .pc-name {
 }
 
 /* Compact filter toolbar */
-.product-toolbar__inner { gap: 8px !important; }
-.product-toolbar__filter-button { padding: 5px 12px !important; font-size: 12px !important; }
-.product-toolbar__sort-label { font-size: 12px !important; }
-.product-toolbar__count-number { font-size: 12px !important; }
-.product-toolbar__count-label { font-size: 11px !important; }
-.product-toolbar__sort-control { font-size: 12px !important; }
+.product-toolbar__inner {
+  gap: 8px !important;
+}
+.product-toolbar__filter-button {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+}
+.product-toolbar__sort-label {
+  font-size: 12px !important;
+}
+.product-toolbar__count-number {
+  font-size: 12px !important;
+}
+.product-toolbar__count-label {
+  font-size: 11px !important;
+}
+.product-toolbar__sort-control {
+  font-size: 12px !important;
+}
 
 .nb-user-btn .s-useravatar-initial,
 .nb-initial-letter {
   animation: nb-blink 1.4s ease-in-out infinite;
 }
 @keyframes nb-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
