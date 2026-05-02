@@ -177,7 +177,7 @@ export default function ProductCard({
         await navigator.clipboard.writeText(url);
         toast.success("Link copied!");
       }
-    } catch {}
+    } catch { }
   };
 
   const goToDetail = () =>
@@ -191,8 +191,44 @@ export default function ProductCard({
   const oldPrice = selectedVariant.oldPrice ?? selectedVariant.mrpPrice ?? 0;
 
   // ── Image resolution — covers all known API shapes ─────────────────────────
+  // const resolveImageList = (obj: any): string[] => {
+  //   if (!obj) return [];
+  //   if (Array.isArray(obj.images) && obj.images.length) {
+  //     return Array.from(
+  //       new Set(
+  //         obj.images
+  //           .filter(Boolean)
+  //           .map((src: string) => String(src).trim())
+  //           .filter(Boolean),
+  //       ),
+  //     );
+  //   }
+  //   const candidates = [
+  //     obj.image,
+  //     obj.imageUrl,
+  //     obj.imageURL,
+  //     obj.productImage,
+  //     obj.variantImage,
+  //     obj.thumbnail,
+  //     obj.selectedImage,
+  //     obj.hoverImage,
+  //     obj.backImage,
+  //     obj.image1,
+  //     obj.image2,
+  //     obj.primaryImage,
+  //     obj.secondaryImage,
+  //   ]
+  //   .filter(Boolean)
+  //     .map((src) => String(src).trim())
+  //     .filter(Boolean) as string[];
+  //   return Array.from(new Set(candidates));
+  // };
+
+
+  // ── Image resolution — covers all known API shapes ─────────────────────────
   const resolveImageList = (obj: any): string[] => {
     if (!obj) return [];
+
     if (Array.isArray(obj.images) && obj.images.length) {
       return Array.from(
         new Set(
@@ -203,6 +239,7 @@ export default function ProductCard({
         ),
       );
     }
+
     const candidates = [
       obj.image,
       obj.imageUrl,
@@ -221,9 +258,9 @@ export default function ProductCard({
       .filter(Boolean)
       .map((src) => String(src).trim())
       .filter(Boolean) as string[];
+
     return Array.from(new Set(candidates));
   };
-
   const rawImages: string[] = resolveImageList(selectedVariant).length
     ? resolveImageList(selectedVariant)
     : resolveImageList(product);
@@ -301,10 +338,10 @@ export default function ProductCard({
 
     const fallbackHex = resolveHex(
       selectedColorFields.colorHex ||
-        selectedColorFields.colorName ||
-        productColorFields.colorHex ||
-        productColorFields.colorName ||
-        "#767676",
+      selectedColorFields.colorName ||
+      productColorFields.colorHex ||
+      productColorFields.colorName ||
+      "#767676",
     );
     const fallbackBase = hexToRgb(fallbackHex) || { r: 118, g: 118, b: 118 };
     let base = fallbackBase;
@@ -608,13 +645,13 @@ export default function ProductCard({
 
   const rating = Number(
     product.rating ||
-      product.avgRating ||
-      product.averageRating ||
-      product.ratingAverage ||
-      product.productRating ||
-      selectedVariant.rating ||
-      selectedVariant.avgRating ||
-      0,
+    product.avgRating ||
+    product.averageRating ||
+    product.ratingAverage ||
+    product.productRating ||
+    selectedVariant.rating ||
+    selectedVariant.avgRating ||
+    0,
   );
 
   // ── Brand — covers all known API field names ───────────────────────────────
@@ -673,30 +710,30 @@ export default function ProductCard({
     singleColorOnly
       ? productColorFields.colorName || productColorFields.colorHex
         ? [
+          {
+            id: product.productVariantId,
+            colorName: productColorFields.colorName,
+            colorHex: resolveHex(productColorFields.colorHex),
+          },
+        ]
+        : []
+      : product.allVariants?.length > 1
+        ? product.allVariants.map((v: any) => {
+          const f = resolveColorFields(v);
+          return {
+            id: v.productVariantId,
+            colorName: f.colorName,
+            colorHex: resolveHex(f.colorHex),
+          };
+        })
+        : productColorFields.colorName || productColorFields.colorHex
+          ? [
             {
               id: product.productVariantId,
               colorName: productColorFields.colorName,
               colorHex: resolveHex(productColorFields.colorHex),
             },
           ]
-        : []
-      : product.allVariants?.length > 1
-        ? product.allVariants.map((v: any) => {
-            const f = resolveColorFields(v);
-            return {
-              id: v.productVariantId,
-              colorName: f.colorName,
-              colorHex: resolveHex(f.colorHex),
-            };
-          })
-        : productColorFields.colorName || productColorFields.colorHex
-          ? [
-              {
-                id: product.productVariantId,
-                colorName: productColorFields.colorName,
-                colorHex: resolveHex(productColorFields.colorHex),
-              },
-            ]
           : [];
 
   return (

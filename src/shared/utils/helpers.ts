@@ -53,32 +53,46 @@ export const formatDate = (date: string | Date | null | undefined): string => {
 };
 
 // ─── Image URL helper ──────────────────────────────────────────────────────────
-// Backend stores images as:
-//   - full URL:    "http://127.0.0.1:8000/uploads/abc.jpg"  → use as-is
-//   - abs path:    "/uploads/abc.jpg"                       → prepend origin
-//   - rel path:    "uploads/abc.jpg"                        → prepend origin + "/"
-//
-// VITE_API_BASE_URL is "http://127.0.0.1:8000/api"
-// Origin = "http://127.0.0.1:8000"  (strip "/api" suffix)
+const _apiBase =
+  (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-const _apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+const API_ORIGIN = _apiBase
+  .replace(/\/api\/?$/, '')
+  .replace(/\/$/, '');
 
-// Strip trailing /api (or /api/) to get the bare origin
-const API_ORIGIN = _apiBase.replace(/\/api\/?$/, '').replace(/\/$/, '');
+const BLOB_BASE = (
+  (import.meta as any).env?.VITE_AZURE_BLOB_BASE_URL
+  || 'https://twamstorage.blob.core.windows.net/product-images'
+).replace(/\/+$/, '');
 
 export const getImageUrl = (
   path: string | null | undefined,
   fallback = '/assets/category-bg.png'
 ): string => {
   if (!path) return fallback;
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  if (path.startsWith('/')) return `${API_ORIGIN}${path}`;
-  return `${API_ORIGIN}/${path}`;
+
+  if (path.startsWith('https://twamstorage') || path.startsWith('https://')) {
+    return path;
+  }
+
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    try {
+      const url = new URL(path);
+      path = url.pathname;
+    } catch {
+      path = path.replace(/^https?:\/\/[^/]*/, '');
+    }
+  }
+
+  const clean = path
+    .replace(/^\/+/, '')
+    .replace(/^uploads\/+/, '');
+
+  if (!clean) return fallback;
+
+  return `${BLOB_BASE}/${clean}`;
 };
 
-// Returns a same-origin URL whenever we can safely proxy backend-served images.
-// This keeps visible images untouched while allowing canvas pixel reads for
-// features like tear-line colour sampling.
 export const getCanvasSafeImageUrl = (
   path: string | null | undefined,
   fallback = '/assets/category-bg.png'
