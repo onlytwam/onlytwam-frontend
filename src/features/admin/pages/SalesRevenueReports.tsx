@@ -1742,7 +1742,7 @@ const GrossNetRevenuePanel: React.FC = () => {
     const { data: catOptions = [], isLoading: catLoading } = useQuery<SubOption[]>({
         queryKey: ["gnCategories"],
         queryFn: async () => {
-            const res = await api.get("/Category/");
+            const res = await api.get("/Category");
             const raw = res.data;
             const items: Record<string, unknown>[] = Array.isArray(raw) ? raw : (raw?.data ?? raw?.items ?? raw?.list ?? raw?.Data ?? []);
             return items.map(i => ({ value: String(i.CategoryId ?? i.categoryId ?? i.id ?? ""), label: String(i.Name ?? i.name ?? i.categoryName ?? "") })).filter(o => o.value && o.label);

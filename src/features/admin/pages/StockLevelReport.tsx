@@ -578,7 +578,7 @@ export default function InventoryReports() {
     const [agingHasRun, setAgingHasRun] = useState(false);
 
     useEffect(() => {
-        api.get("/Category/")
+        api.get("/Category")
             .then((res) => {
                 const d = res.data;
                 const list: Category[] =
