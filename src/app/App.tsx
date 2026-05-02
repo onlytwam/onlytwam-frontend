@@ -180,7 +180,6 @@ const OrderDetails = lazy(() => import("@/features/orders/pages/OrderDetails"));
 const ProductList = lazy(() => import("@/features/products/pages/ProductList"));
 const NewArrivals = lazy(() => import("@/features/products/pages/NewArrivals"));
 const BestSellers = lazy(() => import("@/features/products/pages/BestSellers"));
-const AllProducts = lazy(() => import("@/features/products/pages/AllProducts"));
 
 function ProductListWithKey() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -247,17 +246,6 @@ const Notifications = lazy(
 const Wishlist = lazy(() => import("@/features/account/pages/Wishlist"));
 import { useWishlistLoader } from "@/features/account/hooks/useWishlist";
 import { useCartLoader } from "@/features/cart/hooks/useCart";
-import PaymentCheckout from "@/features/admin/pages/PaymentCheckout";
-import OrderFulfillmentReports from "@/features/admin/pages/OrderFulfillmentReports";
-import SalesRevenueReports from "@/features/admin/pages/SalesRevenueReports";
-import CustomerReports from "@/features/admin/pages/CustomerReports";
-import AdminStoreSettings from "@/features/admin/pages/AdminStoreSettings";
-import AdminBilling from "@/features/admin/pages/AdminBilling";
-import AdminMDM from "@/features/admin/pages/AdminMDM";
-
-const AdminSurpriseGifts = lazy(
-  () => import("@/features/admin/pages/AdminSurpriseGifts"),
-);
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 const AdminLayout = lazy(
@@ -280,10 +268,7 @@ const AdminProductForm = lazy(
 const AdminCategories = lazy(
   () => import("@/features/admin/pages/AdminCategories"),
 );
-const AdminBrands = lazy(async () => {
-  const mod = await import("@/features/admin/pages/AdminBrands");
-  return { default: (mod as any).default ?? (mod as any).AdminBrands };
-});
+const AdminBrands = lazy(() => import("@/features/admin/pages/AdminBrands"));
 const AdminSizes = lazy(() => import("@/features/admin/pages/AdminSizes"));
 const AdminUsers = lazy(() => import("@/features/admin/pages/AdminUsers"));
 const AdminCoupons = lazy(() => import("@/features/admin/pages/AdminCoupons"));
@@ -291,17 +276,17 @@ const AdminSupportRequests = lazy(
   () => import("@/features/admin/pages/AdminSupportRequests"),
 );
 const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"));
-const AdminBulkUpload = lazy(async () => {
-  const mod = await import("@/features/admin/pages/AdminBulkUpload");
-  return { default: (mod as any).default ?? (mod as any).AdminBulkUpload };
-});
-const AdminProductBulkUpload = lazy(async () => {
-  const mod = await import("@/features/admin/pages/AdminProductBulkUpload");
-  return {
-    default: (mod as any).default ?? (mod as any).AdminProductBulkUpload,
-  };
-});
-
+const AdminBulkUpload = lazy(
+  () => import("@/features/admin/pages/AdminBulkUpload"),
+);
+const AdminProductBulkUpload = lazy(() => import("@/features/admin/pages/AdminProductBulkUpload"));
+const AdminMDM = lazy(() => import("@/features/admin/pages/AdminMDM"));
+const SalesRevenueReports = lazy(() => import("@/features/admin/pages/SalesRevenueReports"));
+const CustomerReports = lazy(() => import("@/features/admin/pages/CustomerReports"));
+const OrderFulfillmentReports = lazy(() => import("@/features/admin/pages/OrderFulfillmentReports"));
+const PaymentCheckout = lazy(() => import("@/features/admin/pages/PaymentCheckout"));
+const SiteAnalytics = lazy(() => import("@/features/admin/pages/SiteAnalytics"));
+const InventoryProductReports = lazy(() => import("@/features/admin/pages/StockLevelReport"));
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
 const NO_BREADCRUMB_ROUTES = ["/", "/home"];
@@ -830,7 +815,6 @@ export default function App() {
             />
             <Route path="/new-arrivals" element={<NewArrivals />} />
             <Route path="/best-sellers" element={<BestSellers />} />
-            <Route path="/all-products" element={<AllProducts />} />
             <Route
               path="/user-products/product-detail/:id/:name"
               element={<ProductDetail />}
@@ -921,12 +905,7 @@ export default function App() {
             <Route path="admin-dashboard" element={<AdminDashboard />} />
             <Route path="bulk-import" element={<AdminBulkUpload />} />
             <Route path="orders" element={<AdminOrders />} />
-            {
-              <Route
-                path="product-bulk-upload"
-                element={<AdminProductBulkUpload />}
-              />
-            }
+            { <Route path="product-bulk-upload" element={<AdminProductBulkUpload />} /> }
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id" element={<AdminProductForm />} />
@@ -939,20 +918,14 @@ export default function App() {
             <Route path="coupons" element={<AdminCoupons />} />
             <Route path="support" element={<AdminSupportRequests />} />
             <Route path="blog" element={<AdminBlog />} />
-            <Route path="mdm" element={<AdminMDM />} />
-            <Route path="store-settings" element={<AdminStoreSettings />} />
-            <Route path="billing" element={<AdminBilling />} />
+               <Route path="mdm" element={<AdminMDM />} />
             <Route path="sales-reports" element={<SalesRevenueReports />} />
             <Route path="customer-reports" element={<CustomerReports />} />
-            <Route
-              path="order-fulfillment-reports"
-              element={<OrderFulfillmentReports />}
-            />
-            <Route
-              path="payment-checkout-reports"
-              element={<PaymentCheckout />}
-            />
-            <Route path="surprise-gifts" element={<AdminSurpriseGifts />} />
+            <Route path="order-fulfillment-reports" element={<OrderFulfillmentReports />} />
+            <Route path="payment-checkout-reports" element={<PaymentCheckout />} />
+            <Route path="site-analytics" element={<SiteAnalytics />} />
+            <Route path="inventory-product-reports" element={<InventoryProductReports />} />
+            
           </Route>
 
           {/* ── Fallback ─────────────────────────────────────────────────── */}

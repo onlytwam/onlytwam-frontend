@@ -1,504 +1,495 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "@/shared/api/axiosInstance";
-// Remove: import * as XLSX from 'xlsx';
-// Remove: import jsPDF from 'jspdf';
-// Remove: import autoTable from 'jspdf-autotable';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-} from "recharts";
-import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// payment-checkout-reports.tsx
+import React, { useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── THEME ────────────────────────────────────────────────────────────────────
+const B        = "#6A012A";
+const B_LIGHT  = "#F7EEF2";
+const B_MID    = "#E8C5D0";
+const B_HOVER  = "#F2E0E8";
+const WHITE    = "#ffffff";
+const TEXT     = "#1A0008";
+const TEXT_MID = "#6B3048";
+const TEXT_SUB = "#999";
 
-type DatePickerType = "date" | "month-week" | "month" | "year";
-type SelectType = "Product" | "Category" | "Brand"; // ✅ single declaration
+// ─── MOCK DATA (derived from provided table dumps) ────────────────────────────
+const MOCK_DATA = {
+  "payment-method": [
+    {
+      paymentMethod: "Credit Card",
+      orderCount: 24,
+      totalRevenue: 14745,
+      avgOrderValue: 614.38,
+      usagePercent: 92.3,
+    },
+    {
+      paymentMethod: "COD (Cash on Delivery)",
+      orderCount: 2,
+      totalRevenue: 998,
+      avgOrderValue: 499,
+      usagePercent: 7.7,
+    },
+  ],
 
-interface ApiOrder {
-  orderId: string;
-  customerName: string;
-  productName: string;
-  orderDate: string;
-  quantity: number;
-  totalAmount: number;
-  orderStatus: string;
-}
+  "failed-payment": [
+    {
+      orderId: "ORD14-BC3E2225",
+      customerName: "Customer #783968",
+      amount: 749,
+      paymentMethod: "Credit Card (41111-XXXX-1111)",
+      failureReason: "Invalid Mobile Number",
+      date: "2026-04-08T19:10:05Z",
+    },
+    {
+      orderId: "ORD14-BC3E2225",
+      customerName: "Customer #783968",
+      amount: 749,
+      paymentMethod: "Credit Card (41111-XXXX-1111)",
+      failureReason: "Invalid Mobile Number (retry)",
+      date: "2026-04-08T19:10:33Z",
+    },
+  ],
 
-interface Order {
-  id: string;
-  customer: string;
-  product: string;
-  date: string;
-  qty: number;
-  amount: number;
-  status: "completed" | "pending" | "cancelled";
-}
+  "refunds-disputes": [
+    {
+      orderId: "ORD1",
+      customerName: "Customer #783951",
+      refundAmount: 2097,
+      reason: "Order cancelled",
+      status: "Refunded",
+      date: "2026-04-08T19:28:47Z",
+    },
+    {
+      orderId: "ORD3",
+      customerName: "Customer #783953",
+      refundAmount: 2097,
+      reason: "Order cancelled",
+      status: "Refunded",
+      date: "2026-04-08T19:28:50Z",
+    },
+    {
+      orderId: "ORD13",
+      customerName: "Customer #783963",
+      refundAmount: 499,
+      reason: "Order cancelled",
+      status: "Refunded",
+      date: "2026-04-08T19:29:04Z",
+    },
+    {
+      orderId: "ORD14-BC3E2225",
+      customerName: "Customer #783968",
+      refundAmount: 749,
+      reason: "Payment failed",
+      status: "Refunded",
+      date: "2026-04-08T19:29:01Z",
+    },
+  ],
 
-interface ReportResult {
-  label: string;
-  data: Order[];
-  total: number;
-  orders: number;
-  avg: number;
-  completed: number;
-}
+  "tax-region": [
+    {
+      region: "Telangana",
+      totalOrders: 26,
+      taxableAmount: 14745,
+      taxCollected: 2654.1,
+      taxRate: 18,
+    },
+    {
+      region: "Other / Unassigned",
+      totalOrders: 0,
+      taxableAmount: 0,
+      taxCollected: 0,
+      taxRate: 0,
+    },
+  ],
+};
 
-interface FilterState {
-  selectType: SelectType;
-  categoryId: number | null;
-  brandId: number | null;
-  fromDate: Date;
-  toDate: Date;
-}
-
-interface ReportRow {
-  type: string;
-  name: string;
-  unitsSold: number;
-  totalOrders: number;
-  grossRevenue: number;
-  taxableValue: number;
-  gstAmount: number;
-  netRevenue?: number;
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const REPORT_TABS = [
-  { id: 0, label: "Payment Method Usage (COD, Card, UPI, etc.)", icon: "📅" },
-  { id: 1, label: "Failed Payment Report", icon: "🏷️" },
-  { id: 2, label: "Refunds and Disputes", icon: "🏠" },
-  { id: 3, label: "Tax Collected by Region", icon: "⭐" },
+// ─── COLUMN CONFIG ────────────────────────────────────────────────────────────
+const REPORTS = [
   {
-    id: 4,
-    label: "Payment Gateway Performance (Success vs. Failure Rates)",
-    icon: "📉",
+    key: "payment-method",
+    label: "Payment Method Usage (COD, Card, UPI, etc.)",
+    icon: "🏦",
+    columns: [
+      { header: "Payment Method", field: "paymentMethod" },
+      { header: "Order Count",    field: "orderCount" },
+      { header: "Total Revenue",  field: "totalRevenue",  currency: true },
+      { header: "Avg. Order Value",field: "avgOrderValue", currency: true },
+      { header: "Usage (%)",      field: "usagePercent" },
+    ],
+    stats: [
+      { label: "Total Orders",   value: "26",      sub: "Apr 8 – Apr 24" },
+      { label: "Total Revenue",  value: "₹15,743", sub: "All methods" },
+      { label: "Success Rate",   value: "92.3%",   sub: "Credit card" },
+      { label: "Methods Used",   value: "2",       sub: "Card, COD" },
+    ],
+  },
+  {
+    key: "failed-payment",
+    label: "Failed Payment Report",
+    icon: "⊗",
+    columns: [
+      { header: "Order ID",       field: "orderId" },
+      { header: "Customer",       field: "customerName" },
+      { header: "Amount",         field: "amount",        currency: true },
+      { header: "Payment Method", field: "paymentMethod" },
+      { header: "Failure Reason", field: "failureReason" },
+      { header: "Date",           field: "date",          date: true },
+    ],
+    stats: [
+      { label: "Failed Attempts",  value: "2",    sub: "Apr 8 only" },
+      { label: "Amount at Risk",   value: "₹749", sub: "Per attempt" },
+      { label: "Unique Reasons",   value: "1",    sub: "Invalid mobile" },
+      { label: "Orders Affected",  value: "1",    sub: "ORD14" },
+    ],
+  },
+  {
+    key: "refunds-disputes",
+    label: "Refunds and Disputes",
+    icon: "↩",
+    columns: [
+      { header: "Order ID",      field: "orderId" },
+      { header: "Customer",      field: "customerName" },
+      { header: "Refund Amount", field: "refundAmount", currency: true },
+      { header: "Reason",        field: "reason" },
+      { header: "Status",        field: "status",       badge: true },
+      { header: "Date",          field: "date",         date: true },
+    ],
+    stats: [
+      { label: "Total Refunds",  value: "4",       sub: "Completed" },
+      { label: "Amount Refunded",value: "₹5,442",  sub: "Gross" },
+      { label: "Avg. Refund",    value: "₹1,360",  sub: "Per order" },
+      { label: "Orders Affected",value: "4",       sub: "Unique" },
+    ],
+  },
+  {
+    key: "tax-region",
+    label: "Tax Collected by Region",
+    icon: "🏛",
+    columns: [
+      { header: "Region",          field: "region" },
+      { header: "Total Orders",    field: "totalOrders" },
+      { header: "Taxable Amount",  field: "taxableAmount",  currency: true },
+      { header: "Tax Collected",   field: "taxCollected",   currency: true },
+      { header: "Tax Rate (%)",    field: "taxRate" },
+    ],
+    stats: [
+      { label: "Total Orders",    value: "26",      sub: "Taxable" },
+      { label: "Taxable Amount",  value: "₹14,745", sub: "Revenue base" },
+      { label: "Tax Collected",   value: "₹2,654",  sub: "GST 18%" },
+      { label: "Regions",         value: "1",       sub: "Telangana" },
+    ],
   },
 ];
 
-const COLORS = [
-  "#e03131",
-  "#4361ee",
-  "#2f9e44",
-  "#f76707",
-  "#7c3aed",
-  "#0ea5e9",
-  "#db2777",
-  "#059669",
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-
-const fmtINR = (n: number) => "₹" + n.toLocaleString("en-IN");
-
-const fmt = (n: number) =>
-  "₹" +
-  Number(n || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
-function mapApiOrder(raw: ApiOrder): Order {
-  return {
-    id: raw.orderId,
-    customer: raw.customerName ?? "-",
-    product: raw.productName ?? "-",
-    date: raw.orderDate ?? "",
-    qty: raw.quantity ?? 0,
-    amount: raw.totalAmount ?? 0,
-    status: (raw.orderStatus?.toLowerCase() as Order["status"]) ?? "pending",
-  };
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function fmtCell(col, val) {
+  if (val == null || val === "") return "—";
+  if (col.currency)
+    return "₹" + Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (col.date) {
+    try { return new Date(val).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
+    catch { return String(val); }
+  }
+  return String(val);
 }
 
-// ─── Shared Styles ────────────────────────────────────────────────────────────
-
-const inputBase: React.CSSProperties = {
-  padding: "10px 14px",
-  border: "1.5px solid #dee2e6",
-  borderRadius: 10,
-  fontSize: 13,
-  color: "#1a1a2e",
-  fontFamily: "inherit",
-  outline: "none",
-  background: "#fff",
-  width: "100%",
+const BADGE_STYLES = {
+  Refunded:   { background: "#FAEEDA", color: "#854F0B" },
+  Approved:   { background: "#EAF3DE", color: "#3B6D11" },
+  Confirmed:  { background: "#E6F1FB", color: "#185FA5" },
+  Processing: { background: "#EEEDFE", color: "#534AB7" },
+  Failed:     { background: "#FCEBEB", color: "#A32D2D" },
 };
 
-const labelSt: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  color: "#495057",
-  textTransform: "uppercase",
-  letterSpacing: 0.8,
-  marginBottom: 6,
-  display: "block",
-};
-
-// ─── Shared styles for Panel 1 ────────────────────────────────────────────────
-
-const cardStyle: React.CSSProperties = {
-  background: "#fff9f9",
-  border: "1px solid #f0dede",
-  borderRadius: 10,
-  padding: "16px 20px",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: "#999",
-  fontWeight: 500,
-  marginBottom: 6,
-  display: "block",
-  letterSpacing: "0.03em",
-};
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  border: "none",
-  background: "transparent",
-  fontSize: 15,
-  fontWeight: 600,
-  color: "#1a1a1a",
-  outline: "none",
-  cursor: "pointer",
-  appearance: "none",
-  fontFamily: "inherit",
-};
-
-const btnBase: React.CSSProperties = {
-  border: "none",
-  borderRadius: 24,
-  padding: "10px 24px",
-  fontFamily: "inherit",
-  fontWeight: 600,
-  fontSize: 14,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: 7,
-  transition: "opacity .15s, transform .1s",
-};
-
-const primaryBtn: React.CSSProperties = {
-  ...btnBase,
-  background: "#9b1c1c",
-  color: "#fff",
-};
-const outlineBtn: React.CSSProperties = {
-  ...btnBase,
-  background: "#fff",
-  color: "#9b1c1c",
-  border: "1.5px solid #9b1c1c",
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-const StatusBadge: React.FC<{ status: Order["status"] }> = ({ status }) => {
-  const styles: Record<Order["status"], React.CSSProperties> = {
-    completed: { background: "#ebfbee", color: "#2f9e44" },
-    pending: { background: "#fff9db", color: "#e67700" },
-    cancelled: { background: "#fff5f5", color: "#e03131" },
-  };
+// ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
+function Badge({ value }) {
+  const style = BADGE_STYLES[value] || { background: "#eee", color: "#444" };
   return (
-    <span
-      style={{
-        padding: "3px 10px",
-        borderRadius: 20,
-        fontSize: 10.5,
-        fontWeight: 700,
-        ...(styles[status] ?? styles.pending),
-      }}
-    >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+    <span style={{
+      ...style,
+      display: "inline-block",
+      padding: "3px 10px",
+      borderRadius: 20,
+      fontSize: 11,
+      fontWeight: 500,
+    }}>
+      {value}
     </span>
   );
-};
+}
 
-const StatCard: React.FC<{
-  label: string;
-  value: string | number;
-  note: string;
-  noteUp?: boolean;
-}> = ({ label, value, note, noteUp = true }) => (
-  <div
-    style={{
-      background: "#fff",
-      border: "0.5px solid #f0e0e0",
-      borderRadius: 12,
-      padding: "14px 16px",
-    }}
-  >
-    <div
-      style={{
-        fontSize: 11,
-        color: "#868e96",
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        marginBottom: 6,
-      }}
-    >
-      {label}
-    </div>
-    <div style={{ fontSize: 20, fontWeight: 700, color: "#1a1a2e" }}>
-      {value}
-    </div>
-    <div
-      style={{
-        fontSize: 11,
-        marginTop: 3,
-        fontWeight: 600,
-        color: noteUp ? "#2f9e44" : "#e03131",
-      }}
-    >
-      {note}
-    </div>
-  </div>
-);
-
-const ComingSoon: React.FC<{ title: string }> = ({ title }) => (
-  <div style={{ padding: 40, textAlign: "center", color: "#adb5bd" }}>
-    <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
-    <div
-      style={{
-        fontWeight: 700,
-        color: "#495057",
-        marginBottom: 6,
-        fontSize: 15,
-      }}
-    >
-      {title}
-    </div>
-    <div style={{ fontSize: 13 }}>Report coming soon.</div>
-  </div>
-);
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
+function StatCards({ stats }) {
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #ffd0d0",
-        borderRadius: 10,
-        padding: "10px 14px",
-        fontSize: 12,
-        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-      }}
-    >
-      <div style={{ fontWeight: 700, color: "#1a1a2e", marginBottom: 6 }}>
-        {label}
-      </div>
-      {payload.map((p: any) => (
-        <div key={p.dataKey} style={{ color: p.color, fontWeight: 600 }}>
-          {p.name}: {p.dataKey === "revenue" ? fmtINR(p.value) : p.value}
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(4, 1fr)",
+      gap: 12,
+      marginBottom: 22,
+    }}>
+      {stats.map((s, i) => (
+        <div key={i} style={{
+          background: B_LIGHT,
+          borderRadius: 10,
+          padding: "14px 16px",
+          border: `1px solid ${B_MID}`,
+        }}>
+          <div style={{ fontSize: 11, color: TEXT_MID, marginBottom: 4 }}>{s.label}</div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: TEXT }}>{s.value}</div>
+          <div style={{ fontSize: 11, color: TEXT_SUB, marginTop: 2 }}>{s.sub}</div>
         </div>
       ))}
     </div>
   );
-};
-
-// ─── Download Helpers ─────────────────────────────────────────────────────────
-
-function downloadPDF(
-  data: Order[],
-  label: string,
-  stats: { total: number; orders: number; avg: number; completed: number },
-) {
-  const doc = new jsPDF();
-  doc.setFontSize(16);
-  doc.setTextColor(224, 49, 49);
-  doc.text(`Sales Report — ${label}`, 14, 18);
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(
-    `Total Revenue: ${fmtINR(stats.total)}   Orders: ${
-      stats.orders
-    }   Avg: ${fmtINR(stats.avg)}   Completed: ${stats.completed}`,
-    14,
-    28,
-  );
-  autoTable(doc, {
-    startY: 34,
-    head: [
-      [
-        "#",
-        "Order ID",
-        "Customer",
-        "Product",
-        "Date",
-        "Qty",
-        "Amount",
-        "Status",
-      ],
-    ],
-    body: data.map((r, i) => [
-      i + 1,
-      r.id,
-      r.customer,
-      r.product,
-      fmtDate(r.date),
-      r.qty,
-      fmtINR(r.amount),
-      r.status,
-    ]),
-    headStyles: { fillColor: [224, 49, 49], fontSize: 9 },
-    bodyStyles: { fontSize: 9 },
-    alternateRowStyles: { fillColor: [255, 245, 245] },
-  });
-  doc.save(`Sales_Report_${label.replace(/[^a-z0-9]/gi, "_")}.pdf`);
 }
 
-// ─── Panel 0 : Daily / Weekly / Monthly / Yearly ─────────────────────────────
-
-// ─── Panel 1 : Sales by Product / Category / Brand ───────────────────────────
-
-// ─── Root Page ────────────────────────────────────────────────────────────────
-
-const PaymentCheckout: React.FC = () => {
-  const [active, setActive] = useState<number>(0);
-  const navigate = useNavigate();
-
-  // ✅ Fixed: ProductCategoryReport now defined above — no more undefined reference
-  const panels: React.ReactNode[] = [
-    <ComingSoon title="Payment Method Usage (COD, Card, UPI, etc.)" />,
-    <ComingSoon title="Failed Payment Report" />,
-    <ComingSoon title="Refunds and Disputes" />,
-    <ComingSoon title="Tax Collected by Region" />,
-    <ComingSoon title="Payment Gateway Performance (Success vs. Failure Rates)" />,
-  ];
+function DataTable({ columns, rows }) {
+  const [hover, setHover] = useState(null);
 
   return (
-    <div
-      style={{
-        background: "#fafafa",
-        minHeight: "100vh",
-        paddingBottom: 40,
-        fontFamily: "'Segoe UI', sans-serif",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "22px 24px 16px",
-          position: "relative",
-          borderBottom: "0.5px solid #f0e0e0",
-          background: "#fff",
-        }}
-      >
-        <button
-          onClick={() => navigate("/admin/reports")}
-          style={{
-            position: "absolute",
-            left: 24,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            color: "#6A012A",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            border: "none",
-            background: "none",
-            fontFamily: "inherit",
-          }}
-        >
-          ← Reports
-        </button>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            fontSize: 22,
-            fontWeight: 700,
-            color: "#1a1a2e",
-          }}
-        >
-          🛍️ Payment & Checkout Reports
+    <div style={{ overflowX: "auto", borderRadius: 12, border: `1px solid ${B_MID}` }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th key={col.header} style={{
+                padding: "13px 16px",
+                textAlign: "left",
+                fontSize: 13,
+                fontWeight: 600,
+                color: WHITE,
+                background: B,
+                fontFamily: "inherit",
+                letterSpacing: 0.2,
+                whiteSpace: "nowrap",
+              }}>
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr
+              key={i}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+              style={{
+                background: hover === i ? B_HOVER : i % 2 === 0 ? WHITE : B_LIGHT,
+                borderBottom: `1px solid ${B_MID}`,
+                transition: "background 0.12s",
+              }}
+            >
+              {columns.map((col, j) => {
+                const val = row[col.field];
+                return (
+                  <td key={j} style={{
+                    padding: "11px 16px",
+                    fontSize: 13,
+                    color: TEXT,
+                    fontWeight: j === 0 ? 500 : 400,
+                    verticalAlign: "middle",
+                    whiteSpace: j === 0 ? "nowrap" : "normal",
+                  }}>
+                    {col.badge ? <Badge value={String(val)} /> : fmtCell(col, val)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      padding: "56px 0", color: TEXT_SUB, fontFamily: "inherit",
+    }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: "50%", background: "#F0E8EC",
+        display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16,
+      }}>
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="14" cy="14" r="9" stroke={B_MID} strokeWidth="2.5"/>
+          <path d="M21 21l7 7" stroke={B_MID} strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+      <span style={{ fontSize: 14 }}>{text}</span>
+    </div>
+  );
+}
+
+// ─── REPORT PANEL ─────────────────────────────────────────────────────────────
+function ReportPanel({ config }) {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate]     = useState("");
+  const [hasRun, setHasRun]       = useState(false);
+
+  const rows = MOCK_DATA[config.key] || [];
+
+  function handleRun() { setHasRun(true); }
+  function handleClear() { setHasRun(false); setStartDate(""); setEndDate(""); }
+
+  const btnBase = {
+    border: "none", borderRadius: 20, padding: "9px 22px",
+    fontSize: 13, fontWeight: 600, cursor: "pointer",
+    fontFamily: "inherit", transition: "opacity 0.15s",
+  };
+
+  return (
+    <div style={{
+      background: WHITE, borderRadius: 16, padding: "28px 32px",
+      boxShadow: "0 2px 16px rgba(106,1,42,0.06)", border: `1px solid ${B_MID}`,
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, gap: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: TEXT, letterSpacing: "-0.3px" }}>
+          {config.label}
+        </h2>
+        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+          <button onClick={handleRun}   style={{ ...btnBase, background: B, color: WHITE }}>Run</button>
+          <button onClick={handleClear} style={{ ...btnBase, background: B_MID, color: B }}>Clear All</button>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
-          gap: 12,
-          padding: "24px 24px 0",
-        }}
-      >
-        {REPORT_TABS.map((tab) => (
+      {/* Date inputs */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
+        {[
+          { label: "Start Date", val: startDate, set: setStartDate },
+          { label: "End Date",   val: endDate,   set: setEndDate },
+        ].map(({ label, val, set }) => (
+          <div key={label} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 11, color: TEXT_MID, fontWeight: 500 }}>{label}</label>
+            <input
+              type="date"
+              value={val}
+              onChange={e => set(e.target.value)}
+              style={{
+                border: "none",
+                borderBottom: `1.5px solid ${B_MID}`,
+                background: B_LIGHT,
+                padding: "9px 12px",
+                fontSize: 13,
+                color: TEXT,
+                outline: "none",
+                fontFamily: "inherit",
+                minWidth: 170,
+                cursor: "pointer",
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Results */}
+      {hasRun ? (
+        <>
+          {/* Export buttons */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 16 }}>
+            <button style={{ ...btnBase, background: B, color: WHITE, padding: "8px 18px", fontSize: 12.5 }}>
+              Excel Download
+            </button>
+            <button style={{ ...btnBase, background: B, color: WHITE, padding: "8px 18px", fontSize: 12.5 }}>
+              PDF Download
+            </button>
+          </div>
+
+          <StatCards stats={config.stats} />
+
+          {rows.length === 0
+            ? <EmptyState text="No data found for the selected date range." />
+            : <DataTable columns={config.columns} rows={rows} />
+          }
+        </>
+      ) : (
+        <EmptyState text={`Select a date range and click Run to load the ${config.label}.`} />
+      )}
+    </div>
+  );
+}
+
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+export default function PaymentFinancialReports() {
+  const [activeKey, setActiveKey] = useState(REPORTS[0].key);
+  const activeReport = REPORTS.find(r => r.key === activeKey);
+
+  const pillStyle = (active) => ({
+    display: "inline-flex", alignItems: "center", gap: 8,
+    padding: "10px 20px",
+    border: `1.5px solid ${active ? B : B_MID}`,
+    borderRadius: 30,
+    background: active ? B_LIGHT : WHITE,
+    color: active ? B : TEXT_MID,
+    fontWeight: active ? 600 : 400,
+    fontSize: 13.5,
+    fontFamily: "inherit",
+    cursor: "pointer",
+    transition: "all 0.18s",
+    whiteSpace: "nowrap",
+    userSelect: "none",
+  });
+
+  return (
+    <div style={{
+      fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+      background: "#F9F4F6",
+      minHeight: "100vh",
+      padding: "28px 32px",
+    }}>
+      <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+      />
+
+      {/* Top Bar */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 28, position: "relative",
+      }}>
+        <button
+          onClick={() => window.history.back()}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "none", border: "none", cursor: "pointer",
+            color: B, fontSize: 14, fontWeight: 500, fontFamily: "inherit",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M12 5l-5 5 5 5" stroke={B} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          ← inventory
+        </button>
+
+        <h1 style={{
+          margin: 0, fontSize: 22, fontWeight: 700, color: TEXT,
+          letterSpacing: "-0.3px", fontFamily: "inherit",
+          position: "absolute", left: "50%", transform: "translateX(-50%)",
+          whiteSpace: "nowrap",
+        }}>
+          💰 Payment &amp; Financial Reports
+        </h1>
+
+        <div /> {/* spacer */}
+      </div>
+
+      {/* Tab Pills */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 32 }}>
+        {REPORTS.map(r => (
           <button
-            key={tab.id}
-            onClick={() => setActive(tab.id)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "14px 16px",
-              border: `1.5px solid ${
-                active === tab.id ? "transparent" : "#6A012A"
-              }`,
-              borderRadius: 40,
-              background: active === tab.id ? "#6A012A" : "#fff",
-              color: active === tab.id ? "#fff" : "#6A012A",
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              textAlign: "left",
-              transition: "all .22s ease",
-              boxShadow:
-                active === tab.id ? "0 4px 20px rgba(106,1,42,0.3)" : "none",
-            }}
+            key={r.key}
+            onClick={() => setActiveKey(r.key)}
+            style={pillStyle(activeKey === r.key)}
           >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>{tab.icon}</span>
-            {tab.label}
+            <span style={{ fontSize: 15 }}>{r.icon}</span>
+            {r.label}
           </button>
         ))}
       </div>
 
-      <div style={{ padding: "20px 24px 0" }}>
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            border: "0.5px solid #ffd0d0",
-            overflow: "hidden",
-            boxShadow: "0 2px 16px rgba(106,1,42,0.07)",
-          }}
-        >
-          {panels[active]}
-        </div>
-      </div>
+      {/* Active Report Panel */}
+      <ReportPanel key={activeKey} config={activeReport} />
     </div>
   );
-};
-
-export default PaymentCheckout;
+}
