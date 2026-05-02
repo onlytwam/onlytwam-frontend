@@ -1,0 +1,2277 @@
+/**
+ * Cart.tsx
+ */
+
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { useAuthStore } from "@/features/auth/store/authStore";
+import { useCartStore } from "@/features/cart/store/cartStore";
+import {
+  listCart,
+  updateCart,
+  deleteCartItem,
+  checkOutOfStock,
+  listCoupons,
+} from "@/features/cart/api/cart.api";
+import {
+  listUserCoupons,
+  validatePhysicalCoupon,
+  markDigitalCouponUsed,
+  markPhysicalCouponUsed,
+} from "@/features/orders/api/orders.api";
+import { getImageUrl, slugify } from "@/shared/utils/helpers";
+import { resolveHex } from "@/shared/utils/colorHelpers";
+import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
+import {
+  clearBuyNowSession,
+  getBuyNowSession,
+  setBuyNowSession,
+} from "@/shared/utils/checkoutSession";
+import {
+  clearCheckoutSession,
+  readCheckoutSession,
+  saveCheckoutSession,
+} from "@/features/cart/utils/checkoutSession";
+import {
+  buildSurpriseGiftSignature,
+  getSurpriseGiftSelection,
+  type SurpriseGiftSelection,
+} from "@/shared/utils/surpriseGift";
+import type { CouponModel } from "@/shared/types";
+
+/** Merge duplicate cart rows that share the same productVariantDetailId */
+function mergeCartDuplicates(rawItems: any[]): any[] {
+  const seen = new Map<string, any>();
+  const order: string[] = [];
+  for (const item of rawItems) {
+    const key =
+      item.productVariantDetailId != null
+        ? String(item.productVariantDetailId)
+        : `cart-${item.cartId}`;
+    if (seen.has(key)) {
+      const existing = seen.get(key)!;
+      const addedQty =
+        Number(item.processedQuantity) || Number(item.quantity) || 1;
+      existing.processedQuantity = (existing.processedQuantity || 1) + addedQty;
+      existing.quantity = existing.processedQuantity;
+      existing._extraCartIds = [...(existing._extraCartIds ?? []), item.cartId];
+    } else {
+      seen.set(key, {
+        ...item,
+        processedQuantity:
+          Number(item.processedQuantity) || Number(item.quantity) || 1,
+      });
+      order.push(key);
+    }
+  }
+  return order.map((k) => seen.get(k)!);
+}
+
+const GuestCart = {
+  get: (): any[] => {
+    try {
+      return JSON.parse(localStorage.getItem("guestCart") || "[]");
+    } catch {
+      return [];
+    }
+  },
+  set: (items: any[]) => {
+    localStorage.setItem("guestCart", JSON.stringify(items));
+    window.dispatchEvent(new Event("guestCartUpdated"));
+  },
+  remove: (pvdId: number) =>
+    GuestCart.set(
+      GuestCart.get().filter((i: any) => i.productVariantDetailId !== pvdId),
+    ),
+  updateQty: (pvdId: number, qty: number) =>
+    GuestCart.set(
+      GuestCart.get().map((i: any) =>
+        i.productVariantDetailId === pvdId
+          ? { ...i, processedQuantity: qty, quantity: qty }
+          : i,
+      ),
+    ),
+};
+
+const normalizeBuyNowItems = (items: any[] = []) =>
+  items.map((item: any) => {
+    const processedQuantity =
+      Number(item.processedQuantity ?? item.quantity ?? 1) || 1;
+
+    return {
+      ...item,
+      isSelected: item.isSelected ?? true,
+      processedQuantity,
+      quantity: processedQuantity,
+      finalPrice: Number(item.finalPrice || item.price) || 0,
+    };
+  });
+
+function SurpriseGiftToast({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        width: 300,
+        padding: "28px 20px 22px",
+        borderRadius: 22,
+        background: "linear-gradient(180deg, #fffaf5 0%, #ffffff 100%)",
+        border: "1px solid rgba(107,15,42,0.14)",
+        boxShadow: "0 20px 48px rgba(107,15,42,0.18)",
+        textAlign: "center",
+      }}
+    >
+      {/* ── Close × ── */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDismiss();
+        }}
+        aria-label="Close"
+        style={{
+          position: "absolute",
+          top: 10,
+          right: 12,
+          border: "none",
+          background: "transparent",
+          color: "var(--heirloom, #9e6070)",
+          cursor: "pointer",
+          fontSize: 18,
+          lineHeight: 1,
+          padding: 4,
+          zIndex: 2,
+        }}
+      >
+        <i className="bi bi-x-lg" />
+      </button>
+
+      {/* ── Gift image ── */}
+      <img
+        src="/assets/Gift.png"
+        alt="Surprise gift"
+        style={{
+          width: 120,
+          height: 120,
+          objectFit: "contain",
+          marginBottom: 14,
+          filter: "drop-shadow(0 8px 20px rgba(107,15,42,0.18))",
+        }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
+
+      {/* ── Text ── */}
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: "var(--brand, #6b0f2a)",
+          lineHeight: 1.35,
+        }}
+      >
+        You won a surprise gift!
+      </div>
+    </div>
+  );
+}
+
+function SurpriseGiftReminderToast({
+  remainingAmount,
+  onDismiss,
+}: {
+  remainingAmount: number;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 12,
+        minWidth: 0,
+        maxWidth: 380,
+        padding: "14px 16px",
+        borderRadius: 18,
+        background: "linear-gradient(180deg, #fffaf5 0%, #ffffff 100%)",
+        border: "1px solid rgba(107,15,42,0.14)",
+        boxShadow: "0 18px 36px rgba(107,15,42,0.16)",
+      }}
+    >
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(145deg, #9e6070, #6b0f2a)",
+          color: "#fff",
+          boxShadow: "0 10px 22px rgba(107,15,42,0.18)",
+          flexShrink: 0,
+        }}
+      >
+        <i className="bi bi-gift-fill" />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "var(--heirloom)",
+            marginBottom: 2,
+          }}
+        >
+          Gift reminder
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            lineHeight: 1.45,
+            color: "var(--brand)",
+            marginBottom: 4,
+          }}
+        >
+          Shop more for Rs.{remainingAmount.toLocaleString("en-IN")} to win an
+          exciting gift
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            lineHeight: 1.4,
+            color: "var(--heirloom)",
+            opacity: 0.9,
+          }}
+        >
+          The surprise unlocks at Rs.2,500 and above.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss reminder"
+        style={{
+          border: "none",
+          background: "transparent",
+          color: "var(--heirloom)",
+          cursor: "pointer",
+          fontSize: 15,
+          lineHeight: 1,
+          padding: 0,
+          flexShrink: 0,
+        }}
+      >
+        <i className="bi bi-x-lg" />
+      </button>
+    </div>
+  );
+}
+
+function SurpriseGiftCard() {
+  return <FancySurpriseGiftCard />;
+  return (
+    <div
+      className="s-cart-100fbc"
+      style={{
+        marginTop: 16,
+        borderStyle: "dashed",
+        background:
+          "linear-gradient(135deg, rgba(245,240,230,0.96), rgba(255,255,255,0.98))",
+        boxShadow: "0 12px 30px rgba(107,15,42,0.08)",
+        overflow: "hidden",
+        alignItems: "stretch",
+        cursor: "default",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
+        <div
+          aria-hidden="true"
+          style={{
+            position: "relative",
+            width: 96,
+            height: 96,
+            flexShrink: 0,
+            borderRadius: 18,
+            background:
+              "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95), rgba(245,240,230,0.92) 55%, rgba(231,214,219,0.9) 100%)",
+            border: "1px solid rgba(107,15,42,0.14)",
+            overflow: "hidden",
+            display: "grid",
+            placeItems: "center",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 12,
+              borderRadius: 16,
+              background: "linear-gradient(145deg, #6b0f2a 0%, #9e6070 100%)",
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 12,
+              bottom: 12,
+              width: 16,
+              transform: "translateX(-50%)",
+              borderRadius: 8,
+              background: "linear-gradient(180deg, #f5f0e6, #fff)",
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.2)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: 12,
+              right: 12,
+              top: "50%",
+              height: 16,
+              transform: "translateY(-50%)",
+              borderRadius: 8,
+              background: "linear-gradient(180deg, #f5f0e6, #fff)",
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.2)",
+            }}
+          />
+          <i
+            className="bi bi-gift-fill"
+            style={{
+              position: "relative",
+              zIndex: 1,
+              color: "#fff",
+              fontSize: 34,
+              filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.2))",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            ✨
+          </div>
+        </div>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h6 className="s-cart-04af82" style={{ marginBottom: 0 }}>
+            Surprise Gift
+          </h6>
+        </div>
+      </div>
+
+      <div
+        className="s-cart-4c5975"
+        style={{ alignItems: "flex-end", justifyContent: "center" }}
+      >
+        <span className="s-cart-abec22">FREE</span>
+        <span className="s-cart-c7ed91" style={{ opacity: 0.55 }}>
+          🎁
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FancySurpriseGiftCard() {
+  return (
+    <div
+      style={{
+        position: "relative",
+        marginTop: 16,
+        marginBottom: 12,
+        padding: "14px 16px",
+        borderRadius: 20,
+        border: "1px solid rgba(107, 15, 42, 0.14)",
+        background:
+          "linear-gradient(135deg, rgba(255, 250, 244, 0.98) 0%, rgba(247, 236, 229, 0.96) 58%, rgba(255, 255, 255, 0.98) 100%)",
+        boxShadow: "0 16px 32px rgba(107, 15, 42, 0.1)",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        flexWrap: "wrap",
+        cursor: "default",
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: -20,
+            right: -18,
+            width: 84,
+            height: 84,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(182, 109, 127, 0.14), transparent 70%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: -22,
+            bottom: -28,
+            width: 104,
+            height: 104,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(107, 15, 42, 0.08), transparent 72%)",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          minWidth: 0,
+          flex: "1 1 240px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            position: "relative",
+            width: "clamp(74px, 18vw, 92px)",
+            height: "clamp(74px, 18vw, 92px)",
+            flexShrink: 0,
+            borderRadius: 24,
+            background:
+              "linear-gradient(145deg, rgba(255, 251, 247, 0.98), rgba(242, 228, 214, 0.95))",
+            border: "1px solid rgba(107, 15, 42, 0.12)",
+            overflow: "hidden",
+            display: "grid",
+            placeItems: "center",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.88), 0 10px 20px rgba(107, 15, 42, 0.08)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 11,
+              borderRadius: 18,
+              background:
+                "linear-gradient(180deg, #9e6070 0%, #7f1d37 55%, #5f0d27 100%)",
+              boxShadow: "inset 0 -8px 14px rgba(0,0,0,0.1)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 11,
+              bottom: 11,
+              width: 15,
+              transform: "translateX(-50%)",
+              borderRadius: 999,
+              background: "linear-gradient(180deg, #fff7ee, #f0dcc2)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: 11,
+              right: 11,
+              top: "50%",
+              height: 15,
+              transform: "translateY(-50%)",
+              borderRadius: 999,
+              background: "linear-gradient(180deg, #fff7ee, #f0dcc2)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 7,
+              left: "50%",
+              width: 26,
+              height: 16,
+              transform: "translateX(-50%)",
+              borderRadius: 999,
+              background:
+                "linear-gradient(180deg, rgba(255, 248, 238, 0.98), rgba(240, 220, 190, 0.98))",
+              boxShadow: "0 3px 8px rgba(107, 15, 42, 0.1)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 6,
+              left: "50%",
+              width: 14,
+              height: 14,
+              transform: "translateX(-50%)",
+              borderRadius: "50%",
+              background:
+                "linear-gradient(180deg, rgba(255, 254, 250, 0.98), rgba(237, 216, 189, 0.98))",
+              boxShadow: "0 1px 0 rgba(107, 15, 42, 0.08)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 13,
+              width: 18,
+              height: 12,
+              borderRadius: "12px 14px 12px 10px",
+              background:
+                "linear-gradient(180deg, rgba(255, 248, 238, 0.98), rgba(236, 214, 184, 0.98))",
+              transform: "rotate(-24deg)",
+              boxShadow: "0 1px 0 rgba(107, 15, 42, 0.08)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 13,
+              width: 18,
+              height: 12,
+              borderRadius: "14px 12px 10px 12px",
+              background:
+                "linear-gradient(180deg, rgba(255, 248, 238, 0.98), rgba(236, 214, 184, 0.98))",
+              transform: "rotate(24deg)",
+              boxShadow: "0 1px 0 rgba(107, 15, 42, 0.08)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: "rgba(214, 166, 179, 0.95)",
+              boxShadow:
+                "-10px 8px 0 0 rgba(255, 255, 255, 0.92), -18px -4px 0 0 rgba(214, 166, 179, 0.55)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 11,
+              left: 11,
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: "rgba(214, 166, 179, 0.8)",
+              boxShadow:
+                "10px -6px 0 0 rgba(255, 255, 255, 0.88), 17px 4px 0 0 rgba(214, 166, 179, 0.45)",
+            }}
+          />
+          <i
+            className="bi bi-gift-fill"
+            style={{
+              position: "relative",
+              zIndex: 1,
+              color: "rgba(255,255,255,0.96)",
+              fontSize: "clamp(26px, 5vw, 34px)",
+              filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.2))",
+            }}
+          />
+        </div>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h6
+            className="s-cart-04af82"
+            style={{
+              marginBottom: 0,
+              fontSize: "clamp(15px, 1.45vw, 18px)",
+              lineHeight: 1.2,
+            }}
+          >
+            Surprise Gift
+          </h6>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          gap: 6,
+          flexShrink: 0,
+          minWidth: 72,
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <span
+          className="s-cart-abec22"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "6px 12px",
+            borderRadius: 999,
+            background: "rgba(255, 255, 255, 0.68)",
+            border: "1px solid rgba(107, 15, 42, 0.1)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+          }}
+        >
+          FREE
+        </span>
+        <span
+          style={{
+            fontSize: 14,
+            color: "var(--heirloom)",
+            opacity: 0.7,
+            lineHeight: 1,
+          }}
+          aria-hidden="true"
+        >
+          <i className="bi bi-gift-fill" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const text = (value: unknown) => String(value ?? "").trim();
+const upper = (value: unknown) => text(value).toUpperCase();
+
+const getCouponCode = (coupon: any) =>
+  upper(coupon?.couponCode ?? coupon?.code ?? coupon?.coupon_code);
+
+const getCouponDiscountType = (coupon: any) =>
+  text(coupon?.discountType ?? coupon?.discount_type ?? coupon?.type);
+
+const getCouponDiscountValue = (coupon: any) => {
+  const raw =
+    coupon?.discountValue ??
+    coupon?.discount ??
+    coupon?.discountAmount ??
+    coupon?.value ??
+    coupon?.amount;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getCouponMinOrderValue = (coupon: any) => {
+  const raw =
+    coupon?.minOrderValue ??
+    coupon?.minOrderAmount ??
+    coupon?.minOrder ??
+    coupon?.minimumOrderValue;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const getCouponMaxDiscountAmount = (coupon: any) => {
+  const raw =
+    coupon?.maxDiscountAmount ?? coupon?.maxDiscount ?? coupon?.discountCap;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const isCouponExpired = (coupon: any) => {
+  if (coupon?.isExpire === true) return true;
+  const state = text(coupon?.state).toLowerCase();
+  if (["expired", "used", "inactive", "rejected"].includes(state)) return true;
+
+  const now = Date.now();
+  const start = coupon?.startDate ? new Date(coupon.startDate).getTime() : NaN;
+  const end = coupon?.endDate ? new Date(coupon.endDate).getTime() : NaN;
+
+  if (Number.isFinite(start) && start > now) return true;
+  if (Number.isFinite(end) && end < now) return true;
+  return false;
+};
+
+const isCouponActive = (coupon: any) => coupon?.isActive !== false;
+
+const getCouponDisplayDiscount = (coupon: any) => {
+  const type = getCouponDiscountType(coupon).toLowerCase();
+  const value = getCouponDiscountValue(coupon);
+  if (value <= 0) return "Special offer";
+  if (type === "percentage" || (!type && value <= 100)) {
+    return `${value}% off`;
+  }
+  return `₹${value.toLocaleString("en-IN")} off`;
+};
+
+const calculateCouponDiscountAmount = (coupon: any, subTotal: number) => {
+  const rawValue = getCouponDiscountValue(coupon);
+  if (!Number.isFinite(rawValue) || rawValue <= 0 || subTotal <= 0) return 0;
+
+  const type = getCouponDiscountType(coupon).toLowerCase();
+  let discountAmount =
+    type === "percentage" || (!type && rawValue <= 100)
+      ? Math.round((subTotal * rawValue) / 100)
+      : rawValue;
+
+  const maxDiscount = getCouponMaxDiscountAmount(coupon);
+  if (maxDiscount > 0) {
+    discountAmount = Math.min(discountAmount, maxDiscount);
+  }
+
+  return Math.max(0, Math.min(discountAmount, subTotal));
+};
+
+const getCouponUnlockAmount = (coupon: any, subTotal: number) => {
+  const minOrderValue = getCouponMinOrderValue(coupon);
+  if (!minOrderValue || subTotal >= minOrderValue) return 0;
+  return minOrderValue - subTotal;
+};
+
+const normalizeCouponResponse = (payload: any): CouponModel[] => {
+  const list = Array.isArray(payload)
+    ? payload
+    : payload?.list ?? payload?.data ?? payload?.items ?? [];
+  return Array.isArray(list) ? list : [];
+};
+
+type CouponSource = "profile" | "general";
+
+type DisplayCoupon = CouponModel & {
+  source: CouponSource;
+};
+
+type CouponOption = {
+  coupon: DisplayCoupon;
+  code: string;
+  displayDiscount: string;
+  unlockAmount: number;
+  canApplyNow: boolean;
+};
+
+const isGeneralCoupon = (coupon: any) =>
+  coupon?.isCommon === true || !text(coupon?.toUserProfileId);
+
+function SaveForLater({
+  item,
+  onRemoveFromCart,
+}: {
+  item: any;
+  onRemoveFromCart: () => void;
+}) {
+  const { inWishlist, toggle } = useWishlistToggle(item.productVariantId);
+
+  const handleSaveForLater = () => {
+    if (!inWishlist) {
+      toggle({
+        productId: item.productId,
+        productVariantId: item.productVariantId,
+        productVariantDetailId: item.productVariantDetailId,
+        name: item.productName || item.name,
+        price: item.finalPrice,
+        oldPrice: item.mrpPrice,
+        image: item.image || item.imageURL,
+        color: item.color,
+      });
+    }
+    onRemoveFromCart();
+  };
+
+  return (
+    <button
+      onClick={handleSaveForLater}
+      title="Save for later"
+      className="s-cart-be1587"
+    >
+      <i className="bi bi-bookmark-fill s-addresslist-9eec06" />
+      Save for later
+    </button>
+  );
+}
+
+export default function Cart() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const prevPath =
+    (location.state as any)?.from ||
+    sessionStorage.getItem("lastPage") ||
+    "/user-products/product-list";
+  const isBuyNowView = searchParams.get("buyNow") === "1";
+  const qc = useQueryClient();
+  const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
+  const {
+    appliedCoupon,
+    couponDiscount,
+    selectedShipping,
+    setCoupon,
+    removeCoupon,
+    setPhysicalCouponCode,
+    physicalCouponCode,
+  } = useCartStore();
+
+  const isAuth = hasValidToken();
+  const userId = getUserId();
+  const [buyNowItems, setBuyNowItems] = useState<any[]>(() =>
+    isBuyNowView ? normalizeBuyNowItems(getBuyNowSession()?.items ?? []) : [],
+  );
+
+  const { data: cartData, isLoading } = useQuery({
+    queryKey: ["cart", userId],
+    queryFn: () => listCart({ userProfileId: userId }),
+    enabled: isAuth && !isBuyNowView,
+    select: (data: any) =>
+      (data?.list ?? data ?? []).map((item: any) => ({
+        ...item,
+        isSelected: true,
+        finalPrice: Number(item.finalPrice || item.price) || 0,
+        processedQuantity: Number(item.quantity) || 1,
+      })),
+  });
+
+  const [authItems, setAuthItems] = useState<any[]>([]);
+  const [guestItems, setGuestItems] = useState<any[]>([]);
+  const [cartItemsHydrated, setCartItemsHydrated] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [isCouponDropdownOpen, setIsCouponDropdownOpen] = useState(false);
+  // physicalCouponCode & setPhysicalCouponCode come from cartStore destructure above
+
+  const { data: profileCoupons = [], isLoading: isProfileCouponsLoading } =
+    useQuery({
+      queryKey: ["cart-profile-coupons", userId],
+      queryFn: async () => {
+        if (!userId) return [];
+        const res = await listUserCoupons({ userProfileId: String(userId) });
+        return normalizeCouponResponse(res);
+      },
+      enabled: isAuth && Boolean(userId),
+    });
+
+  const { data: generalCoupons = [], isLoading: isGeneralCouponsLoading } =
+    useQuery({
+      queryKey: ["cart-general-coupons"],
+      queryFn: async () => {
+        const res = await listCoupons({
+          "Page.Size": 200,
+          "Order.Property": "CreatedDate",
+          "Order.Ascending": false,
+        });
+        return normalizeCouponResponse(res).filter(isGeneralCoupon);
+      },
+    });
+
+  useEffect(() => {
+    setCartItemsHydrated(false);
+
+    if (isBuyNowView) {
+      setAuthItems([]);
+      setGuestItems([]);
+      setBuyNowItems(normalizeBuyNowItems(getBuyNowSession()?.items ?? []));
+      setCartItemsHydrated(true);
+      return;
+    }
+
+    if (isAuth) {
+      if (cartData !== undefined) {
+        setAuthItems(cartData);
+        setCartItemsHydrated(true);
+      }
+      return;
+    }
+
+    setAuthItems([]);
+    setGuestItems(
+      GuestCart.get().map((i: any) => ({ ...i, isSelected: true })),
+    );
+    setCartItemsHydrated(true);
+  }, [cartData, isAuth, isBuyNowView]);
+  useEffect(() => {
+    if (!isBuyNowView) {
+      setBuyNowItems([]);
+      return;
+    }
+
+    setBuyNowItems(normalizeBuyNowItems(getBuyNowSession()?.items ?? []));
+  }, [isBuyNowView]);
+
+  // Fix 1: When user navigates BACK from Buy Now cart without paying,
+  // add the buyNow item(s) into their real cart.
+  useEffect(() => {
+    if (!isBuyNowView) return;
+    return () => {
+      if (didProceedToCheckoutRef.current) return; // user intentionally checked out
+      const session = getBuyNowSession();
+      if (!session?.items?.length) return;
+
+      if (isAuth && userId) {
+        // Logged-in: queue items in localStorage for useCartLoader to process
+        const pending = session.items.map((item: any) => ({
+          productVariantDetailId: item.productVariantDetailId,
+          productId: item.productId,
+          productVariantId: item.productVariantId,
+          state: "Created",
+          userProfileId: userId,
+          quantity: item.processedQuantity || 1,
+        }));
+        localStorage.setItem("pendingBuyNowCartAdd", JSON.stringify(pending));
+      } else {
+        // Guest: merge buyNow item(s) into guestCart synchronously
+        const gc: any[] = (() => {
+          try {
+            return JSON.parse(localStorage.getItem("guestCart") || "[]");
+          } catch {
+            return [];
+          }
+        })();
+        session.items.forEach((item: any) => {
+          const key = `${item.productVariantId}-${item.productVariantDetailId}`;
+          const idx = gc.findIndex(
+            (x: any) =>
+              `${x.productVariantId}-${x.productVariantDetailId}` === key,
+          );
+          if (idx >= 0) {
+            gc[idx].quantity =
+              (gc[idx].quantity || 1) + (item.processedQuantity || 1);
+            gc[idx].processedQuantity = gc[idx].quantity;
+          } else {
+            gc.push({
+              ...item,
+              quantity: item.processedQuantity || 1,
+              isSelected: true,
+            });
+          }
+        });
+        localStorage.setItem("guestCart", JSON.stringify(gc));
+        window.dispatchEvent(new Event("guestCartUpdated"));
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBuyNowView, isAuth, userId]);
+
+  const appliedCouponCode = getCouponCode(appliedCoupon);
+  const typedCouponInput = upper(couponInput);
+  const isApplyCouponDisabled = Boolean(
+    !typedCouponInput ||
+      (appliedCouponCode && typedCouponInput === appliedCouponCode),
+  );
+
+  useEffect(() => {
+    if (appliedCouponCode) {
+      setCouponInput(appliedCouponCode);
+      return;
+    }
+
+    if (!appliedCoupon) {
+      setCouponInput("");
+    }
+  }, [appliedCoupon, appliedCouponCode]);
+
+  const cartItems = useMemo(() => {
+    const raw = isBuyNowView ? buyNowItems : isAuth ? authItems : guestItems;
+    // Merge any duplicate rows (same productVariantDetailId) that may already exist in DB
+    return mergeCartDuplicates(raw);
+  }, [isBuyNowView, buyNowItems, isAuth, authItems, guestItems]);
+  const selectedItems = cartItems.filter((i) => i.isSelected);
+  const allSelected =
+    cartItems.length > 0 && selectedItems.length === cartItems.length;
+
+  const subTotal = selectedItems.reduce(
+    (s, i) => s + (i.finalPrice || 0) * (i.processedQuantity || 1),
+    0,
+  );
+  const totalPayable = Math.max(0, subTotal - (couponDiscount ?? 0));
+  const currentCartSignature = useMemo(
+    () => buildSurpriseGiftSignature(selectedItems as any),
+    [selectedItems],
+  );
+  const currentCheckoutSession = isBuyNowView
+    ? getBuyNowSession()
+    : readCheckoutSession();
+  const giftUnlockPendingRef = useRef(false);
+  const giftFlowSignatureRef = useRef<string | null>(null);
+  const giftRedirectTimerRef = useRef<number | null>(null);
+  const checkoutTransitionInProgressRef = useRef(false);
+  // Track if user proceeded to payment so we know NOT to add to cart on back
+  const didProceedToCheckoutRef = useRef(false);
+  const [giftUnlocked, setGiftUnlocked] = useState<boolean>(() =>
+    Boolean(
+      currentCheckoutSession?.giftCheckoutKey === location.key &&
+        currentCheckoutSession?.surpriseGift &&
+        currentCheckoutSession.cartSignature === currentCartSignature,
+    ),
+  );
+  const activeSurpriseGift = giftUnlocked
+    ? currentCheckoutSession?.surpriseGift ?? null
+    : null;
+  const eligibleSurpriseGift = getSurpriseGiftSelection(subTotal);
+
+  const clearGiftRedirectTimer = () => {
+    if (giftRedirectTimerRef.current !== null) {
+      window.clearTimeout(giftRedirectTimerRef.current);
+      giftRedirectTimerRef.current = null;
+    }
+  };
+
+  const resetGiftCheckoutFlow = () => {
+    clearGiftRedirectTimer();
+    giftUnlockPendingRef.current = false;
+    giftFlowSignatureRef.current = null;
+    checkoutTransitionInProgressRef.current = false;
+  };
+
+  const proceedToCheckoutAddress = async () => {
+    if (checkoutTransitionInProgressRef.current) return;
+    checkoutTransitionInProgressRef.current = true;
+    didProceedToCheckoutRef.current = true; // mark that user intentionally proceeded
+    clearGiftRedirectTimer();
+    giftUnlockPendingRef.current = false;
+    giftFlowSignatureRef.current = null;
+    const store = useCartStore.getState();
+    const checkoutSession = isBuyNowView
+      ? getBuyNowSession()
+      : readCheckoutSession();
+    const surpriseGift =
+      checkoutSession?.surpriseGift ?? activeSurpriseGift ?? null;
+
+    persistCheckoutSession(
+      surpriseGift,
+      surpriseGift
+        ? checkoutSession?.giftCheckoutKey ??
+            currentCheckoutSession?.giftCheckoutKey ??
+            location.key
+        : null,
+    );
+
+    if (isBuyNowView) {
+      // Buy Now flow keeps the temporary session in sync, but cart store stays unchanged.
+    } else {
+      store.setSelectedItems?.(selectedItems);
+      store.setSubTotal?.(subTotal);
+    }
+
+    const checkoutPath =
+      "/user-products/payment-address" + (isBuyNowView ? "?buyNow=1" : "");
+
+    if (!isAuth) {
+      navigate(checkoutPath, {
+        state: {
+          from: location.pathname + location.search,
+          surpriseGiftFlow: currentCartSignature,
+        },
+      });
+      return;
+    }
+
+    try {
+      await checkOutOfStock({
+        orderItems: selectedItems
+          .filter((i) => i.productVariantDetailId)
+          .map((i) => ({ productVariantDetailId: i.productVariantDetailId })),
+      });
+      navigate(checkoutPath, {
+        state: {
+          from: location.pathname + location.search,
+          surpriseGiftFlow: currentCartSignature,
+        },
+      });
+    } catch (e: any) {
+      checkoutTransitionInProgressRef.current = false;
+      toast.error(e?.response?.data?.message || "Some items are out of stock");
+    }
+  };
+
+  useEffect(() => {
+    if (!cartItemsHydrated) return;
+
+    const session = isBuyNowView ? getBuyNowSession() : readCheckoutSession();
+    const sessionMatches =
+      Boolean(session?.surpriseGift) &&
+      session?.cartSignature === currentCartSignature &&
+      session?.giftFlowVersion === 2 &&
+      session?.giftCheckoutKey === location.key;
+
+    if (sessionMatches) {
+      setGiftUnlocked(true);
+      return;
+    }
+
+    if (giftUnlockPendingRef.current) return;
+
+    if (session?.surpriseGift) {
+      if (isBuyNowView) clearBuyNowSession();
+      else clearCheckoutSession();
+    }
+
+    setGiftUnlocked(false);
+  }, [cartItemsHydrated, currentCartSignature, isBuyNowView, location.key]);
+
+  useEffect(() => {
+    return () => {
+      clearGiftRedirectTimer();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!giftUnlockPendingRef.current) return;
+    if (!giftFlowSignatureRef.current) return;
+    if (giftFlowSignatureRef.current === currentCartSignature) return;
+
+    resetGiftCheckoutFlow();
+    if (isBuyNowView) clearBuyNowSession();
+    else clearCheckoutSession();
+    setGiftUnlocked(false);
+  }, [currentCartSignature, isBuyNowView]);
+
+  const couponOptions = useMemo(() => {
+    const byCode = new Map<string, DisplayCoupon>();
+
+    const pushCoupon = (coupon: any, source: CouponSource) => {
+      const code = getCouponCode(coupon);
+      if (!code) return;
+
+      const normalized: DisplayCoupon = {
+        ...coupon,
+        couponCode: code,
+        source,
+      };
+
+      const existing = byCode.get(code);
+      if (
+        !existing ||
+        (source === "profile" && existing.source !== "profile")
+      ) {
+        byCode.set(code, normalized);
+      }
+    };
+
+    generalCoupons.forEach((coupon: any) => pushCoupon(coupon, "general"));
+    profileCoupons.forEach((coupon: any) => pushCoupon(coupon, "profile"));
+
+    // Collect product IDs currently in the cart for product-specific coupon filtering
+    const cartProductIds = new Set(
+      (isBuyNowView ? buyNowItems : isAuth ? authItems : guestItems)
+        .map((item: any) => item.productId)
+        .filter(Boolean),
+    );
+
+    const all = [...byCode.values()]
+      .filter((coupon) => {
+        if (!isCouponActive(coupon) || isCouponExpired(coupon)) return false;
+        // Product-specific coupons: only show if the product is in the cart
+        if ((coupon as any).couponType === "product_specific") {
+          return (
+            (coupon as any).productId &&
+            cartProductIds.has((coupon as any).productId)
+          );
+        }
+        return true;
+      })
+      .map((coupon) => {
+        const code = getCouponCode(coupon);
+        const unlockAmount = getCouponUnlockAmount(coupon, subTotal);
+        const discountAmount = calculateCouponDiscountAmount(coupon, subTotal);
+
+        return {
+          coupon,
+          code,
+          displayDiscount: getCouponDisplayDiscount(coupon),
+          unlockAmount,
+          canApplyNow: unlockAmount <= 0 && discountAmount > 0,
+        } satisfies CouponOption;
+      })
+      .sort((a, b) => {
+        const sourceDiff =
+          a.coupon.source === b.coupon.source
+            ? 0
+            : a.coupon.source === "profile"
+            ? -1
+            : 1;
+        return sourceDiff || a.code.localeCompare(b.code);
+      });
+
+    return {
+      all,
+      profile: all.filter((item) => item.coupon.source === "profile"),
+      general: all.filter((item) => item.coupon.source === "general"),
+    };
+  }, [generalCoupons, profileCoupons, subTotal]);
+
+  const resolveCouponByCode = async (
+    rawCode: string,
+  ): Promise<DisplayCoupon | null> => {
+    const code = upper(rawCode);
+    if (!code) return null;
+
+    const localMatch = couponOptions.all.find((item) => item.code === code);
+    if (localMatch) return localMatch.coupon;
+
+    try {
+      const [userRes, generalRes] = await Promise.all([
+        isAuth && userId
+          ? listUserCoupons({ userProfileId: String(userId) })
+          : Promise.resolve(null),
+        listCoupons({
+          Filters: [
+            {
+              property: "CouponCode",
+              comparison: "eq",
+              value: code,
+            },
+          ],
+        }),
+      ]);
+
+      const fetchedCoupons = [
+        ...(normalizeCouponResponse(userRes) as CouponModel[]),
+        ...(normalizeCouponResponse(generalRes) as CouponModel[]),
+      ];
+
+      const match = fetchedCoupons.find(
+        (coupon) => getCouponCode(coupon) === code,
+      );
+      if (!match) return null;
+
+      return {
+        ...match,
+        couponCode: getCouponCode(match),
+        source: isGeneralCoupon(match) ? "general" : "profile",
+      };
+    } catch (error) {
+      console.error("Coupon lookup error:", error);
+      return null;
+    }
+  };
+
+  /**
+   * Try to validate a physical (store-issued) coupon code.
+   * Returns discount % if valid, null otherwise.
+   * Sets physicalCouponCode state so MarkUsed can be called after order.
+   */
+  const resolvePhysicalCoupon = async (
+    rawCode: string,
+  ): Promise<number | null> => {
+    const code = upper(rawCode);
+    if (!code) return null;
+    try {
+      const result = await validatePhysicalCoupon({
+        couponCode: code,
+        userProfileId: userId ? String(userId) : undefined,
+      });
+      if (result.valid && result.discount) {
+        setPhysicalCouponCode(code);
+        return result.discount;
+      }
+      return null;
+    } catch (err: any) {
+      // 409 = already used globally
+      if (err?.response?.status === 409) {
+        toast.error("This physical coupon has already been used");
+      }
+      return null;
+    }
+  };
+
+  const applyCouponByCode = async (rawCode: string, showToast = true) => {
+    const code = upper(rawCode);
+    if (!code) {
+      if (showToast) toast.error("Enter a coupon code");
+      return false;
+    }
+
+    try {
+      const coupon = await resolveCouponByCode(code);
+      if (!coupon) {
+        // Try as a physical coupon
+        const physDiscount = await resolvePhysicalCoupon(code);
+        if (physDiscount !== null) {
+          // Build a synthetic coupon object for cart state
+          const synthCoupon: any = {
+            couponCode: code,
+            couponName: "Physical Coupon",
+            discount: physDiscount,
+            discountType: "percentage",
+            isActive: true,
+            isCommon: false,
+            couponType: "physical",
+            source: "profile",
+          };
+          const discountAmt = calculateCouponDiscountAmount(
+            synthCoupon,
+            subTotal,
+          );
+          if (discountAmt <= 0) {
+            if (showToast) toast.error("Coupon not applicable on this order");
+            return false;
+          }
+          setCoupon(synthCoupon, discountAmt);
+          if (showToast) {
+            toast.success(
+              `Physical coupon applied! ${physDiscount}% off — you save ₹${discountAmt.toLocaleString(
+                "en-IN",
+              )}`,
+            );
+          }
+          return true;
+        }
+        if (showToast) toast.error("Invalid coupon");
+        return false;
+      }
+
+      if (!isCouponActive(coupon) || isCouponExpired(coupon)) {
+        if (showToast) toast.error("Invalid coupon");
+        return false;
+      }
+
+      const unlockAmount = getCouponUnlockAmount(coupon, subTotal);
+      if (unlockAmount > 0) {
+        if (showToast) {
+          toast.error(
+            `Add Rs.${unlockAmount.toLocaleString(
+              "en-IN",
+            )} more to use this coupon`,
+          );
+        }
+        return false;
+      }
+
+      const discountAmt = calculateCouponDiscountAmount(coupon, subTotal);
+      if (discountAmt <= 0) {
+        if (showToast) toast.error("Coupon not applicable on this order");
+        return false;
+      }
+
+      setCoupon(coupon, discountAmt);
+
+      if (showToast) {
+        toast.success(
+          `Coupon applied! ${getCouponDisplayDiscount(
+            coupon,
+          )} — you save Rs.${discountAmt.toLocaleString("en-IN")}`,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Coupon error:", error);
+      if (showToast) toast.error("Could not verify coupon. Please try again.");
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    const appliedCode = getCouponCode(appliedCoupon);
+    if (!appliedCode) return;
+
+    const current = couponOptions.all.find((item) => item.code === appliedCode);
+    if (!current) return;
+
+    const discountAmt = calculateCouponDiscountAmount(current.coupon, subTotal);
+    if (discountAmt > 0 && discountAmt !== couponDiscount) {
+      setCoupon(current.coupon, discountAmt);
+    }
+  }, [appliedCoupon, couponDiscount, couponOptions.all, setCoupon, subTotal]);
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, qty }: { id: number; qty: number }) =>
+      updateCart(id, { cartId: id, quantity: qty }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cart"] });
+      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteCartItem(id),
+    onSuccess: () => {
+      toast.success("Item removed");
+      qc.invalidateQueries({ queryKey: ["cart"] });
+      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+      setCartCount(Math.max(0, (cartCount || 1) - 1));
+    },
+  });
+
+  const syncBuyNowItems = (
+    updater: (items: any[]) => any[],
+    toastMessage?: string,
+  ) => {
+    setBuyNowItems((prev) => {
+      const next = normalizeBuyNowItems(updater(prev));
+      if (next.length > 0) {
+        setBuyNowSession(next as any);
+      } else {
+        clearBuyNowSession();
+      }
+      return next;
+    });
+
+    if (toastMessage) toast.success(toastMessage);
+  };
+
+  const handleQtyChange = (item: any, qty: number) => {
+    if (qty < 1) return;
+    if (isBuyNowView) {
+      syncBuyNowItems((prev) =>
+        prev.map((i) =>
+          i.productVariantDetailId === item.productVariantDetailId
+            ? { ...i, processedQuantity: qty, quantity: qty }
+            : i,
+        ),
+      );
+      return;
+    }
+    if (isAuth) {
+      updateMutation.mutate({ id: item.cartId, qty });
+      setAuthItems((prev) =>
+        prev.map((i) =>
+          i.cartId === item.cartId
+            ? { ...i, processedQuantity: qty, quantity: qty }
+            : i,
+        ),
+      );
+    } else {
+      GuestCart.updateQty(item.productVariantDetailId, qty);
+      setGuestItems((prev) =>
+        prev.map((i) =>
+          i.productVariantDetailId === item.productVariantDetailId
+            ? { ...i, processedQuantity: qty, quantity: qty }
+            : i,
+        ),
+      );
+    }
+  };
+
+  const handleRemove = (item: any) => {
+    if (isBuyNowView) {
+      syncBuyNowItems(
+        (prev) =>
+          prev.filter(
+            (i: any) =>
+              i.productVariantDetailId !== item.productVariantDetailId,
+          ),
+        "Item removed",
+      );
+      return;
+    }
+    if (isAuth) deleteMutation.mutate(item.cartId);
+    else {
+      GuestCart.remove(item.productVariantDetailId);
+      setGuestItems((prev) => {
+        const updated = prev.filter(
+          (i: any) => i.productVariantDetailId !== item.productVariantDetailId,
+        );
+        window.dispatchEvent(new Event("guestCartUpdated"));
+        return updated;
+      });
+      toast.success("Item removed");
+    }
+  };
+
+  const toggleSelect = (item: any) => {
+    if (isBuyNowView) {
+      syncBuyNowItems((prev) =>
+        prev.map((i) =>
+          i.productVariantDetailId === item.productVariantDetailId
+            ? { ...i, isSelected: !i.isSelected }
+            : i,
+        ),
+      );
+      return;
+    }
+    const fn = (arr: any[]) =>
+      arr.map((i) => {
+        const match = isAuth
+          ? i.cartId === item.cartId
+          : i.productVariantDetailId === item.productVariantDetailId;
+        return match ? { ...i, isSelected: !i.isSelected } : i;
+      });
+    isAuth ? setAuthItems(fn) : setGuestItems(fn);
+  };
+
+  const toggleAll = () => {
+    const val = !allSelected;
+    if (isBuyNowView) {
+      syncBuyNowItems((prev) => prev.map((i) => ({ ...i, isSelected: val })));
+      return;
+    }
+    const fn = (arr: any[]) => arr.map((i) => ({ ...i, isSelected: val }));
+    isAuth ? setAuthItems(fn) : setGuestItems(fn);
+  };
+
+  const handleClearCart = () => {
+    if (isBuyNowView) {
+      clearBuyNowSession();
+      setBuyNowItems([]);
+      toast.success("Buy Now item cleared");
+      return;
+    }
+    if (isAuth) setAuthItems([]);
+    else {
+      GuestCart.set([]);
+      setGuestItems([]);
+    }
+    toast.success("Cart cleared");
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!typedCouponInput) {
+      toast.error("Enter a coupon code");
+      return;
+    }
+
+    if (isApplyCouponDisabled) return;
+
+    const applied = await applyCouponByCode(typedCouponInput, true);
+    if (applied) setIsCouponDropdownOpen(false);
+    return;
+
+    if (!couponInput.trim()) {
+      toast.error("Enter a coupon code");
+      return;
+    }
+    try {
+      const res = await listCoupons({
+        Filters: [
+          {
+            property: "CouponCode",
+            comparison: "eq",
+            value: couponInput.trim(),
+          },
+        ],
+      });
+      const coupon = res?.list?.[0];
+      if (!coupon) {
+        toast.error("Invalid coupon code");
+        return;
+      }
+      if (coupon.isActive === false || coupon.isActive === null) {
+        toast.error("This coupon is not active");
+        return;
+      }
+      // discount = integer percent (e.g. 10 = 10% off)
+      const pct = Number(coupon.discount) || 0;
+      if (pct <= 0) {
+        toast.error("This coupon has no discount value");
+        return;
+      }
+      const discountAmt = Math.round((subTotal * pct) / 100);
+      if (discountAmt <= 0) {
+        toast.error("Coupon not applicable on this order");
+        return;
+      }
+      setCoupon(coupon, discountAmt);
+      toast.success(`Coupon applied! ${pct}% off — you save ₹${discountAmt}`);
+    } catch (e) {
+      console.error("Coupon error:", e);
+      toast.error("Could not verify coupon. Please try again.");
+    }
+  };
+
+  const handleSelectCoupon = async (code: string) => {
+    const normalized = upper(code);
+    if (!normalized) return;
+
+    setCouponInput(normalized);
+    if (normalized === appliedCouponCode) return;
+
+    const applied = await applyCouponByCode(normalized, true);
+    if (applied) setIsCouponDropdownOpen(false);
+  };
+
+  const handleRemoveCoupon = () => {
+    removeCoupon();
+    setCouponInput("");
+    setIsCouponDropdownOpen(false);
+    setPhysicalCouponCode(null);
+  };
+
+  /**
+   * Call this after a successful order is placed to permanently mark the coupon as used.
+   * Pass the created orderId so it is recorded for audit purposes.
+   */
+  const markAppliedCouponUsed = async (orderId?: number) => {
+    if (!userId) return;
+    try {
+      if (physicalCouponCode) {
+        await markPhysicalCouponUsed({
+          couponCode: physicalCouponCode,
+          userProfileId: String(userId),
+          orderId,
+        });
+        setPhysicalCouponCode(null);
+      } else if (appliedCoupon && (appliedCoupon as any).couponId) {
+        await markDigitalCouponUsed({
+          couponId: (appliedCoupon as any).couponId,
+          userProfileId: String(userId),
+          orderId,
+        });
+      }
+    } catch (err) {
+      // Non-fatal: log but do not interrupt the order success flow
+      console.error("Failed to mark coupon used:", err);
+    }
+  };
+
+  const persistCheckoutSession = (
+    surpriseGift: SurpriseGiftSelection | null,
+    giftCheckoutKey?: string | null,
+  ) => {
+    if (isBuyNowView) {
+      setBuyNowSession(selectedItems as any, {
+        shipping: currentCheckoutSession?.shipping ?? null,
+        surpriseGift,
+        cartSignature: currentCartSignature,
+        giftCheckoutKey,
+      });
+      return;
+    }
+
+    clearBuyNowSession();
+    saveCheckoutSession({
+      mode: "cart",
+      items: selectedItems,
+      subTotal,
+      shipping: selectedShipping ?? currentCheckoutSession?.shipping ?? null,
+      surpriseGift,
+      cartSignature: currentCartSignature,
+      giftCheckoutKey,
+    });
+  };
+
+  const handleCheckout = async () => {
+    if (selectedItems.length === 0) {
+      toast.error("Please select at least one item");
+      return;
+    }
+
+    if (typedCouponInput && typedCouponInput !== appliedCouponCode) {
+      const isCouponValid = await applyCouponByCode(typedCouponInput, true);
+      if (!isCouponValid) {
+        return;
+      }
+    }
+
+    const unlockedGift = activeSurpriseGift ?? null;
+
+    if (giftRedirectTimerRef.current !== null) {
+      await proceedToCheckoutAddress();
+      return;
+    }
+
+    if (
+      !unlockedGift &&
+      !eligibleSurpriseGift &&
+      subTotal > 0 &&
+      subTotal < 2500
+    ) {
+      const remainingAmount = Math.max(0, 2500 - subTotal);
+
+      toast.custom(
+        (t) => (
+          <div
+            style={{
+              background: "transparent",
+              boxShadow: "none",
+              padding: 0,
+              border: "none",
+            }}
+          >
+            <SurpriseGiftReminderToast
+              remainingAmount={remainingAmount}
+              onDismiss={() => toast.dismiss(t.id)}
+            />
+          </div>
+        ),
+        {
+          id: `surprise-gift-reminder-${currentCartSignature}`,
+          duration: 7000,
+          style: {
+            background: "transparent",
+            boxShadow: "none",
+            padding: 0,
+            border: "none",
+          },
+        },
+      );
+    }
+
+    if (eligibleSurpriseGift && !unlockedGift) {
+      giftUnlockPendingRef.current = true;
+      giftFlowSignatureRef.current = currentCartSignature;
+      persistCheckoutSession(eligibleSurpriseGift, location.key);
+      setGiftUnlocked(true);
+      toast.custom(
+        (t) => <SurpriseGiftToast onDismiss={() => toast.dismiss(t.id)} />,
+        {
+          duration: 5000,
+          style: {
+            background: "transparent",
+            boxShadow: "none",
+            padding: 0,
+            border: "none",
+          },
+        },
+      );
+      clearGiftRedirectTimer();
+      giftRedirectTimerRef.current = window.setTimeout(() => {
+        void proceedToCheckoutAddress();
+      }, 5000);
+      return;
+    }
+
+    await proceedToCheckoutAddress();
+  };
+
+  if (isLoading)
+    return (
+      <div className="d-flex justify-content-center align-items-center s-cart-cd9eb3">
+        <div className="spinner-border s-cart-8398cc" />
+      </div>
+    );
+
+  if (cartItems.length === 0)
+    return (
+      <div className="container py-5">
+        <div className="d-flex flex-column align-items-center s-cart-cd9eb3">
+          <i className="bi bi-cart-x s-cart-b5dbda" />
+          <h5 className="mt-4 text-muted">
+            {isBuyNowView ? "Buy Now item unavailable" : "Your cart is empty"}
+          </h5>
+          <p className="text-muted">
+            {isBuyNowView
+              ? "This temporary item is no longer available. Please open the product and tap Buy Now again."
+              : "Looks like you haven't added anything yet."}
+          </p>
+          <button
+            onClick={() => navigate("/all-products")}
+            className="s-cart-289753"
+          >
+            ← Continue Shopping
+          </button>
+        </div>
+      </div>
+    );
+
+  return (
+    <>
+      <div className="container s-cart-2eb199">
+        {isBuyNowView && (
+          <div
+            className="s-cart-buy-now-banner"
+            style={{
+              marginBottom: 16,
+              padding: "14px 16px",
+              borderRadius: 16,
+              border: "1px solid rgba(107, 15, 42, 0.18)",
+              background:
+                "linear-gradient(135deg, rgba(107, 15, 42, 0.08), rgba(245, 240, 230, 0.96))",
+              boxShadow: "0 10px 24px rgba(0, 0, 0, 0.04)",
+            }}
+          >
+            <div className="d-flex align-items-start gap-3 flex-wrap">
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  background: "#000000",
+                  color: "#ffffff",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  flexShrink: 0,
+                }}
+              >
+                <i className="bi bi-bag-check-fill" />
+                Buy Now
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p className="mb-1 fw-semibold s-cart-04af82">
+                  Single-item checkout mode
+                </p>
+                <p className="mb-0 s-adminnewslet-f01220">
+                  Only the product you chose for Buy Now appears here. Your main
+                  cart stays separate and unchanged.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Select All row ── */}
+        <div className="s-cart-1fdbde">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleAll}
+            className="s-cart-f71922"
+          />
+          <span className="s-quickcart-08341f">
+            Select All ({selectedItems.length}/{cartItems.length})
+          </span>
+        </div>
+
+        <div className="row g-4">
+          {/* ── Left: Cart Items ── */}
+          <div className="col-lg-8">
+            {activeSurpriseGift && <SurpriseGiftCard />}
+
+            {cartItems.map((item: any) => (
+              <div
+                key={item.cartId ?? item.productVariantId}
+                className="s-cart-100fbc"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!item.isSelected}
+                  onChange={() => toggleSelect(item)}
+                  className="s-cart-d8c8fe"
+                />
+
+                {/* Clickable image */}
+                <img
+                  src={getImageUrl(item.image || item.imageURL)}
+                  alt={item.productName || item.name || ""}
+                  onClick={() =>
+                    navigate(
+                      `/user-products/product-detail/${
+                        item.productVariantId
+                      }/${slugify(item.productName || item.name || "")}`,
+                    )
+                  }
+                  className="s-cart-c9a7a1"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "/assets/category-bg.png";
+                  }}
+                />
+
+                <div className="s-userdashboar-7aa8c4">
+                  {/* Name + Brand */}
+                  <h6 className="s-cart-04af82">
+                    {item.productName || item.name}
+                    {item.brandName && (
+                      <span className="s-cart-9a8498">({item.brandName})</span>
+                    )}
+                  </h6>
+
+                  {/* Color + Size */}
+                  <div className="s-cart-0e031f">
+                    {(item.colorName || item.color) && (
+                      <span className="s-cart-c8ff6d">
+                        <span
+                          className="s-cart-552e26"
+                          style={{
+                            background: resolveHex(item.colorHex ?? item.color),
+                          }}
+                        />
+                        {item.colorName ?? item.color}
+                      </span>
+                    )}
+                    {(item.size || item.bandSize) && (
+                      <span className="s-adminnewslet-f01220">
+                        Band Size: <strong>{item.size || item.bandSize}</strong>
+                      </span>
+                    )}
+                    {item.cupSize && (
+                      <span className="s-adminnewslet-f01220">
+                        Cup Size: <strong>{item.cupSize}</strong>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="s-adminbar-877368">
+                    <span className="s-adminnewslet-f01220">Quantity:</span>
+                    <div className="s-cart-13c6e0">
+                      <button
+                        onClick={() =>
+                          handleQtyChange(
+                            item,
+                            (item.processedQuantity || 1) - 1,
+                          )
+                        }
+                        className="s-cart-bbdb9d"
+                      >
+                        −
+                      </button>
+                      <span className="s-cart-686e55">
+                        {item.processedQuantity || 1}
+                      </span>
+                      <button
+                        onClick={() =>
+                          handleQtyChange(
+                            item,
+                            (item.processedQuantity || 1) + 1,
+                          )
+                        }
+                        className="s-cart-bbdb9d"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: price + save + delete */}
+                <div className="s-cart-4c5975">
+                  <span className="s-cart-abec22">
+                    ₹
+                    {(
+                      (item.finalPrice || 0) * (item.processedQuantity || 1)
+                    ).toLocaleString("en-IN")}
+                  </span>
+                  {item.mrpPrice && item.mrpPrice > item.finalPrice && (
+                    <span className="s-cart-c7ed91">
+                      ₹
+                      {(
+                        item.mrpPrice * (item.processedQuantity || 1)
+                      ).toLocaleString("en-IN")}
+                    </span>
+                  )}
+                  <div className="s-adminbar-877368">
+                    <SaveForLater
+                      item={item}
+                      onRemoveFromCart={() => handleRemove(item)}
+                    />
+                    <button
+                      onClick={() => handleRemove(item)}
+                      title="Remove"
+                      className="s-cart-f7fc7f"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Clear Cart — centered below items */}
+            <div className="s-cart-7a55d6">
+              <button onClick={handleClearCart} className="s-cart-eda0e1">
+                {isBuyNowView ? "Clear Buy Now Item" : "Clear Shopping Cart"}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Right: Order Summary ── */}
+          <div className="col-lg-4">
+            <div className="s-cart-a4c113">
+              {/* Coupon */}
+              <h6 className="s-cart-d1f5ec">Apply Coupon Code</h6>
+              <div className="s-cart-e57b74 s-cart-coupon-entry">
+                <input
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                  placeholder="Coupon code"
+                  className="s-cart-d635cd"
+                />
+                <button
+                  onClick={handleApplyCoupon}
+                  className="s-cart-6ee566 s-cart-coupon-apply"
+                  disabled={isApplyCouponDisabled}
+                >
+                  Apply
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCouponDropdownOpen((open) => !open)}
+                className="s-cart-coupon-toggle"
+              >
+                <span>
+                  {isCouponDropdownOpen
+                    ? "Hide available coupons"
+                    : "Available coupons"}
+                </span>
+                <i
+                  className={`bi ${
+                    isCouponDropdownOpen ? "bi-chevron-up" : "bi-chevron-down"
+                  }`}
+                />
+              </button>
+
+              {isCouponDropdownOpen && (
+                <div className="s-cart-coupon-panel">
+                  {isProfileCouponsLoading || isGeneralCouponsLoading ? (
+                    <p className="s-cart-coupon-state">
+                      Loading available coupons...
+                    </p>
+                  ) : couponOptions.all.length === 0 ? (
+                    <p className="s-cart-coupon-state">
+                      No active coupons available right now.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="s-cart-coupon-note">
+                        Tap a coupon to apply it
+                      </p>
+
+                      {couponOptions.profile.length > 0 && (
+                        <div
+                          className={`s-cart-coupon-group ${
+                            couponOptions.general.length > 0
+                              ? "s-cart-coupon-group--spaced"
+                              : ""
+                          }`}
+                        >
+                          <div className="s-cart-coupon-group__title">
+                            Your coupons
+                          </div>
+                          <div className="s-cart-coupon-grid">
+                            {couponOptions.profile.map((item) => (
+                              <button
+                                key={`${item.code}-${
+                                  item.coupon.couponId ?? "profile"
+                                }`}
+                                type="button"
+                                onClick={() =>
+                                  void handleSelectCoupon(item.code)
+                                }
+                                disabled={item.code === appliedCouponCode}
+                                className={`s-cart-coupon-card ${
+                                  item.code === appliedCouponCode
+                                    ? "s-cart-coupon-card--applied"
+                                    : item.canApplyNow
+                                    ? "s-cart-coupon-card--active"
+                                    : "s-cart-coupon-card--locked"
+                                }`}
+                              >
+                                <div className="s-cart-coupon-card__info">
+                                  <span className="s-cart-coupon-card__code">
+                                    {item.code}
+                                  </span>
+                                  <span className="s-cart-coupon-card__name">
+                                    {item.coupon.couponName || "Profile coupon"}
+                                  </span>
+                                </div>
+                                <div className="s-cart-coupon-card__meta">
+                                  <div className="s-cart-coupon-card__discount">
+                                    {item.displayDiscount}
+                                  </div>
+                                  <div className="s-cart-coupon-card__status">
+                                    {item.code === appliedCouponCode
+                                      ? "Applied"
+                                      : item.canApplyNow
+                                      ? "Tap to use"
+                                      : `Need Rs.${item.unlockAmount.toLocaleString(
+                                          "en-IN",
+                                        )} more`}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {couponOptions.general.length > 0 && (
+                        <div className="s-cart-coupon-group">
+                          <div className="s-cart-coupon-group__title">
+                            General coupons
+                          </div>
+                          <div className="s-cart-coupon-grid">
+                            {couponOptions.general.map((item) => (
+                              <button
+                                key={`${item.code}-${
+                                  item.coupon.couponId ?? "general"
+                                }`}
+                                type="button"
+                                onClick={() =>
+                                  void handleSelectCoupon(item.code)
+                                }
+                                disabled={item.code === appliedCouponCode}
+                                className={`s-cart-coupon-card ${
+                                  item.code === appliedCouponCode
+                                    ? "s-cart-coupon-card--applied"
+                                    : item.canApplyNow
+                                    ? "s-cart-coupon-card--active"
+                                    : "s-cart-coupon-card--locked"
+                                }`}
+                              >
+                                <div className="s-cart-coupon-card__info">
+                                  <span className="s-cart-coupon-card__code">
+                                    {item.code}
+                                  </span>
+                                  <span className="s-cart-coupon-card__name">
+                                    {item.coupon.couponName || "General coupon"}
+                                  </span>
+                                </div>
+                                <div className="s-cart-coupon-card__meta">
+                                  <div className="s-cart-coupon-card__discount">
+                                    {item.displayDiscount}
+                                  </div>
+                                  <div className="s-cart-coupon-card__status">
+                                    {item.code === appliedCouponCode
+                                      ? "Applied"
+                                      : item.canApplyNow
+                                      ? "Tap to use"
+                                      : `Need Rs.${item.unlockAmount.toLocaleString(
+                                          "en-IN",
+                                        )} more`}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+              {false && appliedCoupon ? (
+                <div className="s-cart-1914b7">
+                  <span className="s-cart-1c5a85">
+                    {(appliedCoupon as any).couponCode} applied
+                  </span>
+                  <button onClick={removeCoupon} className="s-cart-3ecda7">
+                    ✕
+                  </button>
+                </div>
+              ) : null}
+
+              {appliedCoupon && (
+                <div className="s-cart-e57b74 s-cart-coupon-summary">
+                  <div className="s-cart-coupon-summary__info">
+                    <span className="s-cart-1c5a85">
+                      {appliedCouponCode || "Coupon"} applied
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="s-cart-3ecda7"
+                  >
+                    x
+                  </button>
+                </div>
+              )}
+
+              {couponDiscount > 0 && (
+                <p className="s-cart-coupon-savings">
+                  You have saved ₹{couponDiscount.toLocaleString("en-IN")}
+                </p>
+              )}
+
+              <hr className="s-cart-0ff409" />
+              <h6 className="s-cart-d1f5ec">Order Summary</h6>
+
+              <div className="s-cart-1e2460">
+                <span className="s-quickcart-08341f">
+                  Subtotal ({selectedItems.length} item
+                  {selectedItems.length !== 1 ? "s" : ""} ·{" "}
+                  {selectedItems.reduce(
+                    (s, i) => s + (i.processedQuantity || 1),
+                    0,
+                  )}{" "}
+                  qty)
+                </span>
+                <span className="s-cart-d5c56b">
+                  ₹{subTotal.toLocaleString("en-IN")}.00
+                </span>
+              </div>
+              {activeSurpriseGift && (
+                <div className="s-userdashboar-474527">
+                  <span className="s-cart-83be37">Surprise Gift</span>
+                  <span className="s-cart-1c5a85">₹0</span>
+                </div>
+              )}
+              <p className="s-cart-a8f4aa">Shipping calculated at checkout</p>
+
+              {couponDiscount > 0 && (
+                <div className="s-userdashboar-474527">
+                  <span className="s-cart-83be37">Coupon Discount</span>
+                  <span className="s-cart-1c5a85">
+                    − ₹{couponDiscount.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+
+              <div className="s-cart-5258c8 checkout-summary-total">
+                <span className="s-cart-4d546e">Total</span>
+                <span className="s-cart-7977ea">
+                  ₹{totalPayable.toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              {/* Checkout buttons — wrapped in fragment to avoid JSX sibling error */}
+              <>
+                {isAuth ? (
+                  <button onClick={handleCheckout} className="s-cart-769238">
+                    {isBuyNowView ? "Checkout Buy Now →" : "Checkout Order →"}
+                  </button>
+                ) : (
+                  <button onClick={handleCheckout} className="s-cart-769238">
+                    {isBuyNowView
+                      ? "Checkout Buy Now →"
+                      : "Checkout as Guest →"}
+                  </button>
+                )}
+                <button
+                  onClick={() => navigate("/all-products")}
+                  className="s-cart-d3b151"
+                >
+                  ← Continue Shopping
+                </button>
+              </>
+
+              <div className="s-cart-2a4b1d">
+                {["🔒 Secure", "↩️ Easy Returns", "✅ Trusted"].map((t) => (
+                  <span key={t} className="s-adminsizes-b54cfc">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="cart-mobile-place-order">
+        <div className="cart-mobile-place-order__meta">
+          <span className="cart-mobile-place-order__count">
+            {selectedItems.length} item
+            {selectedItems.length !== 1 ? "s" : ""} selected
+          </span>
+          <span className="cart-mobile-place-order__meta-dot">•</span>
+          <span className="cart-mobile-place-order__count">
+            {selectedItems.reduce((s, i) => s + (i.processedQuantity || 1), 0)}{" "}
+            qty
+          </span>
+          <span className="cart-mobile-place-order__meta-dot">•</span>
+          <span className="cart-mobile-place-order__total">
+            ₹{totalPayable.toLocaleString("en-IN")}
+          </span>
+        </div>
+        <button
+          onClick={handleCheckout}
+          disabled={selectedItems.length === 0}
+          className="cart-mobile-place-order__btn"
+        >
+          {isBuyNowView ? "Buy Now Checkout" : "Place Order"}
+        </button>
+      </div>
+    </>
+  );
+}
