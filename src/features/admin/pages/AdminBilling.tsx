@@ -29,7 +29,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 const ROLES = {
   SUPER_ADMIN:       1,
   INVENTORY_MANAGER: 3,
-  STORE_MANAGER:     7,   // ← your actual role ID
+  STORE_MANAGER:     4,   // ← your actual role ID
 } as const;
 
 // =============================================================================

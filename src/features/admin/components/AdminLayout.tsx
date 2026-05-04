@@ -5,7 +5,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 const ROLE_LABELS: Record<number, string> = {
   1: "Super Admin",
   3: "Inventory Manager",
-  4: "Product Manager",
+  4: "Store Manager",
   5: "Order Manager",
   6: "Customer Support",
 };
@@ -16,7 +16,7 @@ const ALL_NAV = [
     path: "/admin/admin-dashboard",
     icon: "bi-speedometer2",
     label: "Dashboard",
-    roles: [1, 3, 4, 5, 6],
+    roles: [1, 5, 6],
   },
   {
     path: "/admin/orders",
@@ -34,7 +34,7 @@ const ALL_NAV = [
     path: "/admin/bulk-import",
     icon: "bi-upload",
     label: "Bulk Upload",
-    roles: [1, 3, 4],
+    roles: [1,],
   },
   {
     path: "/admin/product-bulk-upload",
@@ -46,28 +46,28 @@ const ALL_NAV = [
     path: "/admin/categories",
     icon: "bi-folder",
     label: "Categories",
-    roles: [1, 4],
+    roles: [1],
   },
   {
     path: "/admin/store-settings",
     icon: "bi-folder",
     label: "Store Settings",
-    roles: [1, 3, 4],
+    roles: [1],
   },
   {
     path: "/admin/Billing",
     icon: "bi-folder",
     label: "Billing",
-    roles: [1, 3, 4],
+    roles: [1,3, 4,7],
   },
   // { path: '/admin/brands',          icon: 'bi-bookmark-star',    label: 'Brands',           roles: [1,4] },
   // { path: '/admin/sizes',           icon: 'bi-rulers',           label: 'Sizes',            roles: [1,3] },
-  { path: "/admin/MDM", icon: "bi-diagram-3", label: "MDM", roles: [1, 3, 4] },
+  { path: "/admin/MDM", icon: "bi-diagram-3", label: "MDM", roles: [1] },
   {
     path: "/admin/inventory",
     icon: "bi-clipboard-data",
     label: "Inventory",
-    roles: [1, 3],
+    roles: [1, 3, 4],
   },
   {
     path: "/admin/coupons",
@@ -87,6 +87,7 @@ const ALL_NAV = [
     label: "Support Requests",
     roles: [1, 6],
   },
+  { path: '/admin/sales-channels', icon:'bi-folder', label:'Sales Channels', roles:[1] },
   { path: "/admin/users", icon: "bi-people", label: "Users", roles: [1] },
   { path: "/admin/blog", icon: "bi-newspaper", label: "Blog", roles: [1] },
   {

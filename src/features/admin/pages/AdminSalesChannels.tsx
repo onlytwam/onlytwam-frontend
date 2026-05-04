@@ -22,6 +22,7 @@ const EMPTY_FORM = {
   stockSource:   "warehouse" as "store" | "warehouse",
   commissionPct: 0,
   sortOrder:     0,
+  isActive:      true,
 };
 
 export default function AdminSalesChannels() {
@@ -80,19 +81,19 @@ export default function AdminSalesChannels() {
     setShowForm(false);
   };
 
-  const startEdit = (ch: SalesChannel) => {
-    setForm({
-      channelCode:   ch.channelCode,
-      channelName:   ch.channelName,
-      emoji:         ch.emoji || "",
-      stockSource:   ch.stockSource,
-      commissionPct: ch.commissionPct,
-      sortOrder:     ch.sortOrder,
-    });
-    setEditingId(ch.channelId);
-    setShowForm(true);
-  };
-
+const startEdit = (ch: SalesChannel) => {
+  setForm({
+    channelCode:   ch.channelCode,
+    channelName:   ch.channelName,
+    emoji:         ch.emoji || "",
+    stockSource:   ch.stockSource,
+    commissionPct: ch.commissionPct,
+    sortOrder:     ch.sortOrder,
+    isActive:      ch.isActive,   
+  });
+  setEditingId(ch.channelId);
+  setShowForm(true);
+};
   const handleSubmit = () => {
     if (!form.channelName.trim()) { toast.error("Channel name is required."); return; }
     if (editingId) {
@@ -196,6 +197,14 @@ export default function AdminSalesChannels() {
                   <option value="warehouse">Warehouse (online orders)</option>
                 </select>
               </div>
+              <div>
+  <label className="sc-lbl">Status</label>
+  <select className="sc-inp sc-sel" value={form.isActive ? "true" : "false"}
+          onChange={e => setForm(f => ({ ...f, isActive: e.target.value === "true" }))}>
+    <option value="true">Active</option>
+    <option value="false">Inactive</option>
+  </select>
+</div>
 
               <div>
                 <label className="sc-lbl">Commission %</label>

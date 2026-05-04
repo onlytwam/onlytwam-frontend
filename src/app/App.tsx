@@ -294,7 +294,7 @@ const AdminProductBulkUpload = lazy(async () => {
     default: (mod as any).default ?? (mod as any).AdminProductBulkUpload,
   };
 });
-const AdminSalesChannels = lazy(() =>import("@/features/admin/pages/AdminSalesChannels"));
+const AdminSalesChannels = lazy(() => import("@/features/admin/pages/AdminSalesChannels"));
 const AdminStoreSettings = lazy(() => import("@/features/admin/pages/AdminStoreSettings"));
 const AdminBilling = lazy(() => import("@/features/admin/pages/AdminBilling"));
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
@@ -915,7 +915,7 @@ export default function App() {
             <Route path="admin-dashboard" element={<AdminDashboard />} />
             <Route path="bulk-import" element={<AdminBulkUpload />} />
             <Route path="orders" element={<AdminOrders />} />
-            { <Route path="product-bulk-upload" element={<AdminProductBulkUpload />} /> }
+            <Route path="product-bulk-upload" element={<AdminProductBulkUpload />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id" element={<AdminProductForm />} />
@@ -939,7 +939,7 @@ export default function App() {
             <Route path="payment-checkout-reports" element={<PaymentCheckout />} />
             <Route path="site-analytics" element={<SiteAnalytics />} />
             <Route path="inventory-product-reports" element={<InventoryProductReports />} />
-            
+
           </Route>
 
           {/* ── Fallback ─────────────────────────────────────────────────── */}
