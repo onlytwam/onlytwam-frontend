@@ -1,7 +1,7 @@
 trigger:
   branches:
     include:
-      - frontend-setup/Vishnu
+      - frontend-setup/Vishnu    # ✅ Only triggers on this branch
 
 pool:
   vmImage: ubuntu-latest
@@ -28,9 +28,4 @@ steps:
       VITE_API_BASE_URL: $(VITE_API_BASE_URL)
       VITE_APP_NAME: $(VITE_APP_NAME)
 
-  - task: AzureStaticWebApp@0
-    displayName: Deploy to Static Web Apps
-    inputs:
-      app_location: "dist"
-      skip_app_build: true
-      azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)
+  # ❌ No deploy step here — build only
