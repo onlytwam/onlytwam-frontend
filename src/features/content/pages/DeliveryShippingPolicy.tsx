@@ -109,8 +109,7 @@ export default function DeliveryShippingPolicy() {
             padding: "20px 24px", marginTop: "12px", borderLeft: "4px solid #0f3460"
           }}>
             {[
-              ["Email", "customersupport@onlytwam.com"],
-              ["Phone", "+91 7036534449"]
+              ["Contact", "/contact-us"]
             ].map(([label, value]) => (
               <div key={label} style={{ display: "flex", gap: "16px", padding: "8px 0", borderBottom: "1px solid #f0ece4", alignItems: "baseline" }}>
                 <span style={{ fontWeight: 600, color: "#0f3460", minWidth: "80px", fontSize: "14px" }}>{label}</span>
@@ -131,8 +130,8 @@ export default function DeliveryShippingPolicy() {
               Contact Us
             </Link>
             {" "}or email{" "}
-            <a href="mailto:customersupport@onlytwam.com" style={{ color: "#0f3460", textDecoration: "none", fontWeight: 600 }}>
-              customersupport@onlytwam.com
+            <a href="/contact-us" style={{ color: "#0f3460", textDecoration: "none", fontWeight: 600 }}>
+              Contact Us
             </a>
           </p>
         </div>

@@ -910,7 +910,12 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route
               index
-              element={<Navigate to="/admin/admin-dashboard" replace />}
+              element={
+                (() => {
+                  const roleId = Number(localStorage.getItem("twam_role_id") || 0);
+                  return <Navigate to={roleId === 6 ? "/admin/support" : "/admin/admin-dashboard"} replace />;
+                })()
+              }
             />
             <Route path="admin-dashboard" element={<AdminDashboard />} />
             <Route path="bulk-import" element={<AdminBulkUpload />} />

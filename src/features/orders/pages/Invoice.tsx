@@ -573,8 +573,7 @@ export default function Invoice() {
             brands, that can help them pick their most comfortable fit based on their daily needs.
           </p>
           <div style={styles.footerContact}>
-            <div>customersupport@onlytwam.com</div>
-            <div>+91 7036534449</div>
+            <div>onlytwam.com/contact-us</div>
           </div>
         </div>
 
