@@ -1,7 +1,7 @@
 trigger:
   branches:
     include:
-      - frontend-setup/Vishnu    # ✅ Only triggers on this branch
+      - frontend-setup/Eshwar    # ✅ Only triggers on this branch
 
 pool:
   vmImage: ubuntu-latest
