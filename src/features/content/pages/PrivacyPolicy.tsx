@@ -126,8 +126,8 @@ export default function PrivacyPolicy() {
         <Section title="Opt-Out">
           <p style={paraStyle}>
             Users may opt out of receiving promotional or marketing communications at any time by clicking "unsubscribe" in emails or contacting us at{" "}
-            <a href="mailto:customersupport@onlytwam.com" style={{ color: "#0f3460", textDecoration: "none", fontWeight: 600 }}>
-              customersupport@onlytwam.com
+            <a href="/contact-us" style={{ color: "#0f3460", textDecoration: "none", fontWeight: 600 }}>
+              Contact Us
             </a>.
           </p>
         </Section>
@@ -153,8 +153,7 @@ export default function PrivacyPolicy() {
             {[
               ["Name", "Sandhya Prasad"],
               ["Designation", "Grievance Officer"],
-              ["Email", "customersupport@onlytwam.com"],
-              ["Phone", "+91 7036534449"]
+              ["Contact", "/contact-us"]
             ].map(([label, value]) => (
               <div key={label} style={{ display: "flex", gap: "16px", padding: "8px 0", borderBottom: "1px solid #f0ece4", alignItems: "baseline" }}>
                 <span style={{ fontWeight: 600, color: "#0f3460", minWidth: "110px", fontSize: "14px" }}>{label}</span>
@@ -186,10 +185,10 @@ export default function PrivacyPolicy() {
         }}>
           <p style={{ margin: 0, color: "#888", fontSize: "13px" }}>
             For queries, contact us at{" "}
-            <a href="mailto:customersupport@onlytwam.com" style={{ color: "#0f3460", textDecoration: "none", fontWeight: 600 }}>
-              customersupport@onlytwam.com
+            <a href="/contact-us" style={{ color: "#0f3460", textDecoration: "none", fontWeight: 600 }}>
+              Contact Us
             </a>{" "}
-            | <span style={{ fontWeight: 600 }}>+91 7036534449</span>
+            
           </p>
         </div>
 

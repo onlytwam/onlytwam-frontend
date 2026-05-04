@@ -322,19 +322,14 @@ export default function Footer() {
           {/* Address compact */}
           <div className="fmob-address">
             <i className="bi bi-geo-alt fmob-addr-icon" />
-            <span>
-              GSM Mall, Miyapur, Hyderabad 500050 ·{" "}
-              <a href="tel:+917036534449" className="fmob-addr-link">
-                +91 70365 34449
-              </a>{" "}
-              ·{" "}
-              <a
-                href="mailto:customersupport@onlytwam.com"
-                className="fmob-addr-link"
-              >
-                customersupport@onlytwam.com
-              </a>
-            </span>
+            <span>GSM Mall, Miyapur, Hyderabad 500050</span>
+            <a
+              href="/contact-us"
+              className="fmob-addr-link"
+              style={{ marginLeft: 8, fontWeight: 600 }}
+            >
+              Contact Us
+            </a>
           </div>
 
           {/* Hairline */}
@@ -668,29 +663,30 @@ export default function Footer() {
           </div>
 
           <div className="footer-contact-col">
-            <h4 className="footer-col-title">Contact Information</h4>
-            <div className="footer-contact-list">
-              <div className="footer-contact-item">
-                <i className="bi bi-geo-alt footer-contact-icon" />
-                <span>
-                  GSM Mall, Miyapur Main Rd, ICRISAT Colony, Madeenaguda,
-                  Hyderabad, Telangana 500050
-                </span>
-              </div>
-              <div className="footer-contact-item">
-                <i className="bi bi-telephone footer-contact-icon" />
-                <span>+91 7036534449</span>
-              </div>
-              <div className="footer-contact-item">
-                <i className="bi bi-envelope footer-contact-icon" />
-                <a
-                  href="mailto:customersupport@onlytwam.com"
-                  className="footer-contact-link"
-                >
-                  customersupport@onlytwam.com
-                </a>
-              </div>
-            </div>
+            <h4 className="footer-col-title">Need Help?</h4>
+            <p style={{ fontSize: 13, color: "var(--ivory, #e8ddd0)", marginBottom: 16, lineHeight: 1.6 }}>
+              Our support team is here to help with orders, returns, or any
+              other questions.
+            </p>
+            <button
+              onClick={() => navigate("/contact-us")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "var(--brand, #6a012a)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                padding: "10px 22px",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+                letterSpacing: 0.3,
+              }}
+            >
+              <i className="bi bi-headset" /> Contact Us
+            </button>
           </div>
         </div>
       </div>

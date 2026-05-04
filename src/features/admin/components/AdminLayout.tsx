@@ -16,7 +16,13 @@ const ALL_NAV = [
     path: "/admin/admin-dashboard",
     icon: "bi-speedometer2",
     label: "Dashboard",
-    roles: [1, 5, 6],
+    roles: [1, 5],
+  },
+  {
+    path: "/admin/support",
+    icon: "bi-inbox",
+    label: "Customer Queries",
+    roles: [6],
   },
   {
     path: "/admin/orders",
@@ -34,7 +40,7 @@ const ALL_NAV = [
     path: "/admin/bulk-import",
     icon: "bi-upload",
     label: "Bulk Upload",
-    roles: [1,],
+    roles: [1, 3, 4],
   },
   {
     path: "/admin/product-bulk-upload",
@@ -58,7 +64,7 @@ const ALL_NAV = [
     path: "/admin/Billing",
     icon: "bi-folder",
     label: "Billing",
-    roles: [1,3, 4,7],
+    roles: [1, 3, 4, 7],
   },
   // { path: '/admin/brands',          icon: 'bi-bookmark-star',    label: 'Brands',           roles: [1,4] },
   // { path: '/admin/sizes',           icon: 'bi-rulers',           label: 'Sizes',            roles: [1,3] },
@@ -85,9 +91,20 @@ const ALL_NAV = [
     path: "/admin/support",
     icon: "bi-headset",
     label: "Support Requests",
-    roles: [1, 6],
+    roles: [1],
   },
-  { path: '/admin/sales-channels', icon:'bi-folder', label:'Sales Channels', roles:[1] },
+  {
+    path: "/admin/sales-channels",
+    icon: "bi-folder",
+    label: "Sales Channels",
+    roles: [1],
+  },
+  {
+    path: "/admin/sales-channels",
+    icon: "bi-folder",
+    label: "Sales Channels",
+    roles: [1],
+  },
   { path: "/admin/users", icon: "bi-people", label: "Users", roles: [1] },
   { path: "/admin/blog", icon: "bi-newspaper", label: "Blog", roles: [1] },
   {
@@ -116,6 +133,14 @@ export default function AdminLayout() {
   // Filter nav items to only those the current role can see
   const NAV = ALL_NAV.filter((item) => item.roles.includes(roleId));
   const roleLabel = ROLE_LABELS[roleId] ?? "Admin";
+
+  // Customer Support (role 6) lands on /admin/support directly
+  const defaultPath =
+    roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
+
+  // Customer Support (role 6) lands on /admin/support directly
+  const defaultPath =
+    roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
 
   const goToStore = () => {
     sessionStorage.setItem("adminViewingStore", "true");
