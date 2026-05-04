@@ -1,4 +1,4 @@
-// Customer Reports Dashboard — with inline mock fallback
+// Customer Reports Dashboard — Real API Integration (no mock data)
 import { useState, useEffect, useCallback } from "react";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -16,124 +16,7 @@ const fmt    = (n: any) => new Intl.NumberFormat("en-IN", { maximumFractionDigit
 const fmtCur = (n: any) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n ?? 0);
 const fmtPct = (n: any) => `${(parseFloat(n) || 0).toFixed(2)}%`;
 
-// ─── Inline Mock Data (based on actual auth.Users — RoleId=2 customers only) ──
-const MOCK_DATA: Record<string, any> = {
-  // 1. Customer Acquisition
-  CustomerAcquisitionReport_month: {
-    count: 1, parameters: null,
-    list: [
-      { Period: "2026-04-01T00:00:00", NewCustomers: 11, VerifiedCustomers: 11, TotalNewCustomers: 11 },
-    ],
-  },
-  CustomerAcquisitionReport_week: {
-    count: 4, parameters: null,
-    list: [
-      { Period: "2026-04-21T00:00:00", NewCustomers: 5, VerifiedCustomers: 5, TotalNewCustomers: 11 },
-      { Period: "2026-04-14T00:00:00", NewCustomers: 3, VerifiedCustomers: 3, TotalNewCustomers: 11 },
-      { Period: "2026-04-07T00:00:00", NewCustomers: 2, VerifiedCustomers: 2, TotalNewCustomers: 11 },
-      { Period: "2026-03-31T00:00:00", NewCustomers: 1, VerifiedCustomers: 1, TotalNewCustomers: 11 },
-    ],
-  },
-  CustomerAcquisitionReport_day: {
-    count: 7, parameters: null,
-    list: [
-      { Period: "2026-04-25T00:00:00", NewCustomers: 2, VerifiedCustomers: 2, TotalNewCustomers: 11 },
-      { Period: "2026-04-24T00:00:00", NewCustomers: 2, VerifiedCustomers: 2, TotalNewCustomers: 11 },
-      { Period: "2026-04-23T00:00:00", NewCustomers: 1, VerifiedCustomers: 1, TotalNewCustomers: 11 },
-      { Period: "2026-04-21T00:00:00", NewCustomers: 1, VerifiedCustomers: 1, TotalNewCustomers: 11 },
-      { Period: "2026-04-15T00:00:00", NewCustomers: 3, VerifiedCustomers: 3, TotalNewCustomers: 11 },
-      { Period: "2026-04-06T00:00:00", NewCustomers: 1, VerifiedCustomers: 1, TotalNewCustomers: 11 },
-      { Period: "2026-04-01T00:00:00", NewCustomers: 1, VerifiedCustomers: 1, TotalNewCustomers: 11 },
-    ],
-  },
-  CustomerAcquisitionReport_year: {
-    count: 1, parameters: null,
-    list: [
-      { Period: "2026-01-01T00:00:00", NewCustomers: 11, VerifiedCustomers: 11, TotalNewCustomers: 11 },
-    ],
-  },
-
-  // 2. Repeat vs New
-  RepeatVsNewCustomers: {
-    count: 2, parameters: null,
-    list: [
-      { CustomerType: "New",    CustomerCount: 8, Percentage: 72.73, TotalCustomers: 11 },
-      { CustomerType: "Repeat", CustomerCount: 3, Percentage: 27.27, TotalCustomers: 11 },
-    ],
-  },
-
-  // 3. Customer Lifetime Value
-  CustomerLifetimeValue: {
-    count: 5, parameters: null,
-    list: [
-      { UserId: "c8eed240", CustomerName: "Vijay Paul",   Email: "speak2vijayapaul@gmail.com",    Phone: "9494942988", OrderCount: 5, TotalRevenue: 12400, AvgOrderValue: 2480, FirstOrderDate: "2026-04-15", LastOrderDate: "2026-04-25", DaysAsCustomer: 40 },
-      { UserId: "8c6bc969", CustomerName: "Mamatha B",    Email: "mamathaboyapally06@gmail.com",  Phone: "9391701134", OrderCount: 4, TotalRevenue: 9800,  AvgOrderValue: 2450, FirstOrderDate: "2026-04-15", LastOrderDate: "2026-04-23", DaysAsCustomer: 38 },
-      { UserId: "4021dbce", CustomerName: "Vishnu T",     Email: "vishnu.twam@gmail.com",         Phone: "7036554449", OrderCount: 3, TotalRevenue: 6200,  AvgOrderValue: 2066, FirstOrderDate: "2026-04-06", LastOrderDate: "2026-04-21", DaysAsCustomer: 45 },
-      { UserId: "ea166a5d", CustomerName: "Eshwar Vadde", Email: "eshwarvadde8500@gmail.com",     Phone: "8500424039", OrderCount: 2, TotalRevenue: 3750,  AvgOrderValue: 1875, FirstOrderDate: "2026-04-15", LastOrderDate: "2026-04-15", DaysAsCustomer: 40 },
-      { UserId: "ac428763", CustomerName: "Nani N",       Email: "nanimonster2015@gmail.com",     Phone: "7036574449", OrderCount: 1, TotalRevenue: 1500,  AvgOrderValue: 1500, FirstOrderDate: "2026-04-21", LastOrderDate: "2026-04-21", DaysAsCustomer: 9  },
-    ],
-  },
-
-  // 4. Customer Segmentation
-  CustomerSegmentation_location: {
-    count: 3, parameters: null,
-    list: [
-      { Location: "Hyderabad", CustomerCount: 7, TotalRevenue: 24800, TotalOrders: 10 },
-      { Location: "Bangalore", CustomerCount: 2, TotalRevenue: 6200,  TotalOrders: 3  },
-      { Location: "Other",     CustomerCount: 2, TotalRevenue: 2650,  TotalOrders: 2  },
-    ],
-  },
-  CustomerSegmentation_spending: {
-    count: 3, parameters: null,
-    list: [
-      { SpendingTier: "High (>₹10,000)",      CustomerCount: 2 },
-      { SpendingTier: "Mid (₹3,000–10,000)",  CustomerCount: 4 },
-      { SpendingTier: "Low (<₹3,000)",         CustomerCount: 5 },
-    ],
-  },
-  CustomerSegmentation_frequency: {
-    count: 3, parameters: null,
-    list: [
-      { FrequencySegment: "Champions (5+ orders)", CustomerCount: 1 },
-      { FrequencySegment: "Loyal (2–4 orders)",    CustomerCount: 4 },
-      { FrequencySegment: "One-time (1 order)",    CustomerCount: 6 },
-    ],
-  },
-
-  // 5. Churn Rate
-  CustomerChurnRate: {
-    count: 2, parameters: null,
-    list: [
-      { Year: 2026, Month: 4, ChurnedCustomers: 1, TotalActiveCustomers: 11, ChurnRatePct: 9.09 },
-      { Year: 2026, Month: 3, ChurnedCustomers: 0, TotalActiveCustomers: 1,  ChurnRatePct: 0.00 },
-    ],
-  },
-
-  // 6. Top Customers by Revenue
-  TopCustomersByRevenue: {
-    count: 5, parameters: null,
-    list: [
-      { Rank: 1, UserId: "c8eed240", CustomerName: "Vijay Paul",   Email: "speak2vijayapaul@gmail.com",   Phone: "9494942988", OrderCount: 5, TotalRevenue: 12400, RevenueSharePct: 36.47, LastOrderDate: "2026-04-25", GrandTotalRevenue: 33650 },
-      { Rank: 2, UserId: "8c6bc969", CustomerName: "Mamatha B",    Email: "mamathaboyapally06@gmail.com", Phone: "9391701134", OrderCount: 4, TotalRevenue: 9800,  RevenueSharePct: 29.12, LastOrderDate: "2026-04-23", GrandTotalRevenue: 33650 },
-      { Rank: 3, UserId: "4021dbce", CustomerName: "Vishnu T",     Email: "vishnu.twam@gmail.com",        Phone: "7036554449", OrderCount: 3, TotalRevenue: 6200,  RevenueSharePct: 18.42, LastOrderDate: "2026-04-21", GrandTotalRevenue: 33650 },
-      { Rank: 4, UserId: "ea166a5d", CustomerName: "Eshwar Vadde", Email: "eshwarvadde8500@gmail.com",    Phone: "8500424039", OrderCount: 2, TotalRevenue: 3750,  RevenueSharePct: 11.15, LastOrderDate: "2026-04-15", GrandTotalRevenue: 33650 },
-      { Rank: 5, UserId: "ac428763", CustomerName: "Nani N",       Email: "nanimonster2015@gmail.com",    Phone: "7036574449", OrderCount: 1, TotalRevenue: 1500,  RevenueSharePct:  4.46, LastOrderDate: "2026-04-21", GrandTotalRevenue: 33650 },
-    ],
-  },
-};
-
-// ─── Mock key resolver ────────────────────────────────────────────────────────
-// Builds the correct MOCK_DATA key from endpoint + filters:
-//   CustomerAcquisitionReport + { group_by: "week" }  → "CustomerAcquisitionReport_week"
-//   CustomerSegmentation       + { segment_by: "spending" } → "CustomerSegmentation_spending"
-//   RepeatVsNewCustomers       + {}                    → "RepeatVsNewCustomers"
-function getMock(endpoint: string, filters: Record<string, any>) {
-  const suffix = filters.group_by ?? filters.segment_by ?? "";
-  const key    = suffix ? `${endpoint}_${suffix}` : endpoint;
-  return MOCK_DATA[key] ?? MOCK_DATA[endpoint] ?? null;
-}
-
-// ─── API helper (with mock fallback) ─────────────────────────────────────────
+// ─── API helper ───────────────────────────────────────────────────────────────
 async function apiFetch(endpoint: string, filters: Record<string, any> = {}) {
   const params: Record<string, any> = {
     "Page.Index": 1,
@@ -141,32 +24,16 @@ async function apiFetch(endpoint: string, filters: Record<string, any> = {}) {
     ...filters,
   };
 
-  try {
-    const res  = await api.get(`/Report/${endpoint}`, { params });
-    const data = res.data;
+  const res  = await api.get(`/Report/${endpoint}`, { params });
+  const data = res.data;
 
-    const parsed = Array.isArray(data)
-      ? { list: data, count: data.length, params: {} }
-      : {
-          list:   data?.list   ?? data?.data  ?? data?.items  ?? data?.result ?? [],
-          count:  data?.count  ?? data?.total ?? 0,
-          params: data?.parameters ?? {},
-        };
-
-    // Fall back to mock when API returns empty list
-    if (!parsed.list?.length) {
-      const mock = getMock(endpoint, filters);
-      if (mock) return { list: mock.list, count: mock.count, params: mock.parameters };
-    }
-
-    return parsed;
-  } catch {
-    // Network / server error — use mock silently
-    const mock = getMock(endpoint, filters);
-    return mock
-      ? { list: mock.list, count: mock.count, params: mock.parameters }
-      : { list: [], count: 0, params: {} };
-  }
+  return Array.isArray(data)
+    ? { list: data, count: data.length, params: {} }
+    : {
+        list:   data?.list   ?? data?.data  ?? data?.items  ?? data?.result ?? [],
+        count:  data?.count  ?? data?.total ?? 0,
+        params: data?.parameters ?? {},
+      };
 }
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
@@ -282,7 +149,7 @@ function AcquisitionPanel() {
     setLoading(true); setError(null);
     apiFetch("CustomerAcquisitionReport", { group_by: groupBy })
       .then((r) => setList(r.list))
-      .catch((e) => setError(e?.response?.data?.message ?? e.message))
+      .catch((e) => setError(e?.response?.data?.message ?? e.message ?? "Failed to load data"))
       .finally(() => setLoading(false));
   }, [groupBy]);
 
@@ -290,6 +157,7 @@ function AcquisitionPanel() {
 
   if (loading) return <Loader />;
   if (error)   return <ErrBox msg={error} />;
+  if (!list.length) return <EmptyBox />;
 
   const grandTotal = list[0]?.TotalNewCustomers
     ?? list.reduce((s, r) => s + (r.NewCustomers ?? 0), 0);
@@ -347,19 +215,27 @@ function AcquisitionPanel() {
 // 2. Repeat vs. New Customers
 // ─────────────────────────────────────────────────────────────────────────────
 function RepeatVsNewPanel() {
-  const [list,    setList]    = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [list,      setList]      = useState<any[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
 
-  useEffect(() => {
-    apiFetch("RepeatVsNewCustomers")
+  const load = useCallback(() => {
+    setLoading(true); setError(null);
+    const filters: Record<string, any> = {};
+    if (dateRange.start) filters.start_date = dateRange.start;
+    if (dateRange.end)   filters.end_date   = dateRange.end;
+    apiFetch("RepeatVsNewCustomers", filters)
       .then((r) => setList(r.list))
-      .catch((e) => setError(e?.response?.data?.message ?? e.message))
+      .catch((e) => setError(e?.response?.data?.message ?? e.message ?? "Failed to load data"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [dateRange]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) return <Loader />;
   if (error)   return <ErrBox msg={error} />;
+  if (!list.length) return <EmptyBox />;
 
   const total     = list[0]?.TotalCustomers ?? 0;
   const newRow    = list.find((r) => r.CustomerType === "New");
@@ -368,6 +244,16 @@ function RepeatVsNewPanel() {
 
   return (
     <div>
+      {/* Date filter */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20 }}>
+        <span style={{ fontSize: 13, color: "#888" }}>Date range:</span>
+        <input type="date" value={dateRange.start} style={dateInputStyle}
+          onChange={(e) => setDateRange((p) => ({ ...p, start: e.target.value }))} />
+        <span style={{ color: "#aaa" }}>→</span>
+        <input type="date" value={dateRange.end} style={dateInputStyle}
+          onChange={(e) => setDateRange((p) => ({ ...p, end: e.target.value }))} />
+      </div>
+
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
         <StatCard label="Total Customers" value={fmt(total)} accent />
         <StatCard label="New"    value={fmtPct(newRow?.Percentage)}
@@ -419,7 +305,7 @@ function CLVPanel() {
     setLoading(true); setError(null);
     apiFetch("CustomerLifetimeValue", { top_n: topN, min_orders: 1 })
       .then((r) => setList(r.list))
-      .catch((e) => setError(e?.response?.data?.message ?? e.message))
+      .catch((e) => setError(e?.response?.data?.message ?? e.message ?? "Failed to load data"))
       .finally(() => setLoading(false));
   }, [topN]);
 
@@ -427,6 +313,7 @@ function CLVPanel() {
 
   if (loading) return <Loader />;
   if (error)   return <ErrBox msg={error} />;
+  if (!list.length) return <EmptyBox />;
 
   const maxRev = Math.max(...list.map((r) => r.TotalRevenue ?? 0), 1);
 
@@ -487,7 +374,7 @@ function SegmentationPanel() {
     setLoading(true); setError(null);
     apiFetch("CustomerSegmentation", { segment_by: tab })
       .then((r) => setList(r.list))
-      .catch((e) => setError(e?.response?.data?.message ?? e.message))
+      .catch((e) => setError(e?.response?.data?.message ?? e.message ?? "Failed to load data"))
       .finally(() => setLoading(false));
   }, [tab]);
 
@@ -515,7 +402,7 @@ function SegmentationPanel() {
         ))}
       </div>
 
-      {loading ? <Loader /> : error ? <ErrBox msg={error} /> : (
+      {loading ? <Loader /> : error ? <ErrBox msg={error} /> : !list.length ? <EmptyBox /> : (
         <>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 12 }}>
@@ -572,7 +459,7 @@ function ChurnPanel() {
     setLoading(true); setError(null);
     apiFetch("CustomerChurnRate", { inactive_days: inactiveDays, period_months: 12 })
       .then((r) => setList(r.list))
-      .catch((e) => setError(e?.response?.data?.message ?? e.message))
+      .catch((e) => setError(e?.response?.data?.message ?? e.message ?? "Failed to load data"))
       .finally(() => setLoading(false));
   }, [inactiveDays]);
 
@@ -580,6 +467,7 @@ function ChurnPanel() {
 
   if (loading) return <Loader />;
   if (error)   return <ErrBox msg={error} />;
+  if (!list.length) return <EmptyBox />;
 
   const totalActive  = list[0]?.TotalActiveCustomers ?? 0;
   const churnRatePct = parseFloat(list[0]?.ChurnRatePct ?? 0);
@@ -658,7 +546,7 @@ function TopCustomersPanel() {
     if (dateRange.end)   filters.end_date   = dateRange.end;
     apiFetch("TopCustomersByRevenue", filters)
       .then((r) => setList(r.list))
-      .catch((e) => setError(e?.response?.data?.message ?? e.message))
+      .catch((e) => setError(e?.response?.data?.message ?? e.message ?? "Failed to load data"))
       .finally(() => setLoading(false));
   }, [topN, dateRange]);
 
@@ -666,6 +554,7 @@ function TopCustomersPanel() {
 
   if (loading) return <Loader />;
   if (error)   return <ErrBox msg={error} />;
+  if (!list.length) return <EmptyBox />;
 
   const grandTotal = list[0]?.GrandTotalRevenue ?? 0;
 

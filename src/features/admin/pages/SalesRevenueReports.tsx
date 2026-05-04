@@ -84,8 +84,163 @@ interface ReportRow {
     gstAmount?: number;
     GstAmount?: number;
     gst_amount?: number;
+    channel?: string;
+    Channel?: string;
+    grandTotal?: number;
+    GrandTotal?: number;
+    discount?: number;
+    Discount?: number;
+    cgst?: number;
+    CGSTTotal?: number;
+    sgst?: number;
+    SGSTTotal?: number;
+    igst?: number;
+    IGSTTotal?: number;
+    receivedAmount?: number;
+    ReceivedAmount?: number;
+    balance?: number;
+    Balance?: number;
 }
 
+
+interface ApiOrder {
+    OrderStatus: string;
+    OrderId: string;
+    OrderNumber?: string;
+    customerName: string;
+    ProductName: string;
+    OrderDate: string;
+    Quantity: number;
+    TotalAmount: number;
+    State: string;
+    TotalRevenue?: number;
+    TotalOrders?: number;
+    // Billing fields
+    InvoiceNo?: string;
+    CustomerName?: string;
+    CustomerPhone?: string;
+    Channel?: string;
+    GSTMode?: string;
+    GrandTotal?: number;
+    Discount?: number;
+    ReceivedAmount?: number;
+    Balance?: number;
+    CGSTTotal?: number;
+    SGSTTotal?: number;
+    IGSTTotal?: number;
+    GSTTotal?: number;
+}
+
+// ─── Update Order interface ────────────────────────────────────────────────
+interface Order {
+    OrderId: string;
+    OrderNumber: string;
+    ProductName: string;
+    OrderDate: string;
+    Quantity: number;
+    TotalAmount: number;
+    State: string;
+    // Billing fields
+    InvoiceNo?: string;
+    CustomerName?: string;
+    CustomerPhone?: string;
+    Channel?: string;
+    GSTMode?: string;
+    GrandTotal?: number;
+    Discount?: number;
+    ReceivedAmount?: number;
+    Balance?: number;
+    CGSTTotal?: number;
+    SGSTTotal?: number;
+    IGSTTotal?: number;
+    GSTTotal?: number;
+}
+
+// ─── Update mapApiOrder ────────────────────────────────────────────────────
+// ─── Add to ApiOrder interface ─────────────────────────────────────────────
+interface ApiOrder {
+    OrderStatus: string;
+    OrderId: string;
+    OrderNumber?: string;
+    customerName: string;
+    ProductName: string;
+    OrderDate: string;
+    Quantity: number;
+    TotalAmount: number;
+    State: string;
+    TotalRevenue?: number;
+    TotalOrders?: number;
+    // Billing fields
+    InvoiceNo?: string;
+    CustomerName?: string;
+    CustomerPhone?: string;
+    Channel?: string;
+    GSTMode?: string;
+    GrandTotal?: number;
+    Discount?: number;
+    ReceivedAmount?: number;
+    Balance?: number;
+    CGSTTotal?: number;
+    SGSTTotal?: number;
+    IGSTTotal?: number;
+    GSTTotal?: number;
+}
+
+// ─── Update Order interface ────────────────────────────────────────────────
+interface Order {
+    OrderId: string;
+    OrderNumber: string;
+    ProductName: string;
+    OrderDate: string;
+    Quantity: number;
+    TotalAmount: number;
+    State: string;
+    // Billing fields
+    InvoiceNo?: string;
+    CustomerName?: string;
+    CustomerPhone?: string;
+    Channel?: string;
+    GSTMode?: string;
+    GrandTotal?: number;
+    Discount?: number;
+    ReceivedAmount?: number;
+    Balance?: number;
+    CGSTTotal?: number;
+    SGSTTotal?: number;
+    IGSTTotal?: number;
+    GSTTotal?: number;
+}
+
+// ─── Update mapApiOrder ────────────────────────────────────────────────────
+function mapApiOrder(raw: ApiOrder): Order {
+    const cgst = Number(raw.CGSTTotal ?? 0);
+    const sgst = Number(raw.SGSTTotal ?? 0);
+    const igst = Number(raw.IGSTTotal ?? 0);
+    const computedGST = Number(raw.GSTTotal ?? 0) || (cgst + sgst + igst);
+
+    return {
+        OrderId: raw.OrderId ?? "—",
+        ProductName: raw.ProductName ?? "-",
+        OrderNumber: raw.OrderNumber ?? raw.OrderId ?? "—",
+        OrderDate: raw.OrderDate ?? "",
+        Quantity: Number(raw.Quantity ?? 0),
+        TotalAmount: Number(raw.TotalAmount ?? 0),
+        State: raw.State || raw.OrderStatus || "Unknown",
+        InvoiceNo: raw.InvoiceNo,
+        CustomerName: raw.CustomerName,
+        CustomerPhone: raw.CustomerPhone,
+        Channel: raw.Channel,
+        GSTMode: raw.GSTMode,
+        GrandTotal: raw.GrandTotal != null ? Number(raw.GrandTotal) : undefined,
+        Discount: raw.Discount != null ? Number(raw.Discount) : undefined,
+        ReceivedAmount: raw.ReceivedAmount != null ? Number(raw.ReceivedAmount) : undefined,
+        Balance: raw.Balance != null ? Number(raw.Balance) : undefined,
+        CGSTTotal: cgst,
+        SGSTTotal: sgst,
+        IGSTTotal: igst,
+        GSTTotal: computedGST,  // ✅ falls back to CGST+SGST+IGST if GSTTotal is 0
+    };
+}
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const REPORT_TABS = [
@@ -100,9 +255,9 @@ const REPORT_TABS = [
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const TYPE_OPTIONS: { label: string; value: SelectType; api: string }[] = [
-    { label: "Product", value: "Product", api: "/Products" },
+    { label: "Product", value: "Product", api: "/Products/" },
     { label: "Category", value: "Category", api: "/Category" },
-    { label: "Brand", value: "Brand", api: "/Brand" },
+    { label: "Brand", value: "Brand", api: "/Brand/" },
 ];
 
 const DATE_MODES: DateMode[] = ["Month Range", "Week Range"];
@@ -147,17 +302,17 @@ function generateStatusColor(status: string): { background: string; color: strin
     return palette[hash % palette.length];
 }
 
-function mapApiOrder(raw: ApiOrder): Order {
-    return {
-        OrderId: raw.OrderId ?? "—",
-        ProductName: raw.ProductName ?? "-",
-        OrderNumber: raw.OrderNumber ?? raw.OrderId ?? "—",
-        OrderDate: raw.OrderDate ?? "",
-        Quantity: Number(raw.Quantity ?? 0),
-        TotalAmount: Number(raw.TotalAmount ?? 0),
-        State: raw.State || raw.OrderStatus || "Unknown",
-    };
-}
+// function mapApiOrder(raw: ApiOrder): Order {
+//     return {
+//         OrderId: raw.OrderId ?? "—",
+//         ProductName: raw.ProductName ?? "-",
+//         OrderNumber: raw.OrderNumber ?? raw.OrderId ?? "—",
+//         OrderDate: raw.OrderDate ?? "",
+//         Quantity: Number(raw.Quantity ?? 0),
+//         TotalAmount: Number(raw.TotalAmount ?? 0),
+//         State: raw.State || raw.OrderStatus || "Unknown",
+//     };
+// }
 
 function getVal(row: RegionRow, ...keys: (keyof RegionRow)[]): number | null {
     for (const k of keys) {
@@ -315,6 +470,7 @@ function downloadOrdersPDF(
 
 // ─── Panel 0 : Daily / Weekly / Monthly / Yearly ─────────────────────────────
 
+// ─── DailySalesPanel (full replacement) ───────────────────────────────────
 const DailySalesPanel: React.FC = () => {
     const today = new Date().toISOString().split("T")[0];
     const ym = today.slice(0, 7);
@@ -327,6 +483,18 @@ const DailySalesPanel: React.FC = () => {
     const [mwStart, setMwStart] = useState(() => `${ym}-01`);
     const [mwEnd, setMwEnd] = useState(today);
 
+    // ── Channel filter ──────────────────────────────────────────────────────
+    const [selectedChannel, setSelectedChannel] = useState<string>("");
+
+    const { data: channelOptions = [] } = useQuery<string[]>({
+        queryKey: ["order-report-channels"],
+        queryFn: async () => {
+            const res = await api.get("/Report/OrderReport/Channels");
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [report, setReport] = useState<ReportResult | null>(null);
@@ -336,14 +504,8 @@ const DailySalesPanel: React.FC = () => {
             return { from: singleDate, to: singleDate, label: "Daily — " + fmtDate(singleDate), type: "daily" };
         }
         if (pickerType === "month-week") {
-            if (!mwStart || !mwEnd) {
-                setError("Please select both start and end dates.");
-                return null;
-            }
-            if (mwStart > mwEnd) {
-                setError("Start date must be before or equal to end date.");
-                return null;
-            }
+            if (!mwStart || !mwEnd) { setError("Please select both start and end dates."); return null; }
+            if (mwStart > mwEnd) { setError("Start date must be before or equal to end date."); return null; }
             return { from: mwStart, to: mwEnd, label: fmtDate(mwStart) + " – " + fmtDate(mwEnd), type: "weekly" };
         }
         if (pickerType === "month") {
@@ -367,17 +529,31 @@ const DailySalesPanel: React.FC = () => {
         setLoading(true);
         setReport(null);
         try {
-            const res = await api.get("/Report/OrderList", {
-                params: { type: range.type, fromDate: range.from, toDate: range.to },
-            });
+            const params: Record<string, string> = {
+                type: range.type,
+                fromDate: range.from,
+                toDate: range.to,
+            };
+            if (selectedChannel) params.channel = selectedChannel;
+
+            const res = await api.get("/Report/OrderList", { params });
             const json = res.data;
-            const rawList: ApiOrder[] = Array.isArray(json) ? json : (json.data ?? json.orders ?? json.result ?? json.list ?? []);
-            const data = rawList.map(mapApiOrder);
-            const firstRaw = rawList[0] ?? {};
-            const total = Number((firstRaw as ApiOrder).TotalRevenue ?? 0);
-            const orders = Number((firstRaw as ApiOrder).TotalOrders ?? 0);
+            const rawList: ApiOrder[] = Array.isArray(json)
+                ? json
+                : (json.data ?? json.orders ?? json.result ?? json.list ?? []);
+
+            // Map and optionally filter client-side (safety net if API ignores channel param)
+            const allData = rawList.map(mapApiOrder);
+            const data = selectedChannel
+                ? allData.filter(r => r.Channel === selectedChannel)
+                : allData;
+
+            // ✅ Compute all stats from the actual filtered data — not API aggregates
+            const total = data.reduce((a, r) => a + Number(r.TotalAmount ?? 0), 0);
+            const orders = data.length;
             const avg = orders ? Math.round(total / orders) : 0;
 
+            // ✅ State breakdown from filtered data
             const stateMap: Record<string, { count: number; total: number }> = {};
             data.forEach(r => {
                 const key = (r.State ?? "Unknown").trim();
@@ -385,12 +561,12 @@ const DailySalesPanel: React.FC = () => {
                 stateMap[key].count += 1;
                 stateMap[key].total += Number(r.TotalAmount);
             });
-            const stateBreakdown = Object.entries(stateMap).map(([state, v]) => ({
-                state, count: v.count, total: v.total,
-            }));
+            const stateBreakdown = Object.entries(stateMap).map(
+                ([state, v]) => ({ state, count: v.count, total: v.total })
+            );
 
-            const completed = data.filter(r =>
-                !FAILED_STATES.has((r.State ?? "").toLowerCase().trim())
+            const completed = data.filter(
+                r => !FAILED_STATES.has((r.State ?? "").toLowerCase().trim())
             ).length;
 
             setReport({ label: range.label, data, total, orders, avg, completed, stateBreakdown });
@@ -401,7 +577,14 @@ const DailySalesPanel: React.FC = () => {
         }
     };
 
-    const clearAll = () => { setReport(null); setError(null); };
+    const clearAll = () => {
+        setReport(null);
+        setError(null);
+        setSelectedChannel("");
+    };
+
+    const mwRangeError = pickerType === "month-week" && mwStart && mwEnd && mwStart > mwEnd
+        ? "Start date must be before end date." : null;
 
     const pickerOptions: { value: DatePickerType; label: string }[] = [
         { value: "date", label: "Single Date" },
@@ -409,11 +592,6 @@ const DailySalesPanel: React.FC = () => {
         { value: "month", label: "Month" },
         { value: "year", label: "Year" },
     ];
-
-    // Validate month-week range inline
-    const mwRangeError = pickerType === "month-week" && mwStart && mwEnd && mwStart > mwEnd
-        ? "Start date must be before end date."
-        : null;
 
     return (
         <div>
@@ -423,13 +601,14 @@ const DailySalesPanel: React.FC = () => {
             </div>
 
             <div style={{ padding: "20px 24px" }}>
-                {/* Filter Row */}
+                {/* ── Filter Row ── */}
                 <div style={{
                     display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap",
                     background: "#fff", border: "0.5px solid #f0e0e0", borderRadius: 14,
                     padding: "18px 20px", marginBottom: 20,
                     boxShadow: "0 2px 10px rgba(224,49,49,0.05)",
                 }}>
+                    {/* Date Picker Type */}
                     <div style={{ minWidth: 200 }}>
                         <label style={labelSt}>Select Date Picker Type</label>
                         <select style={inputBase} value={pickerType}
@@ -438,52 +617,33 @@ const DailySalesPanel: React.FC = () => {
                         </select>
                     </div>
 
+                    {/* Date Inputs */}
                     {pickerType === "date" && (
                         <div style={{ flex: 1, minWidth: 160 }}>
                             <label style={labelSt}>Select Date</label>
                             <input type="date" style={inputBase} value={singleDate} onChange={e => setSingleDate(e.target.value)} />
                         </div>
                     )}
-
                     {pickerType === "month-week" && (
                         <div style={{ flex: 1, minWidth: 300 }}>
                             <label style={labelSt}>Date Range (Start → End)</label>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input
-                                    type="date"
-                                    style={{ ...inputBase, width: "auto", flex: 1, borderColor: mwRangeError ? "#e03131" : "#dee2e6" }}
-                                    value={mwStart}
-                                    onChange={e => { setMwStart(e.target.value); setError(null); }}
-                                />
+                                <input type="date" style={{ ...inputBase, width: "auto", flex: 1, borderColor: mwRangeError ? "#e03131" : "#dee2e6" }}
+                                    value={mwStart} onChange={e => { setMwStart(e.target.value); setError(null); }} />
                                 <span style={{ color: "#6A012A", fontWeight: 700, fontSize: 18 }}>→</span>
-                                <input
-                                    type="date"
-                                    style={{ ...inputBase, width: "auto", flex: 1, borderColor: mwRangeError ? "#e03131" : "#dee2e6" }}
-                                    value={mwEnd}
-                                    min={mwStart}
-                                    onChange={e => { setMwEnd(e.target.value); setError(null); }}
-                                />
+                                <input type="date" style={{ ...inputBase, width: "auto", flex: 1, borderColor: mwRangeError ? "#e03131" : "#dee2e6" }}
+                                    value={mwEnd} min={mwStart} onChange={e => { setMwEnd(e.target.value); setError(null); }} />
                             </div>
-                            {mwRangeError && (
-                                <div style={{ fontSize: 11, color: "#e03131", marginTop: 4, fontWeight: 600 }}>
-                                    ⚠️ {mwRangeError}
-                                </div>
-                            )}
-                            {mwStart && mwEnd && !mwRangeError && (
-                                <div style={{ fontSize: 11, color: "#2f9e44", marginTop: 4, fontWeight: 600 }}>
-                                    ✓ Range: {fmtDate(mwStart)} → {fmtDate(mwEnd)}
-                                </div>
-                            )}
+                            {mwRangeError && <div style={{ fontSize: 11, color: "#e03131", marginTop: 4, fontWeight: 600 }}>⚠️ {mwRangeError}</div>}
+                            {mwStart && mwEnd && !mwRangeError && <div style={{ fontSize: 11, color: "#2f9e44", marginTop: 4, fontWeight: 600 }}>✓ Range: {fmtDate(mwStart)} → {fmtDate(mwEnd)}</div>}
                         </div>
                     )}
-
                     {pickerType === "month" && (
                         <div style={{ flex: 1, minWidth: 160 }}>
                             <label style={labelSt}>Select Month</label>
                             <input type="month" style={inputBase} value={monthVal} onChange={e => setMonthVal(e.target.value)} />
                         </div>
                     )}
-
                     {pickerType === "year" && (
                         <div style={{ flex: 1, minWidth: 160 }}>
                             <label style={labelSt}>Select Year</label>
@@ -496,10 +656,24 @@ const DailySalesPanel: React.FC = () => {
                         </div>
                     )}
 
+                    {/* ── Channel Filter (NEW) ── */}
+                    <div style={{ minWidth: 180 }}>
+                        <label style={labelSt}>Channel</label>
+                        <select
+                            style={inputBase}
+                            value={selectedChannel}
+                            onChange={e => { setSelectedChannel(e.target.value); setReport(null); }}
+                        >
+                            <option value="">All Channels</option>
+                            {channelOptions.map(ch => (
+                                <option key={ch} value={ch}>{ch}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Action Buttons */}
                     <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                        <button
-                            onClick={runReport}
-                            disabled={loading || !!mwRangeError}
+                        <button onClick={runReport} disabled={loading || !!mwRangeError}
                             style={{
                                 padding: "10px 28px",
                                 background: (loading || !!mwRangeError) ? "#adb5bd" : "#6A012A",
@@ -514,9 +688,7 @@ const DailySalesPanel: React.FC = () => {
                             padding: "10px 20px", background: "#fff", color: "#6A012A",
                             border: "1.5px solid #6A012A", borderRadius: 10, fontSize: 13,
                             fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-                        }}>
-                            ✕ ClearAll
-                        </button>
+                        }}>✕ Clear</button>
                     </div>
                 </div>
 
@@ -536,55 +708,48 @@ const DailySalesPanel: React.FC = () => {
 
                 {!loading && report && report.orders > 0 && (
                     <div>
-                        {/* Range label */}
-                        <div style={{
-                            display: "flex", alignItems: "center", justifyContent: "space-between",
-                            marginBottom: 16, flexWrap: "wrap", gap: 10,
-                        }}>
-                            <div style={{
-                                background: "#6A012A10", border: "1px solid #6A012A30",
-                                borderRadius: 8, padding: "6px 14px",
-                                fontSize: 12, fontWeight: 700, color: "#6A012A",
-                            }}>
-                                📅 {report.label}
+                        {/* Range label + Channel badge + Download buttons */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                <div style={{
+                                    background: "#6A012A10", border: "1px solid #6A012A30",
+                                    borderRadius: 8, padding: "6px 14px",
+                                    fontSize: 12, fontWeight: 700, color: "#6A012A",
+                                }}>
+                                    📅 {report.label}
+                                </div>
+                                {/* ── Channel badge ── */}
+                                {selectedChannel && (
+                                    <div style={{
+                                        background: "#e7f5ff", border: "1px solid #a5d8ff",
+                                        borderRadius: 8, padding: "6px 14px",
+                                        fontSize: 12, fontWeight: 700, color: "#1971c2",
+                                    }}>
+                                        🛒 {selectedChannel}
+                                    </div>
+                                )}
                             </div>
                             <div style={{ display: "flex", gap: 12 }}>
-                                <button
-                                    onClick={() => downloadOrdersExcel(report.data, report.label)}
-                                    style={{
-                                        padding: "10px 22px", background: "#2f9e44", color: "#fff",
-                                        border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700,
-                                        cursor: "pointer", fontFamily: "inherit",
-                                        boxShadow: "0 4px 14px rgba(47,158,68,0.3)",
-                                    }}>📥 Excel</button>
-                                <button
-                                    onClick={() => downloadOrdersPDF(report.data, report.label, { total: report.total, orders: report.orders, avg: report.avg, completed: report.completed })}
-                                    style={{
-                                        padding: "10px 22px", background: "#6A012A", color: "#fff",
-                                        border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700,
-                                        cursor: "pointer", fontFamily: "inherit",
-                                        boxShadow: "0 4px 14px rgba(224,49,49,0.3)",
-                                    }}>📄 PDF</button>
+                                <button onClick={() => downloadOrdersExcel(report.data, report.label)}
+                                    style={{ padding: "10px 22px", background: "#2f9e44", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 14px rgba(47,158,68,0.3)" }}>
+                                    📥 Excel
+                                </button>
+                                <button onClick={() => downloadOrdersPDF(report.data, report.label, { total: report.total, orders: report.orders, avg: report.avg, completed: report.completed })}
+                                    style={{ padding: "10px 22px", background: "#6A012A", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 14px rgba(224,49,49,0.3)" }}>
+                                    📄 PDF
+                                </button>
                             </div>
                         </div>
 
-                        {/* Summary Row */}
+                        {/* Summary cards — unchanged */}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 14 }}>
                             {[
                                 { label: "Total Revenue", value: fmtINR(report.total), sub: "All orders combined", icon: "₹", color: "#6A012A" },
                                 { label: "Total Orders", value: report.orders, sub: "Across all states", icon: "#", color: "#1971c2" },
                                 { label: "Avg Order Value", value: fmtINR(report.avg), sub: "Total ÷ all orders", icon: "~", color: "#0ca678" },
                             ].map(({ label, value, sub, icon, color }) => (
-                                <div key={label} style={{
-                                    background: "#fff", border: "0.5px solid #f0e0e0", borderRadius: 14,
-                                    padding: "18px 20px", display: "flex", alignItems: "center", gap: 16,
-                                }}>
-                                    <div style={{
-                                        width: 48, height: 48, borderRadius: 12,
-                                        background: `${color}15`,
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        fontSize: 20, fontWeight: 700, color, flexShrink: 0,
-                                    }}>{icon}</div>
+                                <div key={label} style={{ background: "#fff", border: "0.5px solid #f0e0e0", borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 }}>
+                                    <div style={{ width: 48, height: 48, borderRadius: 12, background: `${color}15`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700, color, flexShrink: 0 }}>{icon}</div>
                                     <div>
                                         <div style={{ fontSize: 11, fontWeight: 600, color: "#868e96", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>{label}</div>
                                         <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>{value}</div>
@@ -594,21 +759,16 @@ const DailySalesPanel: React.FC = () => {
                             ))}
                         </div>
 
-                        {/* State Breakdown */}
+                        {/* State breakdown — unchanged */}
                         <div style={{ background: "#fff", border: "0.5px solid #f0e0e0", borderRadius: 14, padding: "18px 20px", marginBottom: 18 }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "#495057", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>
-                                Orders by Status
-                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#495057", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Orders by Status</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
                                 {report.stateBreakdown.map(({ state, count, total }) => {
                                     const key = state.toLowerCase().trim();
                                     const style = STATUS_COLOR_MAP[key] ?? generateStatusColor(key);
                                     const pct = report.orders ? Math.round((count / report.orders) * 100) : 0;
                                     return (
-                                        <div key={state} style={{
-                                            background: `${style.color}08`, border: `1px solid ${style.color}25`,
-                                            borderRadius: 12, padding: "14px 16px", position: "relative", overflow: "hidden",
-                                        }}>
+                                        <div key={state} style={{ background: `${style.color}08`, border: `1px solid ${style.color}25`, borderRadius: 12, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
                                             <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: `${pct}%`, background: style.color, borderRadius: "0 2px 0 0", transition: "width 0.4s ease" }} />
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                                                 <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, color: style.color }}>{state}</span>
@@ -626,11 +786,12 @@ const DailySalesPanel: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* ── Orders Table with Billing Columns (NEW) ── */}
                         <div style={{ overflowX: "auto", borderRadius: 12, border: "0.5px solid #f0e0e0" }}>
                             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                                 <thead>
                                     <tr style={{ background: "#6A012A" }}>
-                                        {["#", "Order ID", "Product", "Date", "Qty", "Amount", "Status"].map(h => (
+                                        {["#", "Invoice", "Order ID", "Customer", "Product", "Channel", "Date", "Qty", "Amount", "Grand Total", "GST", "Status"].map(h => (
                                             <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontWeight: 700, color: "#fff", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap" }}>{h}</th>
                                         ))}
                                     </tr>
@@ -639,20 +800,56 @@ const DailySalesPanel: React.FC = () => {
                                     {report.data.map((row, i) => (
                                         <tr key={row.OrderId} style={{ borderBottom: "0.5px solid #f8f0f0", background: i % 2 === 0 ? "#fff" : "#fff9f9" }}>
                                             <td style={{ padding: "11px 14px", color: "#adb5bd", fontSize: 11 }}>{i + 1}</td>
+                                            <td style={{ padding: "11px 14px", fontSize: 12, color: "#495057", fontWeight: 600 }}>{row.InvoiceNo ?? "—"}</td>
                                             <td style={{ padding: "11px 14px", fontWeight: 600, color: "#4361ee" }}>#{row.OrderNumber || row.OrderId}</td>
+                                            <td style={{ padding: "11px 14px" }}>
+                                                <div style={{ fontWeight: 600, fontSize: 12, color: "#1a1a2e" }}>{row.CustomerName ?? "—"}</div>
+                                                {row.CustomerPhone && <div style={{ fontSize: 11, color: "#868e96" }}>{row.CustomerPhone}</div>}
+                                            </td>
                                             <td style={{ padding: "11px 14px" }}>{row.ProductName}</td>
+                                            <td style={{ padding: "11px 14px" }}>
+                                                {row.Channel ? (
+                                                    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 10.5, fontWeight: 700, background: "#e7f5ff", color: "#1971c2", whiteSpace: "nowrap" }}>
+                                                        {row.Channel}
+                                                    </span>
+                                                ) : "—"}
+                                            </td>
                                             <td style={{ padding: "11px 14px", color: "#868e96" }}>{fmtDate(row.OrderDate)}</td>
                                             <td style={{ padding: "11px 14px", textAlign: "center" }}>{row.Quantity}</td>
                                             <td style={{ padding: "11px 14px", fontWeight: 700 }}>{fmtINR(row.TotalAmount)}</td>
+                                            <td style={{ padding: "11px 14px", fontWeight: 700, color: "#2f9e44" }}>
+                                                {row.GrandTotal != null ? fmtINR(row.GrandTotal) : "—"}
+                                                {row.Discount ? <div style={{ fontSize: 10, color: "#e67700" }}>-{fmtINR(row.Discount)} disc</div> : null}
+                                            </td>
+                                            <td style={{ padding: "11px 14px" }}>
+                                                {row.GSTTotal ? (
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, fontSize: 12 }}>{fmtINR(row.GSTTotal)}</div>
+                                                        <div style={{ fontSize: 10, color: "#868e96" }}>{row.GSTMode ?? ""}</div>
+                                                        {/* CGST / SGST / IGST breakdown */}
+                                                        <div style={{ fontSize: 10, color: "#adb5bd", marginTop: 2, lineHeight: 1.6 }}>
+                                                            {row.CGSTTotal ? <span>C: {fmtINR(row.CGSTTotal)} </span> : null}
+                                                            {row.SGSTTotal ? <span>S: {fmtINR(row.SGSTTotal)} </span> : null}
+                                                            {row.IGSTTotal ? <span>I: {fmtINR(row.IGSTTotal)}</span> : null}
+                                                        </div>
+                                                    </div>
+                                                ) : "—"}
+                                            </td>
                                             <td style={{ padding: "11px 14px" }}><StatusBadge status={row.State} /></td>
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot>
                                     <tr style={{ background: "#6A012A10", borderTop: "2px solid #6A012A" }}>
-                                        <td colSpan={5} style={{ padding: "12px 14px", fontWeight: 700, fontSize: 13, color: "#6A012A", textAlign: "right" }}>Total Revenue</td>
+                                        <td colSpan={8} style={{ padding: "12px 14px", fontWeight: 700, fontSize: 13, color: "#6A012A", textAlign: "right" }}>Total Revenue</td>
                                         <td style={{ padding: "12px 14px", fontWeight: 800, fontSize: 14, color: "#6A012A" }}>
                                             {fmtINR(report.data.reduce((a, r) => a + Number(r.TotalAmount), 0))}
+                                        </td>
+                                        <td style={{ padding: "12px 14px", fontWeight: 800, fontSize: 14, color: "#2f9e44" }}>
+                                            {fmtINR(report.data.reduce((a, r) => a + Number(r.GrandTotal ?? 0), 0))}
+                                        </td>
+                                        <td style={{ padding: "12px 14px", fontWeight: 800, fontSize: 14, color: "#495057" }}>
+                                            {fmtINR(report.data.reduce((a, r) => a + Number(r.GSTTotal ?? 0), 0))}
                                         </td>
                                         <td />
                                     </tr>
@@ -1146,7 +1343,17 @@ const SalesByCategoryReport: React.FC = () => {
     const [runParams, setRunParams] = useState<Record<string, string> | null>(null);
     const [showChart, setShowChart] = useState(false);
     const [rangeError, setRangeError] = useState<string | null>(null);
+    const [selectedChannel, setSelectedChannel] = useState<string>("");
 
+    // Fetch channel options
+    const { data: channelOptions = [] } = useQuery<string[]>({
+        queryKey: ["order-report-channels"],
+        queryFn: async () => {
+            const res = await api.get("/Report/OrderReport/Channels");
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
     const typeConfig = TYPE_OPTIONS.find(t => t.value === selectType)!;
 
     const { data: subData, isLoading: subLoading, isError: subError } = useQuery<SubOption[]>({
@@ -1196,13 +1403,12 @@ const SalesByCategoryReport: React.FC = () => {
         setRangeError(null);
         if (!subValue) return;
 
-        // ✅ Validate: if start is selected, end must also be selected
         if (dateRange.start && !dateRange.end) {
-            setRangeError("Please select an end date in the Month & Week Range picker before running.");
+            setRangeError("Please select an end date before running.");
             return;
         }
         if (!dateRange.start && dateRange.end) {
-            setRangeError("Please select a start date in the Month & Week Range picker before running.");
+            setRangeError("Please select a start date before running.");
             return;
         }
 
@@ -1213,14 +1419,24 @@ const SalesByCategoryReport: React.FC = () => {
             "filters[1].property": "Id", "filters[1].comparison": "", "filters[1].value": subValue,
         };
 
-        // Only append date filters when BOTH are present
+        let filterIndex = 2;
+
         if (dateRange.start && dateRange.end) {
-            params["filters[2].property"] = "FromDate";
-            params["filters[2].comparison"] = "";
-            params["filters[2].value"] = format(dateRange.start, "yyyy-MM-dd");
-            params["filters[3].property"] = "ToDate";
-            params["filters[3].comparison"] = "";
-            params["filters[3].value"] = format(dateRange.end, "yyyy-MM-dd");
+            params[`filters[${filterIndex}].property`] = "FromDate";
+            params[`filters[${filterIndex}].comparison`] = "";
+            params[`filters[${filterIndex}].value`] = format(dateRange.start, "yyyy-MM-dd");
+            filterIndex++;
+            params[`filters[${filterIndex}].property`] = "ToDate";
+            params[`filters[${filterIndex}].comparison`] = "";
+            params[`filters[${filterIndex}].value`] = format(dateRange.end, "yyyy-MM-dd");
+            filterIndex++;
+        }
+
+        // ✅ Append channel filter dynamically
+        if (selectedChannel) {
+            params[`filters[${filterIndex}].property`] = "Channel";
+            params[`filters[${filterIndex}].comparison`] = "";
+            params[`filters[${filterIndex}].value`] = selectedChannel;
         }
 
         setRunParams(params);
@@ -1230,6 +1446,7 @@ const SalesByCategoryReport: React.FC = () => {
         setSubValue(""); setSelectType("Product");
         setDateRange({ start: null, end: null }); setDateMode("Month Range");
         setRunParams(null); setShowChart(false); setRangeError(null);
+        setSelectedChannel(""); // ✅ reset channel
     }
 
     function handleDownloadExcel() {
@@ -1270,15 +1487,37 @@ const SalesByCategoryReport: React.FC = () => {
 
             <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
                 <div style={{ flex: "0 0 220px" }}>
-                    <CustomSelect label="Select Type" value={selectType} options={TYPE_OPTIONS.map(t => ({ value: t.value, label: t.label }))} onChange={v => setSelectType(v as SelectType)} placeholder="Select Type" loading={false} />
+                    <CustomSelect label="Select Type" value={selectType}
+                        options={TYPE_OPTIONS.map(t => ({ value: t.value, label: t.label }))}
+                        onChange={v => setSelectType(v as SelectType)} placeholder="Select Type" loading={false} />
                 </div>
                 <div style={{ flex: 1, minWidth: 260 }}>
-                    <CustomSelect key={selectType} label={selectType} value={subValue} options={subOptions} onChange={setSubValue} placeholder={`Select ${selectType}...`} loading={subLoading} error={subError} />
+                    <CustomSelect key={selectType} label={selectType} value={subValue}
+                        options={subOptions} onChange={setSubValue}
+                        placeholder={`Select ${selectType}...`} loading={subLoading} error={subError} />
                 </div>
+
+                {/* ✅ Channel Filter */}
+                <div style={{ flex: "0 0 180px" }}>
+                    <label style={labelSt}>Channel</label>
+                    <select
+                        style={inputBase}
+                        value={selectedChannel}
+                        onChange={e => setSelectedChannel(e.target.value)} // ✅ no setRunParams(null)
+                    >
+                        <option value="">All Channels</option>
+                        {channelOptions.map(ch => (
+                            <option key={ch} value={ch}>{ch}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <button onClick={handleRun} disabled={!subValue || running} style={{
-                    background: subValue && !running ? "#6A012A" : "#E8C5C5", color: "#fff", border: "none", borderRadius: 24,
+                    background: subValue && !running ? "#6A012A" : "#E8C5C5",
+                    color: "#fff", border: "none", borderRadius: 24,
                     padding: "11px 28px", fontSize: 14, fontWeight: 600,
-                    cursor: subValue && !running ? "pointer" : "not-allowed", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+                    cursor: subValue && !running ? "pointer" : "not-allowed",
+                    fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
                 }}>
                     {running ? "Running…" : "Run"}
                 </button>
@@ -1316,38 +1555,177 @@ const SalesByCategoryReport: React.FC = () => {
                     {running ? <Spinner /> : (
                         <>
                             <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #F0E0E0" }}>
-                                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                                    <colgroup>
-                                        <col style={{ width: "6%" }} /><col style={{ width: "26%" }} />
-                                        <col style={{ width: "11%" }} /><col style={{ width: "13%" }} />
-                                        <col style={{ width: "16%" }} /><col style={{ width: "16%" }} /><col style={{ width: "12%" }} />
-                                    </colgroup>
+                                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }}>
                                     <thead>
                                         <tr style={{ background: "#6A012A" }}>
-                                            {["Type", "Name", "Units Sold", "Total Orders", "Gross Revenue", "Taxable Value", "GST Amount"].map(h => (
-                                                <th key={h} style={{ padding: "13px 14px", textAlign: "left", fontSize: 13, fontWeight: 600, color: "#fff", fontFamily: "'DM Sans', sans-serif" }}>{h}</th>
+                                            {[
+                                                "Type", "Name", "Channel",
+                                                "Units Sold", "Total Orders",
+                                                "Gross Revenue", "Taxable Value", "GST Amount",
+                                                "CGST", "SGST", "IGST",
+                                                "Grand Total", "Discount",
+                                                "Received", "Balance",
+                                            ].map(h => (
+                                                <th key={h} style={{
+                                                    padding: "13px 14px", textAlign: "left", fontSize: 11,
+                                                    fontWeight: 700, color: "#fff", whiteSpace: "nowrap",
+                                                    textTransform: "uppercase", letterSpacing: 0.5,
+                                                    fontFamily: "'DM Sans', sans-serif",
+                                                }}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {rows.length === 0 ? (
-                                            <tr><td colSpan={7} style={{ textAlign: "center", padding: "40px", color: "#AAA", fontSize: 14 }}>
-                                                {hasError ? "Failed to load data." : "No data found for the selected filters."}
-                                            </td></tr>
-                                        ) : rows.map((row, i) => (
-                                            <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FFF8F8", borderBottom: "1px solid #F5E8E8" }}
-                                                onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "#FFF0F0"; }}
-                                                onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = i % 2 === 0 ? "#fff" : "#FFF8F8"; }}>
-                                                <td style={cellStyle}>{row.type || row.Type || "P"}</td>
-                                                <td style={{ ...cellStyle, fontWeight: 500 }}>{getRowName(row)}</td>
-                                                <td style={cellStyle}>{row.unitsSold ?? "—"}</td>
-                                                <td style={cellStyle}>{row.totalOrders ?? "—"}</td>
-                                                <td style={cellStyle}>{fmtINR(row.grossRevenue ?? 0)}</td>
-                                                <td style={cellStyle}>{fmtINR(row.taxableValue ?? 0)}</td>
-                                                <td style={cellStyle}>{fmtINR(row.gstAmount ?? 0)}</td>
+                                            <tr>
+                                                <td colSpan={15} style={{ textAlign: "center", padding: "40px", color: "#AAA", fontSize: 14 }}>
+                                                    {hasError ? "Failed to load data." : "No data found for the selected filters."}
+                                                </td>
                                             </tr>
-                                        ))}
+                                        ) : rows.map((row, i) => {
+                                            const cgst = Number(row.CGSTTotal ?? row.cgst ?? 0);
+                                            const sgst = Number(row.SGSTTotal ?? row.sgst ?? 0);
+                                            const igst = Number(row.IGSTTotal ?? row.igst ?? 0);
+                                            const gst = Number(row.gstAmount ?? row.GstAmount ?? row.gst_amount ?? 0) || (cgst + sgst + igst);
+                                            const channel = row.Channel ?? row.channel ?? selectedChannel ?? "—";
+
+                                            return (
+                                                <tr key={i}
+                                                    style={{ background: i % 2 === 0 ? "#fff" : "#FFF8F8", borderBottom: "1px solid #F5E8E8" }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = "#FFF0F0")}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#FFF8F8")}
+                                                >
+                                                    {/* Type */}
+                                                    <td style={cellStyle}>{row.type || row.Type || "—"}</td>
+
+                                                    {/* Name */}
+                                                    <td style={{ ...cellStyle, fontWeight: 600, minWidth: 140 }}>{getRowName(row)}</td>
+
+                                                    {/* Channel */}
+                                                    <td style={cellStyle}>
+                                                        {channel !== "—" ? (
+                                                            <span style={{
+                                                                padding: "3px 10px", borderRadius: 20, fontSize: 10.5,
+                                                                fontWeight: 700, background: "#e7f5ff", color: "#1971c2",
+                                                                whiteSpace: "nowrap",
+                                                            }}>
+                                                                {channel}
+                                                            </span>
+                                                        ) : "—"}
+                                                    </td>
+
+                                                    {/* Units Sold */}
+                                                    <td style={{ ...cellStyle, textAlign: "center" }}>
+                                                        {row.unitsSold ?? row.UnitsSold ?? row.units_sold ?? "—"}
+                                                    </td>
+
+                                                    {/* Total Orders */}
+                                                    <td style={{ ...cellStyle, textAlign: "center" }}>
+                                                        {row.totalOrders ?? row.TotalOrders ?? row.total_orders ?? "—"}
+                                                    </td>
+
+                                                    {/* Gross Revenue */}
+                                                    <td style={{ ...cellStyle, fontWeight: 700 }}>
+                                                        {fmtINR(row.grossRevenue ?? row.GrossRevenue ?? 0)}
+                                                    </td>
+
+                                                    {/* Taxable Value */}
+                                                    <td style={cellStyle}>
+                                                        {fmtINR(row.taxableValue ?? row.TaxableValue ?? row.taxable_value ?? 0)}
+                                                    </td>
+
+                                                    {/* GST Amount */}
+                                                    <td style={{ ...cellStyle, fontWeight: 600, color: "#495057" }}>
+                                                        {fmtINR(gst)}
+                                                    </td>
+
+                                                    {/* CGST */}
+                                                    <td style={{ ...cellStyle, color: "#868e96" }}>{cgst ? fmtINR(cgst) : "—"}</td>
+
+                                                    {/* SGST */}
+                                                    <td style={{ ...cellStyle, color: "#868e96" }}>{sgst ? fmtINR(sgst) : "—"}</td>
+
+                                                    {/* IGST */}
+                                                    <td style={{ ...cellStyle, color: "#868e96" }}>{igst ? fmtINR(igst) : "—"}</td>
+
+                                                    {/* Grand Total */}
+                                                    <td style={{ ...cellStyle, fontWeight: 700, color: "#2f9e44" }}>
+                                                        {(row.GrandTotal ?? row.grandTotal) != null
+                                                            ? fmtINR(row.GrandTotal ?? row.grandTotal ?? 0)
+                                                            : "—"}
+                                                    </td>
+
+                                                    {/* Discount */}
+                                                    <td style={{ ...cellStyle, color: "#e67700" }}>
+                                                        {(row.Discount ?? row.discount)
+                                                            ? fmtINR(row.Discount ?? row.discount ?? 0)
+                                                            : "—"}
+                                                    </td>
+
+                                                    {/* Received Amount */}
+                                                    <td style={{ ...cellStyle, color: "#1971c2" }}>
+                                                        {(row.ReceivedAmount ?? row.receivedAmount) != null
+                                                            ? fmtINR(row.ReceivedAmount ?? row.receivedAmount ?? 0)
+                                                            : "—"}
+                                                    </td>
+
+                                                    {/* Balance */}
+                                                    <td style={{ ...cellStyle, color: "#e03131", fontWeight: 600 }}>
+                                                        {(row.Balance ?? row.balance) != null
+                                                            ? fmtINR(row.Balance ?? row.balance ?? 0)
+                                                            : "—"}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
+
+                                    {/* Footer totals */}
+                                    {rows.length > 0 && (
+                                        <tfoot>
+                                            <tr style={{ background: "#6A012A10", borderTop: "2px solid #6A012A" }}>
+                                                <td colSpan={3} style={{ padding: "12px 14px", fontWeight: 700, fontSize: 13, color: "#6A012A" }}>
+                                                    Totals
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, textAlign: "center" }}>
+                                                    {rows.reduce((a, r) => a + Number(r.unitsSold ?? r.UnitsSold ?? 0), 0)}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, textAlign: "center" }}>
+                                                    {rows.reduce((a, r) => a + Number(r.totalOrders ?? r.TotalOrders ?? 0), 0)}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#6A012A" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.grossRevenue ?? r.GrossRevenue ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800 }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.taxableValue ?? r.TaxableValue ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800 }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.gstAmount ?? r.GstAmount ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#868e96" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.CGSTTotal ?? r.cgst ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#868e96" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.SGSTTotal ?? r.sgst ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#868e96" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.IGSTTotal ?? r.igst ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#2f9e44" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.GrandTotal ?? r.grandTotal ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#e67700" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.Discount ?? r.discount ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#1971c2" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.ReceivedAmount ?? r.receivedAmount ?? 0), 0))}
+                                                </td>
+                                                <td style={{ padding: "12px 14px", fontWeight: 800, color: "#e03131" }}>
+                                                    {fmtINR(rows.reduce((a, r) => a + Number(r.Balance ?? r.balance ?? 0), 0))}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    )}
                                 </table>
                             </div>
                             {showChart && rows.length > 0 && <ChartPanel data={rows} />}
@@ -1392,6 +1770,7 @@ const INDIAN_STATES = [
 ];
 
 const SalesByRegionReport: React.FC = () => {
+      const [city, setCity] = useState<string>("");     
     const [state, setState] = useState<string>("All States");
     const [dateMode, setDateMode] = useState<DateMode>("Month Range");
     const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
@@ -1413,28 +1792,25 @@ const SalesByRegionReport: React.FC = () => {
 
     function handleRun() {
         setRangeError(null);
-        // ✅ Validate range completeness
         if (dateRange.start && !dateRange.end) {
-            setRangeError("Please select an end date in the Month & Week Range picker before running.");
-            return;
-        }
-        if (!dateRange.start && dateRange.end) {
-            setRangeError("Please select a start date in the Month & Week Range picker before running.");
+            setRangeError("Please select an end date before running.");
             return;
         }
         const params: Record<string, string> = {};
-        if (state && state !== "All States") params.state = state;
-        // Only send both dates together
+        if (city.trim()) params.city = city.trim();        // ← send city
         if (dateRange.start && dateRange.end) {
             params.fromDate = format(dateRange.start, "yyyy-MM-dd");
-            params.toDate = format(dateRange.end, "yyyy-MM-dd");
+            params.toDate   = format(dateRange.end,   "yyyy-MM-dd");
         }
         setRunParams(params);
     }
 
-    function handleClearAll() {
-        setState("All States"); setDateRange({ start: null, end: null });
-        setDateMode("Month Range"); setRunParams(null); setRangeError(null);
+      function handleClearAll() {
+        setCity("");                                        // ← reset city
+        setDateRange({ start: null, end: null });
+        setDateMode("Month Range");
+        setRunParams(null);
+        setRangeError(null);
     }
 
     function handleExcel() {
@@ -1469,7 +1845,7 @@ const SalesByRegionReport: React.FC = () => {
         doc.save(`sales_by_region_${format(new Date(), "yyyyMMdd_HHmm")}.pdf`);
     }
 
-    const rows = reportData ?? [];
+   const rows = reportData ?? [];
     const hasRun = !!runParams;
     const thStyle: React.CSSProperties = { padding: "13px 16px", textAlign: "left", fontSize: 13, fontWeight: 600, color: "#fff", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" };
 
