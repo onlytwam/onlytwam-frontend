@@ -1,7 +1,12 @@
 trigger:
   branches:
     include:
-      - frontend-setup/Vishnu
+      - develop          # ✅ Triggers on every merge/push to develop
+
+pr:
+  branches:
+    include:
+      - develop          # ✅ Runs build validation on PRs targeting develop (no deploy)
 
 pool:
   vmImage: ubuntu-latest
@@ -30,6 +35,8 @@ steps:
 
   - task: AzureStaticWebApp@0
     displayName: Deploy to Static Web Apps
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
+    # ☝️ This ensures deploy ONLY happens on actual merges to develop, NOT on PR builds
     inputs:
       app_location: "dist"
       skip_app_build: true
