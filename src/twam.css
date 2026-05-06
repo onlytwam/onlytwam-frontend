@@ -7394,6 +7394,8 @@ button {
 }
 
 .s-adminorders-dadf17 {
+  position: relative;
+  z-index: 1001;       
   background: #fff;
   border-radius: 12px;
   padding: 28px;
@@ -13808,11 +13810,8 @@ button {
 .s-adminorders-d4682b {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 1000;      
+  background: rgba(0,0,0,0.4);
 }
 
 .s-adminorders-642033 {

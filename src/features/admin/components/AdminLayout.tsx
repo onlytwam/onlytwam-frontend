@@ -138,10 +138,6 @@ export default function AdminLayout() {
   const defaultPath =
     roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
 
-  // Customer Support (role 6) lands on /admin/support directly
-  const defaultPath =
-    roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
-
   const goToStore = () => {
     sessionStorage.setItem("adminViewingStore", "true");
     navigate("/");
