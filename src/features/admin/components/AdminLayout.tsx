@@ -19,12 +19,6 @@ const ALL_NAV = [
     roles: [1, 5],
   },
   {
-    path: "/admin/support",
-    icon: "bi-inbox",
-    label: "Customer Queries",
-    roles: [6],
-  },
-  {
     path: "/admin/orders",
     icon: "bi-bag-check",
     label: "Orders",
@@ -134,7 +128,6 @@ export default function AdminLayout() {
   const NAV = ALL_NAV.filter((item) => item.roles.includes(roleId));
   const roleLabel = ROLE_LABELS[roleId] ?? "Admin";
 
-  // Customer Support (role 6) lands on /admin/support directly
   const defaultPath =
     roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
 

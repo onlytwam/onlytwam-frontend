@@ -4,7 +4,7 @@ trigger:
       - frontend/v2/Mamatha    # ✅ Only triggers on this branch
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: ubuntu-'ubuntu-22.04'
 
 steps:
   - task: NodeTool@0
