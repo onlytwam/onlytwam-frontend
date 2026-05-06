@@ -4,10 +4,10 @@ trigger:
       - frontend/v2/Mamatha    # ✅ Only triggers on this branch
 
 pool:
-  vmImage: ubuntu-'ubuntu-22.04'
+  vmImage: ubuntu-latest
 
 steps:
-  - task: NodeTool@0
+  - task: UseNode@1 
     displayName: Install Node.js
     inputs:
       versionSpec: "20.x"
@@ -16,8 +16,10 @@ steps:
     displayName: Verify Node version
 
   - script: |
-      sudo apt-get install -y build-essential libvips-dev
-    displayName: Install native build tools for sharp
+      sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list
+      sudo apt-get update -y
+      sudo apt-get install -y --fix-missing build-essential libvips-dev
+    displayName: Install native build tools for sharp 
 
   - script: npm install
     displayName: Install dependencies
