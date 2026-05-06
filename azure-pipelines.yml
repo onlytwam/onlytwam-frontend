@@ -21,7 +21,9 @@ steps:
       sudo apt-get install -y --fix-missing build-essential libvips-dev
     displayName: Install native build tools for sharp 
 
-  - script: npm install
+  - script: |
+      npm pkg set overrides.sharp="^0.34.5"
+      npm install
     displayName: Install dependencies
 
   - script: npx vite build
