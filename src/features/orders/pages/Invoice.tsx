@@ -358,7 +358,6 @@ const styles: Record<string, React.CSSProperties> = {
 
 /* ─── Component ─────────────────────────────────────────────── */
 export default function Invoice() {
-  //  Fix 1: typed useParams
   const { id } = useParams<{ id: string }>();
 
   const { data: order, isLoading } = useQuery({
@@ -367,61 +366,73 @@ export default function Invoice() {
     enabled: !!id,
   });
 
-  //  Fix 2: inject Google Font + print CSS via useEffect (not <link> in JSX)
   useEffect(() => {
-    if (document.getElementById('twam-invoice-styles')) return;
-    const link = document.createElement('link');
-    link.id = 'twam-invoice-styles';
-    link.rel = 'stylesheet';
-    link.href =
-      'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap';
-    document.head.appendChild(link);
+    // Inject Google Font
+    if (!document.getElementById('twam-invoice-font')) {
+      const link = document.createElement('link');
+      link.id = 'twam-invoice-font';
+      link.rel = 'stylesheet';
+      link.href =
+        'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap';
+      document.head.appendChild(link);
+    }
 
-    const style = document.createElement('style');
-    style.textContent = `
-      @page {
-        size: auto;
-        margin: 0mm;
-      }
-      @media print {
-        /* Remove browser's own date / title / URL header+footer */
-        html, body {
-          background: #fff !important;
-          margin: 0 !important;
-          padding: 0 !important;
+    // Inject print styles
+    if (!document.getElementById('twam-invoice-print')) {
+      const style = document.createElement('style');
+      style.id = 'twam-invoice-print';
+      style.textContent = `
+        @page {
+          size: A4;
+          margin: 10mm;
         }
+        @media print {
+          html, body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
 
-        /* Hide site navbar, site footer, and action buttons */
-        header,
-        footer,
-        nav,
-        aside,
-        .no-print,
-        [class*="navbar"],
-        [class*="nav-bar"],
-        [class*="site-header"],
-        [class*="site-footer"],
-        [class*="topbar"],
-        [class*="bottom-bar"] {
-          display: none !important;
-          visibility: hidden !important;
-        }
+          /* Step 1: hide absolutely everything */
+          body * {
+            visibility: hidden !important;
+          }
 
-        /* Show only the invoice card */
-        body > *:not(.invoice-print-root) {
-          display: none !important;
-        }
+          /* Step 2: reveal only the invoice wrapper and all its children */
+          .invoice-print-root,
+          .invoice-print-root * {
+            visibility: visible !important;
+          }
 
-        .invoice-print-root {
-          display: block !important;
-          padding: 0 !important;
-          margin: 0 !important;
-          min-height: unset !important;
-          background: #fff !important;
+          /* Step 3: pull invoice to top-left so it fills the printed page */
+          .invoice-print-root {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #fff !important;
+            z-index: 99999 !important;
+          }
+
+          /* Step 4: hide action buttons inside invoice */
+          .no-print,
+          .no-print * {
+            display: none !important;
+            visibility: hidden !important;
+          }
         }
-      }
-    `;
-    document.head.appendChild(style);
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Cleanup on unmount — remove styles so they don't bleed into other pages
+    return () => {
+      document.getElementById('twam-invoice-print')?.remove();
+    };
   }, []);
 
   if (isLoading) {
@@ -446,22 +457,31 @@ export default function Invoice() {
 
   const items: any[] = order.orderItems || order.items || [];
 
-  //  Fix 3: explicitly typed TotalRow array — no implicit `any` on `green`
   const totals: TotalRow[] = [
-    { label: 'Subtotal', value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}` },
+    {
+      label: 'Subtotal',
+      value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}`,
+    },
     {
       label: 'Shipping',
-      value: (order.deliveryCharge || 0) === 0
-        ? 'FREE'
-        : `₹${(order.deliveryCharge || 0).toLocaleString('en-IN')}`,
+      value:
+        (order.deliveryCharge || 0) === 0
+          ? 'FREE'
+          : `₹${(order.deliveryCharge || 0).toLocaleString('en-IN')}`,
     },
     ...(order.couponAmount > 0
-      ? [{ label: 'Coupon Discount', value: `−₹${order.couponAmount.toLocaleString('en-IN')}`, green: true }]
-      : []
-    ),
+      ? [
+          {
+            label: 'Coupon Discount',
+            value: `−₹${order.couponAmount.toLocaleString('en-IN')}`,
+            green: true,
+          },
+        ]
+      : []),
   ];
 
   return (
+    // ← this className is what the print CSS targets
     <div style={styles.page} className="invoice-print-root">
       <div style={styles.card}>
 
@@ -471,7 +491,9 @@ export default function Invoice() {
         {/* ── Header ── */}
         <div style={styles.headerBand}>
           <div style={styles.brandBlock}>
-            <span style={styles.brandName}><img src="/assets/twam-white.jpeg" alt="" /></span>
+            <span style={styles.brandName}>
+              <img src="/assets/Twam-Logo-Burgundy.png" width="215" alt="TWAM" />
+            </span>
             <span style={styles.brandTagline}>Only TWAM — It's all about you</span>
           </div>
           <div style={styles.invoiceMeta}>
@@ -491,7 +513,7 @@ export default function Invoice() {
             <div style={styles.addressSection}>
               <div style={styles.addressBox}>
                 <div style={styles.addressLabel}>Bill / Ship To</div>
-                <div style={styles.addressName}>{order.shippingAddress.nam}</div>
+                <div style={styles.addressName}>{order.shippingAddress.name}</div>
                 <div style={styles.addressLine}>
                   {[
                     order.shippingAddress.addressLine,
@@ -499,12 +521,13 @@ export default function Invoice() {
                     order.shippingAddress.city,
                     order.shippingAddress.state,
                     order.shippingAddress.pinCode,
-                  ].filter(Boolean).join(', ')}
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
                 </div>
                 <div style={styles.addressPhone}>{order.shippingAddress.phone}</div>
               </div>
 
-              {/*  Fix 4: statusBadge is self-contained — no stray spans inside */}
               <div style={styles.statusBadge}>
                 <div style={styles.statusDot} />
                 <div style={styles.statusLabel}>Status</div>
@@ -515,7 +538,6 @@ export default function Invoice() {
 
           {/* Items table */}
           <div style={styles.tableWrap}>
-            {/*  Fix 5: header row and item rows are separate — no mixed spans */}
             <div style={styles.tableHeadRow}>
               <span style={styles.thCell}>Product</span>
               <span style={styles.thCell}>Size</span>
@@ -542,7 +564,6 @@ export default function Invoice() {
           {/* Totals */}
           <div style={styles.totalsSection}>
             <div style={styles.totalsBox}>
-              {/*  Fix 6: destructure with typed TotalRow — no implicit any on `green` */}
               {totals.map(({ label, value, green }: TotalRow) => (
                 <div key={label} style={styles.totalRow}>
                   <span style={styles.totalLabel}>{label}</span>
@@ -578,7 +599,7 @@ export default function Invoice() {
           </div>
         </div>
 
-        {/* ── Actions ── */}
+        {/* ── Actions (hidden on print) ── */}
         <div style={styles.actions} className="no-print">
           <button
             onClick={() => window.print()}
@@ -586,8 +607,11 @@ export default function Invoice() {
             onMouseOver={e => (e.currentTarget.style.opacity = '0.85')}
             onMouseOut={e => (e.currentTarget.style.opacity = '1')}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
               <polyline points="6 9 6 2 18 2 18 9" />
               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
               <rect x="6" y="14" width="12" height="8" />

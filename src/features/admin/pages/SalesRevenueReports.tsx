@@ -250,6 +250,7 @@ const REPORT_TABS = [
     { id: 3, label: "Top-Selling Products", icon: "⭐" },
     { id: 4, label: "Low-Performing Products", icon: "📉" },
     { id: 5, label: "Gross Revenue vs. Net Revenue", icon: "💵" },
+    { id:6,  label: "Coupons and Gift Usage Report", icon: "🎟️" },
 ];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

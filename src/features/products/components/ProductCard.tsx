@@ -226,48 +226,96 @@ export default function ProductCard({
 
 
   // ── Image resolution — covers all known API shapes ─────────────────────────
+  // const resolveImageList = (obj: any): string[] => {
+  //   if (!obj) return [];
+
+  //   if (Array.isArray(obj.images) && obj.images.length) {
+  //     return Array.from(
+  //       new Set(
+  //         obj.images
+  //           .filter(Boolean)
+  //           .map((src: string) => String(src).trim())
+  //           .filter(Boolean),
+  //       ),
+  //     );
+  //   }
+
+  //   const candidates = [
+  //     obj.image,
+  //     obj.imageUrl,
+  //     obj.imageURL,
+  //     obj.productImage,
+  //     obj.variantImage,
+  //     obj.thumbnail,
+  //     obj.selectedImage,
+  //     obj.hoverImage,
+  //     obj.backImage,
+  //     obj.image1,
+  //     obj.image2,
+  //     obj.primaryImage,
+  //     obj.secondaryImage,
+  //   ]
+  //     .filter(Boolean)
+  //     .map((src) => String(src).trim())
+  //     .filter(Boolean) as string[];
+
+  //   return Array.from(new Set(candidates));
+  // };
+
   const resolveImageList = (obj: any): string[] => {
     if (!obj) return [];
 
+    // If API gives array → use directly
     if (Array.isArray(obj.images) && obj.images.length) {
-      return Array.from(
-        new Set(
-          obj.images
-            .filter(Boolean)
-            .map((src: string) => String(src).trim())
-            .filter(Boolean),
-        ),
-      );
+      return obj.images.filter(Boolean);
     }
 
+    // 🔥 PRIORITY ORDER (fix here)
     const candidates = [
+      obj.primaryImage,
       obj.image,
       obj.imageUrl,
       obj.imageURL,
       obj.productImage,
       obj.variantImage,
       obj.thumbnail,
-      obj.selectedImage,
+
+      // hover / secondary AFTER
       obj.hoverImage,
-      obj.backImage,
-      obj.image1,
-      obj.image2,
-      obj.primaryImage,
       obj.secondaryImage,
+      obj.image2,
+      obj.backImage,
     ]
       .filter(Boolean)
-      .map((src) => String(src).trim())
-      .filter(Boolean) as string[];
+      .map((src) => String(src).trim());
 
     return Array.from(new Set(candidates));
   };
-  const rawImages: string[] = resolveImageList(selectedVariant).length
-    ? resolveImageList(selectedVariant)
-    : resolveImageList(product);
+  // const rawImages: string[] = resolveImageList(selectedVariant).length
+  //   ? resolveImageList(selectedVariant)
+  //   : resolveImageList(product);
+
+  const variantImages = resolveImageList(selectedVariant);
+  const productImages = resolveImageList(product);
+
+  const rawImages: string[] =
+    variantImages.length > 0
+      ? variantImages
+      : productImages.length > 0
+        ? productImages
+        : [];
+
 
   const resolvedImages = rawImages.map((src) => getImageUrl(src));
-  const imgSrc = resolvedImages[0] || "";
+  const FALLBACK_IMAGE = "/assets/category-bg.png";
+
+  const imgSrc = resolvedImages[0] || FALLBACK_IMAGE;
   const hoverImgSrc = resolvedImages[1] || "";
+  console.log("RAW IMAGES:", rawImages);
+  console.log("FINAL IMG:", imgSrc);
+  if (rawImages.length === 0) {
+    console.warn("⚠️ No images for product:", selectedVariant);
+  }
 
   const hexToRgb = (hex: string) => {
     const clean = hex.replace("#", "").trim();
