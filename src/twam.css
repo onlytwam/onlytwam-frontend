@@ -7394,11 +7394,13 @@ button {
 }
 
 .s-adminorders-dadf17 {
+  position: relative;
+  z-index: 1001;       
   background: #fff;
   border-radius: 12px;
   padding: 28px;
   width: 400px;
-  max-width: 90%;
+  max-width: 90%
 }
 
 .s-adminorders-83a233 {
