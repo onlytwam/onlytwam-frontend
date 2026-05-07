@@ -1,33 +1,29 @@
-
-
-  trigger:
+trigger:
   branches:
     include:
-      - frontend/v2/Mamatha    # ✅ Only triggers on this branch
+      - frontend/v2/Mamatha    # ✅ Triggers on this branch
 
-  pool:
-    vmImage: ubuntu-latest
+pool:
+  vmImage: ubuntu-latest
 
-  steps:
-  - task: NodeTool@0
-    displayName: Install Node.js
-    inputs:
-      versionSpec: "20.x"
+steps:
+- task: NodeTool@0
+  displayName: Install Node.js
+  inputs:
+    versionSpec: "20.x"
 
-  - script: node --version && npm --version
-    displayName: Verify Node version
+- script: node --version && npm --version
+  displayName: Verify Node version
 
-  - script: |
-      sudo apt-get install -y build-essential libvips-dev
-    displayName: Install native build tools for sharp
+- script: |
+    sudo apt-get install -y build-essential libvips-dev
+  displayName: Install native build tools for sharp
 
-  - script: npm install
-    displayName: Install dependencies
+- script: npm install
+  displayName: Install dependencies
 
-  - script: npx vite build
-    displayName: Build frontend
-    env:
-      VITE_API_BASE_URL: $(VITE_API_BASE_URL)
-      VITE_APP_NAME: $(VITE_APP_NAME)
-
-  # ❌ No deploy step here — build only
+- script: npx vite build
+  displayName: Build frontend
+  env:
+    VITE_API_BASE_URL: $(VITE_API_BASE_URL)
+    VITE_APP_NAME: $(VITE_APP_NAME)
