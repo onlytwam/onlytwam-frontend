@@ -1,309 +1,303 @@
 // src/features/auth/pages/VerifyOtp.tsx
-// Updated:
-//  • Reads identifier + channel + purpose from URL params
-//  • Shows "sent to email" or "sent to phone" depending on channel
-//  • On verify success, passes identifier + otp to ResetPassword (no separate token needed)
-//  • Resend calls new forgot-password/send-otp endpoint
+//
+// Forgot-password OTP verification page.
+//
+// URL params (set by Login.tsx before navigating here):
+//   ?identifier=<email|phone>
+//   &channel=<email|sms|whatsapp>
+//   &purpose=forgot_password
+//   &display=<masked email or phone>   (shown to user)
+//
+// Flow:
+//   1. User enters 6-digit OTP
+//   2. Client-side: check all 6 digits are filled
+//   3. Navigate to /reset-password?identifier=…&otp=…&channel=…&display=…
+//      ResetPassword calls verifyForgotPasswordOtpAndReset(identifier, otp, newPassword)
+//      which verifies the OTP AND resets the password in ONE combined backend call.
+//
+// WHY no API call here:
+//   verifyForgotPasswordOtpAndReset consumes the OTP and sets the password in one shot.
+//   Calling it here with a dummy password would burn the OTP before the user types
+//   their real password. So we just pass the OTP forward via URL params.
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import { sendForgotPasswordOtpToChannel } from "@/features/auth/api/auth.api";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
-import toast from "react-hot-toast";
 
 const OTP_LENGTH = 6;
-const RESEND_SECONDS = 60;
+const RESEND_COOLDOWN = 60;
+
+function channelLabel(channel: string) {
+  if (channel === "whatsapp") return "WhatsApp";
+  if (channel === "sms") return "SMS";
+  return "Email";
+}
+function channelIcon(channel: string) {
+  if (channel === "whatsapp") return "bi-whatsapp";
+  if (channel === "sms") return "bi-chat-dots-fill";
+  return "bi-envelope-fill";
+}
 
 export default function VerifyOtp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
 
-  // Params from Login.tsx navigation
-  const identifier =
-    searchParams.get("identifier") || searchParams.get("email") || "";
-  const channel = (searchParams.get("channel") || "email") as "email" | "whatsapp" | "sms";
-  // displayIdentifier shows the masked value (e.g. vi***@gmail.com) not the raw phone/email
-  const displayIdentifier = searchParams.get("display") || identifier;
+  const identifier = searchParams.get("identifier") || "";
+  const channel    = (searchParams.get("channel") || "email") as "email" | "sms" | "whatsapp";
+  const display    = searchParams.get("display") || identifier;
 
-  // Display label
-  const isPhone = channel === "whatsapp" || channel === "sms";
-  const channelLabel = channel === "whatsapp" ? "WhatsApp" : channel === "sms" ? "SMS" : "email";
-  const channelIcon = channel === "whatsapp" ? "bi-whatsapp" : channel === "sms" ? "bi-chat-dots-fill" : "bi-envelope";
+  const [digits, setDigits]       = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const inputRefs                 = useRef<Array<HTMLInputElement | null>>(Array(OTP_LENGTH).fill(null));
+  const [otpError, setOtpError]   = useState("");
+  const [resendCd, setResendCd]   = useState(RESEND_COOLDOWN);
+  const [resending, setResending] = useState(false);
 
-  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
-  const [loading, setLoading] = useState(false);
-  const [resendSec, setResendSec] = useState(RESEND_SECONDS);
-  const [error, setError] = useState("");
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
+  // Countdown
   useEffect(() => {
-    if (resendSec <= 0) return;
-    const id = setInterval(() => setResendSec((s) => s - 1), 1000);
-    return () => clearInterval(id);
-  }, [resendSec]);
+    if (resendCd <= 0) return;
+    const t = setTimeout(() => setResendCd((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCd]);
 
+  // Focus first box on mount
+  useEffect(() => { inputRefs.current[0]?.focus(); }, []);
+
+  // Guard: no identifier → back to login
   useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
+    if (!identifier) {
+      toast.error("Session expired. Please start again.");
+      navigate("/login", { replace: true });
+    }
+  }, [identifier, navigate]);
 
-  const handleChange = (index: number, value: string) => {
-    const char = value.replace(/\D/g, "").slice(-1);
+  // ── input handlers ────────────────────────────────────────────────────────
+  const handleDigitChange = (idx: number, val: string) => {
+    if (val.length > 1) {
+      // Handle paste
+      const pasted = val.replace(/\D/g, "").slice(0, OTP_LENGTH);
+      const next = Array(OTP_LENGTH).fill("");
+      for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
+      setDigits(next);
+      setOtpError("");
+      inputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
+      return;
+    }
+    if (!/^\d?$/.test(val)) return;
     const next = [...digits];
-    next[index] = char;
+    next[idx] = val;
     setDigits(next);
-    setError("");
-    if (char && index < OTP_LENGTH - 1) inputRefs.current[index + 1]?.focus();
+    setOtpError("");
+    if (val && idx < OTP_LENGTH - 1) inputRefs.current[idx + 1]?.focus();
   };
 
-  const handleKeyDown = (
-    index: number,
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === "Backspace") {
-      if (digits[index]) {
-        const n = [...digits];
-        n[index] = "";
-        setDigits(n);
-      } else if (index > 0) inputRefs.current[index - 1]?.focus();
-    } else if (e.key === "ArrowLeft" && index > 0)
-      inputRefs.current[index - 1]?.focus();
-    else if (e.key === "ArrowRight" && index < OTP_LENGTH - 1)
-      inputRefs.current[index + 1]?.focus();
+  const handleKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !digits[idx] && idx > 0)  inputRefs.current[idx - 1]?.focus();
+    if (e.key === "ArrowLeft"  && idx > 0)                  inputRefs.current[idx - 1]?.focus();
+    if (e.key === "ArrowRight" && idx < OTP_LENGTH - 1)     inputRefs.current[idx + 1]?.focus();
   };
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData
-      .getData("text")
-      .replace(/\D/g, "")
-      .slice(0, OTP_LENGTH);
-    if (!pasted) return;
-    const next = Array(OTP_LENGTH).fill("");
-    pasted.split("").forEach((c, i) => {
-      next[i] = c;
-    });
-    setDigits(next);
-    inputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
-  };
-
-  // On "Verify OTP" — pass otp + identifier to ResetPassword
-  // The actual OTP check + password reset happens in one call on ResetPassword page
-  const handleVerify = useCallback(async () => {
+  // ── continue — just validate locally, then pass otp via URL ──────────────
+  const handleContinue = useCallback(() => {
     const otp = digits.join("");
     if (otp.length < OTP_LENGTH) {
-      setError(`Please enter all ${OTP_LENGTH} digits.`);
+      setOtpError("Please enter the complete 6-digit OTP.");
+      inputRefs.current[digits.findIndex((d) => !d)]?.focus();
       return;
     }
-    if (!identifier) {
-      toast.error("Identifier not found. Please restart.");
-      navigate("/login");
-      return;
-    }
+    // Navigate to ResetPassword with otp in URL.
+    // ResetPassword will call verifyForgotPasswordOtpAndReset(identifier, otp, newPassword)
+    // to verify + reset in one backend call.
+    navigate(
+      `/reset-password` +
+      `?identifier=${encodeURIComponent(identifier)}` +
+      `&otp=${encodeURIComponent(otp)}` +
+      `&channel=${encodeURIComponent(channel)}` +
+      `&display=${encodeURIComponent(display)}`,
+      { replace: true }
+    );
+  }, [digits, identifier, channel, display, navigate]);
 
-    setLoading(true);
-    // We pass the OTP forward; the actual verification + reset happens on ResetPassword page
-    // in one combined API call (forgot-password/verify-otp)
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("OTP entered! Please set your new password.");
-      navigate(
-        `/reset-password?identifier=${encodeURIComponent(identifier)}&otp=${encodeURIComponent(otp)}&channel=${channel}`,
-      );
-    }, 300);
-  }, [digits, identifier, navigate, channel]);
+  const handleLastKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleContinue();
+    handleKeyDown(OTP_LENGTH - 1, e);
+  };
 
-  useEffect(() => {
-    const onEnter = (e: KeyboardEvent) => {
-      if (e.key === "Enter") handleVerify();
-    };
-    window.addEventListener("keydown", onEnter);
-    return () => window.removeEventListener("keydown", onEnter);
-  }, [handleVerify]);
-
+  // ── resend ────────────────────────────────────────────────────────────────
   const handleResend = async () => {
-    if (resendSec > 0) return;
+    if (resendCd > 0 || resending || !identifier) return;
+    setResending(true);
+    setOtpError("");
+    setDigits(Array(OTP_LENGTH).fill(""));
     try {
       await sendForgotPasswordOtpToChannel(identifier, channel);
-      toast.success(`A new OTP has been sent to your ${channelLabel}.`);
-      setResendSec(RESEND_SECONDS);
-      setDigits(Array(OTP_LENGTH).fill(""));
-      setError("");
+      toast.success(`OTP resent to ${display || channelLabel(channel)}.`);
+      setResendCd(RESEND_COOLDOWN);
       inputRefs.current[0]?.focus();
     } catch {
       toast.error("Failed to resend OTP. Please try again.");
+    } finally {
+      setResending(false);
     }
   };
 
-  const boxStyle = (
-    filled: boolean,
-    hasError: boolean,
-  ): React.CSSProperties => ({
-    width: 52,
-    height: 60,
-    border: `2px solid ${hasError || filled ? "var(--brand)" : "var(--ivory)"}`,
-    borderRadius: 10,
-    fontSize: 24,
-    fontWeight: 700,
-    textAlign: "center",
-    outline: "none",
-    background: "var(--ivory)",
-    color: "#000000",
-    transition: "border-color 0.15s",
-    caretColor: "var(--brand)",
-  });
+  const otpFilled = digits.every((d) => d !== "");
 
   return (
     <>
       {isMobile && <MobileBackHeader title="Verify OTP" />}
+
       <div className="s-login-2bb036">
-      <div className="d-none d-md-flex s-login-2da0c0">
-        <img
-          src="/assets/images/forgot-bg.jpg"
-          className="s-userdashboar-4ebae2"
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
-          }}
-          alt=""
-        />
-        <div className="s-verifyotp-c6d041">
-          <p className="s-verifyotp-d4225b">
-            Check your {channelLabel} — your code is waiting.
-          </p>
-          <p className="s-verifyotp-8b64e1">Only TWAM — Crafted with love.</p>
+
+        {/* Left image */}
+        <div className="d-none d-md-flex s-login-2da0c0">
+          <img
+            src="/assets/images/forgot-bg.jpg"
+            className="s-userdashboar-4ebae2"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            alt=""
+          />
+          <div className="s-login-da6116">
+            <p className="s-login-f18190">One step away from getting back in.</p>
+            <p className="s-login-6854c0">Only TWAM — Crafted with love.</p>
+          </div>
         </div>
-      </div>
 
-      <div className="s-login-5c2ebc">
-        <div className="s-resetpasswor-4c6092">
-          {!isMobile && (
-            <Link to="/login" className="s-login-0aef96">
-              <i className="bi bi-arrow-left" /> Back to Sign In
-            </Link>
-          )}
+        {/* Right form */}
+        <div className="s-login-5c2ebc">
+          <div className="s-login-d3c5f3">
 
-          <div className="s-login-9aad3d">
-            <img
-              src="/assets/images/Twam-Logo-Black.png"
-              alt="TWAM"
-              className="s-login-cd2062"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
-          </div>
-
-          <div className="s-login-9aad3d">
-            <div className="s-verifyotp-f5c8cb">
-              <i className={`bi ${channelIcon} s-verifyotp-0f59f9`} />
-            </div>
             {!isMobile && (
-              <h5 className="s-login-b4f13d">
-                {channel === "whatsapp" ? "Verify via WhatsApp" : channel === "sms" ? "Verify via SMS" : "Verify Your Email"}
-              </h5>
-            )}
-            <p className="s-resetpasswor-4c0ccf">
-              We sent a {OTP_LENGTH}-digit code to your {channelLabel}
-            </p>
-            <p className="s-verifyotp-c35bd3">
-              {displayIdentifier || (isPhone ? "your phone" : "your email")}
-            </p>
-          </div>
-
-          <div className="s-verifyotp-482e19" onPaste={handlePaste}>
-            {digits.map((digit, i) => (
-              <input
-                key={i}
-                ref={(el) => {
-                  inputRefs.current[i] = el;
-                }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleChange(i, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(i, e)}
-                style={boxStyle(!!digit, !!error)}
-              />
-            ))}
-          </div>
-
-          {error && (
-            <p className="s-verifyotp-7770fc">
-              <i className="bi bi-exclamation-circle me-1" />
-              {error}
-            </p>
-          )}
-
-          <button
-            onClick={handleVerify}
-            disabled={loading}
-            className="s-verifyotp-0ec883"
-            style={{
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" />
-                Verifying…
-              </>
-            ) : (
-              "Verify OTP"
-            )}
-          </button>
-
-          <p className="s-verifyotp-5ec9a3">
-            Didn't receive the code?{" "}
-            {resendSec > 0 ? (
-              <span className="s-adminbrands-95b451">
-                Resend in {resendSec}s
-              </span>
-            ) : (
-              <button onClick={handleResend} className="s-verifyotp-85105f">
-                Resend OTP
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="s-login-0aef96"
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              >
+                <i className="bi bi-arrow-left" /> Back to Sign In
               </button>
             )}
-          </p>
 
-          <div className="s-resetpasswor-cb112e">
-            {["Enter Contact", "Verify OTP", "New Password"].map((step, i) => (
-              <div key={step} className="s-resetpasswor-6e6177">
-                <div
-                  className="s-verifyotp-366f20"
+            <div className="s-login-9aad3d">
+              <img
+                src="/assets/images/Twam-Logo-Black.png"
+                alt="TWAM"
+                className="s-login-cd2062"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+
+            {!isMobile && <h5 className="s-login-b4f13d">Enter Verification Code</h5>}
+
+            {/* Channel badge */}
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: "#f8f5f0", borderRadius: 8, padding: "8px 14px",
+              marginBottom: 12, fontSize: 14, color: "#8b7355",
+            }}>
+              <i className={`bi ${channelIcon(channel)}`} style={{ fontSize: 16 }} />
+              <span>
+                Code sent via <strong>{channelLabel(channel)}</strong>
+                {display ? ` to ${display}` : ""}
+              </span>
+            </div>
+
+            <p className="s-login-7a79e7" style={{ marginBottom: 24 }}>
+              Enter the 6-digit code below. It expires in 10 minutes.
+            </p>
+
+            {/* OTP boxes */}
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 8 }}>
+              {digits.map((digit, idx) => (
+                <input
+                  key={idx}
+                  ref={(el) => { inputRefs.current[idx] = el; }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={digit}
+                  onChange={(e) => handleDigitChange(idx, e.target.value)}
+                  onKeyDown={idx === OTP_LENGTH - 1
+                    ? handleLastKeyDown
+                    : (e) => handleKeyDown(idx, e)}
+                  onFocus={(e) => e.target.select()}
                   style={{
-                    background:
-                      i === 1
-                        ? "var(--brand)"
-                        : i === 0
-                          ? "var(--heirloom)"
-                          : "var(--ivory)",
-                    color: i <= 1 ? "#fff" : "var(--heirloom)",
+                    width: 46, height: 54,
+                    textAlign: "center",
+                    fontSize: 22, fontWeight: 700,
+                    borderRadius: 8,
+                    border: otpError
+                      ? "2px solid #c0392b"
+                      : digit ? "2px solid #8b7355" : "2px solid #ddd",
+                    outline: "none",
+                    color: "#333",
+                    background: "#fff",
+                    transition: "border-color 0.15s",
                   }}
-                >
-                  {i === 0 ? (
-                    <i className="bi bi-check s-addresslist-9eec06" />
-                  ) : (
-                    i + 1
-                  )}
-                </div>
-                <span
-                  className="s-verifyotp-202412"
-                  style={{
-                    color: i === 1 ? "var(--brand)" : "var(--heirloom)",
-                    fontWeight: i === 1 ? 600 : 400,
-                  }}
-                >
-                  {step}
-                </span>
-                {i < 2 && <div className="s-resetpasswor-8f54ef" />}
+                />
+              ))}
+            </div>
+
+            {otpError && (
+              <div style={{
+                color: "#c0392b", fontSize: 13, marginBottom: 12,
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <i className="bi bi-exclamation-circle-fill" />
+                {otpError}
               </div>
-            ))}
+            )}
+
+            <button
+              type="button"
+              onClick={handleContinue}
+              disabled={!otpFilled}
+              className="s-login-c6af62"
+              style={{
+                marginTop: 8,
+                cursor: !otpFilled ? "not-allowed" : "pointer",
+                opacity: !otpFilled ? 0.7 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              Continue
+            </button>
+
+            {/* Resend */}
+            <div style={{ marginTop: 20, textAlign: "center", fontSize: 14, color: "#666" }}>
+              {resendCd > 0 ? (
+                <span>
+                  Resend code in{" "}
+                  <strong style={{ color: "#8b7355" }}>{resendCd}s</strong>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resending}
+                  className="s-login-182bea"
+                  style={{ fontSize: 14 }}
+                >
+                  {resending ? "Resending…" : "Resend OTP"}
+                </button>
+              )}
+            </div>
+
+            <p className="s-login-c80d80" style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="s-login-182bea"
+              >
+                ← Back to Sign In
+              </button>
+            </p>
+
           </div>
         </div>
-      </div>
       </div>
     </>
   );
