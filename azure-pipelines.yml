@@ -1,12 +1,14 @@
 trigger:
   branches:
     include:
-      - develop                  # ✅ Only triggers on develop
+      - develop                    # ✅ merge → build + deploy
+      - frontend-setup/Vishnu      # ✅ push → build only
+      - feature/*                  # ✅ any future feature branch → build only
 
 pr:
   branches:
     include:
-      - develop                  # ✅ PR validation — build only, no deploy
+      - develop                    # ✅ PR raised → build only, no deploy
 
 pool:
   vmImage: ubuntu-latest
@@ -20,8 +22,6 @@ steps:
   - script: node --version && npm --version
     displayName: Verify Node version
 
-
-
   - script: npm install
     displayName: Install dependencies
 
@@ -31,10 +31,10 @@ steps:
       VITE_API_BASE_URL: $(VITE_API_BASE_URL)
       VITE_APP_NAME: $(VITE_APP_NAME)
 
-  # ✅ Deploy ONLY on actual merge to develop, not on PR builds
+  # ✅ Deploy ONLY when merged to develop — never on feature branches or PRs
   - task: AzureStaticWebApp@0
     displayName: Deploy to Static Web Apps
-    condition: and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'Manual'))
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'), in(variables['Build.Reason'], 'IndividualCI', 'Manual'))
     inputs:
       app_location: "dist"
       skip_app_build: true
