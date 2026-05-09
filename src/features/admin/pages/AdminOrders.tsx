@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/shared/api/axiosInstance';
 import { formatPrice } from '@/shared/utils/helpers';
 import toast from 'react-hot-toast';
-
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace("/api", "")
+  .replace(/\/$/, "");
 const FILTERS = ['All', 'Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded', 'Return Initiated', 'Returned', 'Failed'];
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
@@ -167,12 +168,12 @@ export default function AdminOrders() {
             <tbody>
               {isLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={7} className="s-adminorders-652ef8">
-                        <div className="s-adminorders-ac15d0" />
-                      </td>
-                    </tr>
-                  ))
+                  <tr key={i}>
+                    <td colSpan={7} className="s-adminorders-652ef8">
+                      <div className="s-adminorders-ac15d0" />
+                    </td>
+                  </tr>
+                ))
                 : orders.length === 0
                   ? (
                     <tr>
@@ -189,6 +190,7 @@ export default function AdminOrders() {
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <td className="s-adminorders-0359e2">#{order.orderNumber || order.orderId}</td>
+
                       <td className="s-adminorders-428224">
                         <div className="s-adminorders-0728c5">{order.address?.name || '—'}</div>
                       </td>
@@ -205,7 +207,7 @@ export default function AdminOrders() {
                           onClick={() => setSelected(order)}
                           className="s-adminorders-1af559"
                         >
-                          <i className="bi bi-pencil me-1" /> Update
+                          <i className="bi bi-eye me-1" /> View Order
                         </button>
                       </td>
                     </tr>
@@ -240,6 +242,7 @@ export default function AdminOrders() {
       </div>
 
       {/* Status update modal */}
+      {/* Status update modal */}
       {selected && (
         <div
           className="s-adminorders-d4682b"
@@ -248,7 +251,9 @@ export default function AdminOrders() {
           <div
             className="s-adminorders-dadf17"
             onClick={e => e.stopPropagation()}
+            style={{ maxWidth: 700, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}
           >
+            {/* Header */}
             <div className="s-adminorders-83a233">
               <h3 className="s-adminorders-18f7bb">
                 Order #{selected.orderNumber || selected.orderId}
@@ -256,35 +261,101 @@ export default function AdminOrders() {
               <button onClick={() => setSelected(null)} className="s-adminorders-90ae21">×</button>
             </div>
 
-            {/* FIX: badge now reads from selected.state which is updated optimistically */}
             <p className="s-adminorders-253bda">Current: {badge(selected.state)}</p>
 
+            {/* ── Order Items Table ── */}
+            {selected.orderItems?.length > 0 ? (
+              <div style={{ marginBottom: 20, overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--ivory)' }}>
+                      {['Image', 'Product', 'Brand', 'Color', 'Size', 'Cup Size', 'SKU', 'Qty', 'Price'].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--heirloom)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.orderItems.map((item: any, i: number) => (
+                      <tr key={item.orderItemId || i} style={{ borderBottom: '1px solid var(--ivory)' }}>
+                        <td style={{ padding: '8px 10px' }}>
+                          {item.productImage ? (
+                            <img
+                              src={item.productImage?.startsWith("http")
+                                ? item.productImage
+                                : `${BASE_URL}/${item.productImage?.replace(/^\//, "")}`} alt={item.productName}
+                              style={{ width: 44, height: 52, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ivory)' }}
+                            />
+                          ) : (
+                            <div style={{ width: 44, height: 52, background: 'var(--ivory)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <i className="bi bi-image" style={{ color: '#ccc' }} />
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--heirloom)', maxWidth: 140 }}>
+                          {item.productName || '—'}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#888' }}>
+                          {item.brandName || '—'}
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>{item.color || '—'}</td>
+                        <td style={{ padding: '8px 10px' }}>{item.size || '—'}</td>
+                        <td style={{ padding: '8px 10px' }}>{item.cupSize || '—'}</td>
+                        <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 11, color: '#aaa' }}>
+                          {item.sku || '—'}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600 }}>
+                          {item.quantity}
+                        </td>
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--brand)', whiteSpace: 'nowrap' }}>
+                          {formatPrice(item.price || 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: 'var(--ivory)' }}>
+                      <td colSpan={8} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600 }}>
+                        Total
+                      </td>
+                      <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--brand)' }}>
+                        {formatPrice(selected.totalAmount || 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <p style={{ color: '#aaa', fontSize: 13, marginBottom: 16 }}>No items found for this order.</p>
+            )}
+
+            {/* Status Buttons */}
             <div className="s-adminorders-2af484">
               {['Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'].map(s => (
                 <button
                   key={s}
-                  onClick={() =>
-                    updateStatus.mutate({ orderId: selected.orderId, state: s })
-                  }
+                  onClick={() => updateStatus.mutate({ orderId: selected.orderId, state: s })}
                   disabled={updateStatus.isPending || selected.state === s}
                   className="s-adminorders-642033"
                   style={{
-                    border:   `1px solid ${STATUS_COLOR[s]?.color || 'var(--ivory)'}`,
-                    color:    STATUS_COLOR[s]?.color || '#000',
-                    // visually mark the current state
-                    opacity:  selected.state === s ? 0.4 : 1,
-                    cursor:   selected.state === s ? 'not-allowed' : 'pointer',
+                    border: `1px solid ${STATUS_COLOR[s]?.color || 'var(--ivory)'}`,
+                    color: STATUS_COLOR[s]?.color || '#000',
+                    opacity: selected.state === s ? 0.4 : 1,
+                    cursor: selected.state === s ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {updateStatus.isPending && updateStatus.variables?.state === s
-                    ? '…'
-                    : s}
+
+                  {updateStatus.isPending && updateStatus.variables?.state === s ? '…' : s}
                 </button>
+
               ))}
             </div>
           </div>
         </div>
       )}
     </div>
+
   );
 }
+

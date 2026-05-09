@@ -36,7 +36,9 @@ import {
 } from "@/features/cart/utils/checkoutSession";
 import {
   buildSurpriseGiftSignature,
-  getSurpriseGiftSelection,
+  getSurpriseGiftSelectionSync,
+  prefetchSurpriseGiftTiers,
+  getSurpriseGiftTiers,
   type SurpriseGiftSelection,
 } from "@/shared/utils/surpriseGift";
 import type { CouponModel } from "@/shared/types";
@@ -184,9 +186,11 @@ function SurpriseGiftToast({ onDismiss }: { onDismiss: () => void }) {
 
 function SurpriseGiftReminderToast({
   remainingAmount,
+  threshold,
   onDismiss,
 }: {
   remainingAmount: number;
+  threshold: number;
   onDismiss: () => void;
 }) {
   return (
@@ -251,7 +255,8 @@ function SurpriseGiftReminderToast({
             opacity: 0.9,
           }}
         >
-          The surprise unlocks at Rs.2,500 and above.
+          The surprise unlocks at Rs.{threshold.toLocaleString("en-IN")} and
+          above.
         </div>
       </div>
       <button
@@ -849,6 +854,22 @@ export default function Cart() {
   const [authItems, setAuthItems] = useState<any[]>([]);
   const [guestItems, setGuestItems] = useState<any[]>([]);
   const [cartItemsHydrated, setCartItemsHydrated] = useState(false);
+  // Dynamically loaded from SurpriseGiftRule table — no hardcoded values
+  const [minGiftThreshold, setMinGiftThreshold] = useState<number | null>(null);
+
+  // Prefetch gift tiers once on mount so sync lookup works immediately
+  useEffect(() => {
+    prefetchSurpriseGiftTiers().then((tiers) => {
+      if (tiers.length > 0) {
+        // Lowest threshold a gift can appear at
+        const min = Math.min(...tiers.map((t) => t.threshold));
+        setMinGiftThreshold(min);
+      } else {
+        // No rules in DB → no gifts
+        setMinGiftThreshold(Infinity);
+      }
+    });
+  }, []);
   const [couponInput, setCouponInput] = useState("");
   const [isCouponDropdownOpen, setIsCouponDropdownOpen] = useState(false);
   // physicalCouponCode & setPhysicalCouponCode come from cartStore destructure above
@@ -1020,7 +1041,8 @@ export default function Cart() {
   const activeSurpriseGift = giftUnlocked
     ? currentCheckoutSession?.surpriseGift ?? null
     : null;
-  const eligibleSurpriseGift = getSurpriseGiftSelection(subTotal);
+  // Uses sync lookup (tiers already prefetched above); returns null if no tiers loaded yet
+  const eligibleSurpriseGift = getSurpriseGiftSelectionSync(subTotal);
 
   const clearGiftRedirectTimer = () => {
     if (giftRedirectTimerRef.current !== null) {
@@ -1679,9 +1701,11 @@ export default function Cart() {
       !unlockedGift &&
       !eligibleSurpriseGift &&
       subTotal > 0 &&
-      subTotal < 2500
+      minGiftThreshold !== null &&
+      minGiftThreshold !== Infinity &&
+      subTotal < minGiftThreshold
     ) {
-      const remainingAmount = Math.max(0, 2500 - subTotal);
+      const remainingAmount = Math.max(0, minGiftThreshold - subTotal);
 
       toast.custom(
         (t) => (
@@ -1695,6 +1719,7 @@ export default function Cart() {
           >
             <SurpriseGiftReminderToast
               remainingAmount={remainingAmount}
+              threshold={minGiftThreshold}
               onDismiss={() => toast.dismiss(t.id)}
             />
           </div>
