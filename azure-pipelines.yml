@@ -1,7 +1,7 @@
 trigger:
   branches:
     include:
-      - frontend-setup/Eshwar    # ✅ Only triggers on this branch
+      - frontend/v2/Mamatha    # ✅ Only triggers on this branch
 
 pool:
   vmImage: ubuntu-latest
@@ -16,8 +16,7 @@ steps:
     displayName: Verify Node version
 
   - script: |
-      sudo apt-get update -y
-      sudo apt-get install -y --fix-missing build-essential libvips-dev
+      sudo apt-get install -y build-essential libvips-dev
     displayName: Install native build tools for sharp
 
   - script: npm install
