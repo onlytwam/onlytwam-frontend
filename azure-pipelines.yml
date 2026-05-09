@@ -1,7 +1,14 @@
 trigger:
   branches:
     include:
+
       - frontend/v2/Mamatha    # ✅ Triggers on this branch
+
+pr:
+  branches:
+    include:
+      - develop                  # ✅ PR validation — build only, no deploy
+
 
 pool:
   vmImage: ubuntu-latest
@@ -19,6 +26,11 @@ steps:
     sudo apt-get install -y build-essential libvips-dev
   displayName: Install native build tools for sharp
 
+  - script: |
+      sudo apt-get update -y
+      sudo apt-get install -y --fix-missing build-essential libvips-dev
+    displayName: Install native build tools for sharp
+
 - script: npm install
   displayName: Install dependencies
 
@@ -27,3 +39,19 @@ steps:
   env:
     VITE_API_BASE_URL: $(VITE_API_BASE_URL)
     VITE_APP_NAME: $(VITE_APP_NAME)
+
+  - script: npx vite build
+    displayName: Build frontend
+    env:
+      VITE_API_BASE_URL: $(VITE_API_BASE_URL)
+      VITE_APP_NAME: $(VITE_APP_NAME)
+
+  # ✅ Deploy ONLY on actual merge to develop, not on PR builds
+  -task: AzureStaticWebApp@0
+    displayName: Deploy to Static Web Apps
+    condition: and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'Manual'))
+    inputs:
+      app_location: "dist"
+      skip_app_build: true
+      azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)
+
