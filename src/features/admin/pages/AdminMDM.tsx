@@ -78,7 +78,7 @@ function AdminFabric() {
     queryKey: ["fabrics"],
     queryFn: () =>
       api
-        .get("/Fabric/", { params: { "Page.Size": 200 } })
+        .get("/Fabric", { params: { "Page.Size": 200 } })
         .then((r) => r.data?.list || r.data || []),
   });
   const fabrics: any[] = data || [];
@@ -125,8 +125,8 @@ function AdminFabric() {
     mutationFn: (formData: FabricForm) => {
       const current = editItemRef.current;
       return current
-        ? api.put(`/Fabric/${current.fabricId}/`, formData).then((r) => r.data)
-        : api.post("/Fabric/", formData).then((r) => r.data);
+        ? api.put(`/Fabric${current.fabricId}/`, formData).then((r) => r.data)
+        : api.post("/Fabric", formData).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(
@@ -140,7 +140,7 @@ function AdminFabric() {
   });
 
   const deleteFabric = useMutation({
-    mutationFn: (id: number) => api.delete(`/Fabric/${id}/`),
+    mutationFn: (id: number) => api.delete(`/Fabric/${id}`),
     onSuccess: () => {
       toast.success("Fabric deleted");
       qc.invalidateQueries({ queryKey: ["fabrics"] });
@@ -778,7 +778,7 @@ function AdminTaxHSNCode() {
     queryKey: ["taxHSNCodes"],
     queryFn: () =>
       api
-        .get("/MDM/TaxHSNCode/", { params: { "Page.Size": 200 } })
+        .get("/MDM/TaxHSNCode", { params: { "Page.Size": 200 } })
         .then((r) => r.data?.list || r.data || []),
   });
   const hsnCodes: any[] = data || [];
@@ -845,9 +845,9 @@ function AdminTaxHSNCode() {
       );
       return current
         ? api
-            .put(`/TaxHSNCode/${current.taxHSNCodeId}/`, payload)
+            .put(`/TaxHSNCode${current.taxHSNCodeId}/`, payload)
             .then((r) => r.data)
-        : api.post("/TaxHSNCode/", payload).then((r) => r.data);
+        : api.post("/TaxHSNCode", payload).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(
@@ -867,7 +867,7 @@ function AdminTaxHSNCode() {
   });
 
   const deleteHSN = useMutation({
-    mutationFn: (id: number) => api.delete(`/TaxHSNCode/${id}/`),
+    mutationFn: (id: number) => api.delete(`/TaxHSNCode/${id}`),
     onSuccess: () => {
       toast.success("HSN Code deleted");
       qc.invalidateQueries({ queryKey: ["taxHSNCodes"] });
@@ -1571,7 +1571,7 @@ function AdminSupplierInfo() {
     queryKey: ["supplierInfo"],
     queryFn: () =>
       api
-        .get("/SupplierInfo/", { params: { "Page.Size": 200 } })
+        .get("/SupplierInfo", { params: { "Page.Size": 200 } })
         .then((r) => r.data?.list || r.data || []),
   });
   const supplierInfo: any[] = data || [];
@@ -1624,9 +1624,9 @@ function AdminSupplierInfo() {
       const current = editItemRef.current;
       return current
         ? api
-            .put(`/SupplierInfo/${current.supplierInfoId}/`, formData)
+            .put(`/SupplierInfo${current.supplierInfoId}/`, formData)
             .then((r) => r.data)
-        : api.post("/SupplierInfo/", formData).then((r) => r.data);
+        : api.post("/SupplierInfo", formData).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(
@@ -1640,7 +1640,7 @@ function AdminSupplierInfo() {
   });
 
   const deleteSupplier = useMutation({
-    mutationFn: (id: number) => api.delete(`/SupplierInfo/${id}/`),
+    mutationFn: (id: number) => api.delete(`/SupplierInfo/${id}`),
     onSuccess: () => {
       toast.success("Supplier deleted");
       qc.invalidateQueries({ queryKey: ["supplierInfo"] });
@@ -2281,7 +2281,7 @@ function AdminShippingType() {
     queryKey: ["shippingType"],
     queryFn: () =>
       api
-        .get("/ShippingType/", { params: { "Page.Size": 200 } })
+        .get("/ShippingType", { params: { "Page.Size": 200 } })
         .then((r) => r.data?.list || r.data || []),
   });
   const shippingTypes: any[] = data || [];
@@ -2326,9 +2326,9 @@ function AdminShippingType() {
       const current = editItemRef.current;
       return current
         ? api
-            .put(`/ShippingType/${current.shippingTypeId}/`, formData)
+            .put(`/ShippingType${current.shippingTypeId}/`, formData)
             .then((r) => r.data) // ✅ Fix 1
-        : api.post("/ShippingType/", formData).then((r) => r.data);
+        : api.post("/ShippingType", formData).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(
@@ -2344,7 +2344,7 @@ function AdminShippingType() {
   });
 
   const deleteShippingType = useMutation({
-    mutationFn: (id: number) => api.delete(`/ShippingType/${id}/`),
+    mutationFn: (id: number) => api.delete(`/ShippingType/${id}`),
     onSuccess: () => {
       toast.success("Shipping type deleted");
       qc.invalidateQueries({ queryKey: ["shippingType"] });
@@ -2907,7 +2907,7 @@ function AdminPackagingTemplates() {
     queryKey: ["packagingTemplates"],
     queryFn: () =>
       api
-        .get("/PackagingTemplates/", { params: { "Page.Size": 200 } })
+        .get("/PackagingTemplates", { params: { "Page.Size": 200 } })
         .then((r) => r.data?.list || r.data || []),
   });
   const packagingTemplates: any[] = data || [];
@@ -2954,12 +2954,12 @@ function AdminPackagingTemplates() {
       const current = editItemRef.current;
       return current
         ? api
-            .put(`/PackagingTemplates/${current.packageId}/`, {
+            .put(`/PackagingTemplates${current.packageId}/`, {
               ...formData,
               packageId: current.packageId, // ← add this
             })
             .then((r) => r.data)
-        : api.post("/PackagingTemplates/", formData).then((r) => r.data);
+        : api.post("/PackagingTemplates", formData).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(
@@ -2977,7 +2977,7 @@ function AdminPackagingTemplates() {
   });
 
   const deletePackagingTemplate = useMutation({
-    mutationFn: (id: number) => api.delete(`/PackagingTemplates/${id}/`),
+    mutationFn: (id: number) => api.delete(`/PackagingTemplates/${id}`),
     onSuccess: () => {
       toast.success("Packaging template deleted");
       qc.invalidateQueries({ queryKey: ["packagingTemplates"] });
@@ -3547,7 +3547,7 @@ function AdminCountry() {
     queryKey: ["countryInfo"],
     queryFn: () =>
       api
-        .get("/Country/", { params: { "Page.Size": 200 } })
+        .get("/Country", { params: { "Page.Size": 200 } })
         .then((r) => r.data?.list || r.data || []),
   });
   const countryInfo: any[] = data || [];
@@ -3593,9 +3593,9 @@ function AdminCountry() {
       const current = editItemRef.current;
       return current
         ? api
-            .put(`/Country/${current.countryId}/`, formData)
+            .put(`/Country/${current.countryId}`, formData)
             .then((r) => r.data)
-        : api.post("/Country/", formData).then((r) => r.data);
+        : api.post("/Country", formData).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(
@@ -3609,7 +3609,7 @@ function AdminCountry() {
   });
 
   const deleteCountry = useMutation({
-    mutationFn: (id: number) => api.delete(`/Country/${id}/`),
+    mutationFn: (id: number) => api.delete(`/Country/${id}`),
     onSuccess: () => {
       toast.success("Country deleted");
       qc.invalidateQueries({ queryKey: ["countryInfo"] });
@@ -4192,7 +4192,7 @@ function AdminState() {
     queryKey: ["stateInfo"],
     queryFn: () =>
       api
-        .get("/State/", { params: { "Page.Size": 200 } })
+        .get("/State", { params: { "Page.Size": 200 } })
         .then((r) => r.data?.list || r.data || []),
   });
   const stateInfo: any[] = data || [];
@@ -4238,12 +4238,12 @@ function AdminState() {
       const current = editItemRef.current;
       return current
         ? api
-            .put(`/State/${current.stateId}/`, {
+            .put(`/State/${current.stateId}`, {
               ...formData,
               stateId: current.stateId, // ← add if schema requires it
             })
             .then((r) => r.data)
-        : api.post("/State/", formData).then((r) => r.data);
+        : api.post("/State", formData).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(editItemRef.current ? "State updated!" : "State created!");
@@ -4255,7 +4255,7 @@ function AdminState() {
   });
 
   const deleteState = useMutation({
-    mutationFn: (id: number) => api.delete(`/State/${id}/`),
+    mutationFn: (id: number) => api.delete(`/State/${id}`),
     onSuccess: () => {
       toast.success("State deleted");
       qc.invalidateQueries({ queryKey: ["stateInfo"] });
@@ -4833,13 +4833,17 @@ function AdminMessageTemplate() {
   }, [editItem]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
-  const { data, isLoading } = useQuery({
-    queryKey: ["messageTemplateInfo"],
-    queryFn: () =>
-      api
-        .get("/MessageTemplate/", { params: { "Page.Size": 200 } })
-        .then((r) => r.data?.list || r.data || []),
-  });
+const { data, isLoading, error } = useQuery({
+  queryKey: ["messageTemplateInfo"],
+  queryFn: async () => {
+    const r = await api.get("/MessageTemplate");
+    console.log("STATUS:", r.status);
+    console.log("RAW r.data:", r.data);        // see the full shape
+    console.log("r.data.list:", r.data?.list); // is list present?
+    return r.data?.list ?? r.data ?? [];
+  },
+});
+
   const messageTemplates: any[] = data || [];
 
   // ── Form ──────────────────────────────────────────────────────────────────
@@ -4887,12 +4891,12 @@ function AdminMessageTemplate() {
       const current = editItemRef.current;
       return current
         ? api
-            .put(`/MessageTemplate/${current.messageTemplateId}/`, {
+            .put(`/MessageTemplate/${current.messageTemplateId}`, {
               ...formData,
               messageTemplateId: current.messageTemplateId, // ← add this
             })
             .then((r) => r.data)
-        : api.post("/MessageTemplate/", formData).then((r) => r.data);
+        : api.post("/MessageTemplate", formData).then((r) => r.data);
     },
     onSuccess: () => {
       toast.success(
@@ -4910,7 +4914,7 @@ function AdminMessageTemplate() {
   });
 
   const deleteTemplate = useMutation({
-    mutationFn: (id: number) => api.delete(`/MessageTemplate/${id}/`),
+    mutationFn: (id: number) => api.delete(`/MessageTemplate/${id}`),
     onSuccess: () => {
       toast.success("Message template deleted");
       qc.invalidateQueries({ queryKey: ["messageTemplateInfo"] });

@@ -2144,7 +2144,7 @@ button {
 .nb-login-btn {
   border-radius: 50% !important;
   background: transparent !important;
-  color: var(--brand) !important;
+  /* color: var(--brand) !important; */
   padding: 0 !important;
   gap: 0;
   width: clamp(42px, 3vw, 48px) !important;
@@ -2162,7 +2162,7 @@ button {
 .nb-login-btn i {
   display: inline-block;
   font-size: 24px;
-  animation: nb-blink 1.4s ease-in-out infinite;
+  /* animation: nb-blink 1.4s ease-in-out infinite; */
 }
 
 .nb-login-btn:hover {
@@ -22560,7 +22560,7 @@ section.s-home-bcf04f {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  animation: nb-blink 1.4s ease-in-out infinite;
+  /* animation: nb-blink 1.4s ease-in-out infinite; */
 }
 
 /* Profile avatar — transparent, white initial only */
@@ -22601,7 +22601,7 @@ section.s-home-bcf04f {
 
 .nb-user-btn .s-useravatar-initial,
 .nb-initial-letter {
-  animation: nb-blink 1.4s ease-in-out infinite;
+  /* animation: nb-blink 1.4s ease-in-out infinite; */
 }
 @keyframes nb-blink {
   0%,
@@ -22611,4 +22611,82 @@ section.s-home-bcf04f {
   50% {
     opacity: 0.3;
   }
+}
+
+
+/* The two-column grid wrapper */
+.s-productdetai-3bf9d0 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); /* minmax(0) prevents overflow */
+  gap: 32px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Both columns must not overflow their grid cell */
+.s-productdetai-3bf9d0 > * {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Left column: image gallery */
+.pd-left-col {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Main image must not exceed its container */
+.s-productdetai-20b6f1 {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Container padding */
+.s-productdetai-312006 {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+/* ── Mobile: stack columns ── */
+@media (max-width: 768px) {
+  .s-productdetai-3bf9d0 {
+    grid-template-columns: 1fr;
+  }
+
+  .pd-left-col {
+    position: static !important;
+  }
+}
+
+/* ── Color swatch images must not overflow ── */
+.s-productdetai-f2b35e {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── Size buttons wrap instead of overflow ── */
+.s-adminorders-2af484 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── Action buttons full width on right column ── */
+.pd-action-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pd-action-btn {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
 }
