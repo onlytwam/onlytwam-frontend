@@ -16,7 +16,11 @@ const ALL_NAV = [
     path: "/admin/admin-dashboard",
     icon: "bi-speedometer2",
     label: "Dashboard",
+
+    // roles: [1, 5],
+
     roles: [1, 3, 4, 5, 6], // v1 had 3,4 — kept in union
+
   },
   {
     path: "/admin/orders",
@@ -136,6 +140,10 @@ export default function AdminLayout() {
   // Filter nav items to only those the current role can see
   const NAV = ALL_NAV.filter((item) => item.roles.includes(roleId));
   const roleLabel = ROLE_LABELS[roleId] ?? "Admin";
+
+  const defaultPath =
+    roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
+
 
   const goToStore = () => {
     sessionStorage.setItem("adminViewingStore", "true");

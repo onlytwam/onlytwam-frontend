@@ -1,14 +1,7 @@
 trigger:
   branches:
     include:
-      - develop                    # ✅ merge → build + deploy
-      - frontend-setup/Vishnu      # ✅ push → build only
-      - feature/*                  # ✅ any future feature branch → build only
-
-pr:
-  branches:
-    include:
-      - develop                    # ✅ PR raised → build only, no deploy
+      - frontend/v2/Mamatha    # ✅ Only triggers on this branch
 
 pool:
   vmImage: ubuntu-latest
@@ -22,6 +15,10 @@ steps:
   - script: node --version && npm --version
     displayName: Verify Node version
 
+  # - script: |
+  #     sudo apt-get install -y build-essential libvips-dev
+  #   displayName: Install native build tools for sharp
+
   - script: npm install
     displayName: Install dependencies
 
@@ -31,11 +28,4 @@ steps:
       VITE_API_BASE_URL: $(VITE_API_BASE_URL)
       VITE_APP_NAME: $(VITE_APP_NAME)
 
-  # ✅ Deploy ONLY when merged to develop — never on feature branches or PRs
-  - task: AzureStaticWebApp@0
-    displayName: Deploy to Static Web Apps
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'), in(variables['Build.Reason'], 'IndividualCI', 'Manual'))
-    inputs:
-      app_location: "dist"
-      skip_app_build: true
-      azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)
+  # ❌ No deploy step here — build only

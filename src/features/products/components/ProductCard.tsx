@@ -311,11 +311,11 @@ export default function ProductCard({
 
   const imgSrc = resolvedImages[0] || FALLBACK_IMAGE;
   const hoverImgSrc = resolvedImages[1] || "";
-  console.log("RAW IMAGES:", rawImages);
-  console.log("FINAL IMG:", imgSrc);
-  if (rawImages.length === 0) {
-    console.warn("⚠️ No images for product:", selectedVariant);
-  }
+  // console.log("RAW IMAGES:", rawImages);
+  // console.log("FINAL IMG:", imgSrc);
+  // if (rawImages.length === 0) {
+  //   console.warn("⚠️ No images for product:", selectedVariant);
+  // }
 
   const hexToRgb = (hex: string) => {
     const clean = hex.replace("#", "").trim();

@@ -2,6 +2,7 @@
 // Toasts are configured to appear CENTERED (not top-right corner)
 
 // Validate required env vars at startup — throws in dev if .env is missing
+import "leaflet/dist/leaflet.css";
 import "@/lib/env";
 
 // Global styles (consolidated from index.css + component CSS files)
