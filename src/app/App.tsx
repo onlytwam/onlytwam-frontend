@@ -180,6 +180,7 @@ const OrderDetails = lazy(() => import("@/features/orders/pages/OrderDetails"));
 const ProductList = lazy(() => import("@/features/products/pages/ProductList"));
 const NewArrivals = lazy(() => import("@/features/products/pages/NewArrivals"));
 const BestSellers = lazy(() => import("@/features/products/pages/BestSellers"));
+const AllProducts = lazy(() => import("@/features/products/pages/AllProducts"));
 
 function ProductListWithKey() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -825,6 +826,7 @@ export default function App() {
             />
             <Route path="/new-arrivals" element={<NewArrivals />} />
             <Route path="/best-sellers" element={<BestSellers />} />
+            <Route path="/all-products" element={<AllProducts />} />
             <Route
               path="/user-products/product-detail/:id/:name"
               element={<ProductDetail />}
