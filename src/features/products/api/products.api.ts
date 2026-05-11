@@ -198,6 +198,22 @@ export const listUserReviews = async (params?: Record<string, any>) => {
   return response.data;
 };
 
+// export const createReview = async (data: any) => {
+//   const form = new FormData();
+//   Object.entries(data).forEach(([key, val]) => {
+//     if (key === "photo") {
+//       if (val instanceof File) form.append("photo", val);
+//     } else if (val !== undefined && val !== null) {
+//       form.append(key, String(val));
+//     }
+//   });
+//   const response = await api.post("/ProductReview", form, {
+//     headers: { "Content-Type": "multipart/form-data" },
+//   });
+//   return response.data;
+// };
+
+
 export const createReview = async (data: any) => {
   const form = new FormData();
   Object.entries(data).forEach(([key, val]) => {
@@ -207,12 +223,27 @@ export const createReview = async (data: any) => {
       form.append(key, String(val));
     }
   });
-  const response = await api.post("/ProductReview", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return response.data;
-};
 
+  const token = localStorage.getItem("access_token");
+  const baseURL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api");
+
+  const res = await fetch(`${baseURL}/ProductReview`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const error = new Error(err.detail || "Failed") as any;
+    error.response = { status: res.status, data: err };
+    throw error;
+  }
+
+  return res.json();
+};
 // ── Wishlist ──────────────────────────────────────────────────────────────────
 export const createWishlist = async (data: any) => {
   const response = await api.post("/Wishlist", data);
