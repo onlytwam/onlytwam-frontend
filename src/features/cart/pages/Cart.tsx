@@ -990,7 +990,7 @@ export default function Cart() {
   const typedCouponInput = upper(couponInput);
   const isApplyCouponDisabled = Boolean(
     !typedCouponInput ||
-      (appliedCouponCode && typedCouponInput === appliedCouponCode),
+    (appliedCouponCode && typedCouponInput === appliedCouponCode),
   );
 
   useEffect(() => {
@@ -1034,8 +1034,8 @@ export default function Cart() {
   const [giftUnlocked, setGiftUnlocked] = useState<boolean>(() =>
     Boolean(
       currentCheckoutSession?.giftCheckoutKey === location.key &&
-        currentCheckoutSession?.surpriseGift &&
-        currentCheckoutSession.cartSignature === currentCartSignature,
+      currentCheckoutSession?.surpriseGift &&
+      currentCheckoutSession.cartSignature === currentCartSignature,
     ),
   );
   const activeSurpriseGift = giftUnlocked
@@ -1076,8 +1076,8 @@ export default function Cart() {
       surpriseGift,
       surpriseGift
         ? checkoutSession?.giftCheckoutKey ??
-            currentCheckoutSession?.giftCheckoutKey ??
-            location.key
+        currentCheckoutSession?.giftCheckoutKey ??
+        location.key
         : null,
     );
 
@@ -1223,8 +1223,8 @@ export default function Cart() {
           a.coupon.source === b.coupon.source
             ? 0
             : a.coupon.source === "profile"
-            ? -1
-            : 1;
+              ? -1
+              : 1;
         return sourceDiff || a.code.localeCompare(b.code);
       });
 
@@ -1410,11 +1410,11 @@ export default function Cart() {
     }
   }, [appliedCoupon, couponDiscount, couponOptions.all, setCoupon, subTotal]);
 
+
   const updateMutation = useMutation({
     mutationFn: ({ id, qty }: { id: number; qty: number }) =>
       updateCart(id, { cartId: id, quantity: qty }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cart"] });
       qc.invalidateQueries({ queryKey: ["quick-cart"] });
     },
   });
@@ -1447,33 +1447,94 @@ export default function Cart() {
     if (toastMessage) toast.success(toastMessage);
   };
 
-  const handleQtyChange = (item: any, qty: number) => {
-    if (qty < 1) return;
+
+  const handleIncrease = (item: any) => {
+    const qty = item.processedQuantity || item.quantity || 1;
+    const maxStock = item.stockQuantity ?? null;
+
+    if (maxStock !== null && qty >= maxStock) {
+      toast.error(
+        maxStock === 0
+          ? "This item is out of stock"
+          : `Only ${maxStock} unit${maxStock !== 1 ? "s" : ""} available in stock`,
+        { icon: "⚠️" },
+      );
+      return;
+    }
+
+    const newQty = qty + 1;
+
     if (isBuyNowView) {
       syncBuyNowItems((prev) =>
         prev.map((i) =>
           i.productVariantDetailId === item.productVariantDetailId
-            ? { ...i, processedQuantity: qty, quantity: qty }
+            ? { ...i, processedQuantity: newQty, quantity: newQty }
             : i,
         ),
       );
       return;
     }
+
     if (isAuth) {
-      updateMutation.mutate({ id: item.cartId, qty });
+      // Optimistic update first — prevents re-fetch loop that inflated quantity
       setAuthItems((prev) =>
         prev.map((i) =>
           i.cartId === item.cartId
-            ? { ...i, processedQuantity: qty, quantity: qty }
+            ? { ...i, processedQuantity: newQty, quantity: newQty }
             : i,
         ),
       );
+      updateMutation.mutate({ id: item.cartId, qty: newQty });
     } else {
-      GuestCart.updateQty(item.productVariantDetailId, qty);
+      GuestCart.updateQty(item.productVariantDetailId, newQty);
       setGuestItems((prev) =>
         prev.map((i) =>
           i.productVariantDetailId === item.productVariantDetailId
-            ? { ...i, processedQuantity: qty, quantity: qty }
+            ? { ...i, processedQuantity: newQty, quantity: newQty }
+            : i,
+        ),
+      );
+    }
+  };
+
+  const handleDecrease = (item: any) => {
+    const qty = item.processedQuantity || item.quantity || 1;
+
+    if (qty <= 1) {
+      // Remove the item when quantity would drop to 0
+      handleRemove(item);
+      return;
+    }
+
+    const newQty = qty - 1;
+
+    if (isBuyNowView) {
+      syncBuyNowItems((prev) =>
+        prev.map((i) =>
+          i.productVariantDetailId === item.productVariantDetailId
+            ? { ...i, processedQuantity: newQty, quantity: newQty }
+            : i,
+        ),
+      );
+      return;
+    }
+
+    if (isAuth) {
+      // Optimistic update first
+      setAuthItems((prev) =>
+        prev.map((i) =>
+          i.cartId === item.cartId
+            ? { ...i, processedQuantity: newQty, quantity: newQty }
+            : i,
+        ),
+      );
+      updateMutation.mutate({ id: item.cartId, qty: newQty });
+    } else {
+      GuestCart.updateQty(item.productVariantDetailId, newQty);
+      setGuestItems((prev) =>
+        prev.map((i) =>
+          i.productVariantDetailId === item.productVariantDetailId
+            ? { ...i, processedQuantity: newQty, quantity: newQty }
             : i,
         ),
       );
@@ -1879,8 +1940,7 @@ export default function Cart() {
                   alt={item.productName || item.name || ""}
                   onClick={() =>
                     navigate(
-                      `/user-products/product-detail/${
-                        item.productVariantId
+                      `/user-products/product-detail/${item.productVariantId
                       }/${slugify(item.productName || item.name || "")}`,
                     )
                   }
@@ -1925,18 +1985,31 @@ export default function Cart() {
                     )}
                   </div>
 
-                  {/* Quantity */}
+                  {/* Stock warning badge — mirrors QuickCart */}
+                  {item.stockQuantity != null &&
+                    item.stockQuantity <= 3 &&
+                    item.stockQuantity > 0 && (
+                      <div className="s-quickcart-382f33">
+                        ⚠️ Only {item.stockQuantity} left in stock
+                      </div>
+                    )}
+
+                  {/* ── FIX 3: Quantity controls — now use handleIncrease / handleDecrease ── */}
                   <div className="s-adminbar-877368">
                     <span className="s-adminnewslet-f01220">Quantity:</span>
                     <div className="s-cart-13c6e0">
                       <button
-                        onClick={() =>
-                          handleQtyChange(
-                            item,
-                            (item.processedQuantity || 1) - 1,
-                          )
+                        onClick={() => handleDecrease(item)}
+                        disabled={
+                          updateMutation.isPending || deleteMutation.isPending
                         }
                         className="s-cart-bbdb9d"
+                        style={{
+                          opacity:
+                            updateMutation.isPending || deleteMutation.isPending
+                              ? 0.5
+                              : 1,
+                        }}
                       >
                         −
                       </button>
@@ -1944,13 +2017,37 @@ export default function Cart() {
                         {item.processedQuantity || 1}
                       </span>
                       <button
-                        onClick={() =>
-                          handleQtyChange(
-                            item,
-                            (item.processedQuantity || 1) + 1,
-                          )
+                        onClick={() => handleIncrease(item)}
+                        disabled={
+                          updateMutation.isPending ||
+                          (item.stockQuantity != null &&
+                            (item.processedQuantity || 1) >= item.stockQuantity)
+                        }
+                        title={
+                          item.stockQuantity != null &&
+                            (item.processedQuantity || 1) >= item.stockQuantity
+                            ? `Max stock: ${item.stockQuantity}`
+                            : "Increase quantity"
                         }
                         className="s-cart-bbdb9d"
+                        style={{
+                          opacity:
+                            updateMutation.isPending ||
+                              (item.stockQuantity != null &&
+                                (item.processedQuantity || 1) >= item.stockQuantity)
+                              ? 0.35
+                              : 1,
+                          cursor:
+                            item.stockQuantity != null &&
+                              (item.processedQuantity || 1) >= item.stockQuantity
+                              ? "not-allowed"
+                              : "pointer",
+                          color:
+                            item.stockQuantity != null &&
+                              (item.processedQuantity || 1) >= item.stockQuantity
+                              ? "var(--ivory, #ccc)"
+                              : "var(--brand)",
+                        }}
                       >
                         +
                       </button>
@@ -2031,9 +2128,8 @@ export default function Cart() {
                     : "Available coupons"}
                 </span>
                 <i
-                  className={`bi ${
-                    isCouponDropdownOpen ? "bi-chevron-up" : "bi-chevron-down"
-                  }`}
+                  className={`bi ${isCouponDropdownOpen ? "bi-chevron-up" : "bi-chevron-down"
+                    }`}
                 />
               </button>
 
@@ -2055,11 +2151,10 @@ export default function Cart() {
 
                       {couponOptions.profile.length > 0 && (
                         <div
-                          className={`s-cart-coupon-group ${
-                            couponOptions.general.length > 0
+                          className={`s-cart-coupon-group ${couponOptions.general.length > 0
                               ? "s-cart-coupon-group--spaced"
                               : ""
-                          }`}
+                            }`}
                         >
                           <div className="s-cart-coupon-group__title">
                             Your coupons
@@ -2067,21 +2162,19 @@ export default function Cart() {
                           <div className="s-cart-coupon-grid">
                             {couponOptions.profile.map((item) => (
                               <button
-                                key={`${item.code}-${
-                                  item.coupon.couponId ?? "profile"
-                                }`}
+                                key={`${item.code}-${item.coupon.couponId ?? "profile"
+                                  }`}
                                 type="button"
                                 onClick={() =>
                                   void handleSelectCoupon(item.code)
                                 }
                                 disabled={item.code === appliedCouponCode}
-                                className={`s-cart-coupon-card ${
-                                  item.code === appliedCouponCode
+                                className={`s-cart-coupon-card ${item.code === appliedCouponCode
                                     ? "s-cart-coupon-card--applied"
                                     : item.canApplyNow
-                                    ? "s-cart-coupon-card--active"
-                                    : "s-cart-coupon-card--locked"
-                                }`}
+                                      ? "s-cart-coupon-card--active"
+                                      : "s-cart-coupon-card--locked"
+                                  }`}
                               >
                                 <div className="s-cart-coupon-card__info">
                                   <span className="s-cart-coupon-card__code">
@@ -2099,8 +2192,8 @@ export default function Cart() {
                                     {item.code === appliedCouponCode
                                       ? "Applied"
                                       : item.canApplyNow
-                                      ? "Tap to use"
-                                      : `Need Rs.${item.unlockAmount.toLocaleString(
+                                        ? "Tap to use"
+                                        : `Need Rs.${item.unlockAmount.toLocaleString(
                                           "en-IN",
                                         )} more`}
                                   </div>
@@ -2119,21 +2212,19 @@ export default function Cart() {
                           <div className="s-cart-coupon-grid">
                             {couponOptions.general.map((item) => (
                               <button
-                                key={`${item.code}-${
-                                  item.coupon.couponId ?? "general"
-                                }`}
+                                key={`${item.code}-${item.coupon.couponId ?? "general"
+                                  }`}
                                 type="button"
                                 onClick={() =>
                                   void handleSelectCoupon(item.code)
                                 }
                                 disabled={item.code === appliedCouponCode}
-                                className={`s-cart-coupon-card ${
-                                  item.code === appliedCouponCode
+                                className={`s-cart-coupon-card ${item.code === appliedCouponCode
                                     ? "s-cart-coupon-card--applied"
                                     : item.canApplyNow
-                                    ? "s-cart-coupon-card--active"
-                                    : "s-cart-coupon-card--locked"
-                                }`}
+                                      ? "s-cart-coupon-card--active"
+                                      : "s-cart-coupon-card--locked"
+                                  }`}
                               >
                                 <div className="s-cart-coupon-card__info">
                                   <span className="s-cart-coupon-card__code">
@@ -2151,8 +2242,8 @@ export default function Cart() {
                                     {item.code === appliedCouponCode
                                       ? "Applied"
                                       : item.canApplyNow
-                                      ? "Tap to use"
-                                      : `Need Rs.${item.unlockAmount.toLocaleString(
+                                        ? "Tap to use"
+                                        : `Need Rs.${item.unlockAmount.toLocaleString(
                                           "en-IN",
                                         )} more`}
                                   </div>

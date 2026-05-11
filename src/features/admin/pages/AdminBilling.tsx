@@ -434,8 +434,8 @@ export default function AdminBillingV2() {
   const isInvManager   = userRole === ROLES.INVENTORY_MANAGER;
   const isStoreManager = userRole === ROLES.STORE_MANAGER;
 
-console.log("🔍 currentUser:", currentUser);
-console.log("🔍 zustandUser raw:", zustandUser);
+// console.log("🔍 currentUser:", currentUser);
+// console.log("🔍 zustandUser raw:", zustandUser);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [channel,        setChannel]        = useState<Channel>(

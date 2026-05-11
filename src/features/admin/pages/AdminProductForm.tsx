@@ -649,7 +649,7 @@ export default function AdminProductForm() {
         state: editVD ? 'Modified' : 'Created',
       };
 
-      console.log('✅ VD PAYLOAD:', payload);
+      // console.log('✅ VD PAYLOAD:', payload);
 
       return editVD
         ? api.put(`/ProductVariantDetail/${editVD.productVariantDetailId}`, payload)
@@ -662,7 +662,7 @@ export default function AdminProductForm() {
       refVD();
     },
     onError: (e: any) => {
-      console.error('❌ VD ERROR:', e?.response?.data || e);
+      // console.error('❌ VD ERROR:', e?.response?.data || e);
       toast.error(e?.response?.data?.detail || 'Failed to save details');
     },
   });
@@ -732,7 +732,7 @@ export default function AdminProductForm() {
           <form onSubmit={hP(
             (d) => saveProd.mutate(d),
             (errors) => {
-              console.error('Validation errors:', errors);
+              // console.error('Validation errors:', errors);
               toast.error('Please fill all required fields');
             }
           )}>            <div style={grid3}>
