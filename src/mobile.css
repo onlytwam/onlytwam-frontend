@@ -4,7 +4,7 @@
      import './twam.css'
      import './mobile.css'
    ============================================================ */
-
+@import "leaflet/dist/leaflet.css";
 /* ─── 1. BASE ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
   /* Do NOT set overflow-x on html/body — any overflow value breaks

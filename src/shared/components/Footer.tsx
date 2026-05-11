@@ -350,7 +350,7 @@ export default function Footer() {
                   label: "Instagram",
                 },
                 {
-                  href: "https://x.com/TulasiTwam",
+                  href: "https://x.com/Only_Twam",
                   icon: "twitter.svg",
                   label: "Twitter",
                 },
@@ -727,7 +727,7 @@ export default function Footer() {
                 label: "Instagram",
               },
               {
-                href: "https://x.com/TulasiTwam",
+                href: "https://x.com/Only_Twam",
                 icon: "twitter.svg",
                 label: "Twitter",
               },
