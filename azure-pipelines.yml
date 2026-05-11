@@ -5,7 +5,7 @@ trigger:
       - frontend-setup/Vishnu      # ✅ push → build only
       - feature/*  
       - frontend/v2/Mamatha                # ✅ any future feature branch → build only
-
+      - frontend-setup/Eshwar 
 pr:
   branches:
     include:
