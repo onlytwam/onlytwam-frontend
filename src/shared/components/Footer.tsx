@@ -664,7 +664,7 @@ export default function Footer() {
 
           <div className="footer-contact-col">
             <h4 className="footer-col-title">Need Help?</h4>
-            <p style={{ fontSize: 13, color: "var(--ivory, #e8ddd0)", marginBottom: 16, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
               Our support team is here to help with orders, returns, or any
               other questions.
             </p>
