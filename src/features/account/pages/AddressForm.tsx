@@ -1,4 +1,6 @@
-// Fixed: Capacitor Geolocation replaces navigator.geolocation for Android APK support
+// Address form with Rapido-style MapPicker integration.
+// Clicking "Set Location on Map" opens the full-screen map — it auto-GPS centres,
+// user drags map / moves pin, then confirms to fill all address fields.
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +14,6 @@ import {
 import api from "@/shared/api/axiosInstance";
 import {
   lookupPincode,
-  reverseGeocode,
   getRememberedAddressState,
   rememberAddressState,
   resolveStateId,
@@ -21,9 +22,6 @@ import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MapPicker from "@/shared/components/MapPicker";
 import type { MapPickerResult } from "@/shared/components/MapPicker";
 
-// ── Capacitor-aware geolocation ───────────────────────────────────────────────
-// Uses @capacitor/geolocation on Android (shows native permission dialog).
-// Falls back to browser navigator.geolocation in web/dev mode.
 const splitAddressParts = (value: unknown): string[] =>
   String(value ?? "")
     .split(",")
@@ -66,49 +64,6 @@ const getStateLabelById = (states: any[], stateId: unknown): string => {
   );
   return String(match?.stateName ?? match?.name ?? match?.state ?? "").trim();
 };
-
-async function getPosition(): Promise<{ latitude: number; longitude: number }> {
-  try {
-    const { Geolocation } = await import("@capacitor/geolocation");
-    const perm = await Geolocation.requestPermissions();
-    if (perm.location !== "granted") throw new Error("PERMISSION_DENIED");
-    const pos = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 10000,
-    });
-    return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-  } catch (err: any) {
-    if (
-      err?.message === "PERMISSION_DENIED" ||
-      err?.message?.includes("denied") ||
-      err?.code === 1
-    ) {
-      throw new Error("PERMISSION_DENIED");
-    }
-    // Capacitor not available — fall back to browser API (web dev mode)
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("NOT_SUPPORTED"));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          resolve({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          }),
-        (e) =>
-          reject(
-            e.code === 1
-              ? new Error("PERMISSION_DENIED")
-              : new Error("GEO_ERROR"),
-          ),
-        { enableHighAccuracy: true, timeout: 10000 },
-      );
-    });
-  }
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 const emptyForm = {
   name: "",
@@ -172,7 +127,6 @@ export default function AddressForm() {
   const [pinStatus, setPinStatus] = useState<
     "idle" | "loading" | "ok" | "error"
   >("idle");
-  const [geoLoading, setGeoLoading] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [mapCoords, setMapCoords] = useState<{
     lat: number;
@@ -262,42 +216,6 @@ export default function AddressForm() {
       if (pinTimer.current) clearTimeout(pinTimer.current);
     };
   }, [form.pinCode, states]);
-
-  // ── FIXED: Capacitor Geolocation — works on Android APK ──────────────────
-  const handleGeoFill = async () => {
-    setGeoLoading(true);
-    try {
-      const { latitude, longitude } = await getPosition();
-      const geo = await reverseGeocode(latitude, longitude);
-      if (!geo) {
-        toast.error("Could not fetch location details. Please fill manually.");
-        return;
-      }
-      const matchedStateId = resolveStateId(states, geo.state);
-      setForm((f) => ({
-        ...f,
-        addressLine: f.addressLine || geo.road,
-        locality: geo.suburb || f.locality,
-        city: f.city.trim() ? f.city : geo.city || f.city,
-        stateId: f.stateId ?? matchedStateId ?? null,
-        pinCode: geo.postcode || f.pinCode,
-      }));
-      toast.success("Location auto-filled. Please verify the details.");
-    } catch (err: any) {
-      if (err?.message === "PERMISSION_DENIED") {
-        toast.error(
-          "Location permission denied. Go to Settings → Apps → TWAM → Permissions → Location → Allow.",
-        );
-      } else if (err?.message === "NOT_SUPPORTED") {
-        toast.error("Geolocation is not supported on this device.");
-      } else {
-        toast.error("Could not detect location. Please fill manually.");
-      }
-    } finally {
-      setGeoLoading(false);
-    }
-  };
-  // ─────────────────────────────────────────────────────────────────────────
 
   // ── Map pin-point handler ──────────────────────────────────────────────────
   // AddressForm has no separate houseNo field — addressLine holds building+street.
@@ -404,56 +322,28 @@ export default function AddressForm() {
         )}
 
         <div className="s-addressform-b04dc9">
+          {/* ── Set Location on Map — opens Rapido-style MapPicker (auto-GPS + drag pin) ── */}
           <div className="s-paymentaddre-12ca4c" style={{ marginBottom: 18 }}>
             <span className="s-paymentaddre-786faa s-paymentaddre-ffd8281d">
               <i className="bi bi-geo-alt s-paymentaddre-21c065" />
-              Auto-fill your city, state and area from your current location
+              Open map to pin your exact delivery location
             </span>
             <button
               type="button"
-              onClick={handleGeoFill}
-              disabled={geoLoading}
+              onClick={() => setMapOpen(true)}
               className="s-paymentaddre-8db409"
               style={{
-                background: geoLoading ? "var(--ivory)" : "var(--brand)",
-                color: geoLoading ? "var(--brand)" : "#fff",
+                background: "var(--brand)",
+                color: "#fff",
                 fontFamily: '"Trebuchet MS", Arial, sans-serif',
-                cursor: geoLoading ? "wait" : "pointer",
-              }}
-            >
-              {geoLoading ? (
-                <>
-                  <span className="s-paymentaddre-eb8efd" /> Detecting...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-geo-alt-fill s-couponslist-030edf" /> Use
-                  My Location
-                </>
-              )}
-            </button>
-
-            {/* ── Pin on Map button ── */}
-            <button
-              type="button"
-              onClick={() => setMapOpen(true)}
-              style={{
-                background: "var(--ivory)",
-                color: "var(--brand)",
-                border: "1.5px solid var(--brand)",
-                fontFamily: '"Trebuchet MS", Arial, sans-serif',
-                marginTop: 8,
                 cursor: "pointer",
-                padding: "10px 18px",
-                borderRadius: 8,
-                fontWeight: 600,
-                fontSize: 14,
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
               }}
             >
-              <i className="bi bi-map" /> Pin on Map
+              <i className="bi bi-geo-alt-fill s-couponslist-030edf" /> Set
+              Location on Map
             </button>
           </div>
 
