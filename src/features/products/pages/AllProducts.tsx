@@ -36,18 +36,11 @@ const DEFAULT_FILTERS: ProductFilterState = {
 const HERO_CATEGORIES = [
   { pattern: /\bbras?\b/i, file: "Bra.png", label: "BRAS" },
   { pattern: /panties|panty/i, file: "Panties.png", label: "PANTIES" },
-  { pattern: /essentials?/i, file: "Essentials.png", label: "ESSENTIALS" },
   {
     pattern: /leak.?proof|leakproof/i,
     file: "Leakproof.png",
     label: "LEAKPROOF",
   },
-  {
-    pattern: /activewear|active\s*wear/i,
-    file: "Activewear.png",
-    label: "ACTIVE WEAR",
-  },
-  { pattern: /swim\s*wear/i, file: "Swimwear.png", label: "SWIM WEAR" },
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────

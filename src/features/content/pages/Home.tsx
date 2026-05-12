@@ -771,24 +771,9 @@ const SHOP_CATEGORIES = [
     keywords: ["pant", "pantie"],
   },
   {
-    name: "Essentials",
-    image: "/assets/categories/Essentials.png",
-    keywords: ["essential"],
-  },
-  {
     name: "Leakproof",
     image: "/assets/categories/Leakproof.png",
     keywords: ["leak"],
-  },
-  {
-    name: "Activewear",
-    image: "/assets/categories/Activewear.png",
-    keywords: ["active"],
-  },
-  {
-    name: "Swimwear",
-    image: "/assets/categories/Swimwear.png",
-    keywords: ["swim"],
   },
 ];
 

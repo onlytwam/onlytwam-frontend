@@ -8,7 +8,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 async function uploadFile(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
-  const res = await api.post("/FileUpload", formData, {
+  const res = await api.post("/FileUpload/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return res.data?.url ?? res.data?.fileUrl ?? "";

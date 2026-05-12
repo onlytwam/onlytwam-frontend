@@ -1,17 +1,13 @@
 // ─────────────────────────────────────────────────────────────
-// FILE: src/features/admin/pages/SiteAnalytics.jsx
+// FILE: src/features/admin/pages/SiteAnalytics.tsx
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import AnalyticsDashboard from "../utils/AnalyticsDashboard";
 
-// ── OPTION A: Quick local testing ────────────────────────────
-// Paste values here → setup screen disappears automatically
-const HARDCODED_PROPERTY_ID = ""; // e.g. "320123456"
-const HARDCODED_ACCESS_TOKEN = ""; // from OAuth Playground (1hr token)
-
-// ── OPTION B: Production backend endpoint ─────────────────────
-// Backend returns { token: "ya29...", propertyId: "123..." }
-const BACKEND_TOKEN_URL = ""; // e.g. "/api/ga4-token"
+const HARDCODED_PROPERTY_ID = "";
+const HARDCODED_ACCESS_TOKEN = "";
+const BACKEND_TOKEN_URL = "";
 
 export default function SiteAnalytics() {
   const [propertyId, setPropertyId] = useState(HARDCODED_PROPERTY_ID);
@@ -42,14 +38,14 @@ export default function SiteAnalytics() {
       } else {
         setErr("Backend didn't return token/propertyId");
       }
-    } catch (e) {
-      setErr(e.message);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setFetching(false);
     }
   }
 
-  function handleManualSubmit(e) {
+  function handleManualSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!propertyId.trim() || !accessToken.trim()) {
       setErr("Both fields are required.");
@@ -82,9 +78,26 @@ export default function SiteAnalytics() {
   );
 }
 
-function SetupScreen({ propertyId, setPropertyId, accessToken, setAccessToken, onSubmit, fetching, err }) {
-  const [showToken, setShowToken] = useState(false);
+interface SetupScreenProps {
+  propertyId: string;
+  setPropertyId: (v: string) => void;
+  accessToken: string;
+  setAccessToken: (v: string) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  fetching: boolean;
+  err: string;
+}
 
+function SetupScreen({
+  propertyId,
+  setPropertyId,
+  accessToken,
+  setAccessToken,
+  onSubmit,
+  fetching,
+  err,
+}: SetupScreenProps) {
+  const [showToken, setShowToken] = useState(false);
   return (
     <div style={s.root}>
       <div style={s.card}>
@@ -92,36 +105,47 @@ function SetupScreen({ propertyId, setPropertyId, accessToken, setAccessToken, o
           <span style={s.dot} />
           OnlyTWAM Analytics
         </div>
-        <p style={s.tagline}>Connect your Google Analytics 4 account to see live data</p>
-
+        <p style={s.tagline}>
+          Connect your Google Analytics 4 account to see live data
+        </p>
         <div style={s.steps}>
           <Step n="1" title="Get your GA4 Property ID">
             Go to{" "}
-            <a href="https://analytics.google.com" target="_blank" rel="noreferrer" style={s.link}>
+            <a
+              href="https://analytics.google.com"
+              target="_blank"
+              rel="noreferrer"
+              style={s.link}
+            >
               analytics.google.com
             </a>
             {" → "} Admin → Property Settings → copy the numeric{" "}
             <b style={{ color: "#ccc" }}>Property ID</b> (e.g. 320123456)
           </Step>
-
           <Step n="2" title="Get an Access Token (for testing)">
             Go to{" "}
-            <a href="https://developers.google.com/oauthplayground" target="_blank" rel="noreferrer" style={s.link}>
+            <a
+              href="https://developers.google.com/oauthplayground"
+              target="_blank"
+              rel="noreferrer"
+              style={s.link}
+            >
               OAuth Playground
             </a>
             {" → "}paste{" "}
-            <code style={s.code}>https://www.googleapis.com/auth/analytics.readonly</code>
+            <code style={s.code}>
+              https://www.googleapis.com/auth/analytics.readonly
+            </code>
             {" → "} Authorize → Exchange → copy{" "}
             <b style={{ color: "#ccc" }}>Access token</b>
             <div style={s.note}>
               ⚠ Tokens expire in ~1 hour. For production, set{" "}
-              <code style={s.code}>BACKEND_TOKEN_URL</code> at the top of this file.
+              <code style={s.code}>BACKEND_TOKEN_URL</code> at the top of this
+              file.
             </div>
           </Step>
-
           <Step n="3" title="Paste both values below and connect" />
         </div>
-
         <form onSubmit={onSubmit} style={s.form}>
           <label style={s.label}>GA4 Property ID</label>
           <input
@@ -132,38 +156,48 @@ function SetupScreen({ propertyId, setPropertyId, accessToken, setAccessToken, o
             onChange={(e) => setPropertyId(e.target.value)}
             autoFocus
           />
-
           <label style={{ ...s.label, marginTop: 16 }}>Access Token</label>
           <div style={{ position: "relative" }}>
             <input
-              style={{ ...s.input, paddingRight: 64, fontFamily: "monospace", fontSize: 11 }}
+              style={{
+                ...s.input,
+                paddingRight: 64,
+                fontFamily: "monospace",
+                fontSize: 11,
+              }}
               type={showToken ? "text" : "password"}
               placeholder="ya29.a0AfB_byTK..."
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
             />
-            <button type="button" style={s.eyeBtn} onClick={() => setShowToken((v) => !v)}>
+            <button
+              type="button"
+              style={s.eyeBtn}
+              onClick={() => setShowToken((v) => !v)}
+            >
               {showToken ? "Hide" : "Show"}
             </button>
           </div>
-
           {err && <div style={s.err}>⚠ {err}</div>}
-
           <button type="submit" style={s.submitBtn} disabled={fetching}>
             {fetching ? "Connecting…" : "Connect & Open Dashboard →"}
           </button>
         </form>
-
         <div style={s.footer}>
-          For permanent production access without re-pasting tokens, use a backend
-          service account endpoint — ask for help setting that up.
+          For permanent production access without re-pasting tokens, use a
+          backend service account endpoint.
         </div>
       </div>
     </div>
   );
 }
 
-function Step({ n, title, children }) {
+interface StepProps {
+  n: string;
+  title: string;
+  children?: ReactNode;
+}
+function Step({ n, title, children }: StepProps) {
   return (
     <div style={s.step}>
       <div style={s.stepNum}>{n}</div>
@@ -175,10 +209,9 @@ function Step({ n, title, children }) {
   );
 }
 
-const s = {
+const s: Record<string, CSSProperties> = {
   root: {
     minHeight: "100vh",
-    // background: "#6A012A",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -194,51 +227,123 @@ const s = {
     maxWidth: 560,
   },
   logo: {
-    fontSize: 22, fontWeight: 600, color: "#f0ede8",
-    display: "flex", alignItems: "center", gap: 8,
-    marginBottom: 6, letterSpacing: "-0.02em",
+    fontSize: 22,
+    fontWeight: 600,
+    color: "#f0ede8",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+    letterSpacing: "-0.02em",
   },
-  dot: { width: 9, height: 9, borderRadius: "50%", background: "#e8a598", display: "inline-block" },
+  dot: {
+    width: 9,
+    height: 9,
+    borderRadius: "50%",
+    background: "#e8a598",
+    display: "inline-block",
+  },
   tagline: { fontSize: 13, color: "#555", marginBottom: 28 },
-  steps: { display: "flex", flexDirection: "column", gap: 16, marginBottom: 28 },
+  steps: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+    marginBottom: 28,
+  },
   step: { display: "flex", gap: 12, alignItems: "flex-start" },
   stepNum: {
-    width: 22, height: 22, borderRadius: "50%",
-    background: "#2a2a2a", border: "1px solid #333",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: 11, fontWeight: 600, color: "#e8a598",
-    flexShrink: 0, marginTop: 1,
+    width: 22,
+    height: 22,
+    borderRadius: "50%",
+    background: "#2a2a2a",
+    border: "1px solid #333",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#e8a598",
+    flexShrink: 0,
+    marginTop: 1,
   },
   stepTitle: { fontSize: 13, fontWeight: 500, color: "#ccc", marginBottom: 4 },
   stepBody: { fontSize: 12, color: "#666", lineHeight: 1.7 },
   note: {
-    marginTop: 8, fontSize: 11, color: "#7a5a40",
-    background: "#1e1510", border: "1px solid #3a2a1a",
-    borderRadius: 6, padding: "7px 10px", lineHeight: 1.6,
+    marginTop: 8,
+    fontSize: 11,
+    color: "#7a5a40",
+    background: "#1e1510",
+    border: "1px solid #3a2a1a",
+    borderRadius: 6,
+    padding: "7px 10px",
+    lineHeight: 1.6,
   },
   link: { color: "#e8a598", textDecoration: "none" },
-  code: { fontFamily: "monospace", fontSize: 11, background: "#1e1e1e", padding: "1px 5px", borderRadius: 4, color: "#aaa" },
+  code: {
+    fontFamily: "monospace",
+    fontSize: 11,
+    background: "#1e1e1e",
+    padding: "1px 5px",
+    borderRadius: 4,
+    color: "#aaa",
+  },
   form: { display: "flex", flexDirection: "column" },
-  label: { fontSize: 11, fontWeight: 600, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 },
+  label: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#555",
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
   input: {
-    background: "#1a1a1a", border: "1px solid #2a2a2a",
-    borderRadius: 8, padding: "10px 14px", fontSize: 13,
-    color: "#f0ede8", outline: "none", width: "100%", boxSizing: "border-box",
+    background: "#1a1a1a",
+    border: "1px solid #2a2a2a",
+    borderRadius: 8,
+    padding: "10px 14px",
+    fontSize: 13,
+    color: "#f0ede8",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box",
   },
   eyeBtn: {
-    position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-    background: "transparent", border: "none", color: "#555",
-    fontSize: 11, cursor: "pointer", padding: "2px 6px",
+    position: "absolute",
+    right: 10,
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "transparent",
+    border: "none",
+    color: "#555",
+    fontSize: 11,
+    cursor: "pointer",
+    padding: "2px 6px",
   },
   err: {
-    marginTop: 10, fontSize: 12, color: "#c87070",
-    background: "#1e1010", border: "1px solid #3a1818",
-    borderRadius: 6, padding: "8px 12px",
+    marginTop: 10,
+    fontSize: 12,
+    color: "#c87070",
+    background: "#1e1010",
+    border: "1px solid #3a1818",
+    borderRadius: 6,
+    padding: "8px 12px",
   },
   submitBtn: {
-    marginTop: 20, padding: "12px 20px", background: "#e8a598",
-    border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600,
-    color: "#1a0a08", cursor: "pointer", letterSpacing: "-0.01em",
+    marginTop: 20,
+    padding: "12px 20px",
+    background: "#e8a598",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#1a0a08",
+    cursor: "pointer",
+    letterSpacing: "-0.01em",
   },
-  footer: { marginTop: 20, fontSize: 11, color: "#3a3a3a", textAlign: "center" },
+  footer: {
+    marginTop: 20,
+    fontSize: 11,
+    color: "#3a3a3a",
+    textAlign: "center",
+  },
 };
