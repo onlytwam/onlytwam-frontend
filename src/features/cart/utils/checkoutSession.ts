@@ -20,7 +20,7 @@ import {
 export type CheckoutMode = "cart" | "buyNow";
 
 // Bump this whenever the session shape changes — old sessions are discarded
-const SURPRISE_GIFT_FLOW_VERSION = 2;
+export const SURPRISE_GIFT_FLOW_VERSION = 2;
 
 export interface CheckoutSessionState {
   mode: CheckoutMode;

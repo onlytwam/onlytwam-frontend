@@ -66,9 +66,10 @@ export function useOverlayBackDismiss(onDismiss: () => void, enabled = true) {
     return () => {
       removeOverlayEntry(overlayIdRef.current);
 
-      const currentState = window.history.state as
-        | Record<string, unknown>
-        | null;
+      const currentState = window.history.state as Record<
+        string,
+        unknown
+      > | null;
 
       if (currentState?.[OVERLAY_STATE_KEY] === overlayIdRef.current) {
         suppressNextPopstate = true;
@@ -93,9 +94,32 @@ export function useOverlayBackDismiss(onDismiss: () => void, enabled = true) {
   }, []);
 
   const dismissThen = useCallback((next?: () => void) => {
-    dismiss();
-    if (next) window.setTimeout(next, 0);
-  }, [dismiss]);
+    if (!next) {
+      dismiss();
+      return;
+    }
+
+    const currentState = window.history.state as Record<string, unknown> | null;
+    const hasOverlayEntry =
+      currentState?.[OVERLAY_STATE_KEY] === overlayIdRef.current;
+
+    if (hasOverlayEntry) {
+      // history.back() is asynchronous — popstate fires on a later tick.
+      // If we call next() immediately (even via setTimeout 0) the popstate
+      // from back() fires AFTER the navigation and undoes it.
+      // Fix: add a one-shot popstate listener, THEN call back().
+      const onPop = () => {
+        window.removeEventListener("popstate", onPop);
+        next();
+      };
+      window.addEventListener("popstate", onPop);
+      window.history.back();
+    } else {
+      // No overlay entry in history — dismiss sync then navigate.
+      onDismissRef.current();
+      next();
+    }
+  }, []);
 
   return { dismiss, dismissThen };
 }

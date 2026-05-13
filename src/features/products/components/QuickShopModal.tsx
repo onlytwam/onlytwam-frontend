@@ -22,15 +22,8 @@ interface Props {
   onClose: () => void;
 }
 
-const ALPHA_SIZE_KEYWORDS = [
-  "t-shirt bra",
-  "t shirt bra",
-  "tshirt bra",
-  "sports bra",
-  "sport bra",
-];
-const isAlphaSizeProduct = (name = "") =>
-  ALPHA_SIZE_KEYWORDS.some((kw) => name.toLowerCase().includes(kw));
+// Size behaviour is now driven by Category.bandSizeType and Category.hasCupSize
+// — no static keyword matching needed.
 
 function SizeBtn({
   label,
@@ -91,8 +84,8 @@ function ModalNotification({
     notif.type === "error"
       ? "bi-exclamation-circle-fill"
       : notif.type === "warn"
-        ? "bi-exclamation-triangle-fill"
-        : "bi-info-circle-fill";
+      ? "bi-exclamation-triangle-fill"
+      : "bi-info-circle-fill";
 
   return (
     <div className="qsm-notif-overlay">
@@ -162,8 +155,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     product?.images?.length
       ? product.images
       : product?.image
-        ? [product.image]
-        : []
+      ? [product.image]
+      : []
   ).map(getImageUrl);
   const displayedThumbs = Math.min(images.length, visibleThumbs);
 
@@ -220,8 +213,7 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const onThumbWheel = (e: WheelEvent<HTMLDivElement>) => {
     const rail = thumbsRef.current;
     if (!rail) return;
-    const delta =
-      Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
     if (!delta) return;
     if (rail.scrollWidth <= rail.clientWidth) return;
     e.preventDefault();
@@ -237,7 +229,9 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     return () => clearInterval(id);
   }, [images.length]);
 
-  const hasCupSize = !!product?.isCupSize && !isAlphaSizeProduct(product?.name);
+  // Category-driven size configuration (set when the category is created/edited)
+  const hasCupSize = !!product?.hasCupSize; // Category.HasCupSize
+  const bandSizeType = product?.bandSizeType as string | null; // 'alpha' | 'numerical' | null
 
   const rawSizes: any[] = product?.sizes ?? [];
   const allCupSizes: any[] = product?.cupSizes ?? [];
@@ -249,9 +243,10 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
 
-  const allSizes: any[] = hasCupSize
-    ? rawSizes.filter((s: any) => /^\d+$/.test(s.sizeLabel))
-    : rawSizes.filter((s: any) => !/^\d+$/.test(s.sizeLabel));
+  // All sizes and cup sizes are now pre-filtered server-side by the category's
+  // bandSizeType (mdm.Size.SizeType filter) and hasCupSize flag.
+  // No client-side regex filtering needed.
+  const allSizes: any[] = rawSizes;
 
   const cupAvail = (cupId: number) => {
     if (!selBandId) {
@@ -281,14 +276,14 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const selStock =
     selPvdRow?.stock ??
     (selBandId && !hasCupSize
-      ? (allSizes.find((s: any) => s.sizeId === selBandId)?.stock ?? null)
+      ? allSizes.find((s: any) => s.sizeId === selBandId)?.stock ?? null
       : null);
   const isOOS = selStock !== null && selStock <= 0;
   const selLabel = selBandId
-    ? (allSizes.find((s: any) => s.sizeId === selBandId)?.sizeLabel ?? "")
+    ? allSizes.find((s: any) => s.sizeId === selBandId)?.sizeLabel ?? ""
     : "";
   const cupLabel = selCupId
-    ? (allCupSizes.find((c: any) => c.cupSizeId === selCupId)?.sizeLabel ?? "")
+    ? allCupSizes.find((c: any) => c.cupSizeId === selCupId)?.sizeLabel ?? ""
     : "";
 
   const onBand = (s: any) => {
@@ -349,7 +344,9 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     }
     if (selStock !== null && qty > selStock) {
       showWarn(
-        `Only ${selStock} unit${selStock !== 1 ? "s" : ""} available — quantity adjusted`,
+        `Only ${selStock} unit${
+          selStock !== 1 ? "s" : ""
+        } available — quantity adjusted`,
         "warn",
       );
       setQty(selStock);
@@ -400,7 +397,11 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   };
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/user-products/product-detail/${variantId}/${slugify(product?.name || "")}`;
+    const url = `${
+      window.location.origin
+    }/user-products/product-detail/${variantId}/${slugify(
+      product?.name || "",
+    )}`;
     try {
       if (navigator.share) await navigator.share({ title: product?.name, url });
       else {
@@ -526,7 +527,9 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   };
   const goToDetail = () => {
     navigate(
-      `/user-products/product-detail/${variantId}/${slugify(product?.name || "")}`,
+      `/user-products/product-detail/${variantId}/${slugify(
+        product?.name || "",
+      )}`,
     );
     onClose();
   };
@@ -598,7 +601,9 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                       {images.slice(0, 6).map((_, i) => (
                         <span
                           key={i}
-                          className={`qsm-dot${imgIdx === i ? " is-active" : ""}`}
+                          className={`qsm-dot${
+                            imgIdx === i ? " is-active" : ""
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setImgIdx(i);
@@ -642,7 +647,9 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                         src={img}
                         alt=""
                         onClick={() => setImgIdx(i)}
-                        className={`qsm-thumb${imgIdx === i ? " is-active" : ""}`}
+                        className={`qsm-thumb${
+                          imgIdx === i ? " is-active" : ""
+                        }`}
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = "none";
                         }}
@@ -674,10 +681,14 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                     title={
                       inWishlist ? "Remove from wishlist" : "Save to wishlist"
                     }
-                    className={`qsm-icon-btn is-wishlist${inWishlist ? " is-active" : ""}`}
+                    className={`qsm-icon-btn is-wishlist${
+                      inWishlist ? " is-active" : ""
+                    }`}
                   >
                     <i
-                      className={`bi ${inWishlist ? "bi-heart-fill" : "bi-heart"}`}
+                      className={`bi ${
+                        inWishlist ? "bi-heart-fill" : "bi-heart"
+                      }`}
                     />
                   </button>
                   <button
@@ -709,7 +720,15 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                     return (
                       <i
                         key={i}
-                        className={`bi ${i < Math.floor(product.rating) ? "bi-star-fill" : i < product.rating ? "bi-star-half" : "bi-star"} qsm-star${filled && product.rating > 0 ? " is-filled" : ""}`}
+                        className={`bi ${
+                          i < Math.floor(product.rating)
+                            ? "bi-star-fill"
+                            : i < product.rating
+                            ? "bi-star-half"
+                            : "bi-star"
+                        } qsm-star${
+                          filled && product.rating > 0 ? " is-filled" : ""
+                        }`}
                       />
                     );
                   })}
@@ -742,7 +761,11 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                         key={col.productVariantId}
                         onClick={() => setVariantId(col.productVariantId)}
                         title={col.colorName ?? col.color}
-                        className={`qsm-swatch${col.productVariantId === variantId ? " is-selected" : ""}`}
+                        className={`qsm-swatch${
+                          col.productVariantId === variantId
+                            ? " is-selected"
+                            : ""
+                        }`}
                         style={{
                           background: resolveHex(col.colorHex ?? col.color),
                         }}
@@ -763,7 +786,9 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                         {cupLabel ? ` / ${cupLabel}` : ""}
                         {selStock !== null && !isOOS && (
                           <span
-                            className={`qsm-stock-hint ${selStock <= 3 ? "is-low" : "is-ok"}`}
+                            className={`qsm-stock-hint ${
+                              selStock <= 3 ? "is-low" : "is-ok"
+                            }`}
                           >
                             {selStock <= 3
                               ? `(${selStock} left)`
@@ -853,12 +878,16 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                   <div className="qsm-qty-row">
                     <div className="qsm-qty-wrap">
                       <p
-                        className={`qsm-qty-label${qtyLocked ? " is-locked" : ""}`}
+                        className={`qsm-qty-label${
+                          qtyLocked ? " is-locked" : ""
+                        }`}
                       >
                         Qty
                       </p>
                       <div
-                        className={`qsm-qty-box${qtyLocked ? " is-locked" : ""}`}
+                        className={`qsm-qty-box${
+                          qtyLocked ? " is-locked" : ""
+                        }`}
                       >
                         <button
                           disabled={qtyLocked || qty <= 1}
@@ -898,14 +927,16 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                     {/* Stock status */}
                     {!qtyLocked && selStock !== null && (
                       <div
-                        className={`qsm-stock-status ${isOOS ? "is-oos" : selStock <= 3 ? "is-low" : "is-ok"}`}
+                        className={`qsm-stock-status ${
+                          isOOS ? "is-oos" : selStock <= 3 ? "is-low" : "is-ok"
+                        }`}
                       >
                         <p>
                           {isOOS
                             ? "🚫 Out of stock"
                             : selStock <= 3
-                              ? `⚠️ Only ${selStock} left!`
-                              : "✓ In stock"}
+                            ? `⚠️ Only ${selStock} left!`
+                            : "✓ In stock"}
                         </p>
                       </div>
                     )}

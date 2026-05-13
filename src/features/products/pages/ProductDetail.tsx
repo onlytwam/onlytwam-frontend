@@ -37,16 +37,8 @@ const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 const DOUBLE_TAP_MAX_DELAY = 320;
 const DOUBLE_TAP_MAX_DISTANCE = 24;
 
-/* ── Alpha-size override (same as QuickShopModal) ────────────────────────── */
-const ALPHA_SIZE_KEYWORDS = [
-  "t-shirt bra",
-  "t shirt bra",
-  "tshirt bra",
-  "sports bra",
-  "sport bra",
-];
-const isAlphaSizeProduct = (name = "") =>
-  ALPHA_SIZE_KEYWORDS.some((kw) => name.toLowerCase().includes(kw));
+// Size/cup-size display is now fully driven by Category.bandSizeType and
+// Category.hasCupSize coming from the API — no client-side keyword matching needed.
 
 /* ── Centered page notification (same style as QuickShopModal) ─────────────── */
 interface PageNotif {
@@ -68,14 +60,14 @@ function PageNotification({
     notif.type === "error"
       ? "var(--blush)"
       : notif.type === "warn"
-        ? "var(--heirloom)"
-        : "var(--brand)";
+      ? "var(--heirloom)"
+      : "var(--brand)";
   const icon =
     notif.type === "error"
       ? "bi-exclamation-circle-fill"
       : notif.type === "warn"
-        ? "bi-exclamation-triangle-fill"
-        : "bi-info-circle-fill";
+      ? "bi-exclamation-triangle-fill"
+      : "bi-info-circle-fill";
   return (
     <div className="s-productdetai-5ab3e3">
       <div
@@ -121,8 +113,9 @@ function Stars({
         return (
           <i
             key={i}
-            className={`bi ${on ? "bi-star-fill" : half ? "bi-star-half" : "bi-star"
-              }`}
+            className={`bi ${
+              on ? "bi-star-fill" : half ? "bi-star-half" : "bi-star"
+            }`}
             style={{
               fontSize: size,
               color: on || half ? "var(--brand)" : "var(--ivory)",
@@ -139,44 +132,7 @@ function Stars({
 }
 
 /* ── Shipping Bar (same as Home) ─────────────────────────────────────────── */
-function ShippingBar() {
-  return (
-    <section className="shipping_section s-productdetai-ff85a0a9">
-      <div className="container">
-        <div className="shipping_inner">
-          {[
-            {
-              icon: "bi bi-cursor",
-              title: "Free Shipping",
-              sub: "Orders over ₹5000",
-            },
-            {
-              icon: "bi bi-arrow-repeat",
-              title: "Free Returns",
-              sub: "Within 15 days",
-            },
-            {
-              icon: "bi bi-lock",
-              title: "100% Payment Secure",
-              sub: "Payment Online",
-            },
-            { icon: "bi bi-tag", title: "Affordable Price", sub: "Guaranteed" },
-          ].map((f) => (
-            <div key={f.title} className="single_shipping">
-              <div className="shipping_icon">
-                <i className={`${f.icon} icons`} />
-              </div>
-              <div className="shipping_text">
-                <h3 className="s-productdetai-b87156">{f.title}</h3>
-                <p className="s-productdetai-f51e9c">{f.sub}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+// ShippingBar is rendered by Footer (shared/components/Footer.tsx) — no local copy needed.
 
 /* ── ScrollableProductRow — real DOM smooth-scroll ── */
 const ROW_GAP = 16;
@@ -352,11 +308,12 @@ function ScrollableProductRow({
               isMobile
                 ? {}
                 : {
-                  flex: `0 0 ${safeCw}${typeof safeCw === "number" ? "px" : ""
+                    flex: `0 0 ${safeCw}${
+                      typeof safeCw === "number" ? "px" : ""
                     }`,
-                  width: typeof safeCw === "number" ? safeCw : undefined,
-                  minWidth: typeof safeCw === "number" ? safeCw : undefined,
-                }
+                    width: typeof safeCw === "number" ? safeCw : undefined,
+                    minWidth: typeof safeCw === "number" ? safeCw : undefined,
+                  }
             }
           >
             {isMobile ? (
@@ -545,7 +502,7 @@ export default function ProductDetail() {
         !!lastTap &&
         now - lastTap.time <= DOUBLE_TAP_MAX_DELAY &&
         Math.hypot(lastTap.x - e.clientX, lastTap.y - e.clientY) <=
-        DOUBLE_TAP_MAX_DISTANCE;
+          DOUBLE_TAP_MAX_DISTANCE;
 
       if (isDoubleTap) {
         lastMainImageTapRef.current = null;
@@ -702,8 +659,8 @@ export default function ProductDetail() {
     product?.images?.length
       ? product.images
       : product?.image
-        ? [product.image]
-        : []
+      ? [product.image]
+      : []
   ).map(getImageUrl);
   const colors: any[] = product?.colors ?? [];
   const selectedColorSwatch = colors.find(
@@ -834,19 +791,22 @@ export default function ProductDetail() {
   const discount =
     (product?.originalPrice || 0) > (product?.price || 0)
       ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) *
-        100,
-      )
+          ((product.originalPrice - product.price) / product.originalPrice) *
+            100,
+        )
       : 0;
 
-  const hasCupSize = !!product?.isCupSize && !isAlphaSizeProduct(product?.name);
+  // hasCupSize and allSizes come pre-filtered from the backend based on the
+  // product's immediate category (Category.HasCupSize / Category.BandSizeType).
+  // No client-side keyword or isCupSize flag overrides are applied here.
+  const hasCupSize = !!product?.hasCupSize;
   const rawSizes: any[] = product?.sizes ?? [];
   const allCupSizes: any[] = product?.cupSizes ?? [];
   const pvdMatrix: any[] = product?.pvdMatrix ?? [];
 
-  const allSizes: any[] = hasCupSize
-    ? rawSizes.filter((s: any) => /^\d+$/.test(s.sizeLabel))
-    : rawSizes.filter((s: any) => !/^\d+$/.test(s.sizeLabel));
+  // Sizes and cup sizes are pre-filtered server-side by the category's bandSizeType
+  // and hasCupSize — use them as-is.
+  const allSizes: any[] = rawSizes;
 
   const cupAvail = (cupId: number) => {
     if (!selBandId) {
@@ -1016,12 +976,16 @@ export default function ProductDetail() {
               lastModified: Date.now(),
             });
             console.log(
-              ` Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressed.size / 1024 / 1024).toFixed(2)}MB`
+              ` Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(
+                compressed.size /
+                1024 /
+                1024
+              ).toFixed(2)}MB`,
             );
             resolve(compressed);
           },
           "image/jpeg",
-          0.8  // 80% quality
+          0.8, // 80% quality
         );
       };
 
@@ -1043,8 +1007,6 @@ export default function ProductDetail() {
   //   },
   // });
 
-
-
   const reviewMutation = useMutation({
     mutationFn: (data: any) => createReview(data),
     onSuccess: () => {
@@ -1063,13 +1025,12 @@ export default function ProductDetail() {
         typeof detail === "string"
           ? detail
           : Array.isArray(detail)
-            ? detail.map((d: any) => d.msg).join(", ")
-            : err?.message || "Failed to submit review";
+          ? detail.map((d: any) => d.msg).join(", ")
+          : err?.message || "Failed to submit review";
       // console.error("Review error:", err?.response?.status, detail);
       toast.error(msg);
     },
   });
-
 
   const persistGuestCart = (showToast = true) => {
     const gc = JSON.parse(localStorage.getItem("guestCart") || "[]");
@@ -1353,8 +1314,9 @@ export default function ProductDetail() {
                         onClick={() => handleThumbClick(i)}
                         className="s-productdetai-81ffd3"
                         style={{
-                          border: `2px solid ${activeImg === i ? "var(--brand)" : "var(--ivory)"
-                            }`,
+                          border: `2px solid ${
+                            activeImg === i ? "var(--brand)" : "var(--ivory)"
+                          }`,
                           opacity: activeImg === i ? 1 : 0.65,
                           flexShrink: 0,
                           width: "72px",
@@ -1488,8 +1450,9 @@ export default function ProductDetail() {
                         onClick={() => handleThumbClick(i)}
                         className="pd-mobile-thumb-img"
                         style={{
-                          border: `2px solid ${activeImg === i ? "var(--brand)" : "transparent"
-                            }`,
+                          border: `2px solid ${
+                            activeImg === i ? "var(--brand)" : "transparent"
+                          }`,
                           opacity: activeImg === i ? 1 : 0.65,
                         }}
                         onError={(e) => {
@@ -1537,8 +1500,9 @@ export default function ProductDetail() {
                       background: inWishlist
                         ? "linear-gradient(135deg, rgba(107,15,42,0.12) 0%, rgba(168,76,107,0.08) 100%)"
                         : "linear-gradient(135deg, #fff 0%, #f5f0e6 100%)",
-                      border: `1.5px solid ${inWishlist ? "var(--brand)" : "rgba(158,96,112,0.3)"
-                        }`,
+                      border: `1.5px solid ${
+                        inWishlist ? "var(--brand)" : "rgba(158,96,112,0.3)"
+                      }`,
                       color: inWishlist ? "var(--brand)" : "var(--heirloom)",
                     }}
                     onMouseEnter={(e) => {
@@ -1549,8 +1513,9 @@ export default function ProductDetail() {
                     }}
                   >
                     <i
-                      className={`bi ${inWishlist ? "bi-heart-fill" : "bi-heart"
-                        }`}
+                      className={`bi ${
+                        inWishlist ? "bi-heart-fill" : "bi-heart"
+                      }`}
                     />
                   </button>
                   <button
@@ -1642,7 +1607,8 @@ export default function ProductDetail() {
                         if (c.productVariantId !== currentVId) {
                           setCurrentVId(c.productVariantId);
                           navigate(
-                            `/user-products/product-detail/${c.productVariantId
+                            `/user-products/product-detail/${
+                              c.productVariantId
                             }/${slugify(product?.name || "product")}`,
                           );
                         }
@@ -1650,10 +1616,11 @@ export default function ProductDetail() {
                       title={c.colorName ?? c.color ?? ""}
                       className="s-productdetai-e37fda"
                       style={{
-                        border: `2.5px solid ${c.productVariantId === currentVId
+                        border: `2.5px solid ${
+                          c.productVariantId === currentVId
                             ? "var(--brand)"
                             : "transparent"
-                          }`,
+                        }`,
                       }}
                     >
                       <img
@@ -1742,8 +1709,9 @@ export default function ProductDetail() {
                         onClick={() => onBand(s)}
                         className="s-productdetai-a9a160"
                         style={{
-                          border: `2px solid ${sel ? "var(--brand)" : "var(--heirloom)"
-                            }`,
+                          border: `2px solid ${
+                            sel ? "var(--brand)" : "var(--heirloom)"
+                          }`,
                           background: sel ? "var(--brand)" : "#fff",
                           color: sel ? "#fff" : "#000000",
                           fontFamily: FONT_UI,
@@ -1797,8 +1765,9 @@ export default function ProductDetail() {
                         onClick={() => onCup(cs.cupSizeId)}
                         className="s-productdetai-83f876"
                         style={{
-                          border: `2px solid ${sel ? "var(--brand)" : "var(--heirloom)"
-                            }`,
+                          border: `2px solid ${
+                            sel ? "var(--brand)" : "var(--heirloom)"
+                          }`,
                           background: sel ? "var(--brand)" : "#fff",
                           color: sel ? "#fff" : "#000000",
                           fontFamily: FONT_UI,
@@ -1843,8 +1812,9 @@ export default function ProductDetail() {
                     <div
                       className="s-productdetai-dbae90"
                       style={{
-                        border: `1.5px solid ${qtyLocked ? "var(--ivory)" : "var(--ivory)"
-                          }`,
+                        border: `1.5px solid ${
+                          qtyLocked ? "var(--ivory)" : "var(--ivory)"
+                        }`,
                         background: qtyLocked ? "var(--ivory)" : "#fff",
                       }}
                     >
@@ -1888,12 +1858,12 @@ export default function ProductDetail() {
                         style={{
                           cursor:
                             qtyLocked ||
-                              (selStock !== null && quantity >= selStock)
+                            (selStock !== null && quantity >= selStock)
                               ? "not-allowed"
                               : "pointer",
                           color:
                             qtyLocked ||
-                              (selStock !== null && quantity >= selStock)
+                            (selStock !== null && quantity >= selStock)
                               ? "var(--ivory)"
                               : "var(--brand)",
                         }}
@@ -1933,15 +1903,15 @@ export default function ProductDetail() {
                         color: isOOS
                           ? "var(--brand)"
                           : selStock <= 3
-                            ? "var(--brand)"
-                            : "var(--brand)",
+                          ? "var(--brand)"
+                          : "var(--brand)",
                       }}
                     >
                       {isOOS
                         ? "🚫 Out of stock"
                         : selStock <= 3
-                          ? `⚠️ Only ${selStock} left!`
-                          : "✓ In stock"}
+                        ? `⚠️ Only ${selStock} left!`
+                        : "✓ In stock"}
                     </p>
                   )}
                 </div>
@@ -1974,8 +1944,9 @@ export default function ProductDetail() {
 
             {isMobileViewport && (
               <div
-                className={`pd-sticky-action-shell${showStickyActions ? " is-visible" : ""
-                  }`}
+                className={`pd-sticky-action-shell${
+                  showStickyActions ? " is-visible" : ""
+                }`}
                 aria-hidden={!showStickyActions}
               >
                 <div className="pd-action-row pd-sticky-action-row">
@@ -2047,8 +2018,9 @@ export default function ProductDetail() {
                   style={{
                     fontWeight: activeTab === tab ? 700 : 400,
                     color: activeTab === tab ? "#000000" : "var(--heirloom)",
-                    borderBottom: `3px solid ${activeTab === tab ? "var(--brand)" : "transparent"
-                      }`,
+                    borderBottom: `3px solid ${
+                      activeTab === tab ? "var(--brand)" : "transparent"
+                    }`,
                     fontFamily: FONTS,
                   }}
                 >
@@ -2144,8 +2116,9 @@ export default function ProductDetail() {
                       <div
                         className="s-productdetai-1c4975"
                         style={{
-                          width: `${totalReviews ? (count / totalReviews) * 100 : 0
-                            }%`,
+                          width: `${
+                            totalReviews ? (count / totalReviews) * 100 : 0
+                          }%`,
                         }}
                       />
                     </div>
@@ -2337,9 +2310,9 @@ export default function ProductDetail() {
                           r.photo.startsWith("http")
                             ? r.photo
                             : `${(
-                              import.meta.env.VITE_API_BASE_URL ||
-                              "http://127.0.0.1:8000/api"
-                            ).replace(/\/api$/, "")}${r.photo}`
+                                import.meta.env.VITE_API_BASE_URL ||
+                                "http://127.0.0.1:8000/api"
+                              ).replace(/\/api$/, "")}${r.photo}`
                         }
                         alt="reviewer"
                         className="s-productdetai-55b05c"
@@ -2409,7 +2382,6 @@ export default function ProductDetail() {
         )}
       </div>
 
-      <ShippingBar />
       {quickShopId && (
         <QuickShopModal
           productVariantId={quickShopId}

@@ -64,9 +64,6 @@ export const invalidateSurpriseGiftTiersCache = () => {
   _fetchPromise = null;
 };
 
-export const getSurpriseGiftTiers = (): Promise<SurpriseGiftTier[]> =>
-  _fetchTiers();
-
 export const getSurpriseGiftTier = async (
   cartValue: number,
 ): Promise<SurpriseGiftTier | null> => {
@@ -112,5 +109,4 @@ export const buildSurpriseGiftSignature = (
     .sort()
     .join("|");
 
-// Legacy export for any imports that destructure this
-export const SURPRISE_GIFT_TIERS: SurpriseGiftTier[] = [];
+// No static tiers — all gift rules come exclusively from the SurpriseGiftRule table via /SurpriseGift/Tiers.
