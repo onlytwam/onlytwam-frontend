@@ -5,7 +5,8 @@ import {
 } from "@/shared/utils/surpriseGift";
 
 const BUY_NOW_SESSION_KEY = "buyNowCheckout";
-const SURPRISE_GIFT_FLOW_VERSION = 2;
+// Bump this whenever the session shape changes — old sessions are discarded
+export const SURPRISE_GIFT_FLOW_VERSION = 2;
 
 export interface BuyNowSession {
   items: CartModel[];
@@ -62,8 +63,7 @@ export const setBuyNowSession = (
   const safeItems = Array.isArray(items) ? items : [];
   const subTotal = safeItems.reduce(
     (sum, item) =>
-      sum +
-      Number(item.finalPrice || 0) * Number(item.processedQuantity || 1),
+      sum + Number(item.finalPrice || 0) * Number(item.processedQuantity || 1),
     0,
   );
   const cartSignature =
@@ -94,4 +94,3 @@ export const clearBuyNowSession = () => {
   if (!canUseSessionStorage()) return;
   sessionStorage.removeItem(BUY_NOW_SESSION_KEY);
 };
-

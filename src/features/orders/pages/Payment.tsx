@@ -1,13 +1,12 @@
 // src/features/orders/pages/Payment.tsx
 //
-// FIXES APPLIED (payment redirect):
-//   - Detects Capacitor native platform vs browser
-//   - On native: opens PayG in @capacitor/browser in-app browser
-//   - On web: opens PayG in a separate popup so the checkout page stays alive
-//   - Polls /api/Payment/Status/{orderId} every 2 s until Confirmed/Failed
-//   - On close/cancel: keeps polling briefly so a successful payment still lands
-//     on the order confirmation page instead of bouncing straight back to checkout
-//   - productVariantId fix from previous session is preserved
+// PAYMENT FLOW (updated):
+//   - WhatsApp toast opens on "Proceed to Payment" click
+//   - On Yes / Ignore: order is created, then PayG opens in the SAME tab
+//   - Back button from PayG returns user to this page; the AwaitingPayment
+//     order is hidden from the profile order list so nothing shows there
+//   - Only a Confirmed/Failed response from PayG triggers order visibility
+//   - Native (Capacitor): still uses @capacitor/browser in-app overlay + polling
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getImageUrl } from "@/shared/utils/helpers";
@@ -25,9 +24,14 @@ import {
   getPaymentStatus,
   listAddress,
 } from "@/features/orders/api/orders.api";
-import { getBuyNowSession } from "@/shared/utils/checkoutSession";
+import {
+  getBuyNowSession,
+  setBuyNowSession,
+} from "@/shared/utils/checkoutSession";
 import api from "@/shared/api/axiosInstance";
 import { getRememberedAddressState } from "@/shared/utils/addressLocation";
+import { prefetchSurpriseGiftTiers } from "@/shared/utils/surpriseGift";
+import { saveCheckoutSession } from "@/features/cart/utils/checkoutSession";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -98,8 +102,8 @@ const formatSelectedAddress = (addr: any, stateLabel: string): string => {
 
 /** How often to poll the backend for payment status (ms) */
 const POLL_INTERVAL_MS = 2000;
-/** Stop polling after this many ms even if still Pending */
-const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+/** Stop polling after this many ms — user has 10 minutes to complete payment */
+const POLL_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 /** Extra grace window after the PayG window closes */
 const CLOSE_FALLBACK_MS = 15000;
 
@@ -214,11 +218,10 @@ export default function Payment() {
     isBuyNow ? "?buyNow=1" : ""
   }`;
 
-  // Ref to hold the polling interval so we can clear it from anywhere
+  // Refs used only on the native (Capacitor) path
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const paymentWindowRef = useRef<Window | null>(null);
   const paymentResolvedRef = useRef(false);
   const whatsappPromptRef = useRef<string | undefined>(undefined);
   const [isWhatsappPromptOpen, setIsWhatsappPromptOpen] = useState(false);
@@ -231,95 +234,6 @@ export default function Payment() {
     pollRef.current = null;
     pollTimeoutRef.current = null;
     closeFallbackRef.current = null;
-  }, []);
-
-  const closeDesktopPaymentWindow = useCallback(() => {
-    const popup = paymentWindowRef.current;
-    paymentWindowRef.current = null;
-
-    if (popup && !popup.closed) {
-      try {
-        popup.close();
-      } catch {
-        // Some browsers throw if the popup is already gone.
-      }
-    }
-  }, []);
-
-  const openDesktopPaymentWindow = useCallback(() => {
-    if (typeof window === "undefined") return null;
-
-    const existing = paymentWindowRef.current;
-    if (existing && !existing.closed) {
-      return existing;
-    }
-
-    const popup = window.open("", "_blank");
-    if (!popup) return null;
-
-    try {
-      popup.document.write(`<!doctype html>
-        <html lang="en">
-          <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>Preparing payment</title>
-            <style>
-              html, body {
-                margin: 0;
-                min-height: 100%;
-                background: #ffffff;
-                color: #111111;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-              }
-              body {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-              .wrap {
-                text-align: center;
-                padding: 24px;
-              }
-              .spinner {
-                width: 28px;
-                height: 28px;
-                margin: 0 auto 14px;
-                border: 3px solid rgba(0, 0, 0, 0.12);
-                border-top-color: #000000;
-                border-radius: 50%;
-                animation: spin 0.8s linear infinite;
-              }
-              .title {
-                margin: 0 0 8px;
-                font-size: 16px;
-                font-weight: 600;
-              }
-              .copy {
-                margin: 0;
-                font-size: 13px;
-                color: rgba(17, 17, 17, 0.68);
-              }
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="wrap">
-              <div class="spinner" aria-hidden="true"></div>
-              <p class="title">Preparing your payment...</p>
-              <p class="copy">Please keep this window open while we load the gateway.</p>
-            </div>
-          </body>
-        </html>`);
-      popup.document.close();
-    } catch {
-      // If writing the shell fails, we still keep the popup reference.
-    }
-
-    paymentWindowRef.current = popup;
-    return popup;
   }, []);
 
   const dismissDesktopWhatsappPrompt = useCallback(() => {
@@ -368,21 +282,16 @@ export default function Payment() {
     };
   }, [isMobile, isWhatsappPromptOpen]);
 
-  // Stop polling on unmount
+  // Stop native timers on unmount
   useEffect(() => {
     return () => {
       clearHostedPaymentTimers();
-      closeDesktopPaymentWindow();
       dismissDesktopWhatsappPrompt();
       if (Capacitor.isNativePlatform()) {
         void Browser.removeAllListeners().catch(() => {});
       }
     };
-  }, [
-    clearHostedPaymentTimers,
-    closeDesktopPaymentWindow,
-    dismissDesktopWhatsappPrompt,
-  ]);
+  }, [clearHostedPaymentTimers, dismissDesktopWhatsappPrompt]);
 
   useEffect(() => {
     const session = isBuyNow ? getBuyNowSession() : readCheckoutSession();
@@ -435,7 +344,55 @@ export default function Payment() {
     0,
     subTotal + shippingCost - (couponDiscount ?? 0),
   );
-  const surpriseGift = checkoutSession?.surpriseGift ?? null;
+  const [validatedSurpriseGift, setValidatedSurpriseGift] = useState<
+    (typeof checkoutSession)["surpriseGift"] | null
+  >(checkoutSession?.surpriseGift ?? null);
+
+  // Validate the persisted surprise gift against live rules on mount.
+  // If the admin has deleted all rules since the user loaded their cart,
+  // we must NOT show the gift or pass it to the order creation call.
+  useEffect(() => {
+    const sessionGift = isBuyNow
+      ? getBuyNowSession()?.surpriseGift ?? null
+      : checkoutSession?.surpriseGift ?? null;
+
+    if (!sessionGift) {
+      setValidatedSurpriseGift(null);
+      return;
+    }
+
+    prefetchSurpriseGiftTiers().then((tiers) => {
+      if (tiers.length === 0) {
+        // No active rules any more — scrub stale gift from session and hide UI
+        setValidatedSurpriseGift(null);
+        try {
+          if (isBuyNow) {
+            const s = getBuyNowSession();
+            if (s)
+              setBuyNowSession(s.items as any, {
+                surpriseGift: null,
+                giftCheckoutKey: null,
+              });
+          } else {
+            const s = readCheckoutSession();
+            if (s)
+              saveCheckoutSession({
+                ...s,
+                surpriseGift: null,
+                giftCheckoutKey: null,
+              });
+          }
+        } catch {
+          // best-effort cleanup
+        }
+      } else {
+        setValidatedSurpriseGift(sessionGift);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const surpriseGift = validatedSurpriseGift;
 
   const deliveryAddress: any = (addresses as any[]).find(
     (a: any) => a.addressId === selectedAddressId,
@@ -577,152 +534,51 @@ export default function Payment() {
     }, POLL_INTERVAL_MS);
 
     // Hard timeout — stop polling after POLL_TIMEOUT_MS
-    pollTimeoutRef.current = setTimeout(() => {
+    pollTimeoutRef.current = setTimeout(async () => {
       if (paymentResolvedRef.current) return;
       paymentResolvedRef.current = true;
       clearHostedPaymentTimers();
       void Browser.removeAllListeners().catch(() => {});
-      toast.error(
-        "Payment verification timed out. Check your orders page for status.",
-        { duration: 8000 },
+
+      // Mark the order as PaymentFailed on the backend so it is hidden
+      // from the user's order list (only happens if still AwaitingPayment).
+      try {
+        await api.post(`/Payment/Expire/${orderId}`);
+      } catch {
+        // Best-effort — the order stays hidden from user-facing lists regardless
+      }
+
+      navigate(
+        `/user-products/payment-callback?status=failed&orderId=${orderId}&reason=timeout`,
+        { replace: true },
       );
-      navigate(checkoutPaymentPath, {
-        replace: true,
-      });
     }, POLL_TIMEOUT_MS);
   };
 
   // ── Order mutation ───────────────────────────────────────────────────────
-
-  const handleWebPayment = async (
-    paymentProcessUrl: string,
-    orderId: number,
-  ) => {
-    clearHostedPaymentTimers();
-    paymentResolvedRef.current = false;
-
-    const finish = async (success: boolean) => {
-      if (paymentResolvedRef.current) return;
-      paymentResolvedRef.current = true;
-      clearHostedPaymentTimers();
-      closeDesktopPaymentWindow();
-
-      if (success) {
-        navigate(`/user-products/order-confirm/${orderId}?payment=success`, {
-          replace: true,
-        });
-      } else {
-        navigate(`/user-products/payment-callback?status=failed`, {
-          replace: true,
-        });
-      }
-    };
-
-    const fallbackToCheckout = async () => {
-      if (paymentResolvedRef.current) return;
-      const done = await checkStatus();
-      if (done || paymentResolvedRef.current) return;
-
-      paymentResolvedRef.current = true;
-      clearHostedPaymentTimers();
-      closeDesktopPaymentWindow();
-
-      toast.error(
-        "Payment window closed before confirmation. Returning you to checkout.",
-        { duration: 6000 },
-      );
-
-      navigate(checkoutPaymentPath, {
-        replace: true,
-      });
-    };
-
-    const checkStatus = async (): Promise<boolean> => {
-      try {
-        const status = await getPaymentStatus(orderId);
-        const state: string = (status?.state ?? "").toLowerCase();
-        if (state === "confirmed") {
-          await finish(true);
-          return true;
-        }
-        if (state === "failed" || state === "cancelled") {
-          await finish(false);
-          return true;
-        }
-      } catch {
-        // Network hiccup - keep polling
-      }
-      return false;
-    };
-
-    const popup = paymentWindowRef.current;
-    if (!popup || popup.closed) {
-      toast.error("Payment window was closed. Please try again.");
-      navigate(checkoutPaymentPath, {
-        replace: true,
-      });
-      return;
-    }
-
-    try {
-      popup.location.href = paymentProcessUrl;
-    } catch {
-      closeDesktopPaymentWindow();
-      toast.error("Unable to open the payment portal. Please try again.");
-      navigate(checkoutPaymentPath, {
-        replace: true,
-      });
-      return;
-    }
-
-    pollRef.current = setInterval(async () => {
-      const done = await checkStatus();
-      if (done || paymentResolvedRef.current) return;
-
-      const currentPopup = paymentWindowRef.current;
-      if (currentPopup?.closed) {
-        closeDesktopPaymentWindow();
-        armCloseFallback(fallbackToCheckout);
-      }
-    }, POLL_INTERVAL_MS);
-
-    pollTimeoutRef.current = setTimeout(() => {
-      if (paymentResolvedRef.current) return;
-      paymentResolvedRef.current = true;
-      clearHostedPaymentTimers();
-      closeDesktopPaymentWindow();
-
-      toast.error(
-        "Payment verification timed out. Check your orders page for status.",
-        { duration: 8000 },
-      );
-
-      navigate(checkoutPaymentPath, {
-        replace: true,
-      });
-    }, POLL_TIMEOUT_MS);
-  };
 
   const orderMutation = useMutation({
     mutationFn: (payload: any) => createOrder(payload),
     onSuccess: async (data: any) => {
       if (data?.paymentProcessUrl) {
         if (Capacitor.isNativePlatform()) {
-          // APK: open in-app browser and poll for status
+          // Native APK: open in-app browser overlay and poll for status
           await handleNativePayment(data.paymentProcessUrl, data.orderId);
         } else {
-          // Web: existing behaviour — full-page redirect to PayG
-          await handleWebPayment(data.paymentProcessUrl, data.orderId);
+          // Web: navigate in the SAME tab — no popup, no new tab.
+          // The AwaitingPayment order is hidden from the profile order list,
+          // so pressing "back" from PayG returns the user here cleanly with
+          // no phantom order visible anywhere.
+          sessionStorage.setItem("pendingPaymentOrderId", String(data.orderId));
+          window.location.href = data.paymentProcessUrl;
         }
         return;
       }
-      closeDesktopPaymentWindow();
       toast.error(
         "Payment integration is not connected yet. The backend did not return a payment URL.",
       );
     },
     onError: (e: any) => {
-      closeDesktopPaymentWindow();
       toast.error(
         e?.response?.data?.message ||
           e?.response?.data?.detail ||
@@ -735,14 +591,6 @@ export default function Payment() {
 
   const submitPayment = (whatsappUpdates: boolean) => {
     setWhatsappOptIn(whatsappUpdates);
-
-    if (!Capacitor.isNativePlatform()) {
-      const popup = openDesktopPaymentWindow();
-      if (!popup) {
-        toast.error("Please allow pop-ups to continue payment.");
-        return;
-      }
-    }
 
     const cartIds = selectedItems
       .map((i: any) => Number(i.cartId))
@@ -841,6 +689,8 @@ export default function Payment() {
       return;
     }
 
+    // Show the WhatsApp consent toast/modal.
+    // (No popup to pre-open — we navigate in the same tab after order creation.)
     if (!whatsappOptIn) {
       showWhatsappPrompt();
       return;

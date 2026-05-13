@@ -265,14 +265,6 @@ const CUP_SIZE_LABEL_KEYS = [
   "cupSizeName",
   "cup",
 ];
-const ALPHA_SIZE_KEYWORDS = [
-  "t-shirt bra",
-  "t shirt bra",
-  "tshirt bra",
-  "sports bra",
-  "sport bra",
-];
-
 function readPositiveId(source: any, keys: string[]): number | null {
   for (const key of keys) {
     const value = source?.[key];
@@ -322,22 +314,13 @@ function readBooleanFlag(source: any, keys: string[]): boolean | null {
   return null;
 }
 
-function isAlphaSizeProductName(name: string): boolean {
-  const lower = name.toLowerCase();
-  return ALPHA_SIZE_KEYWORDS.some((kw) => lower.includes(kw));
-}
-
+// hasCupSizeOption: returns true if this variant/product has cup-size data.
+// Solely based on the isCupSize flag and data presence — no product-name overrides.
 function hasCupSizeOption(source: any): boolean {
   const explicitFlag = readBooleanFlag(source, ["isCupSize", "IsCupSize"]);
-  const rawName =
-    source?.name ?? source?.productName ?? source?.Name ?? source?.ProductName;
-  const isAlphaSizedName =
-    typeof rawName === "string" && rawName.trim() !== ""
-      ? isAlphaSizeProductName(rawName)
-      : false;
 
   if (explicitFlag !== null) {
-    return explicitFlag && !isAlphaSizedName;
+    return explicitFlag;
   }
 
   if (readPositiveId(source, CUP_SIZE_ID_KEYS) !== null) return true;
@@ -554,7 +537,9 @@ export function ProductActiveFilters({
             <span key={`color-${fam}`} className="gs-active-chip">
               {famData && (
                 <span
-                  className={`s-globalsearch-170863 ${getColorFamilyClassName(fam)}`}
+                  className={`s-globalsearch-170863 ${getColorFamilyClassName(
+                    fam,
+                  )}`}
                 />
               )}
               {fam}
@@ -945,19 +930,27 @@ export default function ProductFilters({
                       onClick={() => toggleColorFamily(fam.label)}
                     >
                       <div
-                        className={`gs-color-swatch s-globalsearch-2da4c6 ${getColorFamilyClassName(fam.label)}${selected ? " active" : ""}`}
+                        className={`gs-color-swatch s-globalsearch-2da4c6 ${getColorFamilyClassName(
+                          fam.label,
+                        )}${selected ? " active" : ""}`}
                         title={fam.label}
                       >
                         {selected && (
                           <div className="s-globalsearch-0ec8e4">
                             <i
-                              className={`bi bi-check s-globalsearch-79d144 gs-filter-color-check${isLightColorFamily(fam.label) ? " gs-filter-color-check-dark" : ""}`}
+                              className={`bi bi-check s-globalsearch-79d144 gs-filter-color-check${
+                                isLightColorFamily(fam.label)
+                                  ? " gs-filter-color-check-dark"
+                                  : ""
+                              }`}
                             />
                           </div>
                         )}
                       </div>
                       <span
-                        className={`s-globalsearch-deaf69 gs-filter-color-label${selected ? " active" : ""}`}
+                        className={`s-globalsearch-deaf69 gs-filter-color-label${
+                          selected ? " active" : ""
+                        }`}
                       >
                         {fam.label}
                       </span>
@@ -975,13 +968,17 @@ export default function ProductFilters({
                   <>
                     <div className="s-globalsearch-2dc2e6">Band / Alpha</div>
                     <div
-                      className={`s-globalsearch-af9fea gs-filter-size-row${allCupSizes.length > 0 ? " has-cup-sizes" : ""}`}
+                      className={`s-globalsearch-af9fea gs-filter-size-row${
+                        allCupSizes.length > 0 ? " has-cup-sizes" : ""
+                      }`}
                     >
                       {allSizes.map((s) => (
                         <button
                           key={s.id}
                           type="button"
-                          className={`gs-size-pill${filters.sizeIds.includes(s.id) ? " active" : ""}`}
+                          className={`gs-size-pill${
+                            filters.sizeIds.includes(s.id) ? " active" : ""
+                          }`}
                           onClick={() => toggleItem("sizeIds", s.id)}
                         >
                           {s.label}
@@ -998,7 +995,9 @@ export default function ProductFilters({
                         <button
                           key={s.id}
                           type="button"
-                          className={`gs-size-pill${filters.cupSizeIds.includes(s.id) ? " active" : ""}`}
+                          className={`gs-size-pill${
+                            filters.cupSizeIds.includes(s.id) ? " active" : ""
+                          }`}
                           onClick={() => toggleItem("cupSizeIds", s.id)}
                         >
                           {s.label}
@@ -1053,10 +1052,14 @@ export default function ProductFilters({
                     return (
                       <label
                         key={cat.categoryId}
-                        className={`s-globalsearch-6ab205 gs-filter-category-option${checked ? " active" : ""}`}
+                        className={`s-globalsearch-6ab205 gs-filter-category-option${
+                          checked ? " active" : ""
+                        }`}
                       >
                         <div
-                          className={`s-globalsearch-455413 gs-filter-category-indicator${checked ? " active" : ""}`}
+                          className={`s-globalsearch-455413 gs-filter-category-indicator${
+                            checked ? " active" : ""
+                          }`}
                         >
                           {checked && (
                             <i className="bi bi-check s-adminproduct-b5c012" />
@@ -1071,7 +1074,9 @@ export default function ProductFilters({
                           className="s-addressform-8251cb"
                         />
                         <span
-                          className={`s-globalsearch-080038 gs-filter-category-label${checked ? " active" : ""}`}
+                          className={`s-globalsearch-080038 gs-filter-category-label${
+                            checked ? " active" : ""
+                          }`}
                         >
                           {cat.name}
                         </span>
@@ -1138,7 +1143,9 @@ export default function ProductFilters({
                   onMouseUp={() => commitPriceMin(sliderMin)}
                   onTouchEnd={() => commitPriceMin(sliderMin)}
                   onKeyUp={() => commitPriceMin(sliderMin)}
-                  className={`price-slider-min${isMinHandleOverlap ? " is-overlap" : ""}`}
+                  className={`price-slider-min${
+                    isMinHandleOverlap ? " is-overlap" : ""
+                  }`}
                 />
                 {/* Max input */}
                 <input
