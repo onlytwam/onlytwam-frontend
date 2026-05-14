@@ -57,7 +57,9 @@ export default function ProductCard({
   enableHoverImageTransition = true,
 }: Props) {
   const navigate = useNavigate();
-  const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const prefersReducedMotion = useMediaQuery(
+    "(prefers-reduced-motion: reduce)",
+  );
   const [selectedVariant, setSelectedVariant] = useState(product);
   const isRemovableCard = typeof onRemove === "function";
   // Track which variant's hover image has fully loaded.
@@ -169,7 +171,9 @@ export default function ProductCard({
   const shareProduct = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/user-products/product-detail/${selectedVariant.productVariantId}/${slugify(selectedVariant.name || "")}`;
+    const url = `${window.location.origin}/user-products/product-detail/${
+      selectedVariant.productVariantId
+    }/${slugify(selectedVariant.name || "")}`;
     try {
       if (navigator.share)
         await navigator.share({ title: selectedVariant.name, url });
@@ -177,14 +181,14 @@ export default function ProductCard({
         await navigator.clipboard.writeText(url);
         toast.success("Link copied!");
       }
-    } catch { }
+    } catch {}
   };
 
   const goToDetail = () =>
     navigate(
-      `/user-products/product-detail/${selectedVariant.productVariantId}/${slugify(
-        selectedVariant.name || selectedVariant.productName || "",
-      )}`,
+      `/user-products/product-detail/${
+        selectedVariant.productVariantId
+      }/${slugify(selectedVariant.name || selectedVariant.productName || "")}`,
     );
 
   const price = selectedVariant.price ?? selectedVariant.finalPrice ?? 0;
@@ -223,7 +227,6 @@ export default function ProductCard({
   //     .filter(Boolean) as string[];
   //   return Array.from(new Set(candidates));
   // };
-
 
   // ── Image resolution — covers all known API shapes ─────────────────────────
   // const resolveImageList = (obj: any): string[] => {
@@ -302,9 +305,8 @@ export default function ProductCard({
     variantImages.length > 0
       ? variantImages
       : productImages.length > 0
-        ? productImages
-        : [];
-
+      ? productImages
+      : [];
 
   const resolvedImages = rawImages.map((src) => getImageUrl(src));
   const FALLBACK_IMAGE = "/assets/category-bg.png";
@@ -386,10 +388,10 @@ export default function ProductCard({
 
     const fallbackHex = resolveHex(
       selectedColorFields.colorHex ||
-      selectedColorFields.colorName ||
-      productColorFields.colorHex ||
-      productColorFields.colorName ||
-      "#767676",
+        selectedColorFields.colorName ||
+        productColorFields.colorHex ||
+        productColorFields.colorName ||
+        "#767676",
     );
     const fallbackBase = hexToRgb(fallbackHex) || { r: 118, g: 118, b: 118 };
     let base = fallbackBase;
@@ -619,7 +621,9 @@ export default function ProductCard({
 
   // pc-image-wrap--has-hover enables the fade transition; without it we still
   // get the zoom-in animation via CSS (pc-img-primary on hover).
-  const imageWrapClass = `pc-image-wrap${enableHoverImageTransition && hoverLoaded ? " pc-image-wrap--has-hover" : ""}`;
+  const imageWrapClass = `pc-image-wrap${
+    enableHoverImageTransition && hoverLoaded ? " pc-image-wrap--has-hover" : ""
+  }`;
 
   const hasDiscount = Boolean(oldPrice && oldPrice > price);
   const discountPct = hasDiscount
@@ -693,13 +697,13 @@ export default function ProductCard({
 
   const rating = Number(
     product.rating ||
-    product.avgRating ||
-    product.averageRating ||
-    product.ratingAverage ||
-    product.productRating ||
-    selectedVariant.rating ||
-    selectedVariant.avgRating ||
-    0,
+      product.avgRating ||
+      product.averageRating ||
+      product.ratingAverage ||
+      product.productRating ||
+      selectedVariant.rating ||
+      selectedVariant.avgRating ||
+      0,
   );
 
   // ── Brand — covers all known API field names ───────────────────────────────
@@ -758,15 +762,15 @@ export default function ProductCard({
     singleColorOnly
       ? productColorFields.colorName || productColorFields.colorHex
         ? [
-          {
-            id: product.productVariantId,
-            colorName: productColorFields.colorName,
-            colorHex: resolveHex(productColorFields.colorHex),
-          },
-        ]
+            {
+              id: product.productVariantId,
+              colorName: productColorFields.colorName,
+              colorHex: resolveHex(productColorFields.colorHex),
+            },
+          ]
         : []
       : product.allVariants?.length > 1
-        ? product.allVariants.map((v: any) => {
+      ? product.allVariants.map((v: any) => {
           const f = resolveColorFields(v);
           return {
             id: v.productVariantId,
@@ -774,20 +778,22 @@ export default function ProductCard({
             colorHex: resolveHex(f.colorHex),
           };
         })
-        : productColorFields.colorName || productColorFields.colorHex
-          ? [
-            {
-              id: product.productVariantId,
-              colorName: productColorFields.colorName,
-              colorHex: resolveHex(productColorFields.colorHex),
-            },
-          ]
-          : [];
+      : productColorFields.colorName || productColorFields.colorHex
+      ? [
+          {
+            id: product.productVariantId,
+            colorName: productColorFields.colorName,
+            colorHex: resolveHex(productColorFields.colorHex),
+          },
+        ]
+      : [];
 
   return (
     <div className={`pc-wrap${isRemovableCard ? " pc-wrap--wishlist" : ""}`}>
       <div
-        className={`pc-card${isRemovableCard ? " pc-card--wishlist" : ""}${!enableHoverImageTransition ? " pc-card--hover-image-disabled" : ""}`}
+        className={`pc-card${isRemovableCard ? " pc-card--wishlist" : ""}${
+          !enableHoverImageTransition ? " pc-card--hover-image-disabled" : ""
+        }`}
         onClick={goToDetail}
       >
         <div className="pc-card-solid-bg" />
@@ -795,7 +801,15 @@ export default function ProductCard({
         <div className="pc-content-wrapper">
           {showDiscountTagEnabled && discountPct > 0 && (
             <div
-              className={`pc-discount-corner${delayedDiscountRevealEnabled ? " pc-discount-corner--delayed" : ""}${delayedDiscountRevealEnabled ? ` pc-discount-corner--${discountAnimationPhase}` : ""}`}
+              className={`pc-discount-corner${
+                delayedDiscountRevealEnabled
+                  ? " pc-discount-corner--delayed"
+                  : ""
+              }${
+                delayedDiscountRevealEnabled
+                  ? ` pc-discount-corner--${discountAnimationPhase}`
+                  : ""
+              }`}
               style={tearVisualStyle}
               aria-hidden="true"
             >
@@ -829,6 +843,8 @@ export default function ProductCard({
               className="pc-img-primary"
               src={imgSrc}
               alt={selectedVariant.name || product.name}
+              loading="lazy"
+              decoding="async"
               onLoad={(e) => {
                 refreshTearVisualStyle(e.currentTarget);
               }}
@@ -842,6 +858,8 @@ export default function ProductCard({
                 src={hoverImgSrc}
                 alt=""
                 aria-hidden="true"
+                loading="lazy"
+                decoding="async"
               />
             )}
 
@@ -883,7 +901,11 @@ export default function ProductCard({
                     {colorVariants.map((v) => (
                       <span
                         key={v.id}
-                        className={`pc-swatch-dot${selectedVariant.productVariantId === v.id ? " selected" : ""}`}
+                        className={`pc-swatch-dot${
+                          selectedVariant.productVariantId === v.id
+                            ? " selected"
+                            : ""
+                        }`}
                         style={{ background: v.colorHex || "#ccc" }}
                         title={v.colorName}
                         onClick={() =>

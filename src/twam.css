@@ -22687,3 +22687,23 @@ section.s-home-bcf04f {
   min-width: 0;
   box-sizing: border-box;
 }
+/* ============================================================
+   TWAM SKELETON SHIMMER  — added for fast perceived loading
+   ============================================================ */
+@keyframes twam-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.twam-skel {
+  background: linear-gradient(
+    90deg,
+    var(--ivory, #f5f0e8) 25%,
+    #e8e3da 50%,
+    var(--ivory, #f5f0e8) 75%
+  );
+  background-size: 200% 100%;
+  animation: twam-shimmer 1.5s ease-in-out infinite;
+  display: block;
+  flex-shrink: 0;
+}

@@ -85,6 +85,10 @@ export default function QuickCart({ onClose }: Props) {
     queryKey: ["quick-cart", getUserId()],
     queryFn: () => listCart({ userProfileId: getUserId() }),
     enabled: hasValidToken(),
+    // Override global refetchOnMount:false — the panel is opened/closed repeatedly
+    // and must always show the latest cart contents (items added from other pages
+    // mark the cache stale but don't refetch while the panel is closed).
+    refetchOnMount: true,
   });
 
   const [guestItems, setGuestItemsState] = useState<any[]>(() => {
@@ -145,6 +149,32 @@ export default function QuickCart({ onClose }: Props) {
     onError: () => toast.error("Failed to update quantity"),
   });
 
+  const removeMergedItem = async (item: any) => {
+    const ids = Array.from(
+      new Set(
+        [item.cartId, ...(item._extraCartIds ?? [])].filter(
+          (id): id is number => typeof id === "number" && Number.isFinite(id),
+        ),
+      ),
+    );
+
+    if (ids.length <= 1) {
+      removeMut.mutate(item.cartId);
+      return;
+    }
+
+    try {
+      await Promise.all(ids.map((id) => deleteCartItem(id)));
+      toast.success("Removed");
+      setCartCount(Math.max(0, (cartCount || 1) - 1));
+      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+      qc.invalidateQueries({ queryKey: ["cart"] });
+      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+    } catch {
+      toast.error("Failed to remove item");
+    }
+  };
+
   // ── Guest helpers ──────────────────────────────────────────────────────────
   const removeGuest = (pvdId: number) => {
     const updated = guestItems.filter(
@@ -184,7 +214,18 @@ export default function QuickCart({ onClose }: Props) {
     }
 
     if (hasValidToken()) {
-      updateMut.mutate({ id: item.cartId, qty: qty + 1 });
+      const extraIds: number[] = item._extraCartIds ?? [];
+      if (extraIds.length > 0) {
+        // This item was merged from multiple DB rows. Consolidate first:
+        // delete the extra duplicate rows, then set the primary row to the
+        // new total. Without this, each extra row's quantity is added back
+        // on the next refetch and the count jumps incorrectly.
+        Promise.all(extraIds.map((id) => deleteCartItem(id)))
+          .then(() => updateMut.mutate({ id: item.cartId, qty: qty + 1 }))
+          .catch(() => toast.error("Failed to update quantity"));
+      } else {
+        updateMut.mutate({ id: item.cartId, qty: qty + 1 });
+      }
     } else {
       changeGuestQty(item.productVariantDetailId, qty + 1);
     }
@@ -193,11 +234,27 @@ export default function QuickCart({ onClose }: Props) {
   // ── Decrease qty (removes item when qty reaches 0) ─────────────────────────
   const handleDecrease = (item: any) => {
     const qty = item.processedQuantity || item.quantity || 1;
-    if (qty <= 1) {
-      if (hasValidToken()) removeMut.mutate(item.cartId);
-      else removeGuest(item.productVariantDetailId);
+    const extraIds: number[] = item._extraCartIds ?? [];
+
+    if (hasValidToken()) {
+      if (extraIds.length > 0) {
+        // Merged item — consolidate duplicate rows before updating.
+        const newQty = qty - 1;
+        if (newQty < 1) {
+          void removeMergedItem(item);
+        } else {
+          // Delete extra duplicate rows, then update primary to the new total
+          Promise.all(extraIds.map((id) => deleteCartItem(id)))
+            .then(() => updateMut.mutate({ id: item.cartId, qty: newQty }))
+            .catch(() => toast.error("Failed to update quantity"));
+        }
+      } else if (qty <= 1) {
+        removeMut.mutate(item.cartId);
+      } else {
+        updateMut.mutate({ id: item.cartId, qty: qty - 1 });
+      }
     } else {
-      if (hasValidToken()) updateMut.mutate({ id: item.cartId, qty: qty - 1 });
+      if (qty <= 1) removeGuest(item.productVariantDetailId);
       else changeGuestQty(item.productVariantDetailId, qty - 1);
     }
   };
@@ -427,7 +484,7 @@ export default function QuickCart({ onClose }: Props) {
                       {/* Delete */}
                       <button
                         onClick={() => {
-                          if (hasValidToken()) removeMut.mutate(item.cartId);
+                          if (hasValidToken()) void removeMergedItem(item);
                           else removeGuest(item.productVariantDetailId);
                         }}
                         disabled={removeMut.isPending}

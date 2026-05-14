@@ -1,5 +1,6 @@
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 import {
   useState,
   useEffect,
@@ -16,6 +17,7 @@ import {
   listBrands,
   listUserReviews,
   listNewArrivals,
+  listCategories,
 } from "@/features/products/api/products.api";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useMenuStore } from "@/shared/store/menuStore";
@@ -28,19 +30,7 @@ import ProductCard from "@/features/products/components/ProductCard";
 
 const GAP = 12;
 
-const publicBrandImages = [
-  "/assets/brands/amante.webp",
-  "/assets/brands/blossom.png",
-  "/assets/brands/enamore.png",
-  "/assets/brands/logo-slide-1.png",
-  "/assets/brands/logo-slide-2.png",
-  "/assets/brands/logo-slide-3.png",
-  "/assets/brands/logo-slide-4.png",
-  "/assets/brands/logo-slide-5.png",
-  "/assets/brands/logo-slide-6.png",
-  "/assets/brands/soie.webp",
-  "/assets/brands/Triumph.png",
-];
+// No static brand images — all brand logos come from the /Brand/ API
 
 const HOME_PASSWORD_UPDATE_TOAST_ID = "home-password-update-reminder";
 const HOME_PASSWORD_UPDATE_SEEN_KEY = "twam_home_password_update_seen";
@@ -487,19 +477,28 @@ function SectionTitle({
 }
 
 // ─── Brands Marquee ───────────────────────────────────────────────────────────
-function BrandsSection({ logos: _logos }: { logos: any[] }) {
-  const baseBrands = publicBrandImages;
+function BrandsSection({ logos }: { logos: any[] }) {
+  // Only keep brands that actually have a logo/image uploaded
+  const brandImages = useMemo(() => {
+    return logos
+      .map((b: any) => ({
+        src: b.brandLogo ?? b.brandImage ?? "",
+        name: b.brandName ?? b.name ?? "",
+      }))
+      .filter((b) => !!b.src);
+  }, [logos]);
+
+  // Nothing to show — hide section entirely
+  if (!brandImages.length) return null;
+
   const itemWidth = 250,
     itemHeight = 140,
     gap = 40,
     durationSeconds = 34;
   const setWidth = Math.max(
     0,
-    baseBrands.length * itemWidth + Math.max(0, baseBrands.length - 1) * gap,
+    brandImages.length * itemWidth + Math.max(0, brandImages.length - 1) * gap,
   );
-  const logoSlideScale = 1.22;
-  const getImgScale = (src: string) =>
-    src.includes("/assets/brands/logo-slide-") ? logoSlideScale : 1;
 
   return (
     <section className="s-home-be6933">
@@ -515,23 +514,22 @@ function BrandsSection({ logos: _logos }: { logos: any[] }) {
           }}
         >
           <div className="brand-marquee-track">
-            {[...baseBrands, ...baseBrands].map((img, i) => (
+            {[...brandImages, ...brandImages].map((brand, i) => (
               <div
-                key={`${img}-${i}`}
+                key={`${brand.src}-${i}`}
                 className="brand-marquee-item"
                 style={{
                   width: itemWidth,
                   minWidth: itemWidth,
                   height: itemHeight,
                   marginRight:
-                    i % baseBrands.length === baseBrands.length - 1 ? 0 : gap,
+                    i % brandImages.length === brandImages.length - 1 ? 0 : gap,
                 }}
               >
                 <img
-                  src={img}
-                  alt={`Brand ${i}`}
+                  src={brand.src}
+                  alt={brand.name}
                   className="s-home-783e28"
-                  style={{ transform: `scale(${getImgScale(img)})` }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -625,14 +623,7 @@ function MobileProductSlider({
   const card0 = uniqueProducts[index % total];
   const card1 = uniqueProducts[(index + 1) % total];
 
-  const bgSrc =
-    variant === "twam"
-      ? "/assets/twam-featured.png"
-      : variant === "bestsellers"
-      ? "/assets/best-sellers.png"
-      : variant === "new"
-      ? "/assets/new-arrivals.png"
-      : null;
+  const bgSrc: string | null = null; // background set via CSS / parent bgImage prop
 
   return (
     <div className={`mpsl-outer mpsl-outer--${variant}`}>
@@ -753,36 +744,71 @@ function MobileProductSlider({
 
 // ─── TWAM Featured Section ───────────────────────────────────────────────────
 // ─── Shop By Category Section ────────────────────────────────────────────────
-const SHOP_CATEGORIES = [
-  {
-    name: "All Products",
-    image: "/assets/categories/All.png",
-    keywords: [] as string[],
-    directPath: "/all-products",
-  },
-  {
-    name: "Bra",
-    image: "/assets/categories/Bra.png",
-    keywords: ["bra", "bras"],
-  },
-  {
-    name: "Panties",
-    image: "/assets/categories/Panties.png",
-    keywords: ["pant", "pantie"],
-  },
-  {
-    name: "Leakproof",
-    image: "/assets/categories/Leakproof.png",
-    keywords: ["leak"],
-  },
-];
-
-const SHOP_CAT_TOTAL = SHOP_CATEGORIES.length;
+// No static category fallbacks — categories are only shown when they have an uploaded image
 
 function ShopByCategorySection() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { menus } = useMenuStore();
+
+  // "All Products" banner image — uploaded via the admin Images module
+  const allProductsImage = usePageImage(IMAGE_KEYS.HOME_SHOP_ALL_PRODUCTS);
+
+  // Fetch live categories from the backend (includes categoryImage)
+  const { data: catData } = useQuery({
+    queryKey: ["shop-categories"],
+    queryFn: () => listCategories({ pageSize: 200 }),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Build the slide list:
+  //  - "All Products" first — only included when an admin image has been uploaded
+  //  - Then parent (root) categories only: no parentCategoryId, active, with a categoryImage
+  const slides = useMemo(() => {
+    const result: Array<{
+      categoryId: number | null;
+      name: string;
+      image: string;
+      url: string;
+    }> = [];
+
+    // "All Products" — only show if the admin has uploaded an image for it
+    if (allProductsImage) {
+      result.push({
+        categoryId: null,
+        name: "All Products",
+        image: allProductsImage,
+        url: "/all-products",
+      });
+    }
+
+    // Only root (parent) categories that are active and have an image
+    const list: any[] = catData?.list ?? [];
+    list
+      .filter(
+        (c: any) =>
+          c.isActive !== false &&
+          c.name &&
+          !c.parentCategoryId && // root categories only
+          c.categoryImage, // must have an uploaded image
+      )
+      .forEach((c: any) => {
+        result.push({
+          categoryId: c.categoryId,
+          name: c.name,
+          image: c.categoryImage,
+          url: `/user-products/product-list/${c.categoryId}`,
+        });
+      });
+
+    return result;
+  }, [catData, allProductsImage]);
+
+  const SHOP_CAT_TOTAL = slides.length;
+  // Keep a ref so the advance callback always reads the live slide count
+  // (useCallback deps don't include SHOP_CAT_TOTAL, so a plain const would
+  //  be stale after categories load — the ref is always in sync).
+  const shopCatTotalRef = useRef(SHOP_CAT_TOTAL);
+  shopCatTotalRef.current = SHOP_CAT_TOTAL;
 
   // Use a ref alongside state so callbacks never capture stale currentIdx
   const [currentIdx, _setCurrentIdx] = useState(0);
@@ -803,26 +829,10 @@ function ShopByCategorySection() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Resolve categoryId for each banner by fuzzy-matching against live menus
+  // Navigation path is already embedded in each slide from the API
   const resolvePath = useCallback(
-    (cat: (typeof SHOP_CATEGORIES)[0]) => {
-      if ("directPath" in cat && cat.directPath) return cat.directPath;
-      const allMenus: CategoryMenu[] = [];
-      const collect = (items: CategoryMenu[]) => {
-        items.forEach((m) => {
-          allMenus.push(m);
-          if (m.children?.length) collect(m.children);
-        });
-      };
-      collect(menus);
-      const found = allMenus.find((m) =>
-        cat.keywords.some((kw) => m.name.toLowerCase().includes(kw)),
-      );
-      return found?.categoryId
-        ? `/user-products/product-list/${found.categoryId}`
-        : `/user-products/product-list?search=${encodeURIComponent(cat.name)}`;
-    },
-    [menus],
+    (cat: (typeof slides)[0]) => cat.url,
+    [slides],
   );
 
   // ── Slide advance ──────────────────────────────────────────────────────────
@@ -833,10 +843,11 @@ function ShopByCategorySection() {
   const advance = useCallback(
     (dir: 1 | -1 = 1) => {
       if (slidingRef.current) return;
+      const total = shopCatTotalRef.current;
+      if (total === 0) return;
       slidingRef.current = true;
       setSlideDir(dir);
-      const newIdx =
-        (currentIdxRef.current + dir + SHOP_CAT_TOTAL) % SHOP_CAT_TOTAL;
+      const newIdx = (currentIdxRef.current + dir + total) % total;
       setNextIdx(newIdx);
 
       // Allow the incoming slide to render at its off-screen start position
@@ -898,8 +909,11 @@ function ShopByCategorySection() {
 
   if (isMobile) return null;
 
-  const current = SHOP_CATEGORIES[currentIdx];
-  const incoming = nextIdx !== null ? SHOP_CATEGORIES[nextIdx] : null;
+  // Hide the entire section if there are no slides with images
+  if (slides.length === 0) return null;
+
+  const current = slides[currentIdx] ?? slides[0];
+  const incoming = nextIdx !== null ? slides[nextIdx] : null;
 
   // ── Shared styles ──────────────────────────────────────────────────────────
   const arrowBtn: React.CSSProperties = {
@@ -928,7 +942,7 @@ function ShopByCategorySection() {
   // Each slide is absolutely-positioned inside the overflow:hidden container.
   // slideStyle controls the translateX and transition so slides can enter/exit.
   const renderSlide = (
-    cat: (typeof SHOP_CATEGORIES)[0],
+    cat: (typeof slides)[0],
     slideStyle: React.CSSProperties,
     onSlideClick: () => void,
   ) => (
@@ -1129,7 +1143,7 @@ function ShopByCategorySection() {
           flexShrink: 0,
         }}
       >
-        {SHOP_CATEGORIES.map((_, i) => (
+        {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => {
@@ -1137,7 +1151,7 @@ function ShopByCategorySection() {
               setCurrentIdx(i);
               restartTimer();
             }}
-            aria-label={`Go to ${SHOP_CATEGORIES[i].name}`}
+            aria-label={`Go to ${slides[i].name}`}
             style={{
               width: i === currentIdx ? 24 : 8,
               height: 8,
@@ -1292,6 +1306,9 @@ function DesktopFeaturedSection({
   // Viewport box = scaled pixel dimensions (no overflow, no scrollbar)
   const CARD_W = Math.round(NATURAL_CARD_W * cardScale);
   const CARD_H = Math.round(NATURAL_CARD_H * cardScale);
+
+  // No background image uploaded → hide the entire section
+  if (!bgImage) return null;
 
   if (total === 0) return null;
 
@@ -1525,21 +1542,23 @@ function DesktopFeaturedSection({
         onWheel={onWheel}
         onClick={viewAllPath ? () => navigate(viewAllPath) : undefined}
       >
-        {/* Background image fills only this middle zone */}
-        <img
-          src={bgImage}
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "center",
-            zIndex: 0,
-          }}
-        />
+        {/* Background image fills only this middle zone — only when a URL is available */}
+        {bgImage && (
+          <img
+            src={bgImage}
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              zIndex: 0,
+            }}
+          />
+        )}
 
         {/* Card panel — floated left or right over the image.
             stopPropagation is on cardPanel itself (the arrows+card div),
@@ -1604,9 +1623,11 @@ function DesktopFeaturedSection({
 function TwamFeaturedSection({
   products,
   onQuickShop,
+  bgImage,
 }: {
   products: any[];
   onQuickShop: (id: number) => void;
+  bgImage?: string;
 }) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -1628,12 +1649,14 @@ function TwamFeaturedSection({
       className="best-sellers home-product-section home-product-section--ivory"
       style={{ position: "relative", overflow: "hidden" }}
     >
-      <img
-        src="/assets/twam-featured.png"
-        alt=""
-        aria-hidden="true"
-        className="desktop-section-bg desktop-section-bg--twam"
-      />
+      {bgImage && (
+        <img
+          src={bgImage}
+          alt=""
+          aria-hidden="true"
+          className="desktop-section-bg desktop-section-bg--twam"
+        />
+      )}
       <div className="container" style={{ position: "relative", zIndex: 1 }}>
         <SectionTitle title="TWAM Featured" highlight />
         <button
@@ -1857,6 +1880,21 @@ export default function Home() {
   const [quickShopId, setQuickShopId] = useState(0);
   // Track hero banner media readiness — required before firing twam-home-ready
   const [bannerLoaded, setBannerLoaded] = useState(false);
+
+  // ── Dynamic page images (served from /api/images) ───────────────────────
+  const heroMobileSrc = usePageImage(IMAGE_KEYS.HOME_HERO_MOBILE);
+  const heroDesktopSrc = usePageImage(IMAGE_KEYS.HOME_HERO_DESKTOP);
+  // Auto-detect: treat as video when the URL ends with a video extension
+  const heroDesktopIsVideo = /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(
+    heroDesktopSrc,
+  );
+  const twamSectionBg = usePageImage(IMAGE_KEYS.HOME_SECTION_TWAM);
+  const bestsellersSectionBg = usePageImage(
+    IMAGE_KEYS.HOME_SECTION_BESTSELLERS,
+  );
+  const newArrivalsSectionBg = usePageImage(
+    IMAGE_KEYS.HOME_SECTION_NEWARRIVALS,
+  );
 
   useEffect(() => {
     if (!isMobile) {
@@ -2136,8 +2174,8 @@ export default function Home() {
       }),
     select: (d: any) =>
       (d?.list ?? []).filter((r: any) => !!r.productVariantId),
-    staleTime: 0,
-    refetchOnMount: true,
+    staleTime: 2 * 60 * 1000,
+    refetchOnMount: false,
   });
 
   const { data: reviewsData } = useQuery({
@@ -2171,7 +2209,7 @@ export default function Home() {
         return (reviewsRaw as any[]).slice(0, 4);
       }
     },
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   const products = bestSellersProducts;
@@ -2215,33 +2253,43 @@ export default function Home() {
     <div className="s-home-bcf04f">
       <section className="twam-hero" aria-label="TWAM Hero">
         {isMobile ? (
-          /* Mobile: keep image */
-          <img
-            src="/assets/mobile-banner.png"
-            className="twam-hero__img"
-            alt="TWAM Banner"
-            onLoad={() => setBannerLoaded(true)}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "/assets/mobile-banner.jpg";
-              setBannerLoaded(true);
-            }}
-          />
-        ) : (
-          /* Desktop: fullscreen video behind transparent header */
-          <video
-            className="twam-hero__video"
-            src="/assets/hero-3.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            onLoadedMetadata={() => setBannerLoaded(true)}
-            onCanPlay={() => setBannerLoaded(true)}
-            onError={() => setBannerLoaded(true)}
-            poster="/assets/106802.png"
-          />
-        )}
+          /* Mobile: hero image — only rendered once a URL has been uploaded */
+          heroMobileSrc ? (
+            <img
+              src={heroMobileSrc}
+              className="twam-hero__img"
+              alt="TWAM Banner"
+              onLoad={() => setBannerLoaded(true)}
+              onError={() => {
+                setBannerLoaded(true);
+              }}
+            />
+          ) : null
+        ) : /* Desktop: fullscreen hero — video or image, auto-detected */
+        heroDesktopSrc ? (
+          heroDesktopIsVideo ? (
+            <video
+              className="twam-hero__video"
+              src={heroDesktopSrc}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              onLoadedMetadata={() => setBannerLoaded(true)}
+              onCanPlay={() => setBannerLoaded(true)}
+              onError={() => setBannerLoaded(true)}
+            />
+          ) : (
+            <img
+              src={heroDesktopSrc}
+              className="twam-hero__img"
+              alt="TWAM Banner"
+              onLoad={() => setBannerLoaded(true)}
+              onError={() => setBannerLoaded(true)}
+            />
+          )
+        ) : null}
       </section>
       <div className="section-gap" />
 
@@ -2253,6 +2301,7 @@ export default function Home() {
         <TwamFeaturedSection
           products={twamFeaturedProducts}
           onQuickShop={setQuickShopId}
+          bgImage={twamSectionBg}
         />
       )}
 
@@ -2262,7 +2311,7 @@ export default function Home() {
 
       <div className="section-gap" />
 
-      {/* —— TWAM Brand Section —— */}
+      {/* —— TWAM Brand Section — desktop only when bgImage is uploaded —— */}
       {isMobile ? (
         <MobileProductSlider
           title="TWAM"
@@ -2270,19 +2319,23 @@ export default function Home() {
           onQuickShop={setQuickShopId}
           variant="twam"
         />
-      ) : (
-        <DesktopFeaturedSection
-          title="twam"
-          products={twamFeaturedProducts}
-          onQuickShop={setQuickShopId}
-          bgImage="/assets/home/twam1.png"
-          cardSide="center"
-          viewAllPath="/only-twam"
-        />
-      )}
+      ) : twamSectionBg ? (
+        <>
+          <DesktopFeaturedSection
+            title="twam"
+            products={twamFeaturedProducts}
+            onQuickShop={setQuickShopId}
+            bgImage={twamSectionBg}
+            cardSide="center"
+            viewAllPath="/only-twam"
+          />
+          <div className="section-gap" />
+        </>
+      ) : null}
 
-      <div className="section-gap" />
+      {isMobile && <div className="section-gap" />}
 
+      {/* —— Best Sellers — desktop only when bgImage is uploaded —— */}
       {isMobile ? (
         <MobileProductSlider
           title="Best Sellers"
@@ -2291,18 +2344,23 @@ export default function Home() {
           viewAllPath="/best-sellers"
           variant="bestsellers"
         />
-      ) : (
-        <DesktopFeaturedSection
-          title="Best Sellers"
-          products={products}
-          onQuickShop={setQuickShopId}
-          bgImage="/assets/home/Bestsellers.png"
-          cardSide="left"
-          viewAllPath="/best-sellers"
-        />
-      )}
-      <div className="section-gap" />
+      ) : bestsellersSectionBg ? (
+        <>
+          <DesktopFeaturedSection
+            title="Best Sellers"
+            products={products}
+            onQuickShop={setQuickShopId}
+            bgImage={bestsellersSectionBg}
+            cardSide="left"
+            viewAllPath="/best-sellers"
+          />
+          <div className="section-gap" />
+        </>
+      ) : null}
 
+      {isMobile && <div className="section-gap" />}
+
+      {/* —— New Arrivals — desktop only when bgImage is uploaded —— */}
       {isMobile ? (
         <MobileProductSlider
           title="New Arrivals"
@@ -2311,17 +2369,21 @@ export default function Home() {
           viewAllPath="/new-arrivals"
           variant="new"
         />
-      ) : (
-        <DesktopFeaturedSection
-          title="New Arrivals"
-          products={newArrivals}
-          onQuickShop={setQuickShopId}
-          bgImage="/assets/home/Newarrivals.png"
-          cardSide="right"
-          viewAllPath="/new-arrivals"
-        />
-      )}
-      <div className="section-gap" />
+      ) : newArrivalsSectionBg ? (
+        <>
+          <DesktopFeaturedSection
+            title="New Arrivals"
+            products={newArrivals}
+            onQuickShop={setQuickShopId}
+            bgImage={newArrivalsSectionBg}
+            cardSide="right"
+            viewAllPath="/new-arrivals"
+          />
+          <div className="section-gap" />
+        </>
+      ) : null}
+
+      {isMobile && <div className="section-gap" />}
 
       {isMobile && (
         <section

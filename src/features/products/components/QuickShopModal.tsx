@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useCartStore } from "@/features/cart/store/cartStore";
 import { getProductDetail } from "@/features/products/api/products.api";
-import { addToCart } from "@/features/cart/api/cart.api";
+import { addToCart, listCart, updateCart } from "@/features/cart/api/cart.api";
 import { formatPrice, getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
@@ -105,7 +105,7 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
-  const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
+  const { hasValidToken, getUserId } = useAuthStore();
 
   const [variantId, setVariantId] = useState(productVariantId);
   const [selBandId, setSelBandId] = useState<number | null>(null);
@@ -229,9 +229,11 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     return () => clearInterval(id);
   }, [images.length]);
 
-  // Category-driven size configuration (set when the category is created/edited)
-  const hasCupSize = !!product?.hasCupSize; // Category.HasCupSize
-  const bandSizeType = product?.bandSizeType as string | null; // 'alpha' | 'numerical' | null
+  // Size behaviour is fully driven by product-level PVD data — no category config needed.
+  // hasCupSize: true when the product has any PVD row with a CupSizeId (from backend).
+  // sizes:      pre-filtered by the detected SizeType (alpha or numerical) from PVD.
+  // cupSizes:   only present when hasCupSize is true.
+  const hasCupSize = !!product?.hasCupSize; // derived server-side from PVD rows
 
   const rawSizes: any[] = product?.sizes ?? [];
   const allCupSizes: any[] = product?.cupSizes ?? [];
@@ -243,9 +245,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
 
-  // All sizes and cup sizes are now pre-filtered server-side by the category's
-  // bandSizeType (mdm.Size.SizeType filter) and hasCupSize flag.
-  // No client-side regex filtering needed.
+  // Sizes are pre-filtered server-side by detected SizeType from PVD data.
+  // No client-side filtering needed.
   const allSizes: any[] = rawSizes;
 
   const cupAvail = (cupId: number) => {
@@ -454,13 +455,36 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
 
   // ── Cart mutation — invalidates all cart keys so Navbar + QuickCart + Cart page all refresh ──
   const addMut = useMutation({
-    mutationFn: (obj: any) => addToCart(obj),
-    onSuccess: () => {
-      toast.success("Added to cart!");
-      setCartCount(cartCount + 1);
+    mutationFn: async (obj: any) => {
+      const res = await listCart({ userProfileId: String(getUserId()) });
+      const current = res?.list ?? res ?? [];
+      const existing = (current as any[]).find(
+        (item) => item.productVariantDetailId === obj.productVariantDetailId,
+      );
+
+      if (existing?.cartId) {
+        const currentQty = Number(
+          existing.quantity || existing.processedQuantity || 1,
+        );
+        const addQty = Number(obj.quantity || obj.processedQuantity || 1) || 1;
+        await updateCart(existing.cartId, {
+          cartId: existing.cartId,
+          quantity: currentQty + addQty,
+        });
+        return { mode: "updated" as const };
+      }
+
+      await addToCart(obj);
+      return { mode: "added" as const };
+    },
+    onSuccess: async (result) => {
+      toast.success(
+        result?.mode === "updated" ? "Cart updated!" : "Added to cart!",
+      );
       qc.invalidateQueries({ queryKey: ["cart"] });
       qc.invalidateQueries({ queryKey: ["quick-cart"] });
       qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+      await qc.refetchQueries({ queryKey: ["cart-bootstrap"] });
       onClose();
     },
     onError: (e: any) =>

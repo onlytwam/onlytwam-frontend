@@ -22,7 +22,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 5 * 60 * 1000,
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnMount: false,
       refetchOnWindowFocus: false,
     },
   },
@@ -325,9 +327,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             )}
           </Toaster>
         )}
-        {import.meta.env.DEV && (
-          <ReactQueryDevtools initialIsOpen={false} />
-        )}
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </BrowserRouter>
   </React.StrictMode>,

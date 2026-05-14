@@ -1,24 +1,18 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { listCart, addToCart, updateCart } from "@/features/cart/api/cart.api";
 
 /**
- * useCartLoader — IMPROVED VERSION
- * ─────────────────────────────────
- * Fetches the server cart count and keeps authStore.cartCount in sync.
- * Call this once near the app root (App.tsx).
- *
- * Improvements:
- * - Listens to 'syncComplete' event from authStore after login
- * - Forces refetch after sync to ensure fresh data
- * - Properly invalidates cache
- * - Processes pendingBuyNowCartAdd (from Buy Now → Back navigation)
+ * useCartLoader
+ * Keeps authStore.cartCount in sync with the server cart and handles
+ * post-login cart sync plus pending Buy Now cart additions.
  */
 export function useCartLoader() {
   const { isAuthenticated, getUserId, setCartCount } = useAuthStore();
   const userId = getUserId();
   const queryClient = useQueryClient();
+  const processingPendingRef = useRef(false);
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ["cart-bootstrap", userId],
@@ -27,27 +21,38 @@ export function useCartLoader() {
       return res?.list ?? res ?? [];
     },
     enabled: isAuthenticated && !!userId,
-    staleTime: 0, // always refetch fresh
-    refetchOnMount: true,
+    staleTime: 60_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
-  // Update cart count when data changes
   useEffect(() => {
     if (!isAuthenticated) {
       setCartCount(0);
       return;
     }
     if (Array.isArray(data)) {
-      setCartCount(data.length);
+      // Count unique products, not raw DB rows — duplicate rows for the same
+      // productVariantDetailId are merged into one card in the UI, so the
+      // badge must reflect that merged count, not the raw row count.
+      const uniqueCount = new Set(
+        (data as any[]).map((item) =>
+          item.productVariantDetailId != null
+            ? String(item.productVariantDetailId)
+            : `cart-${item.cartId}`,
+        ),
+      ).size;
+      setCartCount(uniqueCount);
     }
   }, [data, isAuthenticated, setCartCount]);
 
-  // Process pending buy-now items saved when user went back from Buy Now cart
-  useEffect(() => {
+  const processPendingBuyNowCartAdd = useCallback(async () => {
     if (!isAuthenticated || !userId || !Array.isArray(data)) return;
-
+    if (processingPendingRef.current) return;
     const raw = localStorage.getItem("pendingBuyNowCartAdd");
+    const pendingKey = localStorage.getItem("pendingBuyNowCartAddKey");
+    const processedKey = localStorage.getItem("processedBuyNowCartAddKey");
+    if (pendingKey && pendingKey === processedKey) return;
     if (!raw) return;
 
     let pending: any[] = [];
@@ -58,14 +63,14 @@ export function useCartLoader() {
     }
     if (!pending.length) return;
 
-    // Clear immediately so we don't re-process on the next render
-    localStorage.removeItem("pendingBuyNowCartAdd");
+    processingPendingRef.current = true;
 
-    const process = async () => {
+    try {
+      localStorage.removeItem("pendingBuyNowCartAdd");
+
       for (const item of pending) {
         if (!item.productVariantDetailId) continue;
         try {
-          // Check if same item already exists in cart (avoid duplicates)
           const existing = (data as any[]).find(
             (c: any) =>
               c.productVariantDetailId === item.productVariantDetailId,
@@ -82,25 +87,29 @@ export function useCartLoader() {
             await addToCart(item);
           }
         } catch {
-          // silent — don't disrupt the user
+          // Silent on purpose so cart recovery never blocks the user.
         }
       }
-      // Refresh cart after processing
+
       await queryClient.invalidateQueries({ queryKey: ["cart"] });
       await queryClient.invalidateQueries({ queryKey: ["quick-cart"] });
       await queryClient.invalidateQueries({ queryKey: ["cart-bootstrap"] });
       await refetch();
-    };
 
-    process();
-  }, [isAuthenticated, userId, data, queryClient, refetch]);
+      if (pendingKey) {
+        localStorage.setItem("processedBuyNowCartAddKey", pendingKey);
+      }
+      localStorage.removeItem("pendingBuyNowCartAddKey");
+    } finally {
+      processingPendingRef.current = false;
+    }
+  }, [data, isAuthenticated, queryClient, refetch, userId]);
 
-  // Listen to sync events and refetch
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const handleSyncComplete = async () => {
-      console.log("🔄 Cart: Sync complete, refetching...");
+      console.log("Cart: sync complete, refetching...");
       await queryClient.invalidateQueries({ queryKey: ["cart"] });
       await queryClient.invalidateQueries({ queryKey: ["cart-bootstrap"] });
       await queryClient.invalidateQueries({ queryKey: ["quick-cart"] });
@@ -108,28 +117,34 @@ export function useCartLoader() {
     };
 
     const handleCartSync = async () => {
-      console.log("🔄 Cart: Cart sync event, refetching...");
+      console.log("Cart: cart sync event, refetching...");
       await refetch();
+    };
+
+    const handleBuyNowReturned = async () => {
+      console.log("Cart: buy-now return detected, merging items...");
+      await processPendingBuyNowCartAdd();
     };
 
     window.addEventListener("syncComplete", handleSyncComplete);
     window.addEventListener("cartSyncComplete", handleCartSync);
+    window.addEventListener("buyNowCartReturned", handleBuyNowReturned);
     window.addEventListener("wishlistUpdated", handleCartSync);
 
     return () => {
       window.removeEventListener("syncComplete", handleSyncComplete);
       window.removeEventListener("cartSyncComplete", handleCartSync);
+      window.removeEventListener("buyNowCartReturned", handleBuyNowReturned);
       window.removeEventListener("wishlistUpdated", handleCartSync);
     };
-  }, [isAuthenticated, refetch, queryClient]);
+  }, [isAuthenticated, processPendingBuyNowCartAdd, refetch, queryClient]);
 
-  // Force refetch when authentication state changes
   useEffect(() => {
     if (isAuthenticated && userId) {
-      console.log("🔄 Cart: Auth state changed, refetching...");
+      console.log("Cart: auth state changed, refetching...");
       refetch();
     }
-  }, [isAuthenticated, userId]);
+  }, [isAuthenticated, userId, refetch]);
 
   return { isLoading, refetch };
 }

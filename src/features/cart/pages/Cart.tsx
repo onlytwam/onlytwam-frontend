@@ -392,6 +392,184 @@ function SurpriseGiftCard() {
   );
 }
 
+type StockIssue = {
+  id: string;
+  name: string;
+  requested: number;
+  available: number;
+  item: any;
+};
+
+function StockValidationToast({
+  issues,
+  onReduce,
+  onDismiss,
+}: {
+  issues: StockIssue[];
+  onReduce: (issue: StockIssue) => void;
+  onDismiss: () => void;
+}) {
+  const [localIssues, setLocalIssues] = useState(issues);
+
+  useEffect(() => {
+    setLocalIssues(issues);
+  }, [issues]);
+
+  useEffect(() => {
+    if (localIssues.length > 0) return;
+    const t = setTimeout(onDismiss, 200);
+    return () => clearTimeout(t);
+  }, [localIssues.length, onDismiss]);
+
+  const reduceQty = (issue: StockIssue) => {
+    onReduce(issue);
+    const nextRequested = Math.max(1, issue.requested - 1);
+    if (nextRequested <= issue.available) {
+      setLocalIssues((prev) => prev.filter((i) => i.id !== issue.id));
+      return;
+    }
+
+    setLocalIssues((prev) =>
+      prev.map((i) =>
+        i.id === issue.id ? { ...i, requested: nextRequested } : i,
+      ),
+    );
+  };
+
+  return (
+    <div
+      style={{
+        width: "min(460px, calc(100vw - 32px))",
+        padding: 18,
+        borderRadius: 20,
+        border: "1px solid rgba(107, 15, 42, 0.16)",
+        background: "linear-gradient(180deg, #fffaf5 0%, #ffffff 100%)",
+        boxShadow: "0 20px 48px rgba(107,15,42,0.18)",
+      }}
+    >
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        <div
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            display: "grid",
+            placeItems: "center",
+            background: "linear-gradient(145deg, #9e6070, #6b0f2a)",
+            color: "#fff",
+            flexShrink: 0,
+          }}
+        >
+          <i className="bi bi-exclamation-triangle-fill" />
+        </div>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 800,
+              color: "var(--brand)",
+              marginBottom: 8,
+            }}
+          >
+            Some items need a quantity update
+          </div>
+          <div
+            style={{ fontSize: 13, color: "var(--heirloom)", marginBottom: 12 }}
+          >
+            The following products have less stock than the quantity in your
+            cart.
+          </div>
+
+          <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
+            {localIssues.map((issue) => (
+              <div
+                key={issue.id}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  background: "#fff",
+                  border: "1px solid rgba(107,15,42,0.10)",
+                }}
+              >
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <img
+                    src={getImageUrl(issue.item.image || issue.item.imageURL)}
+                    alt={issue.name}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                    style={{
+                      width: 56,
+                      height: 68,
+                      objectFit: "cover",
+                      borderRadius: 12,
+                      flexShrink: 0,
+                      background: "#f5f0e6",
+                    }}
+                  />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: "#2c1c22",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {issue.name}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--heirloom)" }}>
+                      Requested {issue.requested}, only {issue.available}{" "}
+                      available
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => reduceQty(issue)}
+                    disabled={issue.requested <= 1}
+                    aria-label={`Reduce ${issue.name} quantity`}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 999,
+                      border: "none",
+                      background: "var(--brand)",
+                      color: "#fff",
+                      fontWeight: 800,
+                      cursor: issue.requested <= 1 ? "not-allowed" : "pointer",
+                      flexShrink: 0,
+                      opacity: issue.requested <= 1 ? 0.5 : 1,
+                    }}
+                  >
+                    −
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={onDismiss}
+            style={{
+              border: "none",
+              borderRadius: 10,
+              background: "var(--brand)",
+              color: "#fff",
+              padding: "10px 16px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FancySurpriseGiftCard() {
   return (
     <div
@@ -774,6 +952,142 @@ type CouponOption = {
 const isGeneralCoupon = (coupon: any) =>
   coupon?.isCommon === true || !text(coupon?.toUserProfileId);
 
+function getCartItemQuantity(item: any) {
+  return Number(item?.processedQuantity ?? item?.quantity ?? 1) || 1;
+}
+
+function getCartItemMatchKey(item: any) {
+  return item?.productVariantDetailId ?? item?.productVariantId ?? item?.cartId;
+}
+
+function getItemStockQuantity(item: any) {
+  const stock = Number(item?.stockQuantity);
+  return Number.isFinite(stock) && stock >= 0 ? stock : null;
+}
+
+function updateMergedCartItems(
+  items: any[],
+  item: any,
+  desiredTotalQty: number,
+) {
+  const matchKey = getCartItemMatchKey(item);
+  if (matchKey == null) {
+    return {
+      nextItems: items.map((current) =>
+        current.cartId === item.cartId
+          ? {
+              ...current,
+              processedQuantity: desiredTotalQty,
+              quantity: desiredTotalQty,
+            }
+          : current,
+      ),
+      targetCartId: item.cartId as number | null,
+      targetQty: desiredTotalQty,
+    };
+  }
+
+  const matches = items.filter((current) => {
+    const currentKey = getCartItemMatchKey(current);
+    return currentKey != null && currentKey === matchKey;
+  });
+
+  if (matches.length <= 1) {
+    const targetCartId = matches[0]?.cartId ?? item.cartId ?? null;
+    return {
+      nextItems: items.map((current) =>
+        current.cartId === targetCartId
+          ? {
+              ...current,
+              processedQuantity: desiredTotalQty,
+              quantity: desiredTotalQty,
+            }
+          : current,
+      ),
+      targetCartId,
+      targetQty: desiredTotalQty,
+    };
+  }
+
+  const targetRow =
+    matches.reduce((best, current) =>
+      getCartItemQuantity(current) >= getCartItemQuantity(best)
+        ? current
+        : best,
+    ) ?? matches[0];
+
+  const otherTotal =
+    matches.reduce((sum, current) => sum + getCartItemQuantity(current), 0) -
+    getCartItemQuantity(targetRow);
+  const targetQty = desiredTotalQty - otherTotal;
+
+  if (targetQty < 1) {
+    return {
+      nextItems: items.filter((current) => current.cartId !== targetRow.cartId),
+      targetCartId: targetRow.cartId as number | null,
+      targetQty: 0,
+    };
+  }
+
+  return {
+    nextItems: items.map((current) =>
+      current.cartId === targetRow.cartId
+        ? {
+            ...current,
+            processedQuantity: targetQty,
+            quantity: targetQty,
+          }
+        : current,
+    ),
+    targetCartId: targetRow.cartId as number | null,
+    targetQty,
+  };
+}
+
+function getStockIssues(items: any[]): StockIssue[] {
+  return items
+    .map((item) => {
+      const available = getItemStockQuantity(item);
+      const requested = Number(item?.processedQuantity || item?.quantity || 1);
+      if (available === null || requested <= available) return null;
+
+      return {
+        id: String(
+          item.cartId ?? item.productVariantDetailId ?? item.productVariantId,
+        ),
+        name: item.productName || item.name || "Unnamed product",
+        requested,
+        available,
+        item,
+      } satisfies StockIssue;
+    })
+    .filter(Boolean) as StockIssue[];
+}
+
+function showStockIssuesPopup(
+  issues: StockIssue[],
+  onReduce: (issue: StockIssue) => void,
+) {
+  toast.custom(
+    (t) => (
+      <StockValidationToast
+        issues={issues}
+        onReduce={onReduce}
+        onDismiss={() => toast.dismiss(t.id)}
+      />
+    ),
+    {
+      duration: 7000,
+      style: {
+        background: "transparent",
+        boxShadow: "none",
+        padding: 0,
+        border: "none",
+      },
+    },
+  );
+}
+
 function SaveForLater({
   item,
   onRemoveFromCart,
@@ -842,6 +1156,13 @@ export default function Cart() {
     queryKey: ["cart", userId],
     queryFn: () => listCart({ userProfileId: userId }),
     enabled: isAuth && !isBuyNowView,
+    staleTime: 60_000,
+    // Override the global refetchOnMount:false — the cart MUST re-fetch when
+    // the page mounts after an item was added from another page, because
+    // invalidateQueries only schedules a background refetch for mounted queries;
+    // unmounted queries just get marked stale and need refetchOnMount:true to
+    // actually fetch when this page opens.
+    refetchOnMount: true,
     select: (data: any) =>
       (data?.list ?? data ?? []).map((item: any) => ({
         ...item,
@@ -912,6 +1233,7 @@ export default function Cart() {
         return normalizeCouponResponse(res);
       },
       enabled: isAuth && Boolean(userId),
+      staleTime: 5 * 60 * 1000,
     });
 
   const { data: generalCoupons = [], isLoading: isGeneralCouponsLoading } =
@@ -925,6 +1247,7 @@ export default function Cart() {
         });
         return normalizeCouponResponse(res).filter(isGeneralCoupon);
       },
+      staleTime: 5 * 60 * 1000,
     });
 
   useEffect(() => {
@@ -970,6 +1293,14 @@ export default function Cart() {
       const session = getBuyNowSession();
       if (!session?.items?.length) return;
 
+      const returnKey = `buy-now-return:${
+        session.createdAt ?? Date.now()
+      }:${session.cartSignature ?? "no-signature"}`;
+      const processedKey = localStorage.getItem(
+        "processedBuyNowCartAddKey",
+      );
+      if (processedKey === returnKey) return;
+
       if (isAuth && userId) {
         // Logged-in: queue items in localStorage for useCartLoader to process
         const pending = session.items.map((item: any) => ({
@@ -981,6 +1312,8 @@ export default function Cart() {
           quantity: item.processedQuantity || 1,
         }));
         localStorage.setItem("pendingBuyNowCartAdd", JSON.stringify(pending));
+        localStorage.setItem("pendingBuyNowCartAddKey", returnKey);
+        window.dispatchEvent(new Event("buyNowCartReturned"));
       } else {
         // Guest: merge buyNow item(s) into guestCart synchronously
         const gc: any[] = (() => {
@@ -1087,47 +1420,13 @@ export default function Cart() {
     checkoutTransitionInProgressRef.current = false;
   };
 
-  const proceedToCheckoutAddress = async () => {
-    if (checkoutTransitionInProgressRef.current) return;
-    checkoutTransitionInProgressRef.current = true;
-    didProceedToCheckoutRef.current = true; // mark that user intentionally proceeded
-    clearGiftRedirectTimer();
-    giftUnlockPendingRef.current = false;
-    giftFlowSignatureRef.current = null;
-    const store = useCartStore.getState();
-    const checkoutSession = isBuyNowView
-      ? getBuyNowSession()
-      : readCheckoutSession();
-    const surpriseGift =
-      checkoutSession?.surpriseGift ?? activeSurpriseGift ?? null;
-
-    persistCheckoutSession(
-      surpriseGift,
-      surpriseGift
-        ? checkoutSession?.giftCheckoutKey ??
-            currentCheckoutSession?.giftCheckoutKey ??
-            location.key
-        : null,
-    );
-
-    if (isBuyNowView) {
-      // Buy Now flow keeps the temporary session in sync, but cart store stays unchanged.
-    } else {
-      store.setSelectedItems?.(selectedItems);
-      store.setSubTotal?.(subTotal);
-    }
-
-    const checkoutPath =
-      "/user-products/payment-address" + (isBuyNowView ? "?buyNow=1" : "");
-
-    if (!isAuth) {
-      navigate(checkoutPath, {
-        state: {
-          from: location.pathname + location.search,
-          surpriseGiftFlow: currentCartSignature,
-        },
+  const validateCartStock = async () => {
+    const localIssues = getStockIssues(selectedItems);
+    if (localIssues.length > 0) {
+      showStockIssuesPopup(localIssues, (issue) => {
+        handleQtyChange(issue.item, Math.max(1, issue.requested - 1));
       });
-      return;
+      return false;
     }
 
     try {
@@ -1136,6 +1435,60 @@ export default function Cart() {
           .filter((i) => i.productVariantDetailId)
           .map((i) => ({ productVariantDetailId: i.productVariantDetailId })),
       });
+      return true;
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Some items are out of stock");
+      return false;
+    }
+  };
+
+  const proceedToCheckoutAddress = async () => {
+    if (checkoutTransitionInProgressRef.current) return;
+    try {
+      const isStockOk = await validateCartStock();
+      if (!isStockOk) return;
+
+      checkoutTransitionInProgressRef.current = true;
+      didProceedToCheckoutRef.current = true; // mark that user intentionally proceeded
+      clearGiftRedirectTimer();
+      giftUnlockPendingRef.current = false;
+      giftFlowSignatureRef.current = null;
+      const store = useCartStore.getState();
+      const checkoutSession = isBuyNowView
+        ? getBuyNowSession()
+        : readCheckoutSession();
+      const surpriseGift =
+        checkoutSession?.surpriseGift ?? activeSurpriseGift ?? null;
+
+      persistCheckoutSession(
+        surpriseGift,
+        surpriseGift
+          ? checkoutSession?.giftCheckoutKey ??
+              currentCheckoutSession?.giftCheckoutKey ??
+              location.key
+          : null,
+      );
+
+      if (isBuyNowView) {
+        // Buy Now flow keeps the temporary session in sync, but cart store stays unchanged.
+      } else {
+        store.setSelectedItems?.(selectedItems);
+        store.setSubTotal?.(subTotal);
+      }
+
+      const checkoutPath =
+        "/user-products/payment-address" + (isBuyNowView ? "?buyNow=1" : "");
+
+      if (!isAuth) {
+        navigate(checkoutPath, {
+          state: {
+            from: location.pathname + location.search,
+            surpriseGiftFlow: currentCartSignature,
+          },
+        });
+        return;
+      }
+
       navigate(checkoutPath, {
         state: {
           from: location.pathname + location.search,
@@ -1445,6 +1798,7 @@ export default function Cart() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cart"] });
       qc.invalidateQueries({ queryKey: ["quick-cart"] });
+      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
     },
   });
 
@@ -1458,6 +1812,45 @@ export default function Cart() {
       setCartCount(Math.max(0, (cartCount || 1) - 1));
     },
   });
+
+  const removeMergedCartItem = async (item: any) => {
+    if (!isAuth) {
+      GuestCart.remove(item.productVariantDetailId);
+      setGuestItems((prev) => {
+        const updated = prev.filter(
+          (i: any) => i.productVariantDetailId !== item.productVariantDetailId,
+        );
+        window.dispatchEvent(new Event("guestCartUpdated"));
+        return updated;
+      });
+      toast.success("Item removed");
+      return;
+    }
+
+    const ids = Array.from(
+      new Set(
+        [item.cartId, ...(item._extraCartIds ?? [])].filter(
+          (id): id is number => typeof id === "number" && Number.isFinite(id),
+        ),
+      ),
+    );
+
+    if (ids.length <= 1) {
+      deleteMutation.mutate(item.cartId);
+      return;
+    }
+
+    try {
+      await Promise.all(ids.map((id) => deleteCartItem(id)));
+      toast.success("Item removed");
+      setCartCount(Math.max(0, (cartCount || 1) - 1));
+      qc.invalidateQueries({ queryKey: ["cart"] });
+      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+    } catch {
+      toast.error("Failed to remove item");
+    }
+  };
 
   const syncBuyNowItems = (
     updater: (items: any[]) => any[],
@@ -1481,7 +1874,8 @@ export default function Cart() {
     // Stock cap: never allow going above available stock
     const stock: number | null =
       item.stockQuantity != null ? Number(item.stockQuantity) : null;
-    if (stock !== null && qty > stock) {
+    const currentQty = Number(item.processedQuantity || 1);
+    if (stock !== null && qty > stock && qty > currentQty) {
       const itemKey = String(
         item.cartId ?? item.productVariantDetailId ?? item.productVariantId,
       );
@@ -1500,23 +1894,22 @@ export default function Cart() {
       return;
     }
     if (isAuth) {
-      updateMutation.mutate({ id: item.cartId, qty });
-      setAuthItems((prev) =>
-        prev.map((i) =>
-          i.cartId === item.cartId
-            ? { ...i, processedQuantity: qty, quantity: qty }
-            : i,
-        ),
+      const { nextItems, targetCartId, targetQty } = updateMergedCartItems(
+        authItems,
+        item,
+        qty,
       );
+      setAuthItems(nextItems);
+      if (targetCartId == null) return;
+      if (targetQty < 1) {
+        deleteMutation.mutate(targetCartId);
+        return;
+      }
+      updateMutation.mutate({ id: targetCartId, qty: targetQty });
     } else {
-      GuestCart.updateQty(item.productVariantDetailId, qty);
-      setGuestItems((prev) =>
-        prev.map((i) =>
-          i.productVariantDetailId === item.productVariantDetailId
-            ? { ...i, processedQuantity: qty, quantity: qty }
-            : i,
-        ),
-      );
+      const { nextItems } = updateMergedCartItems(guestItems, item, qty);
+      setGuestItems(nextItems);
+      GuestCart.set(nextItems);
     }
   };
 
@@ -1532,18 +1925,7 @@ export default function Cart() {
       );
       return;
     }
-    if (isAuth) deleteMutation.mutate(item.cartId);
-    else {
-      GuestCart.remove(item.productVariantDetailId);
-      setGuestItems((prev) => {
-        const updated = prev.filter(
-          (i: any) => i.productVariantDetailId !== item.productVariantDetailId,
-        );
-        window.dispatchEvent(new Event("guestCartUpdated"));
-        return updated;
-      });
-      toast.success("Item removed");
-    }
+    void removeMergedCartItem(item);
   };
 
   const toggleSelect = (item: any) => {
@@ -1722,6 +2104,9 @@ export default function Cart() {
       toast.error("Please select at least one item");
       return;
     }
+
+    const isStockOk = await validateCartStock();
+    if (!isStockOk) return;
 
     if (typedCouponInput && typedCouponInput !== appliedCouponCode) {
       const isCouponValid = await applyCouponByCode(typedCouponInput, true);

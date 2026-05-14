@@ -139,6 +139,8 @@ export default function MobileProductCard({ product }: Props) {
           className="mpc-img"
           src={imgSrc}
           alt={displayName}
+          loading="lazy"
+          decoding="async"
           onError={() => setImgError(true)}
         />
         {ratingDisplay && (

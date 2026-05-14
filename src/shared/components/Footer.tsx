@@ -189,9 +189,6 @@ export default function Footer() {
                 }}
               />
             </div>
-            {(emailError || phoneError) && (
-              <p className="fmob-news-error">Enter a valid email or phone</p>
-            )}
             {checked && !showChannelPicker && (
               <div className="fmob-news-actions">
                 <button
@@ -451,17 +448,6 @@ export default function Footer() {
                   {checking ? <span className="subscribe-spinner" /> : "→"}
                 </button>
               </div>
-
-              <p
-                className={`subscribe-error-msg ${emailError ? "visible" : ""}`}
-              >
-                * Please enter a valid email or phone number
-              </p>
-              <p
-                className={`subscribe-error-msg ${phoneError ? "visible" : ""}`}
-              >
-                * Please enter a valid 10-digit phone number
-              </p>
 
               {checked && !showChannelPicker && (
                 <div className="subscribe-action-btns">
