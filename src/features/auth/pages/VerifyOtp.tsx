@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { sendForgotPasswordOtpToChannel } from "@/features/auth/api/auth.api";
 import AuthBackdrop from "@/features/auth/components/AuthBackdrop";
-import { useAuthBackgroundImage } from "@/features/auth/hooks/useAuthBackgroundImage";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
@@ -25,7 +25,7 @@ export default function VerifyOtp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
-  const bgImage = useAuthBackgroundImage();
+  const bgImage = usePageImage(IMAGE_KEYS.LOGIN_BACKGROUND);
 
   const identifier = searchParams.get("identifier") || "";
   const channel = (searchParams.get("channel") || "email") as "email" | "sms" | "whatsapp";

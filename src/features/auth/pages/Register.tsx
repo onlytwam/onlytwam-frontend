@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { registerUser, encryptPassword } from "@/features/auth/api/auth.api";
 import AuthBackdrop from "@/features/auth/components/AuthBackdrop";
-import { useAuthBackgroundImage } from "@/features/auth/hooks/useAuthBackgroundImage";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import toast from "react-hot-toast";
@@ -57,7 +57,7 @@ type SignupForm = z.infer<typeof signupSchema>;
 export default function Register() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const bgImage = useAuthBackgroundImage();
+  const bgImage = usePageImage(IMAGE_KEYS.LOGIN_BACKGROUND);
   const [loading, setLoading] = useState(false);
   const [hidePass, setHidePass] = useState(true);
 
