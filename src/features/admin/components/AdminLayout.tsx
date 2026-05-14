@@ -1,7 +1,7 @@
-import { Outlet, Navigate, NavLink, useNavigate } from "react-router-dom";
+﻿import { Outlet, Navigate, NavLink, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/authStore";
 
-// Role label map — Record<number,string> avoids ts(7053) implicit-any index error
+// Role label map â€” Record<number,string> avoids ts(7053) implicit-any index error
 const ROLE_LABELS: Record<number, string> = {
   1: "Super Admin",
   3: "Inventory Manager",
@@ -10,7 +10,7 @@ const ROLE_LABELS: Record<number, string> = {
   6: "Customer Support",
 };
 
-// Full nav pool — merged from both versions; union of roles so no access is lost
+// Full nav pool â€” merged from both versions; union of roles so no access is lost
 const ALL_NAV = [
   {
     path: "/admin/admin-dashboard",
@@ -19,8 +19,7 @@ const ALL_NAV = [
 
     // roles: [1, 5],
 
-    roles: [1, 3, 4, 5, 6], // v1 had 3,4 — kept in union
-
+    roles: [1, 3, 4, 5, 6], // v1 had 3,4 â€” kept in union
   },
   {
     path: "/admin/orders",
@@ -38,7 +37,7 @@ const ALL_NAV = [
     path: "/admin/bulk-import",
     icon: "bi-upload",
     label: "Bulk Upload",
-    roles: [1, 3, 4], // v1 had 3,4 — kept in union
+    roles: [1, 3, 4], // v1 had 3,4 â€” kept in union
   },
   {
     path: "/admin/product-bulk-upload",
@@ -50,19 +49,25 @@ const ALL_NAV = [
     path: "/admin/categories",
     icon: "bi-folder",
     label: "Categories",
-    roles: [1, 4], // v1 had 4 — kept in union
+    roles: [1, 4], // v1 had 4 â€” kept in union
   },
   {
     path: "/admin/store-settings",
     icon: "bi-folder",
     label: "Store Settings",
-    roles: [1, 3, 4], // v1 had 3,4 — kept in union
+    roles: [1, 3, 4], // v1 had 3,4 â€” kept in union
+  },
+  {
+    path: "/admin/branding-settings",
+    icon: "bi-image",
+    label: "Images",
+    roles: [1],
   },
   {
     path: "/admin/Billing",
     icon: "bi-folder",
     label: "Billing",
-    roles: [1, 3, 4, 7], // v2 added role 7 — kept
+    roles: [1, 3, 4, 7], // v2 added role 7 â€” kept
   },
   // { path: '/admin/brands',  icon: 'bi-bookmark-star', label: 'Brands',  roles: [1,4] },
   // { path: '/admin/sizes',   icon: 'bi-rulers',        label: 'Sizes',   roles: [1,3] },
@@ -70,13 +75,13 @@ const ALL_NAV = [
     path: "/admin/MDM",
     icon: "bi-diagram-3",
     label: "MDM",
-    roles: [1, 3, 4], // v1 had 3,4 — kept in union
+    roles: [1, 3, 4], // v1 had 3,4 â€” kept in union
   },
   {
     path: "/admin/inventory",
     icon: "bi-clipboard-data",
     label: "Inventory",
-    roles: [1, 3, 4], // v2 added 4 — kept in union
+    roles: [1, 3, 4], // v2 added 4 â€” kept in union
   },
   {
     path: "/admin/coupons",
@@ -144,7 +149,6 @@ export default function AdminLayout() {
   const defaultPath =
     roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
 
-
   const goToStore = () => {
     sessionStorage.setItem("adminViewingStore", "true");
     navigate("/");
@@ -152,7 +156,7 @@ export default function AdminLayout() {
 
   return (
     <div className="s-adminlayout-474885">
-      {/* ── Sidebar ── */}
+      {/* â”€â”€ Sidebar â”€â”€ */}
       <aside className="s-adminlayout-358067">
         {/* Logo */}
         <div className="s-adminlayout-418b89">
@@ -219,7 +223,7 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* ── Main content ── */}
+      {/* â”€â”€ Main content â”€â”€ */}
       <main className="s-adminlayout-5679e3">
         <div className="s-adminlayout-5527a1">
           <h1 className="s-adminlayout-6a1182">TWAM Admin</h1>

@@ -756,6 +756,7 @@ export default function PaymentAddress() {
     queryFn: () => listAddress({ userProfileId: userId }),
     enabled: isAuth && !!userId,
     select: (d: any) => d?.list ?? d ?? [],
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -1396,8 +1397,67 @@ export default function PaymentAddress() {
 
           {/* Address list */}
           {isLoading ? (
-            <div className="s-paymentaddre-4d4a05">
-              <div className="spinner-border s-paymentaddre-a6f59d" />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                paddingTop: 8,
+              }}
+            >
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    border: "2px solid var(--ivory)",
+                    borderRadius: 14,
+                    padding: 18,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 14,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div
+                      className="twam-skel"
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div
+                        className="twam-skel"
+                        style={{
+                          height: 14,
+                          width: "50%",
+                          borderRadius: 5,
+                          marginBottom: 8,
+                        }}
+                      />
+                      <div
+                        className="twam-skel"
+                        style={{
+                          height: 12,
+                          width: "80%",
+                          borderRadius: 5,
+                          marginBottom: 6,
+                        }}
+                      />
+                      <div
+                        className="twam-skel"
+                        style={{ height: 12, width: "60%", borderRadius: 5 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             (addresses as any[]).map((addr: any) => (

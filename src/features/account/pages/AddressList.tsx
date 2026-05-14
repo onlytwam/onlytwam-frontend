@@ -167,7 +167,7 @@ export default function AddressList() {
     queryKey: ["addresses", userId],
     queryFn: () => listAddress({ userProfileId: userId }),
     enabled: !!userId,
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -625,8 +625,54 @@ export default function AddressList() {
 
       {/* Address Cards */}
       {isLoading ? (
-        <div className="text-center py-4">
-          <div className="spinner-border" style={{ color: "#6B0F2A" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                border: "1.5px solid var(--ivory)",
+                borderRadius: 14,
+                padding: 20,
+              }}
+            >
+              <div style={{ display: "flex", gap: 14 }}>
+                <div
+                  className="twam-skel"
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 10,
+                    marginTop: 2,
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div
+                    className="twam-skel"
+                    style={{
+                      height: 14,
+                      width: "50%",
+                      borderRadius: 5,
+                      marginBottom: 8,
+                    }}
+                  />
+                  <div
+                    className="twam-skel"
+                    style={{
+                      height: 12,
+                      width: "80%",
+                      borderRadius: 5,
+                      marginBottom: 6,
+                    }}
+                  />
+                  <div
+                    className="twam-skel"
+                    style={{ height: 12, width: "60%", borderRadius: 5 }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : addresses.length === 0 ? (
         <div className="text-center py-5 text-muted">

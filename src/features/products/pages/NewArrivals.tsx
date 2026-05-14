@@ -3,7 +3,9 @@
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listNewArrivals } from "@/features/products/api/products.api";
+import {
+  listNewArrivals,
+} from "@/features/products/api/products.api";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
@@ -16,6 +18,7 @@ import ProductFilters, {
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 
 const DEFAULT_FILTERS: ProductFilterState = {
   colors: [],
@@ -35,11 +38,11 @@ export default function NewArrivals() {
   const filterScrollY = useRef(0);
   const { setCrumbs } = useBreadcrumbStore();
 
-  const [sortOption, setSortOption]   = useState("latest");
-  const [page, setPage]               = useState(1);
-  const [filterOpen, setFilterOpen]   = useState(false);
+  const [sortOption, setSortOption] = useState("latest");
+  const [page, setPage] = useState(1);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
-  const [filters, setFilters]         = useState<ProductFilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<ProductFilterState>(DEFAULT_FILTERS);
 
   useEffect(() => {
     setCrumbs([{ label: "Home", path: "/" }, { label: "New Arrivals" }]);
@@ -57,38 +60,58 @@ export default function NewArrivals() {
 
     if (!isMobile) {
       document.body.style.overflow = filterOpen ? "hidden" : "";
-      return () => { document.body.style.overflow = ""; };
+      return () => {
+        document.body.style.overflow = "";
+      };
     }
 
     if (filterOpen) {
-      const toolbar  = document.querySelector(".product-toolbar") as HTMLElement | null;
-      const catbar   = document.querySelector(".mcb-wrapper")     as HTMLElement | null;
-      const catWasHidden = catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
-      const toolbarTop    = toolbar?.style.top || "108px";
-      const toolbarBottom = toolbar ? Math.round(toolbar.getBoundingClientRect().bottom) : 152;
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      const catbar = document.querySelector(
+        ".mcb-wrapper",
+      ) as HTMLElement | null;
+      const catWasHidden =
+        catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
+      const toolbarTop = toolbar?.style.top || "108px";
+      const toolbarBottom = toolbar
+        ? Math.round(toolbar.getBoundingClientRect().bottom)
+        : 152;
       filterScrollY.current = window.scrollY;
       (window as any).__drawerOpen = true;
       window.dispatchEvent(new Event("filter-opened"));
       document.documentElement.style.overflow = "hidden";
-      document.documentElement.style.height   = "100%";
-      if (catWasHidden && catbar)       catbar.classList.add("mcb-wrapper--hidden");
-      else if (!catWasHidden && catbar) catbar.classList.remove("mcb-wrapper--hidden");
-      if (toolbar) { toolbar.style.top = toolbarTop; toolbar.style.zIndex = "1210"; }
-      const offset   = `${toolbarBottom}px`;
-      const drawer   = document.querySelector(".gs-drawer")   as HTMLElement | null;
-      const backdrop = document.querySelector(".gs-backdrop") as HTMLElement | null;
-      if (drawer)   { drawer.style.top = offset; drawer.style.height = `calc(100% - ${offset})`; }
-      if (backdrop)   backdrop.style.top = offset;
+      document.documentElement.style.height = "100%";
+      if (catWasHidden && catbar) catbar.classList.add("mcb-wrapper--hidden");
+      else if (!catWasHidden && catbar)
+        catbar.classList.remove("mcb-wrapper--hidden");
+      if (toolbar) {
+        toolbar.style.top = toolbarTop;
+        toolbar.style.zIndex = "1210";
+      }
+      const offset = `${toolbarBottom}px`;
+      const drawer = document.querySelector(".gs-drawer") as HTMLElement | null;
+      const backdrop = document.querySelector(
+        ".gs-backdrop",
+      ) as HTMLElement | null;
+      if (drawer) {
+        drawer.style.top = offset;
+        drawer.style.height = `calc(100% - ${offset})`;
+      }
+      if (backdrop) backdrop.style.top = offset;
     } else {
       (window as any).__drawerOpen = false;
-      const toolbar = document.querySelector(".product-toolbar") as HTMLElement | null;
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
       if (toolbar) toolbar.style.zIndex = "";
       document.documentElement.style.overflow = "";
-      document.documentElement.style.height   = "";
+      document.documentElement.style.height = "";
     }
     return () => {
       document.documentElement.style.overflow = "";
-      document.documentElement.style.height   = "";
+      document.documentElement.style.height = "";
     };
   }, [filterOpen, isMobile]);
 
@@ -98,6 +121,14 @@ export default function NewArrivals() {
     queryFn: () => listNewArrivals({ pageSize: 500 }),
     staleTime: 5 * 60 * 1000,
   });
+
+  // ── Hero banner image — same as the home page New Arrivals section ──────────
+  // Returns "" when no image has been uploaded, so the hero is hidden entirely.
+  const heroBannerImage = usePageImage(IMAGE_KEYS.HOME_SECTION_NEWARRIVALS);
+
+  useEffect(() => {
+    if (!isLoading) window.dispatchEvent(new Event("page-content-ready"));
+  }, [isLoading]);
 
   // ── Group by productId first, then filter across all variants ──────────────
   const groupedProducts = useMemo(() => {
@@ -143,15 +174,19 @@ export default function NewArrivals() {
       return arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     if (sortOption === "az")
       return arr.sort((a, b) =>
-        (a.productName ?? a.name ?? "").localeCompare(b.productName ?? b.name ?? ""),
+        (a.productName ?? a.name ?? "").localeCompare(
+          b.productName ?? b.name ?? "",
+        ),
       );
     if (sortOption === "low")
       return arr.sort(
-        (a, b) => (a.finalPrice ?? a.price ?? 0) - (b.finalPrice ?? b.price ?? 0),
+        (a, b) =>
+          (a.finalPrice ?? a.price ?? 0) - (b.finalPrice ?? b.price ?? 0),
       );
     if (sortOption === "high")
       return arr.sort(
-        (a, b) => (b.finalPrice ?? b.price ?? 0) - (a.finalPrice ?? a.price ?? 0),
+        (a, b) =>
+          (b.finalPrice ?? b.price ?? 0) - (a.finalPrice ?? a.price ?? 0),
       );
     // default: "latest" — sort by modifiedDate DESC
     return arr.sort(
@@ -169,7 +204,14 @@ export default function NewArrivals() {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     if (page <= 3) return [1, 2, 3, 4, "...", totalPages];
     if (page >= totalPages - 2)
-      return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+      return [
+        1,
+        "...",
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
     return [1, "...", page - 1, page, page + 1, "...", totalPages];
   }, [page, totalPages]);
 
@@ -206,26 +248,34 @@ export default function NewArrivals() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="s-productlist-3ab64d s-productlist-ff586331">
-      {/* Hero banner */}
-      <div
-        style={{
-          width: "100%",
-          aspectRatio: "3 / 1",
-          overflow: "hidden",
-          lineHeight: 0,
-          margin: 0,
-          padding: 0,
-          display: "block",
-        }}
-      >
-        <img
-          src="/assets/home/Newarrivals.png"
-          alt="New Arrivals"
-          loading="lazy"
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-        />
-      </div>
+      {/* Hero banner — uses the same home_section_newarrivals image as the home page section.
+           When no image has been uploaded, heroBannerImage is "" so the banner is hidden entirely. */}
+      {heroBannerImage && (
+        <div
+          className="category-hero-banner"
+          style={{
+            width: "100%",
+            aspectRatio: "21 / 7",
+            overflow: "hidden",
+            lineHeight: 0,
+            margin: 0,
+            padding: 0,
+            display: "block",
+          }}
+        >
+          <img
+            src={heroBannerImage}
+            alt="New Arrivals"
+            loading="lazy"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        </div>
+      )}
 
       {/* Toolbar */}
       <ProductToolbar
@@ -233,29 +283,69 @@ export default function NewArrivals() {
         appliedFilterCount={appliedFilterCount}
         onFilterClick={() => setFilterOpen((o) => !o)}
         sortOption={sortOption}
-        onSortChange={(val) => { setSortOption(val); setPage(1); }}
+        onSortChange={(val) => {
+          setSortOption(val);
+          setPage(1);
+        }}
         onQuickPrice={handleQuickPrice}
         activeQuickPrice={activeQuickPrice}
       />
 
       <ProductActiveFilters
         filters={filters}
-        onFiltersChange={(newFilters) => { setFilters(newFilters); setPage(1); }}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setPage(1);
+        }}
       />
 
       <ProductFilters
         isOpen={filterOpen}
         onClose={() => setFilterOpen(false)}
         filters={filters}
-        onFiltersChange={(newFilters) => { setFilters(newFilters); setPage(1); }}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setPage(1);
+        }}
         productCount={sortedProducts.length}
       />
 
       {/* Product grid */}
       <div className="container s-productlist-22e220">
         {isLoading ? (
-          <div className="s-productlist-18a79d">
-            <div className="s-productlist-feb323" />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "repeat(2, 1fr)"
+                : "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: isMobile ? "8px" : "24px",
+              paddingTop: 16,
+            }}
+          >
+            {Array.from({ length: isMobile ? 6 : 10 }).map((_, i) => (
+              <div
+                key={i}
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                <div
+                  className="twam-skel"
+                  style={{ aspectRatio: "3/4", borderRadius: 12 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 14, width: "70%", borderRadius: 6 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 12, width: "45%", borderRadius: 6 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 14, width: "35%", borderRadius: 6 }}
+                />
+              </div>
+            ))}
           </div>
         ) : sortedProducts.length === 0 ? (
           <div className="s-productlist-3fa2c3">
@@ -310,7 +400,9 @@ export default function NewArrivals() {
                 </button>
                 {pagesArr.map((p, i) =>
                   p === "..." ? (
-                    <span key={`el-${i}`} className="s-productlist-2ab2e0">…</span>
+                    <span key={`el-${i}`} className="s-productlist-2ab2e0">
+                      …
+                    </span>
                   ) : (
                     <button
                       key={p}
@@ -330,7 +422,12 @@ export default function NewArrivals() {
                   <i className="bi bi-chevron-right" />
                 </button>
                 <span className="s-productlist-f6dfaf s-productlist-ff0afd28">
-                  {sortedProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).length}{" "}
+                  {
+                    sortedProducts.slice(
+                      (page - 1) * PAGE_SIZE,
+                      page * PAGE_SIZE,
+                    ).length
+                  }{" "}
                   shown · Page {page}/{totalPages}
                 </span>
               </div>

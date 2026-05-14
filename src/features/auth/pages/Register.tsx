@@ -1,27 +1,23 @@
-// src/features/auth/pages/Register.tsx
-// Dedicated Sign Up page at /register
-// Matches Login.tsx visual design — same layout, same classes
-// Adds mandatory Date of Birth field (calendar picker)
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { registerUser, encryptPassword } from "@/features/auth/api/auth.api";
+import AuthBackdrop from "@/features/auth/components/AuthBackdrop";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import toast from "react-hot-toast";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function isPhone(v: string) {
   return /^\d{10}$/.test(v.trim());
 }
+
 function isEmail(v: string) {
   return /\S+@\S+\.\S+/.test(v.trim());
 }
 
-// ── Validation schema ─────────────────────────────────────────────────────────
 const signupSchema = z
   .object({
     firstName: z.string().min(1, "First Name is required").max(500),
@@ -61,6 +57,7 @@ type SignupForm = z.infer<typeof signupSchema>;
 export default function Register() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const bgImage = usePageImage(IMAGE_KEYS.LOGIN_BACKGROUND);
   const [loading, setLoading] = useState(false);
   const [hidePass, setHidePass] = useState(true);
 
@@ -83,7 +80,6 @@ export default function Register() {
     },
   });
 
-  // ── Sign Up handler ───────────────────────────────────────────────────────
   const onSubmit = handleSubmit(async (data) => {
     setLoading(true);
     try {
@@ -100,8 +96,7 @@ export default function Register() {
       reset();
       navigate("/login");
     } catch (err: any) {
-      const apiErrors =
-        err?.response?.data?.errors || err?.response?.data?.detail?.errors;
+      const apiErrors = err?.response?.data?.errors || err?.response?.data?.detail?.errors;
       if (Array.isArray(apiErrors)) {
         toast.error(
           apiErrors
@@ -127,34 +122,24 @@ export default function Register() {
   const inputCls = (err?: any) => `form-control${err ? " is-invalid" : ""}`;
   const errMsg = (msg?: string) =>
     msg ? <div className="invalid-feedback s-login-78f9a3">{msg}</div> : null;
-
   const today = new Date().toISOString().split("T")[0];
 
   return (
     <>
       {isMobile && <MobileBackHeader title="Create Account" />}
 
-      <div className="s-login-2bb036">
-        {/* Left decorative panel */}
-        <div className="d-none d-md-flex s-login-2da0c0">
-          <img
-            src="/assets/images/signup-bg.jpg"
-            className="s-userdashboar-4ebae2"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-            alt=""
-          />
-          <div className="s-login-da6116">
-            <p className="s-login-f18190">
-              "Every body deserves a perfect fit."
-            </p>
-            <p className="s-login-6854c0">Only TWAM — Crafted with love.</p>
-          </div>
-        </div>
-
-        {/* Right form panel */}
-        <div className="s-login-5c2ebc">
+      <AuthBackdrop backgroundImage={bgImage}>
+        <div
+          className="s-login-5c2ebc"
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            marginLeft: "auto",
+            background: "transparent",
+            padding: 0,
+            boxShadow: "none",
+          }}
+        >
           <div className="s-login-d3c5f3">
             {!isMobile && (
               <Link to="/" className="s-login-0aef96">
@@ -174,31 +159,22 @@ export default function Register() {
             </div>
 
             {!isMobile && <h5 className="s-login-b4f13d">Sign Up</h5>}
-            <p className="s-login-7a79e7">
-              "Every body deserves a perfect fit."
-            </p>
+            <p className="s-login-7a79e7">Create your TWAM account to shop faster and keep your orders in one place.</p>
 
             <form onSubmit={onSubmit}>
-              {/* First / Middle / Last name row */}
               <div className="s-login-9f425c">
-                {(["firstName", "middleName", "lastName"] as const).map(
-                  (key, i) => (
-                    <div key={key}>
-                      <label className="s-login-4d06e1">
-                        {["First Name *", "Middle", "Last Name *"][i]}
-                      </label>
-                      <input
-                        {...register(key)}
-                        className={inputCls((errors as any)[key])}
-                      />
-                      {errMsg((errors as any)[key]?.message)}
-                    </div>
-                  ),
-                )}
+                {(["firstName", "middleName", "lastName"] as const).map((key, i) => (
+                  <div key={key}>
+                    <label className="s-login-4d06e1">
+                      {["First Name *", "Middle", "Last Name *"][i]}
+                    </label>
+                    <input {...register(key)} className={inputCls((errors as any)[key])} />
+                    {errMsg((errors as any)[key]?.message)}
+                  </div>
+                ))}
               </div>
 
               <div className="s-login-863afe">
-                {/* Email */}
                 <div className="s-adminproduct-02d219">
                   <label className="s-login-4d06e1">Email</label>
                   <input
@@ -210,7 +186,6 @@ export default function Register() {
                   {errMsg(errors.email?.message)}
                 </div>
 
-                {/* Phone */}
                 <div className="s-adminproduct-02d219">
                   <label className="s-login-4d06e1">Phone Number</label>
                   <input
@@ -223,27 +198,13 @@ export default function Register() {
                   {errMsg(errors.phoneNumber?.message)}
                 </div>
 
-                {/* Hint */}
-                <div
-                  className="s-adminproduct-02d219"
-                  style={{ gridColumn: "1/-1" }}
-                >
-                  <p
-                    style={{
-                      fontSize: 12,
-                      color: "var(--heirloom)",
-                      marginBottom: 4,
-                    }}
-                  >
+                <div className="s-adminproduct-02d219" style={{ gridColumn: "1/-1" }}>
+                  <p style={{ fontSize: 12, color: "var(--heirloom)", marginBottom: 4 }}>
                     * At least one of email or phone number is required.
                   </p>
                 </div>
 
-                {/* ── Date of Birth — mandatory, full row ── */}
-                <div
-                  className="s-adminproduct-02d219"
-                  style={{ gridColumn: "1/-1" }}
-                >
+                <div className="s-adminproduct-02d219" style={{ gridColumn: "1/-1" }}>
                   <label className="s-login-4d06e1">Date of Birth *</label>
                   <input
                     {...register("dateOfBirth")}
@@ -255,7 +216,6 @@ export default function Register() {
                   {errMsg(errors.dateOfBirth?.message)}
                 </div>
 
-                {/* Password */}
                 <div className="s-adminproduct-02d219">
                   <label className="s-login-4d06e1">Password *</label>
                   <div className="s-updateprofil-1d5e50">
@@ -270,22 +230,15 @@ export default function Register() {
                       onClick={() => setHidePass((v) => !v)}
                       className="s-login-af8e0d"
                     >
-                      <i
-                        className={`bi ${hidePass ? "bi-eye-slash" : "bi-eye"}`}
-                      />
+                      <i className={`bi ${hidePass ? "bi-eye-slash" : "bi-eye"}`} />
                     </button>
                   </div>
                   {errMsg(errors.password?.message)}
                 </div>
 
-                {/* Confirm Password */}
                 <div className="s-adminproduct-02d219">
                   <label className="s-login-4d06e1">Confirm Pass *</label>
-                  <input
-                    {...register("confirmPassword")}
-                    className={inputCls(errors.confirmPassword)}
-                    type="password"
-                  />
+                  <input {...register("confirmPassword")} className={inputCls(errors.confirmPassword)} type="password" />
                   {errMsg(errors.confirmPassword?.message)}
                 </div>
               </div>
@@ -305,16 +258,13 @@ export default function Register() {
 
             <p className="s-login-5d4ce1">
               Already have an account?{" "}
-              <button
-                onClick={() => navigate("/login")}
-                className="s-login-182bea"
-              >
+              <button onClick={() => navigate("/login")} className="s-login-182bea">
                 Sign In
               </button>
             </p>
           </div>
         </div>
-      </div>
+      </AuthBackdrop>
     </>
   );
 }

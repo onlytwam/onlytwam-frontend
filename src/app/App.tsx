@@ -15,6 +15,7 @@ import {
   useRef,
   useCallback,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import Navbar from "@/shared/components/Navbar";
@@ -297,6 +298,7 @@ const AdminProductBulkUpload = lazy(async () => {
 });
 const AdminSalesChannels = lazy(() => import("@/features/admin/pages/AdminSalesChannels"));
 const AdminStoreSettings = lazy(() => import("@/features/admin/pages/AdminStoreSettings"));
+const AdminBranding = lazy(() => import("@/features/admin/pages/AdminBranding"));
 const AdminBilling = lazy(() => import("@/features/admin/pages/AdminBilling"));
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
@@ -713,6 +715,100 @@ function RouteTransitionOverlay() {
   );
 }
 
+// ── Route progress bar ───────────────────────────────────────────────────────
+// Lightweight route-loading indicator that complements the full-screen overlay.
+function RouteProgressBar() {
+  const { pathname } = useLocation();
+  const isHomePath = (p: string) => p === "/" || p === "/home";
+
+  const [progress, setProgress] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const clearAll = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  };
+
+  const complete = useCallback(() => {
+    clearAll();
+    setProgress(100);
+    setCompleting(true);
+    timerRef.current = setTimeout(() => {
+      setVisible(false);
+      setCompleting(false);
+      setProgress(0);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    clearAll();
+    if (isHomePath(pathname) || _isCapacitorResume) {
+      setVisible(false);
+      setProgress(0);
+      return;
+    }
+
+    setProgress(0);
+    setVisible(true);
+    setCompleting(false);
+
+    let current = 0;
+    const tick = () => {
+      if (current < 80) {
+        current = Math.min(80, current + (80 - current) * 0.09 + 0.4);
+        setProgress(current);
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
+    const handler = () => complete();
+    window.addEventListener("page-content-ready", handler, { once: true });
+    const autoTimer = setTimeout(complete, IS_NATIVE ? 3000 : 1500);
+
+    return () => {
+      clearAll();
+      clearTimeout(autoTimer);
+      window.removeEventListener("page-content-ready", handler);
+    };
+  }, [pathname, complete]);
+
+  useEffect(() => () => clearAll(), []);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 10000,
+        height: 3,
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          width: `${progress}%`,
+          background: "var(--brand, #6B0F2A)",
+          transition: completing
+            ? "width 0.15s ease, opacity 0.3s ease"
+            : "width 0.06s linear",
+          opacity: progress >= 100 ? 0 : 1,
+          boxShadow: "0 0 8px var(--brand, #6B0F2A)",
+          borderRadius: "0 2px 2px 0",
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Suspense fallback — shown while lazy chunks are downloading ───────────────
 // RouteTransitionOverlay (inside Suspense) handles the data-loading phase.
 // This covers the code-splitting phase before RouteTransitionOverlay mounts.
@@ -732,12 +828,40 @@ const PageLoader = () => {
 export default function App() {
   useWishlistLoader();
   useCartLoader();
+  const queryClient = useQueryClient();
 
   const isHome =
     window.location.pathname === "/" || window.location.pathname === "/home";
   const [showSplash, setShowSplash] = useState(isHome);
 
-  const handleSplashDone = () => setShowSplash(false);
+  const handleSplashDone = () => {
+    setShowSplash(false);
+    // Prefetch the top 2 highest-traffic pages after the splash settles.
+    // This keeps the home entry fast while making common navigations feel instant.
+    setTimeout(() => {
+      void queryClient.prefetchQuery({
+        queryKey: ["new-arrivals-page"],
+        queryFn: () =>
+          import("@/features/products/api/products.api").then((m) =>
+            m.listNewArrivals({ pageSize: 500 }),
+          ),
+        staleTime: 5 * 60 * 1000,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: ["best-sellers-page"],
+        queryFn: () =>
+          import("@/features/products/api/products.api").then((m) =>
+            m.listProducts({
+              isBestSeller: true,
+              pageSize: 500,
+              orderProperty: "Rating",
+              orderAscending: false,
+            }),
+          ),
+        staleTime: 5 * 60 * 1000,
+      });
+    }, 2000);
+  };
 
   // ── Capacitor background/foreground detection ─────────────────────────────
   // No @capacitor/app needed — both "resume" and visibilitychange fire inside
@@ -778,6 +902,7 @@ export default function App() {
         {/* RouteTransitionOverlay lives inside Suspense so it has access to
             useLocation() and only renders after lazy chunks have resolved. */}
         <RouteTransitionOverlay />
+        <RouteProgressBar />
         <Routes>
           {/* ── Main layout (Navbar + Footer) ─────────────────────────────── */}
           <Route element={<MainLayout />}>
@@ -938,6 +1063,7 @@ export default function App() {
             <Route path="mdm" element={<AdminMDM />} />
             <Route path="mdm" element={<AdminMDM />} />
             <Route path="store-settings" element={<AdminStoreSettings />} />
+            <Route path="branding-settings" element={<AdminBranding />} />
             <Route path="billing" element={<AdminBilling />} />
             <Route path="sales-channels" element={<AdminSalesChannels />} />
             <Route path="sales-reports" element={<SalesRevenueReports />} />

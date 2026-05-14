@@ -97,14 +97,20 @@ export default function AdminEkartConfig() {
       {/* ── Readiness Banner ── */}
       {readiness && (
         <div
-          className={`alert ${readiness.ready_for_live ? "alert-success" : readiness.mock_mode ? "alert-warning" : "alert-danger"} mb-4`}
+          className={`alert ${
+            readiness.ready_for_live
+              ? "alert-success"
+              : readiness.mock_mode
+              ? "alert-warning"
+              : "alert-danger"
+          } mb-4`}
         >
           <strong>
             {readiness.ready_for_live
               ? "✅ Live Mode — Ekart API fully configured"
               : readiness.mock_mode
-                ? "⚠️ Mock Mode — Shipments use fake AWB numbers"
-                : "❌ Configuration Incomplete"}
+              ? "⚠️ Mock Mode — Shipments use fake AWB numbers"
+              : "❌ Configuration Incomplete"}
           </strong>
           {(readiness.missing_required ?? []).length > 0 && (
             <ul className="mb-0 mt-2">
@@ -122,8 +128,40 @@ export default function AdminEkartConfig() {
       )}
 
       {isLoading ? (
-        <div className="text-center py-5">
-          <div className="spinner-border" />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            padding: "8px 0",
+          }}
+        >
+          {[1, 2].map((i) => (
+            <div key={i} className="card mb-4" style={{ padding: 20 }}>
+              <div
+                className="twam-skel"
+                style={{
+                  height: 16,
+                  width: "40%",
+                  borderRadius: 5,
+                  marginBottom: 12,
+                }}
+              />
+              <div
+                className="twam-skel"
+                style={{
+                  height: 12,
+                  width: "70%",
+                  borderRadius: 5,
+                  marginBottom: 8,
+                }}
+              />
+              <div
+                className="twam-skel"
+                style={{ height: 12, width: "55%", borderRadius: 5 }}
+              />
+            </div>
+          ))}
         </div>
       ) : configs.length === 0 ? (
         <div className="alert alert-info">
@@ -137,7 +175,9 @@ export default function AdminEkartConfig() {
               <span>
                 <strong>{cfg.deliveryAgent || "Unknown Agent"}</strong>
                 <span
-                  className={`badge ms-2 ${cfg.stateId === "Active" ? "bg-success" : "bg-secondary"}`}
+                  className={`badge ms-2 ${
+                    cfg.stateId === "Active" ? "bg-success" : "bg-secondary"
+                  }`}
                 >
                   {cfg.stateId}
                 </span>

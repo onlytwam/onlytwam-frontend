@@ -35,6 +35,9 @@ export default function OrderConfirm() {
 
     clearCart();
     clearCheckoutSession();
+    localStorage.removeItem("pendingBuyNowCartAdd");
+    localStorage.removeItem("pendingBuyNowCartAddKey");
+    localStorage.removeItem("processedBuyNowCartAddKey");
     if (isBuyNowOrder) {
       clearBuyNowSession();
     } else {

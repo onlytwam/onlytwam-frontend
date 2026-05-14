@@ -1,143 +1,182 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
 
 const PAGE_SIZE = 20;
 
-// ── Size preview chip ────────────────────────────────────────────────────────
-function SizeChip({ label, type }: { label: string; type: "band" | "cup" }) {
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 9px",
-        borderRadius: 6,
-        fontSize: 11,
-        fontWeight: 600,
-        background: type === "band" ? "#ede7f6" : "#fce4ec",
-        color: type === "band" ? "#6a1b9a" : "#b71c1c",
-        margin: "2px 3px 2px 0",
-        border: `1px solid ${type === "band" ? "#ce93d8" : "#f48fb1"}`,
-      }}
-    >
-      {label}
-    </span>
-  );
+// ── Category image upload hook ───────────────────────────────────────────────
+function useCategoryImageUpload(
+  categoryId: number | undefined,
+  onSuccess: (imageUrl: string) => void,
+) {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      if (!categoryId)
+        throw new Error("Save the category first before uploading an image.");
+      const form = new FormData();
+      form.append("file", file);
+      const res = await api.put(`/Category/${categoryId}/image`, form);
+      return res.data;
+    },
+    onSuccess: (res: any) => {
+      toast.success("Category image updated.");
+      onSuccess(res?.imageUrl ?? "");
+    },
+    onError: (e: any) =>
+      toast.error(
+        e?.response?.data?.detail || e?.message || "Image upload failed.",
+      ),
+  });
 }
 
-// ── Sizes preview section (shown inside the modal when type is selected) ─────
-function CategorySizesPreview({
+// ── ImageUploadField ─────────────────────────────────────────────────────────
+function ImageUploadField({
   categoryId,
-  bandSizeType,
-  hasCupSize,
+  currentUrl,
+  onUploaded,
 }: {
   categoryId?: number;
-  bandSizeType: string | null;
-  hasCupSize: boolean;
+  currentUrl?: string;
+  onUploaded: (url: string) => void;
 }) {
-  // Fetch sizes from MDM filtered by type (works even before save via ?type= param)
-  const { data: mdmSizes, isLoading: loadingSizes } = useQuery({
-    queryKey: ["mdm-sizes-preview", bandSizeType],
-    enabled: !!bandSizeType,
-    queryFn: () =>
-      api
-        .get("/MDM/Size", {
-          params: {
-            Filters: JSON.stringify([
-              {
-                property: "SizeType",
-                comparison: "eq",
-                value:
-                  bandSizeType === "numerical" ? "numerical" : "alphabetical",
-              },
-            ]),
-            "Page.Size": 100,
-          },
-        })
-        .then((r) => r.data?.list ?? []),
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string>("");
+  const qc = useQueryClient();
+
+  const upload = useCategoryImageUpload(categoryId, (imageUrl: string) => {
+    qc.invalidateQueries({ queryKey: ["admin-categories"] });
+    if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+    setPreview("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    onUploaded(imageUrl); // ← forward URL to parent so modal state stays in sync
   });
 
-  const { data: mdmCups, isLoading: loadingCups } = useQuery({
-    queryKey: ["mdm-cups-preview"],
-    enabled: hasCupSize,
-    queryFn: () =>
-      api
-        .get("/MDM/CupSize", { params: { "Page.Size": 100 } })
-        .then((r) => r.data?.list ?? []),
-  });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+    const blobUrl = URL.createObjectURL(file);
+    setPreview(blobUrl);
+  };
 
-  if (!bandSizeType && !hasCupSize) return null;
+  const handleSave = () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      toast.error("Select a file first.");
+      return;
+    }
+    if (!categoryId) {
+      toast.error("Save the category first, then upload its image.");
+      return;
+    }
+    upload.mutate(file);
+  };
+
+  const displayUrl = preview || currentUrl;
 
   return (
-    <div
-      style={{
-        marginTop: 10,
-        padding: "10px 12px",
-        background: "#fff",
-        border: "1px dashed #d1c4e9",
-        borderRadius: 8,
-      }}
-    >
-      {bandSizeType && (
-        <div style={{ marginBottom: hasCupSize ? 10 : 0 }}>
-          <p
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* Thumbnail preview */}
+      <div
+        style={{
+          width: "100%",
+          height: 120,
+          borderRadius: 10,
+          border: "1.5px dashed #d9cac2",
+          background: displayUrl
+            ? `url("${displayUrl}") center/cover no-repeat #f5f0eb`
+            : "#f5f0eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {!displayUrl && (
+          <span style={{ fontSize: 12, color: "#b89fa8" }}>No image</span>
+        )}
+        {preview && (
+          <span
             style={{
-              margin: "0 0 6px",
-              fontSize: 11,
+              position: "absolute",
+              top: 6,
+              right: 6,
+              background: "#6B0F2A",
+              color: "#fff",
+              fontSize: 9,
               fontWeight: 700,
-              color: "#6a1b9a",
+              padding: "2px 7px",
+              borderRadius: 20,
+              letterSpacing: "0.06em",
               textTransform: "uppercase",
-              letterSpacing: "0.5px",
             }}
           >
-            {bandSizeType === "numerical" ? "🔢 Numerical" : "🔤 Alphabetical"}{" "}
-            Band Sizes
-          </p>
-          {loadingSizes ? (
-            <span style={{ fontSize: 11, color: "#aaa" }}>Loading…</span>
-          ) : mdmSizes && mdmSizes.length > 0 ? (
-            <div style={{ display: "flex", flexWrap: "wrap" }}>
-              {mdmSizes.map((s: any) => (
-                <SizeChip key={s.sizeId} label={s.sizeLabel} type="band" />
-              ))}
-            </div>
-          ) : (
-            <span style={{ fontSize: 11, color: "#aaa" }}>
-              No sizes of this type in MDM yet.
-            </span>
-          )}
-        </div>
-      )}
+            Preview
+          </span>
+        )}
+      </div>
 
-      {hasCupSize && (
-        <div>
-          <p
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleChange}
+        style={{
+          fontSize: 12,
+          border: "1px solid #d9cac2",
+          borderRadius: 8,
+          padding: "6px 10px",
+          background: "#faf8f6",
+          cursor: "pointer",
+        }}
+      />
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={handleSave}
+          disabled={upload.isPending || !preview}
+          style={{
+            flex: 1,
+            background: upload.isPending || !preview ? "#d4b8be" : "#6B0F2A",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            padding: "8px 0",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: upload.isPending || !preview ? "not-allowed" : "pointer",
+          }}
+        >
+          {upload.isPending ? "Uploading…" : "Upload Image"}
+        </button>
+        {preview && (
+          <button
+            onClick={() => {
+              setPreview("");
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
             style={{
-              margin: "0 0 6px",
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#b71c1c",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
+              background: "#f5f0eb",
+              color: "#6B0F2A",
+              border: "1px solid #d9cac2",
+              borderRadius: 8,
+              padding: "8px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
             }}
           >
-            🩱 Cup Sizes
-          </p>
-          {loadingCups ? (
-            <span style={{ fontSize: 11, color: "#aaa" }}>Loading…</span>
-          ) : mdmCups && mdmCups.length > 0 ? (
-            <div style={{ display: "flex", flexWrap: "wrap" }}>
-              {mdmCups.map((c: any) => (
-                <SizeChip key={c.cupSizeId} label={c.sizeLabel} type="cup" />
-              ))}
-            </div>
-          ) : (
-            <span style={{ fontSize: 11, color: "#aaa" }}>
-              No cup sizes in MDM yet.
-            </span>
-          )}
-        </div>
+            ✕
+          </button>
+        )}
+      </div>
+
+      {!categoryId && (
+        <p style={{ margin: 0, fontSize: 11, color: "#aaa" }}>
+          Save the category first, then you can upload its image.
+        </p>
       )}
     </div>
   );
@@ -176,14 +215,27 @@ export default function AdminCategories() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (form: any) =>
-      form.categoryId
-        ? api.put(`/Category/${form.categoryId}`, form)
-        : api.post("/Category", form),
-    onSuccess: () => {
+    mutationFn: (form: any) => {
+      // Strip client-only fields before sending to the backend
+      const { bandSizeType: _b, hasCupSize: _h, ...payload } = form;
+      return form.categoryId
+        ? api.put(`/Category/${form.categoryId}`, payload)
+        : api.post("/Category", payload);
+    },
+    onSuccess: (res, form) => {
       toast.success("Saved!");
       qc.invalidateQueries({ queryKey: ["admin-categories"] });
-      setModal(null);
+      if (form.categoryId) {
+        // Editing — close the modal
+        setModal(null);
+      } else {
+        // Creating — keep modal open and inject the new categoryId so the
+        // ImageUploadField can immediately accept file uploads
+        setModal((prev: any) => ({
+          ...prev,
+          categoryId: res?.data?.categoryId,
+        }));
+      }
     },
     onError: (e: any) =>
       toast.error(e?.response?.data?.detail || "Save failed"),
@@ -203,36 +255,12 @@ export default function AdminCategories() {
   const total = data?.count ?? 0;
   const pages = Math.ceil(total / PAGE_SIZE);
 
-  const sizeBadge = (c: any) => {
-    const parts: string[] = [];
-    if (c.bandSizeType === "alpha") parts.push("Alpha");
-    if (c.bandSizeType === "numerical") parts.push("Num");
-    if (c.hasCupSize) parts.push("Cup");
-    if (!parts.length) return null;
-    return (
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 600,
-          padding: "2px 7px",
-          borderRadius: 10,
-          background: "#f3e5f5",
-          color: "#6a1b9a",
-          marginLeft: 4,
-        }}
-      >
-        {parts.join(" · ")}
-      </span>
-    );
-  };
-
   const openNew = () =>
     setModal({
       name: "",
       description: "",
       parentCategoryId: null,
-      bandSizeType: null,
-      hasCupSize: false,
+      categoryImage: "",
     });
 
   return (
@@ -264,7 +292,7 @@ export default function AdminCategories() {
         <table className="s-adminbrands-de3642">
           <thead>
             <tr className="s-adminbrands-1ba202">
-              {["ID", "Name", "Description", "Parent", "Sizes", "Actions"].map(
+              {["ID", "Image", "Name", "Description", "Parent", "Actions"].map(
                 (h) => (
                   <th key={h} className="s-adminbrands-84e069">
                     {h}
@@ -290,15 +318,51 @@ export default function AdminCategories() {
               cats.map((c: any) => (
                 <tr key={c.categoryId} className="s-adminbrands-59d787">
                   <td className="s-admincategor-ec7211">{c.categoryId}</td>
+
+                  {/* Category image thumbnail */}
+                  <td className="s-admincategor-ec7211">
+                    {c.categoryImage ? (
+                      <img
+                        src={c.categoryImage}
+                        alt={c.name}
+                        style={{
+                          width: 52,
+                          height: 52,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                          border: "1px solid #eadfd8",
+                          display: "block",
+                        }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: 8,
+                          background: "#f5f0eb",
+                          border: "1px dashed #d9cac2",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <span style={{ fontSize: 9, color: "#b89fa8" }}>
+                          None
+                        </span>
+                      </div>
+                    )}
+                  </td>
+
                   <td className="s-admincategor-46dbfc">{c.name}</td>
                   <td className="s-admincategor-ec7211">
                     {c.description || "—"}
                   </td>
                   <td className="s-admincategor-ec7211">
                     {c.parentCategoryId ? `#${c.parentCategoryId}` : "Root"}
-                  </td>
-                  <td className="s-admincategor-ec7211">
-                    {sizeBadge(c) ?? "—"}
                   </td>
                   <td className="s-admincategor-19b711">
                     <div className="s-adminbrands-ac734d">
@@ -387,7 +451,7 @@ export default function AdminCategories() {
               />
             </div>
 
-            {/* ─── Size Configuration ─── */}
+            {/* ─── Category Image ─── */}
             <div
               style={{
                 marginTop: 16,
@@ -405,162 +469,17 @@ export default function AdminCategories() {
                   color: "#333",
                 }}
               >
-                📐 Size Configuration
+                🖼️ Category Image
               </p>
-
-              {/* Band size type */}
-              <div style={{ marginBottom: 14 }}>
-                <label
-                  className="s-addressform-f1fb64"
-                  style={{ display: "block", marginBottom: 6 }}
-                >
-                  Band Sizes
-                </label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {(
-                    [
-                      {
-                        key: "alpha",
-                        label: "🔤 Alphabetical",
-                        hint: "S, M, L, XL…",
-                      },
-                      {
-                        key: "numerical",
-                        label: "🔢 Numerical",
-                        hint: "32, 34, 36…",
-                      },
-                    ] as { key: string; label: string; hint: string }[]
-                  ).map((opt) => {
-                    const active = modal.bandSizeType === opt.key;
-                    return (
-                      <button
-                        key={opt.key}
-                        onClick={() =>
-                          setModal({
-                            ...modal,
-                            bandSizeType: active ? null : opt.key,
-                          })
-                        }
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "flex-start",
-                          padding: "8px 14px",
-                          borderRadius: 10,
-                          cursor: "pointer",
-                          border: `1.5px solid ${
-                            active ? "var(--brand)" : "#ddd"
-                          }`,
-                          background: active ? "var(--brand)" : "#fff",
-                          color: active ? "#fff" : "#444",
-                          transition: "all 0.15s",
-                          minWidth: 130,
-                        }}
-                      >
-                        <span style={{ fontSize: 13, fontWeight: 700 }}>
-                          {opt.label}
-                        </span>
-                        <span
-                          style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}
-                        >
-                          {opt.hint}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {modal.bandSizeType && (
-                    <button
-                      onClick={() => setModal({ ...modal, bandSizeType: null })}
-                      style={{
-                        alignSelf: "center",
-                        padding: "4px 10px",
-                        borderRadius: 6,
-                        border: "1px solid #ddd",
-                        background: "transparent",
-                        color: "#999",
-                        fontSize: 12,
-                        cursor: "pointer",
-                      }}
-                    >
-                      ✕ Clear
-                    </button>
-                  )}
-                </div>
-
-                {!modal.bandSizeType && (
-                  <p style={{ margin: "6px 0 0", fontSize: 11, color: "#aaa" }}>
-                    No band size type selected — all sizes will show.
-                  </p>
-                )}
-              </div>
-
-              {/* Cup sizes toggle */}
-              <div style={{ marginBottom: 12 }}>
-                <label
-                  className="s-addressform-f1fb64"
-                  style={{ display: "block", marginBottom: 6 }}
-                >
-                  Cup Sizes
-                </label>
-                <button
-                  onClick={() =>
-                    setModal({ ...modal, hasCupSize: !modal.hasCupSize })
-                  }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 16px",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                    border: `1.5px solid ${
-                      modal.hasCupSize ? "var(--brand)" : "#ddd"
-                    }`,
-                    background: modal.hasCupSize ? "var(--brand)" : "#fff",
-                    color: modal.hasCupSize ? "#fff" : "#555",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    transition: "all 0.15s",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: "50%",
-                      border: `2px solid ${
-                        modal.hasCupSize ? "rgba(255,255,255,0.6)" : "#ccc"
-                      }`,
-                      background: modal.hasCupSize ? "#fff" : "transparent",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {modal.hasCupSize && (
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          background: "var(--brand)",
-                          display: "block",
-                        }}
-                      />
-                    )}
-                  </span>
-                  {modal.hasCupSize ? "🩱 Cup Sizes Enabled" : "No Cup Sizes"}
-                </button>
-              </div>
-
-              {/* ── Live size preview ── */}
-              <CategorySizesPreview
+              <ImageUploadField
                 categoryId={modal.categoryId}
-                bandSizeType={modal.bandSizeType}
-                hasCupSize={!!modal.hasCupSize}
+                currentUrl={modal.categoryImage}
+                onUploaded={(url) => setModal({ ...modal, categoryImage: url })}
               />
             </div>
+
+            {/* Note: sizes (alpha/numerical/cup) are determined automatically from
+                product PVD data — no category-level size config needed. */}
 
             {/* Footer buttons */}
             <div className="s-adminblog-679e96">

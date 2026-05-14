@@ -78,8 +78,9 @@ export default function ShippingOption() {
 
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
   const cartValue = Number(subTotal || 0);
-  const checkoutItems =
-    checkoutSession?.items?.length ? checkoutSession.items : getSelectedItems();
+  const checkoutItems = checkoutSession?.items?.length
+    ? checkoutSession.items
+    : getSelectedItems();
   const normalizedOptions: ShippingOption[] = (
     (shippingOptions as any[]) || []
   ).map((opt: any) => {
@@ -124,7 +125,8 @@ export default function ShippingOption() {
   const selectedOpt =
     normalizedOptions.find((opt) => opt.deliveryChargeId === selectedId) ??
     (selectedId === FALLBACK_OPTION.deliveryChargeId ? FALLBACK_OPTION : null);
-  const activeSelectedOpt = selectedOpt?.isEligible === false ? null : selectedOpt;
+  const activeSelectedOpt =
+    selectedOpt?.isEligible === false ? null : selectedOpt;
   const shippingCost = activeSelectedOpt
     ? activeSelectedOpt.isFree
       ? 0
@@ -132,9 +134,7 @@ export default function ShippingOption() {
     : 0;
   const total = Math.max(
     0,
-    cartValue +
-      shippingCost -
-      Number(couponDiscount || 0),
+    cartValue + shippingCost - Number(couponDiscount || 0),
   );
   const surpriseGift = checkoutSession?.surpriseGift ?? null;
   const canChooseOption = (option: ShippingOption) =>
@@ -181,8 +181,7 @@ export default function ShippingOption() {
     navigate("/user-products/payment" + (isBuyNow ? "?buyNow=1" : ""));
   };
 
-  const isFallbackSelected =
-    selectedId === FALLBACK_OPTION.deliveryChargeId;
+  const isFallbackSelected = selectedId === FALLBACK_OPTION.deliveryChargeId;
 
   return (
     <div className="container s-invoice-5c9003 checkout-shell checkout-shell--shipping">
@@ -190,7 +189,52 @@ export default function ShippingOption() {
         <div className="col-lg-7">
           {isLoading ? (
             <div className="s-shippingopti-9ecba4 checkout-card">
-              <div className="spinner-border text-secondary" />
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  width: "100%",
+                }}
+              >
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: "16px 18px",
+                      borderRadius: 12,
+                      border: "1.5px solid var(--ivory)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div
+                          className="twam-skel"
+                          style={{
+                            height: 14,
+                            width: "50%",
+                            borderRadius: 5,
+                            marginBottom: 8,
+                          }}
+                        />
+                        <div
+                          className="twam-skel"
+                          style={{ height: 12, width: "70%", borderRadius: 5 }}
+                        />
+                      </div>
+                      <div
+                        className="twam-skel"
+                        style={{ height: 16, width: "20%", borderRadius: 5 }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : normalizedOptions.length === 0 ? (
             <div
@@ -198,14 +242,9 @@ export default function ShippingOption() {
               className="s-shippingopti-b63dfb checkout-card checkout-card--option"
               style={{
                 border: `2px solid ${
-                  isFallbackSelected
-                    ? "#000000"
-                    : "var(--brand)"
+                  isFallbackSelected ? "#000000" : "var(--brand)"
                 }`,
-                background:
-                  isFallbackSelected
-                    ? "var(--ivory)"
-                    : "#fff",
+                background: isFallbackSelected ? "var(--ivory)" : "#fff",
               }}
             >
               <div className="s-adminreports-25c771">
@@ -213,19 +252,12 @@ export default function ShippingOption() {
                   className="s-shippingopti-e0801a"
                   style={{
                     border: `2px solid ${
-                      isFallbackSelected
-                        ? "#000000"
-                        : "var(--brand)"
+                      isFallbackSelected ? "#000000" : "var(--brand)"
                     }`,
-                    background:
-                      isFallbackSelected
-                        ? "#000000"
-                        : "#fff",
+                    background: isFallbackSelected ? "#000000" : "#fff",
                   }}
                 >
-                  {isFallbackSelected && (
-                    <div className="s-payment-108f10" />
-                  )}
+                  {isFallbackSelected && <div className="s-payment-108f10" />}
                 </div>
                 <div className="s-shippingopti-content">
                   <p className="s-shippingopti-b1d3de">Standard Delivery</p>
@@ -239,8 +271,7 @@ export default function ShippingOption() {
           ) : (
             normalizedOptions.map((opt) => {
               const isSelected =
-                selectedId === opt.deliveryChargeId &&
-                opt.isEligible !== false;
+                selectedId === opt.deliveryChargeId && opt.isEligible !== false;
 
               return (
                 <div
@@ -316,7 +347,7 @@ export default function ShippingOption() {
                 A clear breakdown before payment.
               </p>
             </div>
-            {[ 
+            {[
               {
                 label: "Subtotal",
                 value: `Rs.${subTotal.toLocaleString("en-IN")}`,

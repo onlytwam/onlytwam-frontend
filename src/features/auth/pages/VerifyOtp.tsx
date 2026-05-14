@@ -1,29 +1,9 @@
-// src/features/auth/pages/VerifyOtp.tsx
-//
-// Forgot-password OTP verification page.
-//
-// URL params (set by Login.tsx before navigating here):
-//   ?identifier=<email|phone>
-//   &channel=<email|sms|whatsapp>
-//   &purpose=forgot_password
-//   &display=<masked email or phone>   (shown to user)
-//
-// Flow:
-//   1. User enters 6-digit OTP
-//   2. Client-side: check all 6 digits are filled
-//   3. Navigate to /reset-password?identifier=…&otp=…&channel=…&display=…
-//      ResetPassword calls verifyForgotPasswordOtpAndReset(identifier, otp, newPassword)
-//      which verifies the OTP AND resets the password in ONE combined backend call.
-//
-// WHY no API call here:
-//   verifyForgotPasswordOtpAndReset consumes the OTP and sets the password in one shot.
-//   Calling it here with a dummy password would burn the OTP before the user types
-//   their real password. So we just pass the OTP forward via URL params.
-
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { sendForgotPasswordOtpToChannel } from "@/features/auth/api/auth.api";
+import AuthBackdrop from "@/features/auth/components/AuthBackdrop";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
@@ -45,28 +25,28 @@ export default function VerifyOtp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
+  const bgImage = usePageImage(IMAGE_KEYS.LOGIN_BACKGROUND);
 
   const identifier = searchParams.get("identifier") || "";
-  const channel    = (searchParams.get("channel") || "email") as "email" | "sms" | "whatsapp";
-  const display    = searchParams.get("display") || identifier;
+  const channel = (searchParams.get("channel") || "email") as "email" | "sms" | "whatsapp";
+  const display = searchParams.get("display") || identifier;
 
-  const [digits, setDigits]       = useState<string[]>(Array(OTP_LENGTH).fill(""));
-  const inputRefs                 = useRef<Array<HTMLInputElement | null>>(Array(OTP_LENGTH).fill(null));
-  const [otpError, setOtpError]   = useState("");
-  const [resendCd, setResendCd]   = useState(RESEND_COOLDOWN);
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(OTP_LENGTH).fill(null));
+  const [otpError, setOtpError] = useState("");
+  const [resendCd, setResendCd] = useState(RESEND_COOLDOWN);
   const [resending, setResending] = useState(false);
 
-  // Countdown
   useEffect(() => {
     if (resendCd <= 0) return;
     const t = setTimeout(() => setResendCd((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [resendCd]);
 
-  // Focus first box on mount
-  useEffect(() => { inputRefs.current[0]?.focus(); }, []);
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
 
-  // Guard: no identifier → back to login
   useEffect(() => {
     if (!identifier) {
       toast.error("Session expired. Please start again.");
@@ -74,10 +54,8 @@ export default function VerifyOtp() {
     }
   }, [identifier, navigate]);
 
-  // ── input handlers ────────────────────────────────────────────────────────
   const handleDigitChange = (idx: number, val: string) => {
     if (val.length > 1) {
-      // Handle paste
       const pasted = val.replace(/\D/g, "").slice(0, OTP_LENGTH);
       const next = Array(OTP_LENGTH).fill("");
       for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
@@ -95,12 +73,11 @@ export default function VerifyOtp() {
   };
 
   const handleKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !digits[idx] && idx > 0)  inputRefs.current[idx - 1]?.focus();
-    if (e.key === "ArrowLeft"  && idx > 0)                  inputRefs.current[idx - 1]?.focus();
-    if (e.key === "ArrowRight" && idx < OTP_LENGTH - 1)     inputRefs.current[idx + 1]?.focus();
+    if (e.key === "Backspace" && !digits[idx] && idx > 0) inputRefs.current[idx - 1]?.focus();
+    if (e.key === "ArrowLeft" && idx > 0) inputRefs.current[idx - 1]?.focus();
+    if (e.key === "ArrowRight" && idx < OTP_LENGTH - 1) inputRefs.current[idx + 1]?.focus();
   };
 
-  // ── continue — just validate locally, then pass otp via URL ──────────────
   const handleContinue = useCallback(() => {
     const otp = digits.join("");
     if (otp.length < OTP_LENGTH) {
@@ -108,16 +85,10 @@ export default function VerifyOtp() {
       inputRefs.current[digits.findIndex((d) => !d)]?.focus();
       return;
     }
-    // Navigate to ResetPassword with otp in URL.
-    // ResetPassword will call verifyForgotPasswordOtpAndReset(identifier, otp, newPassword)
-    // to verify + reset in one backend call.
+
     navigate(
-      `/reset-password` +
-      `?identifier=${encodeURIComponent(identifier)}` +
-      `&otp=${encodeURIComponent(otp)}` +
-      `&channel=${encodeURIComponent(channel)}` +
-      `&display=${encodeURIComponent(display)}`,
-      { replace: true }
+      `/reset-password?identifier=${encodeURIComponent(identifier)}&otp=${encodeURIComponent(otp)}&channel=${encodeURIComponent(channel)}&display=${encodeURIComponent(display)}`,
+      { replace: true },
     );
   }, [digits, identifier, channel, display, navigate]);
 
@@ -126,7 +97,6 @@ export default function VerifyOtp() {
     handleKeyDown(OTP_LENGTH - 1, e);
   };
 
-  // ── resend ────────────────────────────────────────────────────────────────
   const handleResend = async () => {
     if (resendCd > 0 || resending || !identifier) return;
     setResending(true);
@@ -150,26 +120,19 @@ export default function VerifyOtp() {
     <>
       {isMobile && <MobileBackHeader title="Verify OTP" />}
 
-      <div className="s-login-2bb036">
-
-        {/* Left image */}
-        <div className="d-none d-md-flex s-login-2da0c0">
-          <img
-            src="/assets/images/forgot-bg.jpg"
-            className="s-userdashboar-4ebae2"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-            alt=""
-          />
-          <div className="s-login-da6116">
-            <p className="s-login-f18190">One step away from getting back in.</p>
-            <p className="s-login-6854c0">Only TWAM — Crafted with love.</p>
-          </div>
-        </div>
-
-        {/* Right form */}
-        <div className="s-login-5c2ebc">
+      <AuthBackdrop backgroundImage={bgImage}>
+        <div
+          className="s-login-5c2ebc"
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            marginLeft: "auto",
+            background: "transparent",
+            padding: 0,
+            boxShadow: "none",
+          }}
+        >
           <div className="s-login-d3c5f3">
-
             {!isMobile && (
               <button
                 type="button"
@@ -186,18 +149,28 @@ export default function VerifyOtp() {
                 src="/assets/images/Twam-Logo-Black.png"
                 alt="TWAM"
                 className="s-login-cd2062"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
               />
             </div>
 
             {!isMobile && <h5 className="s-login-b4f13d">Enter Verification Code</h5>}
 
-            {/* Channel badge */}
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: "#f8f5f0", borderRadius: 8, padding: "8px 14px",
-              marginBottom: 12, fontSize: 14, color: "#8b7355",
-            }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "#f8f5f0",
+                borderRadius: 8,
+                padding: "8px 14px",
+                marginBottom: 12,
+                fontSize: 14,
+                color: "#8b7355",
+                flexWrap: "wrap",
+              }}
+            >
               <i className={`bi ${channelIcon(channel)}`} style={{ fontSize: 16 }} />
               <span>
                 Code sent via <strong>{channelLabel(channel)}</strong>
@@ -209,29 +182,28 @@ export default function VerifyOtp() {
               Enter the 6-digit code below. It expires in 10 minutes.
             </p>
 
-            {/* OTP boxes */}
             <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 8 }}>
               {digits.map((digit, idx) => (
                 <input
                   key={idx}
-                  ref={(el) => { inputRefs.current[idx] = el; }}
+                  ref={(el) => {
+                    inputRefs.current[idx] = el;
+                  }}
                   type="text"
                   inputMode="numeric"
-                  maxLength={6}
+                  maxLength={1}
                   value={digit}
                   onChange={(e) => handleDigitChange(idx, e.target.value)}
-                  onKeyDown={idx === OTP_LENGTH - 1
-                    ? handleLastKeyDown
-                    : (e) => handleKeyDown(idx, e)}
+                  onKeyDown={idx === OTP_LENGTH - 1 ? handleLastKeyDown : (e) => handleKeyDown(idx, e)}
                   onFocus={(e) => e.target.select()}
                   style={{
-                    width: 46, height: 54,
+                    width: 46,
+                    height: 54,
                     textAlign: "center",
-                    fontSize: 22, fontWeight: 700,
+                    fontSize: 22,
+                    fontWeight: 700,
                     borderRadius: 8,
-                    border: otpError
-                      ? "2px solid #c0392b"
-                      : digit ? "2px solid #8b7355" : "2px solid #ddd",
+                    border: otpError ? "2px solid #c0392b" : digit ? "2px solid #8b7355" : "2px solid #ddd",
                     outline: "none",
                     color: "#333",
                     background: "#fff",
@@ -242,10 +214,7 @@ export default function VerifyOtp() {
             </div>
 
             {otpError && (
-              <div style={{
-                color: "#c0392b", fontSize: 13, marginBottom: 12,
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
+              <div style={{ color: "#c0392b", fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
                 <i className="bi bi-exclamation-circle-fill" />
                 {otpError}
               </div>
@@ -260,18 +229,19 @@ export default function VerifyOtp() {
                 marginTop: 8,
                 cursor: !otpFilled ? "not-allowed" : "pointer",
                 opacity: !otpFilled ? 0.7 : 1,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
               }}
             >
               Continue
             </button>
 
-            {/* Resend */}
             <div style={{ marginTop: 20, textAlign: "center", fontSize: 14, color: "#666" }}>
               {resendCd > 0 ? (
                 <span>
-                  Resend code in{" "}
-                  <strong style={{ color: "#8b7355" }}>{resendCd}s</strong>
+                  Resend code in <strong style={{ color: "#8b7355" }}>{resendCd}s</strong>
                 </span>
               ) : (
                 <button
@@ -287,18 +257,13 @@ export default function VerifyOtp() {
             </div>
 
             <p className="s-login-c80d80" style={{ marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="s-login-182bea"
-              >
+              <button type="button" onClick={() => navigate("/login")} className="s-login-182bea">
                 ← Back to Sign In
               </button>
             </p>
-
           </div>
         </div>
-      </div>
+      </AuthBackdrop>
     </>
   );
 }

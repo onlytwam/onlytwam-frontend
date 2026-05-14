@@ -142,7 +142,11 @@ export default function AllProducts() {
       const matched = cats.find((c: any) =>
         hero.pattern.test(c.name ?? c.categoryName ?? ""),
       );
-      return { ...hero, categoryId: matched?.categoryId ?? null };
+      return {
+        ...hero,
+        categoryId: matched?.categoryId ?? null,
+        categoryImage: matched?.categoryImage ?? null,
+      };
     });
   }, [categoriesData]);
 
@@ -157,6 +161,10 @@ export default function AllProducts() {
       }),
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (!isLoading) window.dispatchEvent(new Event("page-content-ready"));
+  }, [isLoading]);
 
   // ── Client-side filtering ──────────────────────────────────────────────────
   const allProducts = useMemo(() => {
@@ -285,7 +293,7 @@ export default function AllProducts() {
             <h1 className="ap-hero-title">All Products</h1>
           </div>
 
-          {/* 3-row x 2-col category grid — clean images, no text overlays */}
+          {/* 3-row x 2-col category grid — images from API, no static assets */}
           <div className="ap-category-grid">
             {heroTiles.map((tile) => (
               <button
@@ -297,52 +305,57 @@ export default function AllProducts() {
                 }
                 aria-label={`Shop ${tile.label}`}
               >
-                <img
-                  src={`/assets/categories/${tile.file}`}
-                  alt={tile.label}
-                  className="ap-category-img"
-                  loading="lazy"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.opacity = "0";
-                  }}
-                />
+                {tile.categoryImage ? (
+                  <img
+                    src={tile.categoryImage}
+                    alt={tile.label}
+                    className="ap-category-img"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="ap-category-label">{tile.label}</span>
+                )}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Mobile: original hero ── */}
-      {isMobile && (
-        <div
-          className="category-hero-banner"
-          style={{
-            width: "100%",
-            maxWidth: "100vw",
-            height: "calc(100dvh - 64px)",
-            overflow: "hidden",
-            margin: 0,
-            padding: 0,
-            lineHeight: 0,
-          }}
-        >
-          <img
-            src="/assets/categories/All.png"
-            alt="All Products"
-            loading="lazy"
-            style={{
-              display: "block",
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-            }}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
-          />
-        </div>
-      )}
+      {/* ── Mobile: hero banner from API — only shown when image is uploaded ── */}
+      {isMobile &&
+        (() => {
+          const allCat = (categoriesData?.list ?? []).find((c: any) =>
+            /all.?product/i.test(c.name ?? ""),
+          );
+          const mobileHero: string | null = allCat?.categoryImage ?? null;
+          return mobileHero ? (
+            <div
+              className="category-hero-banner"
+              style={{
+                width: "100%",
+                maxWidth: "100vw",
+                height: "calc(100dvh - 64px)",
+                overflow: "hidden",
+                margin: 0,
+                padding: 0,
+                lineHeight: 0,
+              }}
+            >
+              <img
+                src={mobileHero}
+                alt="All Products"
+                loading="lazy"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                }}
+              />
+            </div>
+          ) : null;
+        })()}
 
       {/* Toolbar */}
       <ProductToolbar
@@ -380,8 +393,37 @@ export default function AllProducts() {
       {/* Product Grid */}
       <div className="container s-productlist-22e220">
         {isLoading ? (
-          <div className="s-productlist-18a79d">
-            <div className="s-productlist-feb323" />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: "24px",
+              paddingTop: 16,
+            }}
+          >
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div
+                key={i}
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                <div
+                  className="twam-skel"
+                  style={{ aspectRatio: "3/4", borderRadius: 12 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 14, width: "70%", borderRadius: 6 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 12, width: "45%", borderRadius: 6 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 14, width: "35%", borderRadius: 6 }}
+                />
+              </div>
+            ))}
           </div>
         ) : displayProducts.length === 0 ? (
           <div className="s-productlist-3fa2c3">

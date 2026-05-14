@@ -19,6 +19,7 @@ import ProductFilters, {
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 
 const DEFAULT_FILTERS: ProductFilterState = {
   colors: [],
@@ -36,13 +37,14 @@ const PAGE_SIZE = 20;
 export default function OnlyTwam() {
   const isMobile = useIsMobile();
   const filterScrollY = useRef(0);
+  const twamHeroImage = usePageImage(IMAGE_KEYS.HOME_SECTION_TWAM);
   const { setCrumbs } = useBreadcrumbStore();
 
-  const [sortOption, setSortOption]   = useState("latest");
-  const [page, setPage]               = useState(1);
-  const [filterOpen, setFilterOpen]   = useState(false);
+  const [sortOption, setSortOption] = useState("latest");
+  const [page, setPage] = useState(1);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
-  const [filters, setFilters]         = useState<ProductFilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<ProductFilterState>(DEFAULT_FILTERS);
 
   useEffect(() => {
     setCrumbs([{ label: "Home", path: "/" }, { label: "TWAM" }]);
@@ -60,38 +62,58 @@ export default function OnlyTwam() {
 
     if (!isMobile) {
       document.body.style.overflow = filterOpen ? "hidden" : "";
-      return () => { document.body.style.overflow = ""; };
+      return () => {
+        document.body.style.overflow = "";
+      };
     }
 
     if (filterOpen) {
-      const toolbar  = document.querySelector(".product-toolbar") as HTMLElement | null;
-      const catbar   = document.querySelector(".mcb-wrapper")     as HTMLElement | null;
-      const catWasHidden = catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
-      const toolbarTop    = toolbar?.style.top || "108px";
-      const toolbarBottom = toolbar ? Math.round(toolbar.getBoundingClientRect().bottom) : 152;
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
+      const catbar = document.querySelector(
+        ".mcb-wrapper",
+      ) as HTMLElement | null;
+      const catWasHidden =
+        catbar?.classList.contains("mcb-wrapper--hidden") ?? false;
+      const toolbarTop = toolbar?.style.top || "108px";
+      const toolbarBottom = toolbar
+        ? Math.round(toolbar.getBoundingClientRect().bottom)
+        : 152;
       filterScrollY.current = window.scrollY;
       (window as any).__drawerOpen = true;
       window.dispatchEvent(new Event("filter-opened"));
       document.documentElement.style.overflow = "hidden";
-      document.documentElement.style.height   = "100%";
-      if (catWasHidden && catbar)       catbar.classList.add("mcb-wrapper--hidden");
-      else if (!catWasHidden && catbar) catbar.classList.remove("mcb-wrapper--hidden");
-      if (toolbar) { toolbar.style.top = toolbarTop; toolbar.style.zIndex = "1210"; }
-      const offset   = `${toolbarBottom}px`;
-      const drawer   = document.querySelector(".gs-drawer")   as HTMLElement | null;
-      const backdrop = document.querySelector(".gs-backdrop") as HTMLElement | null;
-      if (drawer)   { drawer.style.top = offset; drawer.style.height = `calc(100% - ${offset})`; }
-      if (backdrop)   backdrop.style.top = offset;
+      document.documentElement.style.height = "100%";
+      if (catWasHidden && catbar) catbar.classList.add("mcb-wrapper--hidden");
+      else if (!catWasHidden && catbar)
+        catbar.classList.remove("mcb-wrapper--hidden");
+      if (toolbar) {
+        toolbar.style.top = toolbarTop;
+        toolbar.style.zIndex = "1210";
+      }
+      const offset = `${toolbarBottom}px`;
+      const drawer = document.querySelector(".gs-drawer") as HTMLElement | null;
+      const backdrop = document.querySelector(
+        ".gs-backdrop",
+      ) as HTMLElement | null;
+      if (drawer) {
+        drawer.style.top = offset;
+        drawer.style.height = `calc(100% - ${offset})`;
+      }
+      if (backdrop) backdrop.style.top = offset;
     } else {
       (window as any).__drawerOpen = false;
-      const toolbar = document.querySelector(".product-toolbar") as HTMLElement | null;
+      const toolbar = document.querySelector(
+        ".product-toolbar",
+      ) as HTMLElement | null;
       if (toolbar) toolbar.style.zIndex = "";
       document.documentElement.style.overflow = "";
-      document.documentElement.style.height   = "";
+      document.documentElement.style.height = "";
     }
     return () => {
       document.documentElement.style.overflow = "";
-      document.documentElement.style.height   = "";
+      document.documentElement.style.height = "";
     };
   }, [filterOpen, isMobile]);
 
@@ -125,6 +147,10 @@ export default function OnlyTwam() {
       }),
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (!isLoading) window.dispatchEvent(new Event("page-content-ready"));
+  }, [isLoading]);
 
   // ── Group by productId, then apply collection-level filters ───────────────
   const groupedProducts = useMemo(() => {
@@ -170,15 +196,19 @@ export default function OnlyTwam() {
       return arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     if (sortOption === "az")
       return arr.sort((a, b) =>
-        (a.productName ?? a.name ?? "").localeCompare(b.productName ?? b.name ?? ""),
+        (a.productName ?? a.name ?? "").localeCompare(
+          b.productName ?? b.name ?? "",
+        ),
       );
     if (sortOption === "low")
       return arr.sort(
-        (a, b) => (a.finalPrice ?? a.price ?? 0) - (b.finalPrice ?? b.price ?? 0),
+        (a, b) =>
+          (a.finalPrice ?? a.price ?? 0) - (b.finalPrice ?? b.price ?? 0),
       );
     if (sortOption === "high")
       return arr.sort(
-        (a, b) => (b.finalPrice ?? b.price ?? 0) - (a.finalPrice ?? a.price ?? 0),
+        (a, b) =>
+          (b.finalPrice ?? b.price ?? 0) - (a.finalPrice ?? a.price ?? 0),
       );
     return arr.sort(
       (a, b) =>
@@ -195,7 +225,14 @@ export default function OnlyTwam() {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     if (page <= 3) return [1, 2, 3, 4, "...", totalPages];
     if (page >= totalPages - 2)
-      return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+      return [
+        1,
+        "...",
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
     return [1, "...", page - 1, page, page + 1, "...", totalPages];
   }, [page, totalPages]);
 
@@ -232,26 +269,33 @@ export default function OnlyTwam() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="s-productlist-3ab64d s-productlist-ff586331">
-      {/* Hero banner */}
-      <div
-        style={{
-          width: "100%",
-          aspectRatio: "3 / 1",
-          overflow: "hidden",
-          lineHeight: 0,
-          margin: 0,
-          padding: 0,
-          display: "block",
-        }}
-      >
-        <img
-          src="/assets/home/twam1.png"
-          alt="TWAM"
-          loading="lazy"
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-        />
-      </div>
+      {/* Hero banner — uses the same home_section_twam image as the home page section */}
+      {twamHeroImage && (
+        <div
+          className="category-hero-banner"
+          style={{
+            width: "100%",
+            aspectRatio: "21 / 7",
+            overflow: "hidden",
+            lineHeight: 0,
+            margin: 0,
+            padding: 0,
+            display: "block",
+          }}
+        >
+          <img
+            src={twamHeroImage}
+            alt="TWAM"
+            loading="lazy"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        </div>
+      )}
 
       {/* Toolbar */}
       <ProductToolbar
@@ -259,30 +303,37 @@ export default function OnlyTwam() {
         appliedFilterCount={appliedFilterCount}
         onFilterClick={() => setFilterOpen((o) => !o)}
         sortOption={sortOption}
-        onSortChange={(val) => { setSortOption(val); setPage(1); }}
+        onSortChange={(val) => {
+          setSortOption(val);
+          setPage(1);
+        }}
         onQuickPrice={handleQuickPrice}
         activeQuickPrice={activeQuickPrice}
       />
 
       <ProductActiveFilters
         filters={filters}
-        onFiltersChange={(newFilters) => { setFilters(newFilters); setPage(1); }}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setPage(1);
+        }}
       />
 
       <ProductFilters
         isOpen={filterOpen}
         onClose={() => setFilterOpen(false)}
         filters={filters}
-        onFiltersChange={(newFilters) => { setFilters(newFilters); setPage(1); }}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setPage(1);
+        }}
         productCount={sortedProducts.length}
       />
 
       {/* Product Grid */}
       <div className="container s-productlist-22e220">
         {isLoading || twamBrandId == null ? (
-          <div className="s-productlist-18a79d">
-            <div className="s-productlist-feb323" />
-          </div>
+          <div className="s-productlist-18a79d"></div>
         ) : sortedProducts.length === 0 ? (
           <div className="s-productlist-3fa2c3">
             <i className="bi bi-bag-x s-productlist-28e718" />
@@ -336,7 +387,9 @@ export default function OnlyTwam() {
                 </button>
                 {pagesArr.map((p, i) =>
                   p === "..." ? (
-                    <span key={`el-${i}`} className="s-productlist-2ab2e0">…</span>
+                    <span key={`el-${i}`} className="s-productlist-2ab2e0">
+                      …
+                    </span>
                   ) : (
                     <button
                       key={p}
@@ -356,7 +409,12 @@ export default function OnlyTwam() {
                   <i className="bi bi-chevron-right" />
                 </button>
                 <span className="s-productlist-f6dfaf s-productlist-ff0afd28">
-                  {sortedProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).length}{" "}
+                  {
+                    sortedProducts.slice(
+                      (page - 1) * PAGE_SIZE,
+                      page * PAGE_SIZE,
+                    ).length
+                  }{" "}
                   shown · Page {page}/{totalPages}
                 </span>
               </div>

@@ -37,8 +37,11 @@ const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 const DOUBLE_TAP_MAX_DELAY = 320;
 const DOUBLE_TAP_MAX_DISTANCE = 24;
 
-// Size/cup-size display is now fully driven by Category.bandSizeType and
-// Category.hasCupSize coming from the API — no client-side keyword matching needed.
+// Size/cup-size display is driven entirely by product-level PVD data.
+// The backend detects whether sizes are alphabetical or numerical from the
+// mdm.Size.SizeType of the sizes the product actually has in its PVD rows,
+// and computes hasCupSize from whether any PVD row has a CupSizeId.
+// No category-level size configuration is needed or used.
 
 /* ── Centered page notification (same style as QuickShopModal) ─────────────── */
 interface PageNotif {
@@ -347,7 +350,7 @@ export default function ProductDetail() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
-  const { hasValidToken, getUserId, setCartCount, cartCount } = useAuthStore();
+  const { hasValidToken, getUserId } = useAuthStore();
 
   const [activeImg, setActiveImg] = useState(0);
   const [selBandId, setSelBandId] = useState<number | null>(null);
@@ -587,13 +590,19 @@ export default function ProductDetail() {
     queryKey: ["product-detail", currentVId],
     queryFn: () => getProductDetail(currentVId),
     enabled: currentVId > 0,
+    staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (!isLoading) window.dispatchEvent(new Event("page-content-ready"));
+  }, [isLoading]);
 
   const { data: reviewData } = useQuery({
     queryKey: ["reviews", currentVId],
     queryFn: () =>
       listUserReviews({ productVariantId: currentVId, pageSize: 50 }),
     enabled: currentVId > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: similarRaw = [] } = useQuery<any[]>({
@@ -796,9 +805,10 @@ export default function ProductDetail() {
         )
       : 0;
 
-  // hasCupSize and allSizes come pre-filtered from the backend based on the
-  // product's immediate category (Category.HasCupSize / Category.BandSizeType).
-  // No client-side keyword or isCupSize flag overrides are applied here.
+  // hasCupSize is computed server-side from the product's own PVD rows
+  // (true when any PVD row has a CupSizeId). allSizes are pre-filtered by
+  // the detected SizeType (alpha or numerical) from the product's PVD data.
+  // No category-level size config is used.
   const hasCupSize = !!product?.hasCupSize;
   const rawSizes: any[] = product?.sizes ?? [];
   const allCupSizes: any[] = product?.cupSizes ?? [];
@@ -915,13 +925,36 @@ export default function ProductDetail() {
   };
 
   const cartMutation = useMutation({
-    mutationFn: (obj: any) => addToCart(obj),
-    onSuccess: () => {
-      toast.success("Added to cart!");
-      setCartCount(cartCount + 1);
+    mutationFn: async (obj: any) => {
+      const res = await listCart({ userProfileId: String(getUserId()) });
+      const current = res?.list ?? res ?? [];
+      const existing = (current as any[]).find(
+        (item) => item.productVariantDetailId === obj.productVariantDetailId,
+      );
+
+      if (existing?.cartId) {
+        const currentQty = Number(
+          existing.quantity || existing.processedQuantity || 1,
+        );
+        const addQty = Number(obj.quantity || obj.processedQuantity || 1) || 1;
+        await updateCart(existing.cartId, {
+          cartId: existing.cartId,
+          quantity: currentQty + addQty,
+        });
+        return { mode: "updated" as const };
+      }
+
+      await addToCart(obj);
+      return { mode: "added" as const };
+    },
+    onSuccess: async (result) => {
+      toast.success(
+        result?.mode === "updated" ? "Cart updated!" : "Added to cart!",
+      );
       qc.invalidateQueries({ queryKey: ["cart"] });
       qc.invalidateQueries({ queryKey: ["quick-cart"] });
       qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+      await qc.refetchQueries({ queryKey: ["cart-bootstrap"] });
     },
     onError: (e: any) =>
       toast.error(e?.response?.data?.detail || "Failed to add to cart"),
@@ -1218,8 +1251,93 @@ export default function ProductDetail() {
 
   if (isLoading)
     return (
-      <div className="s-blog1-3b196e">
-        <div className="s-productdetai-fa17e1" />
+      <div
+        className="container"
+        style={{ padding: isMobileViewport ? "16px 14px" : "32px 20px" }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobileViewport ? "1fr" : "1fr 1fr",
+            gap: isMobileViewport ? 16 : 40,
+          }}
+        >
+          {/* Image col */}
+          <div>
+            <div
+              className="twam-skel"
+              style={{ aspectRatio: "3/4", borderRadius: 14, width: "100%" }}
+            />
+            {!isMobileViewport && (
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="twam-skel"
+                    style={{ width: 72, height: 88, borderRadius: 8 }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Info col */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div
+              className="twam-skel"
+              style={{ height: 13, width: "50%", borderRadius: 6 }}
+            />
+            <div
+              className="twam-skel"
+              style={{ height: 24, width: "80%", borderRadius: 6 }}
+            />
+            <div
+              className="twam-skel"
+              style={{ height: 18, width: "30%", borderRadius: 6 }}
+            />
+            <div
+              style={{ height: 1, background: "var(--ivory)", margin: "8px 0" }}
+            />
+            <div
+              className="twam-skel"
+              style={{ height: 13, width: "40%", borderRadius: 6 }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="twam-skel"
+                  style={{ width: 44, height: 44, borderRadius: 22 }}
+                />
+              ))}
+            </div>
+            <div
+              className="twam-skel"
+              style={{
+                height: 13,
+                width: "35%",
+                borderRadius: 6,
+                marginTop: 8,
+              }}
+            />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="twam-skel"
+                  style={{ width: 54, height: 38, borderRadius: 8 }}
+                />
+              ))}
+            </div>
+            <div
+              className="twam-skel"
+              style={{ height: 52, borderRadius: 28, marginTop: 12 }}
+            />
+            <div
+              className="twam-skel"
+              style={{ height: 52, borderRadius: 28 }}
+            />
+          </div>
+        </div>
       </div>
     );
   if (!product)

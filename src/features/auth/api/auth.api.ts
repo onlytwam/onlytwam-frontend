@@ -13,6 +13,8 @@ const AUTH_BASE = (
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
 ).replace("/api", "");
 
+
+
 export function encryptPassword(plain: string): string {
   const key = CryptoJS.enc.Utf8.parse("8080808080808080");
   const iv = CryptoJS.enc.Utf8.parse("8080808080808080");
@@ -45,6 +47,7 @@ export const loginWithPassword = async (
   });
   return response.data;
 };
+
 
 export const getUserInfo = async (token?: string) => {
   const t = token || localStorage.getItem("access_token");

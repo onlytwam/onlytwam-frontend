@@ -34,71 +34,6 @@ const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 // ─── Category images ──────────────────────────────────────────────────────────
 // NOTE: Order matters — more specific patterns must come BEFORE general ones.
 // e.g. "Bridal Bras" must match /bridal/ before it can fall through to /\bbra/.
-const CAT_IMAGE_MAP: { pattern: RegExp; file: string }[] = [
-  // ── 6 New hero banner images (broad match so any variant of the name works) ─
-  { pattern: /swim\s*wear/i, file: "Swimwear.png" },
-  { pattern: /activewear|active\s*wear/i, file: "Activewear.png" },
-  { pattern: /leak.?proof|leakproof/i, file: "Leakproof.png" },
-  { pattern: /essentials?/i, file: "Essentials.png" },
-  { pattern: /panties|panty/i, file: "Panties.png" },
-  // ── All bra sub-types BEFORE the general bra catch-all ──────────────────────
-  { pattern: /balconette/i, file: "Balconette Bras.jpg" },
-  { pattern: /bandeau/i, file: "Bandeau Bras.jpg" },
-  { pattern: /beginner/i, file: "Beginners Bras.jpg" },
-  { pattern: /bridal/i, file: "Bridal Bras.jpg" },
-  { pattern: /cotton/i, file: "Cotton Bras.jpg" },
-  { pattern: /everyday/i, file: "Everyday Bras.jpg" },
-  { pattern: /full.?cover/i, file: "Full Coverage Bras.jpg" },
-  { pattern: /lace/i, file: "Lace.jpg" },
-  { pattern: /mastectomy/i, file: "Mastectomy Bras.jpg" },
-  { pattern: /minimiz/i, file: "Minimizer Bras.jpg" },
-  { pattern: /nurs/i, file: "Nursing Bras.jpg" },
-  { pattern: /push.?up/i, file: "Push Up Bras.jpg" },
-  { pattern: /seamless.?bra/i, file: "Seamless Bras.jpg" },
-  { pattern: /sport.*bra|bra.*sport/i, file: "Sports Bras.jpg" },
-  { pattern: /strapless/i, file: "Strapless Bras.jpg" },
-  { pattern: /t.?shirt.?bra/i, file: "T-Shirt Bras.jpg" },
-  { pattern: /teen/i, file: "Teen Bras.jpg" },
-  { pattern: /wire.?free|wireless/i, file: "Wireless Bras.jpg" },
-  // ── General bra catch-all (matches "Bra", "Bras", "Women's Bras", "All Bras")
-  { pattern: /\bbras?\b/i, file: "Bra.png" },
-  // ── Everything else ──────────────────────────────────────────────────────────
-  { pattern: /bestsell/i, file: "BestSellers.jpg" },
-  { pattern: /bikini/i, file: "Bikini.jpg" },
-  { pattern: /boy.?short/i, file: "Boy Shorts.jpg" },
-  { pattern: /brief/i, file: "Brief.png" },
-  { pattern: /cami/i, file: "Camisoles.jpg" },
-  { pattern: /high.waist|high.leg/i, file: "High-Waist & High-Leg.jpg" },
-  { pattern: /hipster/i, file: "Hipster.jpg" },
-  { pattern: /lace/i, file: "Lace.jpg" },
-  { pattern: /leak.?proof|leakproof/i, file: "leakproof.jpg" },
-  { pattern: /lingerie.?set/i, file: "Lingerie Sets.jpg" },
-  { pattern: /new.?arrival/i, file: "New Arrivals.jpg" },
-  { pattern: /only.?twam/i, file: "Only TWAM.jpg" },
-  { pattern: /plus/i, file: "Plus Size.jpg" },
-  {
-    pattern: /non.?padded|non.?wired/i,
-    file: "Non-Padded and Non-Wired Bra.png",
-  },
-  { pattern: /push.?up/i, file: "Push up Bras.jpg" },
-  { pattern: /seamless.?bra/i, file: "Seamless Bras.jpg" },
-  { pattern: /seamless.?pant/i, file: "Seamless Panty.jpg" },
-  { pattern: /shape/i, file: "Shapewear.jpg" },
-  { pattern: /sleep/i, file: "Sleepwear.jpg" },
-  { pattern: /sport/i, file: "Sports bra.jpg" },
-  { pattern: /strapless/i, file: "Strapless Bras.jpg" },
-  { pattern: /swim/i, file: "Swim Wear.jpg" },
-  { pattern: /t.?shirt.?bra/i, file: "T-Shirt Bras.jpg" },
-  { pattern: /teen/i, file: "Teen Bras.jpg" },
-  { pattern: /thong|g.?string/i, file: "Thongs & V-Strings.jpg" },
-];
-
-function getCategoryImage(name: string): string | null {
-  if (!name) return null;
-  const match = CAT_IMAGE_MAP.find((m) => m.pattern.test(name));
-  return match ? `/assets/categories/${match.file}` : null;
-}
-
 const DEFAULT_FILTERS: ProductFilterState = {
   colors: [],
   colorFamilies: [],
@@ -273,8 +208,15 @@ export default function ProductList() {
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ["products-list", buildParams()],
     queryFn: () => listProducts(buildParams()),
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
+
+  // ── Signal page ready for RouteTransitionOverlay ───────────────────────────
+  useEffect(() => {
+    if (!productsLoading) {
+      window.dispatchEvent(new Event("page-content-ready"));
+    }
+  }, [productsLoading]);
 
   // ── Product grouping ───────────────────────────────────────────────────────
   const groupedProducts = useMemo(() => {
@@ -323,7 +265,7 @@ export default function ProductList() {
   const categories = categoriesData?.list ?? [];
   const currentCategory = categories.find((c: any) => c.categoryId === catId);
   const categoryName = currentCategory?.name || "";
-  const categoryImage = getCategoryImage(categoryName);
+  const categoryImage: string | null = currentCategory?.categoryImage ?? null;
 
   const currentSubcategoryId = currentCategory?.parentCategoryId ? catId : null;
 
@@ -439,21 +381,37 @@ export default function ProductList() {
         {productsLoading ? (
           <div
             style={{
-              display: "flex",
-              justifyContent: "center",
-              padding: "100px 20px",
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "repeat(2, 1fr)"
+                : "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: isMobile ? "8px" : "30px",
+              marginBottom: isMobile ? "16px" : "40px",
             }}
           >
-            <div
-              style={{
-                width: "50px",
-                height: "50px",
-                border: "4px solid var(--ivory)",
-                borderTop: "4px solid var(--brand)",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-              }}
-            />
+            {Array.from({ length: isMobile ? 6 : 10 }).map((_, i) => (
+              <div
+                key={i}
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                <div
+                  className="twam-skel"
+                  style={{ aspectRatio: "3/4", borderRadius: 12 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 14, width: "70%", borderRadius: 6 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 12, width: "45%", borderRadius: 6 }}
+                />
+                <div
+                  className="twam-skel"
+                  style={{ height: 14, width: "35%", borderRadius: 6 }}
+                />
+              </div>
+            ))}
           </div>
         ) : groupedProducts.length === 0 ? (
           <div style={{ textAlign: "center", padding: "100px 20px" }}>

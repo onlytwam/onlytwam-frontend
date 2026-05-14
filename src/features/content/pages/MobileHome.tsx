@@ -9,6 +9,7 @@ import {
 } from "@/features/products/api/products.api";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
+import { usePageImage, IMAGE_KEYS } from "@/features/images";
 
 const CATEGORIES = [
   { id: null, name: "All", slug: "" },
@@ -23,6 +24,9 @@ export default function MobileHome() {
   const [quickShopId, setQuickShopId] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Dynamic hero image from backend
+  const mobileHeroSrc = usePageImage(IMAGE_KEYS.HOME_HERO_MOBILE);
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -39,7 +43,7 @@ export default function MobileHome() {
         orderProperty: "ModifiedDate",
         orderAscending: false,
       }),
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const products = Array.from(
@@ -109,7 +113,7 @@ export default function MobileHome() {
 
       <div className="mobile-hero">
         <img
-          src="/assets/hero/mobile-hero-1.jpg"
+          src={mobileHeroSrc}
           alt="Hero Banner"
           onError={(e) => {
             e.currentTarget.style.display = "none";

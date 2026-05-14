@@ -56,6 +56,7 @@ export default function Wishlist() {
     queryKey: ["wishlist", userId],
     queryFn: () => listWishlist({ userProfileId: userId! }),
     enabled: !isGuest,
+    staleTime: 5 * 60 * 1000,
     select: (d: any) => d?.list ?? (Array.isArray(d) ? d : []),
   });
 
@@ -152,7 +153,9 @@ export default function Wishlist() {
       clearGuestWishlist();
       qc.invalidateQueries({ queryKey: ["wishlist", userId] });
       toast.success(
-        `${guestItems.length} item${guestItems.length !== 1 ? "s" : ""} synced!`,
+        `${guestItems.length} item${
+          guestItems.length !== 1 ? "s" : ""
+        } synced!`,
       );
     } catch {
       toast.error("Sync failed");
@@ -174,7 +177,9 @@ export default function Wishlist() {
             <p className="s-wishlist-4735d5">
               {displayItems.length === 0
                 ? "Your wishlist is empty"
-                : `${displayItems.length} saved item${displayItems.length !== 1 ? "s" : ""}`}
+                : `${displayItems.length} saved item${
+                    displayItems.length !== 1 ? "s" : ""
+                  }`}
               {isGuest && <span className="s-wishlist-a22f7a">Guest</span>}
             </p>
           </div>
@@ -223,8 +228,37 @@ export default function Wishlist() {
 
       {/* Loading */}
       {isLoading && !isGuest && (
-        <div className="s-wishlist-444f00">
-          <div className="s-wishlist-037958" />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 16,
+            paddingTop: 16,
+          }}
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              style={{ display: "flex", flexDirection: "column", gap: 8 }}
+            >
+              <div
+                className="twam-skel"
+                style={{ aspectRatio: "3/4", borderRadius: 12 }}
+              />
+              <div
+                className="twam-skel"
+                style={{ height: 14, width: "70%", borderRadius: 6 }}
+              />
+              <div
+                className="twam-skel"
+                style={{ height: 12, width: "45%", borderRadius: 6 }}
+              />
+              <div
+                className="twam-skel"
+                style={{ height: 14, width: "35%", borderRadius: 6 }}
+              />
+            </div>
+          ))}
         </div>
       )}
 

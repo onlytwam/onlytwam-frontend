@@ -119,6 +119,7 @@ export default function OrdersList() {
         pageSize,
       }),
     enabled: !!userId,
+    staleTime: 2 * 60 * 1000,
   });
 
   // FIX: cancel order calls the actual API
