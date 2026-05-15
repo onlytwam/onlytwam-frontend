@@ -251,7 +251,8 @@ import { useCartLoader } from "@/features/cart/hooks/useCart";
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 const AdminLayout = lazy(
-  () => import("@/features/admin/components/AdminLayout"),);
+  () => import("@/features/admin/components/AdminLayout"),
+);
 
 const AdminDashboard = lazy(
   () => import("@/features/admin/pages/AdminDashboard"),
@@ -277,14 +278,26 @@ const AdminCoupons = lazy(() => import("@/features/admin/pages/AdminCoupons"));
 const AdminSupportRequests = lazy(
   () => import("@/features/admin/pages/AdminSupportRequests"),
 );
-const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"))
+const AdminBlog = lazy(() => import("@/features/admin/pages/AdminBlog"));
 const AdminMDM = lazy(() => import("@/features/admin/pages/AdminMDM"));
-const SalesRevenueReports = lazy(() => import("@/features/admin/pages/SalesRevenueReports"));
-const CustomerReports = lazy(() => import("@/features/admin/pages/CustomerReports"));
-const OrderFulfillmentReports = lazy(() => import("@/features/admin/pages/OrderFulfillmentReports"));
-const PaymentCheckout = lazy(() => import("@/features/admin/pages/PaymentCheckout"));
-const SiteAnalytics = lazy(() => import("@/features/admin/pages/SiteAnalytics"));
-const InventoryProductReports = lazy(() => import("@/features/admin/pages/StockLevelReport"));
+const SalesRevenueReports = lazy(
+  () => import("@/features/admin/pages/SalesRevenueReports"),
+);
+const CustomerReports = lazy(
+  () => import("@/features/admin/pages/CustomerReports"),
+);
+const OrderFulfillmentReports = lazy(
+  () => import("@/features/admin/pages/OrderFulfillmentReports"),
+);
+const PaymentCheckout = lazy(
+  () => import("@/features/admin/pages/PaymentCheckout"),
+);
+const SiteAnalytics = lazy(
+  () => import("@/features/admin/pages/SiteAnalytics"),
+);
+const InventoryProductReports = lazy(
+  () => import("@/features/admin/pages/StockLevelReport"),
+);
 
 const AdminBulkUpload = lazy(async () => {
   const mod = await import("@/features/admin/pages/AdminBulkUpload");
@@ -296,9 +309,15 @@ const AdminProductBulkUpload = lazy(async () => {
     default: (mod as any).default ?? (mod as any).AdminProductBulkUpload,
   };
 });
-const AdminSalesChannels = lazy(() => import("@/features/admin/pages/AdminSalesChannels"));
-const AdminStoreSettings = lazy(() => import("@/features/admin/pages/AdminStoreSettings"));
-const AdminBranding = lazy(() => import("@/features/admin/pages/AdminBranding"));
+const AdminSalesChannels = lazy(
+  () => import("@/features/admin/pages/AdminSalesChannels"),
+);
+const AdminStoreSettings = lazy(
+  () => import("@/features/admin/pages/AdminStoreSettings"),
+);
+const AdminBranding = lazy(
+  () => import("@/features/admin/pages/AdminBranding"),
+);
 const AdminBilling = lazy(() => import("@/features/admin/pages/AdminBilling"));
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
@@ -1037,17 +1056,27 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route
               index
-              element={
-                (() => {
-                  const roleId = Number(localStorage.getItem("twam_role_id") || 0);
-                  return <Navigate to={roleId === 6 ? "/admin/support" : "/admin/admin-dashboard"} replace />;
-                })()
-              }
+              element={(() => {
+                const roleId = Number(
+                  localStorage.getItem("twam_role_id") || 0,
+                );
+                return (
+                  <Navigate
+                    to={
+                      roleId === 6 ? "/admin/support" : "/admin/admin-dashboard"
+                    }
+                    replace
+                  />
+                );
+              })()}
             />
             <Route path="admin-dashboard" element={<AdminDashboard />} />
             <Route path="bulk-import" element={<AdminBulkUpload />} />
             <Route path="orders" element={<AdminOrders />} />
-            <Route path="product-bulk-upload" element={<AdminProductBulkUpload />} />
+            <Route
+              path="product-bulk-upload"
+              element={<AdminProductBulkUpload />}
+            />
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id" element={<AdminProductForm />} />
@@ -1063,16 +1092,24 @@ export default function App() {
             <Route path="mdm" element={<AdminMDM />} />
             <Route path="mdm" element={<AdminMDM />} />
             <Route path="store-settings" element={<AdminStoreSettings />} />
-            <Route path="branding-settings" element={<AdminBranding />} />
+            <Route path="page-images" element={<AdminBranding />} />
             <Route path="billing" element={<AdminBilling />} />
             <Route path="sales-channels" element={<AdminSalesChannels />} />
             <Route path="sales-reports" element={<SalesRevenueReports />} />
             <Route path="customer-reports" element={<CustomerReports />} />
-            <Route path="order-fulfillment-reports" element={<OrderFulfillmentReports />} />
-            <Route path="payment-checkout-reports" element={<PaymentCheckout />} />
+            <Route
+              path="order-fulfillment-reports"
+              element={<OrderFulfillmentReports />}
+            />
+            <Route
+              path="payment-checkout-reports"
+              element={<PaymentCheckout />}
+            />
             <Route path="site-analytics" element={<SiteAnalytics />} />
-            <Route path="inventory-product-reports" element={<InventoryProductReports />} />
-
+            <Route
+              path="inventory-product-reports"
+              element={<InventoryProductReports />}
+            />
           </Route>
 
           {/* ── Fallback ─────────────────────────────────────────────────── */}

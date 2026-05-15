@@ -49,7 +49,7 @@ function ImageUploadField({
     if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     setPreview("");
     if (fileInputRef.current) fileInputRef.current.value = "";
-    onUploaded(imageUrl); // ← forward URL to parent so modal state stays in sync
+    onUploaded(imageUrl);
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +77,6 @@ function ImageUploadField({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* Thumbnail preview */}
       <div
         style={{
           width: "100%",
@@ -117,7 +116,6 @@ function ImageUploadField({
           </span>
         )}
       </div>
-
       <input
         ref={fileInputRef}
         type="file"
@@ -132,7 +130,6 @@ function ImageUploadField({
           cursor: "pointer",
         }}
       />
-
       <div style={{ display: "flex", gap: 8 }}>
         <button
           onClick={handleSave}
@@ -172,7 +169,6 @@ function ImageUploadField({
           </button>
         )}
       </div>
-
       {!categoryId && (
         <p style={{ margin: 0, fontSize: 11, color: "#aaa" }}>
           Save the category first, then you can upload its image.
@@ -182,13 +178,285 @@ function ImageUploadField({
   );
 }
 
+// ── Image Viewer Modal ───────────────────────────────────────────────────────
+function ImageViewerModal({
+  url,
+  name,
+  onClose,
+  onDelete,
+}: {
+  url: string;
+  name: string;
+  onClose: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 3000,
+        background: "rgba(0,0,0,0.75)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          padding: 24,
+          maxWidth: "90vw",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.3)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontWeight: 700, fontSize: 15, color: "#333" }}>
+            {name}
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 20,
+              cursor: "pointer",
+              color: "#888",
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        <img
+          src={url}
+          alt={name}
+          style={{
+            maxWidth: "80vw",
+            maxHeight: "70vh",
+            objectFit: "contain",
+            borderRadius: 8,
+          }}
+        />
+        {/* Footer row: open link + delete button */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+          }}
+        >
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 12,
+              color: "#6B0F2A",
+              textDecoration: "underline",
+            }}
+          >
+            Open full image ↗
+          </a>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 7,
+                border: "1px solid #f5c6cb",
+                background: "#fdecea",
+                color: "#c62828",
+                cursor: "pointer",
+              }}
+            >
+              🗑 Delete Image
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── View-only Category Modal ─────────────────────────────────────────────────
+function ViewCategoryModal({
+  cat,
+  onClose,
+  onEdit,
+  onViewImage,
+}: {
+  cat: any;
+  onClose: () => void;
+  onEdit: () => void;
+  onViewImage: (url: string, name: string, categoryId: number) => void;
+}) {
+  const row = (label: string, value: React.ReactNode) => (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        padding: "10px 0",
+        borderBottom: "1px solid #f0e8e3",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: "#999",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        {label}
+      </span>
+      <span style={{ fontSize: 14, color: "#333", wordBreak: "break-word" }}>
+        {value || "—"}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="s-admincategor-172a23">
+      <div
+        className="s-adminbrands-cd5358"
+        style={{ maxWidth: 460, width: "100%" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 12,
+          }}
+        >
+          <h3 className="s-adminblog-e6371f" style={{ margin: 0 }}>
+            Category Details
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 20,
+              cursor: "pointer",
+              color: "#888",
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {cat.categoryImage && (
+          <div
+            style={{
+              width: "100%",
+              height: 140,
+              borderRadius: 10,
+              overflow: "hidden",
+              marginBottom: 12,
+              cursor: "pointer",
+              border: "1px solid #eadfd8",
+            }}
+            onClick={() =>
+              onViewImage(cat.categoryImage, cat.name, cat.categoryId)
+            }
+            title="Click to view full image"
+          >
+            <img
+              src={cat.categoryImage}
+              alt={cat.name}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {row("ID", `#${cat.categoryId}`)}
+          {row("Name", cat.name)}
+          {row("Description", cat.description)}
+          {row(
+            "Parent",
+            cat.parentCategoryName
+              ? `${cat.parentCategoryName} (#${cat.parentCategoryId})`
+              : cat.parentCategoryId
+              ? `#${cat.parentCategoryId}`
+              : "Root (No Parent)",
+          )}
+          {row(
+            "Status",
+            <span
+              style={{
+                display: "inline-block",
+                padding: "3px 10px",
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: 700,
+                background: cat.isActive !== false ? "#e6f4ea" : "#fdecea",
+                color: cat.isActive !== false ? "#2e7d32" : "#c62828",
+              }}
+            >
+              {cat.isActive !== false ? "Visible" : "Hidden"}
+            </span>,
+          )}
+        </div>
+
+        <div className="s-adminblog-679e96" style={{ marginTop: 16 }}>
+          <button onClick={onClose} className="s-admincategor-68998a">
+            Close
+          </button>
+          <button onClick={onEdit} className="s-admincategor-153727">
+            ✏️ Edit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdminCategories() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+
+  const [viewModal, setViewModal] = useState<any>(null);
   const [modal, setModal] = useState<any>(null);
   const [confirm, setConfirm] = useState<any>(null);
+  const [confirmDeleteImage, setConfirmDeleteImage] = useState<any>(null);
+  const [viewImage, setViewImage] = useState<{
+    url: string;
+    name: string;
+    categoryId?: number;
+  } | null>(null);
+  const [hideParentConfirm, setHideParentConfirm] = useState<any>(null);
+  const [unhideChildrenConfirm, setUnhideChildrenConfirm] = useState<{
+    cat: any;
+    childCount: number;
+  } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-categories", page, search],
@@ -216,7 +484,6 @@ export default function AdminCategories() {
 
   const saveMutation = useMutation({
     mutationFn: (form: any) => {
-      // Strip client-only fields before sending to the backend
       const { bandSizeType: _b, hasCupSize: _h, ...payload } = form;
       return form.categoryId
         ? api.put(`/Category/${form.categoryId}`, payload)
@@ -226,11 +493,8 @@ export default function AdminCategories() {
       toast.success("Saved!");
       qc.invalidateQueries({ queryKey: ["admin-categories"] });
       if (form.categoryId) {
-        // Editing — close the modal
         setModal(null);
       } else {
-        // Creating — keep modal open and inject the new categoryId so the
-        // ImageUploadField can immediately accept file uploads
         setModal((prev: any) => ({
           ...prev,
           categoryId: res?.data?.categoryId,
@@ -243,17 +507,71 @@ export default function AdminCategories() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/Category/${id}`),
-    onSuccess: () => {
-      toast.success("Deleted");
+    onSuccess: (res: any) => {
+      const deleted = res?.data?.childrenDeleted ?? 0;
+      toast.success(
+        deleted > 0
+          ? `Deleted category and ${deleted} child categor${
+              deleted === 1 ? "y" : "ies"
+            }.`
+          : "Category deleted.",
+      );
       qc.invalidateQueries({ queryKey: ["admin-categories"] });
       setConfirm(null);
     },
     onError: () => toast.error("Delete failed"),
   });
 
+  const doToggleVisibility = useMutation({
+    mutationFn: ({
+      id,
+      unhideChildren,
+    }: {
+      id: number;
+      unhideChildren?: boolean;
+    }) =>
+      api.patch(`/Category/${id}/visibility`, null, {
+        params: unhideChildren ? { unhideChildren: true } : undefined,
+      }),
+    onSuccess: (res: any) => {
+      const state = res?.data?.isActive ? "visible" : "hidden";
+      toast.success(`Category is now ${state}.`);
+      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      setHideParentConfirm(null);
+      setUnhideChildrenConfirm(null);
+    },
+    onError: () => toast.error("Could not update visibility."),
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/Category/${id}/image`),
+    onSuccess: () => {
+      toast.success("Category image removed.");
+      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      setConfirmDeleteImage(null);
+      setViewImage(null);
+    },
+    onError: () => toast.error("Could not delete image."),
+  });
+
   const cats = data?.list ?? [];
   const total = data?.count ?? 0;
   const pages = Math.ceil(total / PAGE_SIZE);
+
+  const getChildCount = (categoryId: number) =>
+    cats.filter((c: any) => c.parentCategoryId === categoryId).length;
+
+  const handleToggleVisibility = (c: any) => {
+    const childCount = getChildCount(c.categoryId);
+    const isCurrentlyVisible = c.isActive !== false;
+    if (isCurrentlyVisible) {
+      if (childCount > 0) setHideParentConfirm({ cat: c, childCount });
+      else doToggleVisibility.mutate({ id: c.categoryId });
+    } else {
+      if (childCount > 0) setUnhideChildrenConfirm({ cat: c, childCount });
+      else doToggleVisibility.mutate({ id: c.categoryId });
+    }
+  };
 
   const openNew = () =>
     setModal({
@@ -292,51 +610,98 @@ export default function AdminCategories() {
         <table className="s-adminbrands-de3642">
           <thead>
             <tr className="s-adminbrands-1ba202">
-              {["ID", "Image", "Name", "Description", "Parent", "Actions"].map(
-                (h) => (
-                  <th key={h} className="s-adminbrands-84e069">
-                    {h}
-                  </th>
-                ),
-              )}
+              {[
+                "ID",
+                "Image",
+                "Name",
+                "Description",
+                "Parent",
+                "Status",
+                "Actions",
+              ].map((h) => (
+                <th key={h} className="s-adminbrands-84e069">
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="s-adminbrands-3e0634">
+                <td colSpan={7} className="s-adminbrands-3e0634">
                   Loading…
                 </td>
               </tr>
             ) : cats.length === 0 ? (
               <tr>
-                <td colSpan={6} className="s-adminbrands-3e0634">
+                <td colSpan={7} className="s-adminbrands-3e0634">
                   No categories found.
                 </td>
               </tr>
             ) : (
               cats.map((c: any) => (
-                <tr key={c.categoryId} className="s-adminbrands-59d787">
+                <tr
+                  key={c.categoryId}
+                  className="s-adminbrands-59d787"
+                  style={{ opacity: c.isActive === false ? 0.5 : 1 }}
+                >
                   <td className="s-admincategor-ec7211">{c.categoryId}</td>
 
-                  {/* Category image thumbnail */}
+                  {/* Image cell */}
                   <td className="s-admincategor-ec7211">
                     {c.categoryImage ? (
-                      <img
-                        src={c.categoryImage}
-                        alt={c.name}
-                        style={{
-                          width: 52,
-                          height: 52,
-                          objectFit: "cover",
-                          borderRadius: 8,
-                          border: "1px solid #eadfd8",
-                          display: "block",
-                        }}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
+                      <div style={{ position: "relative", width: 52 }}>
+                        <img
+                          src={c.categoryImage}
+                          alt={c.name}
+                          style={{
+                            width: 52,
+                            height: 52,
+                            objectFit: "cover",
+                            borderRadius: 8,
+                            border: "1px solid #eadfd8",
+                            display: "block",
+                            cursor: "pointer",
+                          }}
+                          onClick={() =>
+                            setViewImage({
+                              url: c.categoryImage,
+                              name: c.name,
+                              categoryId: c.categoryId,
+                            })
+                          }
+                          title="Click to view full image"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                          }}
+                        />
+                        <button
+                          onClick={() => setConfirmDeleteImage(c)}
+                          title="Remove image"
+                          style={{
+                            position: "absolute",
+                            top: -6,
+                            right: -6,
+                            width: 18,
+                            height: 18,
+                            background: "#6B0F2A",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "50%",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            lineHeight: "18px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
                     ) : (
                       <div
                         style={{
@@ -357,26 +722,105 @@ export default function AdminCategories() {
                     )}
                   </td>
 
-                  <td className="s-admincategor-46dbfc">{c.name}</td>
+                  <td className="s-admincategor-46dbfc">
+                    {c.name}
+                    {getChildCount(c.categoryId) > 0 && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 10,
+                          background: "#e3f2fd",
+                          color: "#1565c0",
+                          padding: "2px 6px",
+                          borderRadius: 10,
+                          fontWeight: 600,
+                        }}
+                      >
+                        parent
+                      </span>
+                    )}
+                  </td>
                   <td className="s-admincategor-ec7211">
                     {c.description || "—"}
                   </td>
                   <td className="s-admincategor-ec7211">
-                    {c.parentCategoryId ? `#${c.parentCategoryId}` : "Root"}
+                    {c.parentCategoryName
+                      ? `${c.parentCategoryName} (#${c.parentCategoryId})`
+                      : c.parentCategoryId
+                      ? `#${c.parentCategoryId}`
+                      : "Root"}
                   </td>
+
+                  {/* Status badge */}
+                  <td className="s-admincategor-ec7211">
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "3px 10px",
+                        borderRadius: 20,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background:
+                          c.isActive !== false ? "#e6f4ea" : "#fdecea",
+                        color: c.isActive !== false ? "#2e7d32" : "#c62828",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      {c.isActive !== false ? "Visible" : "Hidden"}
+                    </span>
+                  </td>
+
+                  {/* Actions */}
                   <td className="s-admincategor-19b711">
-                    <div className="s-adminbrands-ac734d">
+                    <div
+                      className="s-adminbrands-ac734d"
+                      style={{ gap: 4, flexWrap: "wrap" }}
+                    >
                       <button
-                        onClick={() => setModal(c)}
+                        onClick={() => setViewModal(c)}
                         className="s-adminbrands-6ea383"
+                        style={{
+                          background: "#e8eaf6",
+                          color: "#3949ab",
+                          border: "1px solid #9fa8da",
+                        }}
                       >
-                        Edit
+                        👁 View
+                      </button>
+                      <button
+                        onClick={() => handleToggleVisibility(c)}
+                        disabled={doToggleVisibility.isPending}
+                        title={
+                          c.isActive !== false
+                            ? "Hide this category everywhere"
+                            : "Make this category visible again"
+                        }
+                        style={{
+                          padding: "5px 10px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          borderRadius: 6,
+                          border: "1px solid",
+                          cursor: "pointer",
+                          background:
+                            c.isActive !== false ? "#fff8e1" : "#e8f5e9",
+                          borderColor:
+                            c.isActive !== false ? "#f9a825" : "#43a047",
+                          color: c.isActive !== false ? "#e65100" : "#2e7d32",
+                        }}
+                      >
+                        {c.isActive !== false ? "🙈 Hide" : "👁 Show"}
                       </button>
                       <button
                         onClick={() => setConfirm(c)}
                         className="s-adminbrands-6ea383"
+                        style={{
+                          background: "#fdecea",
+                          color: "#c62828",
+                          border: "1px solid #f5c6cb",
+                        }}
                       >
-                        Delete
+                        🗑 Delete
                       </button>
                     </div>
                   </td>
@@ -406,15 +850,28 @@ export default function AdminCategories() {
         </div>
       )}
 
-      {/* ─── Add / Edit Modal ─── */}
+      {/* ─── View-only Modal ─── */}
+      {viewModal && (
+        <ViewCategoryModal
+          cat={viewModal}
+          onClose={() => setViewModal(null)}
+          onEdit={() => {
+            setModal(viewModal);
+            setViewModal(null);
+          }}
+          onViewImage={(url, name, categoryId) =>
+            setViewImage({ url, name, categoryId })
+          }
+        />
+      )}
+
+      {/* ─── Edit/Add Modal ─── */}
       {modal && (
         <div className="s-admincategor-172a23">
           <div className="s-adminbrands-cd5358">
             <h3 className="s-adminblog-e6371f">
               {modal.categoryId ? "Edit" : "New"} Category
             </h3>
-
-            {/* Name & Description */}
             {(
               [
                 ["Name *", "name"],
@@ -430,8 +887,6 @@ export default function AdminCategories() {
                 />
               </div>
             ))}
-
-            {/* Parent Category */}
             <div className="s-adminblog-19fd7a">
               <label className="s-addressform-f1fb64">
                 Parent Category ID (optional)
@@ -450,8 +905,6 @@ export default function AdminCategories() {
                 className="inp-field"
               />
             </div>
-
-            {/* ─── Category Image ─── */}
             <div
               style={{
                 marginTop: 16,
@@ -471,17 +924,36 @@ export default function AdminCategories() {
               >
                 🖼️ Category Image
               </p>
+              {modal.categoryImage && (
+                <button
+                  onClick={() =>
+                    setViewImage({
+                      url: modal.categoryImage,
+                      name: modal.name,
+                      categoryId: modal.categoryId,
+                    })
+                  }
+                  style={{
+                    marginBottom: 10,
+                    padding: "4px 12px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: "#e8eaf6",
+                    color: "#3949ab",
+                    border: "1px solid #9fa8da",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  👁 View Current Image
+                </button>
+              )}
               <ImageUploadField
                 categoryId={modal.categoryId}
                 currentUrl={modal.categoryImage}
                 onUploaded={(url) => setModal({ ...modal, categoryImage: url })}
               />
             </div>
-
-            {/* Note: sizes (alpha/numerical/cup) are determined automatically from
-                product PVD data — no category-level size config needed. */}
-
-            {/* Footer buttons */}
             <div className="s-adminblog-679e96">
               <button
                 onClick={() => setModal(null)}
@@ -502,28 +974,322 @@ export default function AdminCategories() {
         </div>
       )}
 
-      {/* ─── Delete Confirm ─── */}
-      {confirm && (
+      {/* ─── Delete Confirm (parent warning) ─── */}
+      {confirm &&
+        (() => {
+          const childCount = getChildCount(confirm.categoryId);
+          const isParent = childCount > 0;
+          return (
+            <div className="s-admincategor-172a23">
+              <div className="s-adminblog-69ab70" style={{ maxWidth: 440 }}>
+                <h3 className="s-adminblog-caf79d">Delete "{confirm.name}"?</h3>
+                {isParent ? (
+                  <>
+                    <div
+                      style={{
+                        background: "#fff3e0",
+                        border: "1px solid #ffb74d",
+                        borderRadius: 8,
+                        padding: "10px 14px",
+                        marginBottom: 12,
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <span style={{ fontSize: 18 }}>⚠️</span>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: "#e65100",
+                          fontWeight: 600,
+                        }}
+                      >
+                        This is a parent category with{" "}
+                        <strong>
+                          {childCount} child categor
+                          {childCount === 1 ? "y" : "ies"}
+                        </strong>
+                        . Deleting it will also permanently delete all its child
+                        categories.
+                      </span>
+                    </div>
+                    <p
+                      style={{
+                        margin: "0 0 16px",
+                        fontSize: 13,
+                        color: "#555",
+                      }}
+                    >
+                      This action cannot be undone.
+                    </p>
+                  </>
+                ) : (
+                  <p className="s-adminbrands-93cf07">This cannot be undone.</p>
+                )}
+                <div className="s-adminblog-679e96">
+                  <button
+                    onClick={() => setConfirm(null)}
+                    className="s-admincategor-3dc5de"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => deleteMutation.mutate(confirm.categoryId)}
+                    disabled={deleteMutation.isPending}
+                    className="s-admincategor-5e62fe"
+                  >
+                    {deleteMutation.isPending
+                      ? "Deleting…"
+                      : isParent
+                      ? `Delete + ${childCount} Child${
+                          childCount === 1 ? "" : "ren"
+                        }`
+                      : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* ─── Hide Parent Confirm ─── */}
+      {hideParentConfirm && (
         <div className="s-admincategor-172a23">
-          <div className="s-adminblog-69ab70">
-            <h3 className="s-adminblog-caf79d">Delete "{confirm.name}"?</h3>
-            <p className="s-adminbrands-93cf07">This cannot be undone.</p>
+          <div className="s-adminblog-69ab70" style={{ maxWidth: 440 }}>
+            <h3 className="s-adminblog-caf79d">
+              Hide "{hideParentConfirm.cat.name}"?
+            </h3>
+            <div
+              style={{
+                background: "#fff8e1",
+                border: "1px solid #f9a825",
+                borderRadius: 8,
+                padding: "10px 14px",
+                marginBottom: 12,
+                display: "flex",
+                gap: 8,
+                alignItems: "flex-start",
+              }}
+            >
+              <span style={{ fontSize: 18 }}>🙈</span>
+              <span style={{ fontSize: 13, color: "#e65100", fontWeight: 600 }}>
+                This is a parent category with{" "}
+                <strong>
+                  {hideParentConfirm.childCount} child categor
+                  {hideParentConfirm.childCount === 1 ? "y" : "ies"}
+                </strong>
+                . Hiding it will also hide all its child categories from the
+                storefront.
+              </span>
+            </div>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#555" }}>
+              You can restore individual child categories later by clicking
+              "Show" on each one.
+            </p>
             <div className="s-adminblog-679e96">
               <button
-                onClick={() => setConfirm(null)}
+                onClick={() => setHideParentConfirm(null)}
                 className="s-admincategor-3dc5de"
               >
                 Cancel
               </button>
               <button
-                onClick={() => deleteMutation.mutate(confirm.categoryId)}
-                className="s-admincategor-5e62fe"
+                onClick={() =>
+                  doToggleVisibility.mutate({
+                    id: hideParentConfirm.cat.categoryId,
+                  })
+                }
+                disabled={doToggleVisibility.isPending}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 7,
+                  border: "none",
+                  background: "#e65100",
+                  color: "#fff",
+                  cursor: "pointer",
+                  opacity: doToggleVisibility.isPending ? 0.6 : 1,
+                }}
               >
-                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                {doToggleVisibility.isPending
+                  ? "Please wait…"
+                  : `Hide + ${hideParentConfirm.childCount} Child${
+                      hideParentConfirm.childCount === 1 ? "" : "ren"
+                    }`}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── Unhide Children? ─── */}
+      {unhideChildrenConfirm && (
+        <div className="s-admincategor-172a23">
+          <div className="s-adminblog-69ab70" style={{ maxWidth: 460 }}>
+            <h3 className="s-adminblog-caf79d">
+              Show "{unhideChildrenConfirm.cat.name}"?
+            </h3>
+            <div
+              style={{
+                background: "#e8f5e9",
+                border: "1px solid #43a047",
+                borderRadius: 8,
+                padding: "10px 14px",
+                marginBottom: 12,
+                display: "flex",
+                gap: 8,
+                alignItems: "flex-start",
+              }}
+            >
+              <span style={{ fontSize: 18 }}>👁</span>
+              <span style={{ fontSize: 13, color: "#2e7d32", fontWeight: 600 }}>
+                This parent has{" "}
+                <strong>
+                  {unhideChildrenConfirm.childCount} hidden child categor
+                  {unhideChildrenConfirm.childCount === 1 ? "y" : "ies"}
+                </strong>
+                . Would you like to make them visible too?
+              </span>
+            </div>
+            <p style={{ fontSize: 13, color: "#555", margin: "0 0 16px" }}>
+              Choose <strong>Yes</strong> to restore all child categories, or{" "}
+              <strong>No</strong> to show only this parent — you can then
+              manually restore individual children as needed.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                onClick={() => setUnhideChildrenConfirm(null)}
+                className="s-admincategor-3dc5de"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  doToggleVisibility.mutate({
+                    id: unhideChildrenConfirm.cat.categoryId,
+                    unhideChildren: false,
+                  })
+                }
+                disabled={doToggleVisibility.isPending}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 7,
+                  border: "1px solid #bdbdbd",
+                  background: "#f5f5f5",
+                  color: "#333",
+                  cursor: "pointer",
+                }}
+              >
+                No, Show Parent Only
+              </button>
+              <button
+                onClick={() =>
+                  doToggleVisibility.mutate({
+                    id: unhideChildrenConfirm.cat.categoryId,
+                    unhideChildren: true,
+                  })
+                }
+                disabled={doToggleVisibility.isPending}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 7,
+                  border: "none",
+                  background: "#2e7d32",
+                  color: "#fff",
+                  cursor: "pointer",
+                  opacity: doToggleVisibility.isPending ? 0.6 : 1,
+                }}
+              >
+                {doToggleVisibility.isPending
+                  ? "Please wait…"
+                  : "Yes, Show All Children Too"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Delete Image Confirm ─── */}
+      {confirmDeleteImage && (
+        <div className="s-admincategor-172a23">
+          <div className="s-adminblog-69ab70">
+            <h3 className="s-adminblog-caf79d">
+              Remove image for "{confirmDeleteImage.name}"?
+            </h3>
+            <p className="s-adminbrands-93cf07">
+              The image will be permanently deleted.
+            </p>
+            {confirmDeleteImage.categoryImage && (
+              <img
+                src={confirmDeleteImage.categoryImage}
+                alt={confirmDeleteImage.name}
+                style={{
+                  width: "100%",
+                  maxHeight: 140,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  margin: "8px 0",
+                }}
+              />
+            )}
+            <div className="s-adminblog-679e96">
+              <button
+                onClick={() => setConfirmDeleteImage(null)}
+                className="s-admincategor-3dc5de"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  deleteImageMutation.mutate(confirmDeleteImage.categoryId)
+                }
+                className="s-admincategor-5e62fe"
+              >
+                {deleteImageMutation.isPending ? "Removing…" : "Remove Image"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Image Viewer ─── */}
+      {viewImage && (
+        <ImageViewerModal
+          url={viewImage.url}
+          name={viewImage.name}
+          onClose={() => setViewImage(null)}
+          onDelete={
+            viewImage.categoryId
+              ? () => {
+                  // find the full cat object to reuse existing confirmDeleteImage flow
+                  const cat = cats.find(
+                    (c: any) => c.categoryId === viewImage.categoryId,
+                  );
+                  setViewImage(null);
+                  setConfirmDeleteImage(
+                    cat ?? {
+                      categoryId: viewImage.categoryId,
+                      name: viewImage.name,
+                      categoryImage: viewImage.url,
+                    },
+                  );
+                }
+              : undefined
+          }
+        />
       )}
     </div>
   );
