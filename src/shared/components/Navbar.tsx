@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MobileNavbar from "@/shared/components/MobileNavbar";
 import MobileCategoryBar from "@/shared/components/MobileCategoryBar";
+import { getCategories } from "@/features/auth/api/auth.api";
 
 const TEXTS = [
   "Hello, Beautiful.",
@@ -229,20 +230,32 @@ export default function Navbar() {
     ? wishlistServerIds.size
     : guestWishlistCount;
 
+  // Load menus: sessionStorage first, then live API if cache is empty/cleared
   useEffect(() => {
     if (menus.length > 0) return;
 
     const cached = sessionStorage.getItem("menus");
-    if (!cached) return;
-
-    try {
-      const nextMenus = JSON.parse(cached);
-      if (Array.isArray(nextMenus) && nextMenus.length > 0) {
-        setMenus(nextMenus);
+    if (cached) {
+      try {
+        const nextMenus = JSON.parse(cached);
+        if (Array.isArray(nextMenus) && nextMenus.length > 0) {
+          setMenus(nextMenus);
+          return;
+        }
+      } catch {
+        /* ignore malformed cache */
       }
-    } catch {
-      /* ignore malformed cache */
     }
+
+    // Cache was empty or cleared (e.g. admin toggled visibility) — re-fetch live
+    getCategories({ roleId: 2 })
+      .then((cats) => {
+        if (Array.isArray(cats) && cats.length > 0) {
+          sessionStorage.setItem("menus", JSON.stringify(cats));
+          setMenus(cats);
+        }
+      })
+      .catch(() => { /* silent — navbar just shows nothing until reload */ });
   }, [menus.length, setMenus]);
 
   useEffect(() => {
