@@ -1192,7 +1192,6 @@ function DesktopFeaturedSection({
   const navigate = useNavigate();
   const total = products.length;
 
-  // Use a ref alongside state so timer callbacks never capture stale index
   const [currentIdx, _setCurrentIdx] = useState(0);
   const currentIdxRef = useRef(0);
   const setCurrentIdx = useCallback((idx: number) => {
@@ -1200,7 +1199,6 @@ function DesktopFeaturedSection({
     _setCurrentIdx(idx);
   }, []);
 
-  // Slide animation state (same pattern as ShopByCategorySection)
   const [nextIdx, setNextIdx] = useState<number | null>(null);
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
   const [transiting, setTransiting] = useState(false);
@@ -1254,46 +1252,23 @@ function DesktopFeaturedSection({
     restartTimer();
   };
 
-  // ── Dynamic card sizing ───────────────────────────────────────────────────
-  // The card must fill (bannerHeight - 2 × 0.5 cm padding) vertically.
-  //
-  // Problem with the old approach (useState(0) + useEffect):
-  //   bannerH starts at 0 → cardScale = 1 → card renders full-size on the
-  //   first paint. useEffect fires AFTER paint, so browsers like Edge that
-  //   paint eagerly show the oversized card for one frame (or longer).
-  //
-  // Fix:
-  //   1. Seed bannerH from window.innerWidth × (7/21) so the very first
-  //      render already produces a correct scale estimate.
-  //   2. Use useLayoutEffect to read the real DOM height and correct the
-  //      estimate BEFORE the browser paints (eliminates the flash entirely).
-  //   3. Keep ResizeObserver for viewport/window resize events.
   const NATURAL_CARD_W = 260;
   const NATURAL_CARD_H = 475;
-  const BANNER_PAD_PX = 19; // ≈ 0.5 cm at 96 dpi
+  const BANNER_PAD_PX = 19;
 
   const bannerContainerRef = useRef<HTMLDivElement>(null);
 
-  // Seed with a real estimate so render #1 is already scaled correctly.
-  // aspectRatio is 21:7 so height = width × (7/21).
   const [bannerH, setBannerH] = useState<number>(() => {
     if (typeof window !== "undefined") {
       return window.innerWidth * (7 / 21);
     }
-    return 500; // SSR fallback — close enough
+    return 500;
   });
 
-  // useLayoutEffect fires synchronously after DOM mutations but BEFORE paint.
-  // This guarantees the corrected scale is applied on the very first frame,
-  // in every browser (Chrome, Edge, Safari, Firefox).
   useLayoutEffect(() => {
     const el = bannerContainerRef.current;
     if (!el) return;
-
-    // Read actual height immediately (correct for scrollbars, padding, etc.)
     setBannerH(el.getBoundingClientRect().height);
-
-    // Keep updated on resize
     const obs = new ResizeObserver(([entry]) => {
       setBannerH(entry.contentRect.height);
     });
@@ -1301,16 +1276,14 @@ function DesktopFeaturedSection({
     return () => obs.disconnect();
   }, []);
 
-  // Scale so the card fits (bannerH − 2×pad) vertically; cap at 1.0
   const cardScale = Math.min(1, (bannerH - BANNER_PAD_PX * 2) / NATURAL_CARD_H);
-  // Viewport box = scaled pixel dimensions (no overflow, no scrollbar)
   const CARD_W = Math.round(NATURAL_CARD_W * cardScale);
   const CARD_H = Math.round(NATURAL_CARD_H * cardScale);
 
-  // No background image uploaded → hide the entire section
-  if (!bgImage) return null;
-
-  if (total === 0) return null;
+  // Hide section when there is no bgImage OR when there are no products to show.
+  // This ensures sections are never visible with an empty product carousel —
+  // even if a background image is uploaded and isActive=true in the admin.
+  if (!bgImage || total === 0) return null;
 
   const currentProduct = products[currentIdx];
   const nextProduct = nextIdx !== null ? products[nextIdx] : null;
@@ -1369,81 +1342,49 @@ function DesktopFeaturedSection({
     </svg>
   );
 
-  const cardPanel = (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 18,
-        transform: cardSide === "center" ? "translateX(250px)" : undefined,
-      }}
-      onWheel={onWheel}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Prev arrow */}
-      <button
-        onClick={() => {
-          advance(-1);
-          restartTimer();
-        }}
-        aria-label="Previous product"
-        style={arrowBtnStyle}
-      >
-        <ChevronLeft />
-      </button>
-
-      {/* Card viewport — fixed to the scaled pixel size so overflow:hidden
-           never produces a scrollbar. The inner ProductCards are rendered at
-           their natural size (NATURAL_CARD_W × NATURAL_CARD_H) then shrunk
-           with CSS transform:scale so all content stays fully visible. */}
+  // Card panel — only rendered when products are available
+  const cardPanel =
+    total > 0 ? (
       <div
         style={{
-          position: "relative",
-          width: CARD_W,
-          height: CARD_H,
-          overflow: "hidden", // safe: exact size = scaled card, no overflow
-          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 18,
+          transform: cardSide === "center" ? "translateX(250px)" : undefined,
         }}
+        onWheel={onWheel}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Outgoing card — slide wrapper then scale wrapper */}
+        {/* Prev arrow */}
+        <button
+          onClick={() => {
+            advance(-1);
+            restartTimer();
+          }}
+          aria-label="Previous product"
+          style={arrowBtnStyle}
+        >
+          <ChevronLeft />
+        </button>
+
+        {/* Card viewport */}
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            transform: transiting
-              ? `translateX(${slideDir === 1 ? "-100%" : "100%"})`
-              : "translateX(0)",
-            transition: transiting ? SLIDE_T : "none",
+            position: "relative",
+            width: CARD_W,
+            height: CARD_H,
+            overflow: "hidden",
+            flexShrink: 0,
           }}
         >
-          <div
-            style={{
-              transform: `scale(${cardScale})`,
-              transformOrigin: "top left",
-              width: NATURAL_CARD_W,
-              height: NATURAL_CARD_H,
-            }}
-          >
-            <ProductCard
-              product={currentProduct}
-              onQuickShop={onQuickShop}
-              showDiscountTag={false}
-              singleColorOnly={false}
-              compact={false}
-              enableHoverImageTransition={true}
-            />
-          </div>
-        </div>
-
-        {/* Incoming card */}
-        {nextProduct && (
+          {/* Outgoing card */}
           <div
             style={{
               position: "absolute",
               inset: 0,
               transform: transiting
-                ? "translateX(0)"
-                : `translateX(${slideDir === 1 ? "100%" : "-100%"})`,
+                ? `translateX(${slideDir === 1 ? "-100%" : "100%"})`
+                : "translateX(0)",
               transition: transiting ? SLIDE_T : "none",
             }}
           >
@@ -1456,7 +1397,7 @@ function DesktopFeaturedSection({
               }}
             >
               <ProductCard
-                product={nextProduct}
+                product={currentProduct}
                 onQuickShop={onQuickShop}
                 showDiscountTag={false}
                 singleColorOnly={false}
@@ -1465,22 +1406,53 @@ function DesktopFeaturedSection({
               />
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Next arrow */}
-      <button
-        onClick={() => {
-          advance(1);
-          restartTimer();
-        }}
-        aria-label="Next product"
-        style={arrowBtnStyle}
-      >
-        <ChevronRight />
-      </button>
-    </div>
-  );
+          {/* Incoming card */}
+          {nextProduct && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                transform: transiting
+                  ? "translateX(0)"
+                  : `translateX(${slideDir === 1 ? "100%" : "-100%"})`,
+                transition: transiting ? SLIDE_T : "none",
+              }}
+            >
+              <div
+                style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: "top left",
+                  width: NATURAL_CARD_W,
+                  height: NATURAL_CARD_H,
+                }}
+              >
+                <ProductCard
+                  product={nextProduct}
+                  onQuickShop={onQuickShop}
+                  showDiscountTag={false}
+                  singleColorOnly={false}
+                  compact={false}
+                  enableHoverImageTransition={true}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Next arrow */}
+        <button
+          onClick={() => {
+            advance(1);
+            restartTimer();
+          }}
+          aria-label="Next product"
+          style={arrowBtnStyle}
+        >
+          <ChevronRight />
+        </button>
+      </div>
+    ) : null;
 
   return (
     <section
@@ -1492,7 +1464,7 @@ function DesktopFeaturedSection({
         paddingBottom: 12,
       }}
     >
-      {/* Title — sits above the image on white, identical to ShopByCategorySection */}
+      {/* Title */}
       <h2
         onClick={viewAllPath ? () => navigate(viewAllPath) : undefined}
         style={{
@@ -1542,27 +1514,23 @@ function DesktopFeaturedSection({
         onWheel={onWheel}
         onClick={viewAllPath ? () => navigate(viewAllPath) : undefined}
       >
-        {/* Background image fills only this middle zone — only when a URL is available */}
-        {bgImage && (
-          <img
-            src={bgImage}
-            alt=""
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-              zIndex: 0,
-            }}
-          />
-        )}
+        {/* Background image */}
+        <img
+          src={bgImage}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
+            zIndex: 0,
+          }}
+        />
 
-        {/* Card panel — floated left or right over the image.
-            stopPropagation is on cardPanel itself (the arrows+card div),
-            so only those elements block the banner's navigate click. */}
+        {/* Card panel */}
         <div
           style={{
             position: "absolute",
@@ -1584,7 +1552,7 @@ function DesktopFeaturedSection({
         </div>
       </div>
 
-      {/* Dot indicators — sits below the image on white, identical to ShopByCategorySection */}
+      {/* Dot indicators */}
       <div
         style={{
           display: "flex",

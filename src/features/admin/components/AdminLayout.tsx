@@ -58,9 +58,9 @@ const ALL_NAV = [
     roles: [1, 3, 4], // v1 had 3,4 â€” kept in union
   },
   {
-    path: "/admin/branding-settings",
+    path: "/admin/page-images",
     icon: "bi-image",
-    label: "Images",
+    label: "Page Images",
     roles: [1],
   },
   {

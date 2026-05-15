@@ -10,6 +10,7 @@ export interface PageImageDto {
   pageKey: string;
   imageUrl: string;
   description?: string;
+  isActive: boolean;
 }
 
 export interface PageImagesListDto {
@@ -36,5 +37,24 @@ export async function uploadPageImage(
   const form = new FormData();
   form.append("file", file);
   const response = await api.put(`/images/${pageKey}`, form);
+  return response.data;
+}
+
+/** Clear (delete) the image/video from a page slot (admin only). */
+export async function deletePageImage(
+  pageKey: string,
+): Promise<{ success: boolean; pageKey: string }> {
+  const response = await api.delete(`/images/${pageKey}`);
+  return response.data;
+}
+
+/** Toggle section visibility on the home page (admin only). */
+export async function setPageImageVisibility(
+  pageKey: string,
+  isActive: boolean,
+): Promise<{ success: boolean; pageKey: string; isActive: boolean }> {
+  const response = await api.patch(`/images/${pageKey}/visibility`, {
+    isActive,
+  });
   return response.data;
 }
