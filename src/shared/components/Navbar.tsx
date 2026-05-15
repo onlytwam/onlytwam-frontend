@@ -121,30 +121,6 @@ function SvgBadge({ count }: { count: number }) {
   );
 }
 
-function AssetImg({
-  names,
-  alt,
-  className,
-}: {
-  names: string[];
-  alt: string;
-  className?: string;
-}) {
-  const [idx, setIdx] = useState(0);
-  const [failed, setFailed] = useState(false);
-  if (failed) return null;
-  return (
-    <img
-      src={names[idx]}
-      alt={alt}
-      className={className}
-      onError={() =>
-        idx < names.length - 1 ? setIdx(idx + 1) : setFailed(true)
-      }
-    />
-  );
-}
-
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -399,12 +375,8 @@ export default function Navbar() {
             className="nb-logo-wrap"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
-            <AssetImg
-              names={[
-                "/assets/Twam-Logo-Burgundy.png",
-                "/assets/TWAM.png",
-                "/assets/twam-logo.png",
-              ]}
+            <img
+              src="/assets/Twam-Logo-White.png"
               alt="TWAM"
               className="nb-logo"
             />
