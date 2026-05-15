@@ -420,7 +420,7 @@ function ViewCategoryModal({
                 color: cat.isActive !== false ? "#2e7d32" : "#c62828",
               }}
             >
-              {cat.isActive !== false ? "Visible" : "Hidden"}
+              {cat.isActive !== false ? "Active" : "Inactive"}
             </span>,
           )}
         </div>
@@ -654,7 +654,7 @@ export default function AdminCategories() {
                 <tr
                   key={c.categoryId}
                   className="s-adminbrands-59d787"
-                  style={{ opacity: c.isActive === false ? 0.5 : 1 }}
+                  style={{ background: c.isActive === false ? "#fffbf0" : undefined }}
                 >
                   <td className="s-admincategor-ec7211">{c.categoryId}</td>
 
@@ -735,6 +735,23 @@ export default function AdminCategories() {
 
                   <td className="s-admincategor-46dbfc">
                     {c.name}
+                    {c.isActive === false && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 10,
+                          background: "#fdecea",
+                          color: "#c62828",
+                          padding: "2px 6px",
+                          borderRadius: 10,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        Inactive
+                      </span>
+                    )}
                     {getChildCount(c.categoryId) > 0 && (
                       <span
                         style={{
@@ -777,7 +794,7 @@ export default function AdminCategories() {
                         letterSpacing: "0.04em",
                       }}
                     >
-                      {c.isActive !== false ? "Visible" : "Hidden"}
+                      {c.isActive !== false ? "Active" : "Inactive"}
                     </span>
                   </td>
 

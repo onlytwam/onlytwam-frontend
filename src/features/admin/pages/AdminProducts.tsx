@@ -194,7 +194,27 @@ export default function AdminProducts() {
                     <td className="s-adminproduct-d86977">
                       {p.brandName || p.brand?.name || (typeof p.brand === "string" ? p.brand : null) || "—"}
                     </td>
-                    <td className="s-adminproduct-d86977">{p.categoryName || "—"}</td>
+                    <td className="s-adminproduct-d86977">
+                      {p.categoryName || "—"}
+                      {p.categoryIsActive === false && (
+                        <span
+                          style={{
+                            marginLeft: 5,
+                            fontSize: 10,
+                            background: "#fdecea",
+                            color: "#c62828",
+                            padding: "2px 6px",
+                            borderRadius: 10,
+                            fontWeight: 700,
+                            textTransform: "uppercase" as const,
+                            letterSpacing: "0.04em",
+                            whiteSpace: "nowrap" as const,
+                          }}
+                        >
+                          Inactive
+                        </span>
+                      )}
+                    </td>
                     <td className="s-adminbrands-7dcd2c">{badge(p.state)}</td>
                     <td className="s-adminbrands-7dcd2c">
                       <div className="s-adminproduct-6209be">
