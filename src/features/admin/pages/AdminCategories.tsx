@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
+import { useMenuStore } from "@/shared/store/menuStore";
 
 const PAGE_SIZE = 20;
 
@@ -440,6 +441,7 @@ function ViewCategoryModal({
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdminCategories() {
   const qc = useQueryClient();
+  const { setMenus } = useMenuStore();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
 
@@ -536,7 +538,16 @@ export default function AdminCategories() {
     onSuccess: (res: any) => {
       const state = res?.data?.isActive ? "visible" : "hidden";
       toast.success(`Category is now ${state}.`);
+      // Invalidate admin grid
       qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      // Invalidate every public category query so storefront reflects change immediately
+      qc.invalidateQueries({ predicate: (q) => {
+        const key = String(q.queryKey[0] ?? "");
+        return key.includes("categor") || key === "gs-categories";
+      }});
+      // Clear the navbar sessionStorage cache and zustand store so Navbar re-fetches
+      sessionStorage.removeItem("menus");
+      setMenus([]);
       setHideParentConfirm(null);
       setUnhideChildrenConfirm(null);
     },
