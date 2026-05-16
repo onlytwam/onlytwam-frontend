@@ -122,20 +122,28 @@ export default function OrderDetails() {
   // FIX: backend uses 'state' not 'status'
   const state = order.state || "Processing";
 
-  const STEPS = [
-    { label: "Order Placed", done: true, icon: "bi-bag-check" },
-    {
-      label: "Confirmed",
-      done: ["Processing", "Shipped", "Delivered"].includes(state),
-      icon: "bi-check-circle",
-    },
-    {
-      label: "Shipped",
-      done: ["Shipped", "Delivered"].includes(state),
-      icon: "bi-truck",
-    },
-    { label: "Delivered", done: state === "Delivered", icon: "bi-house-check" },
-  ];
+  // ── Display label (same logic as OrdersList) ─────────────────────────────
+  function getDisplayStatus(s: string) {
+    switch (s) {
+      case "Failed":
+        return "Payment Failed";
+      case "Delivered":
+        return "Delivered";
+      case "Cancelled":
+        return "Cancelled";
+      case "Returned":
+      case "Return Initiated":
+      case "Refunded":
+        return "Returned";
+      default:
+        return "Order Placed";
+    }
+  }
+
+  const displayLabel = getDisplayStatus(state);
+
+  // ekartTrackingUrl comes from backend (trackingUrl field)
+  const ekartTrackingUrl: string | undefined = (order as any).trackingUrl;
 
   return (
     <div className="container s-orderdetails-c93f0f">
@@ -165,51 +173,47 @@ export default function OrderDetails() {
               <p className="text-muted mb-2 s-addresslist-9eec06">
                 {formatDate(order.orderDate)}
               </p>
-              <span className="s-orderdetails-070dde">{state}</span>
+              <span className="s-orderdetails-070dde">{displayLabel}</span>
             </div>
 
-            {/* Tracking */}
-            <div className="s-orderdetails-8ca9d7">
-              {STEPS.map((step, i) => (
-                <div
-                  key={step.label}
-                  className="s-orderdetails-360e9e"
-                  style={{ paddingBottom: i < STEPS.length - 1 ? 20 : 0 }}
+            {/* Track your order section */}
+            <div
+              className="mt-4 pt-3"
+              style={{ borderTop: "1px solid var(--ivory)" }}
+            >
+              <p
+                className="mb-2 fw-semibold s-addresslist-92985e"
+                style={{ fontSize: 14 }}
+              >
+                Track your order here
+              </p>
+              {ekartTrackingUrl ? (
+                <a
+                  href={ekartTrackingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="orders-card__button orders-card__button--primary"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    textDecoration: "none",
+                    fontSize: 13,
+                    padding: "8px 18px",
+                    borderRadius: 8,
+                  }}
                 >
-                  <div className="s-orderdetails-bc0a39">
-                    <div
-                      className="s-orderdetails-f3412a"
-                      style={{
-                        background: step.done ? "#000000" : "var(--ivory)",
-                      }}
-                    >
-                      <i
-                        className={`bi ${step.icon} s-orderdetails-e6a477`}
-                        style={{
-                          color: step.done ? "#fff" : "var(--heirloom)",
-                        }}
-                      />
-                    </div>
-                    {i < STEPS.length - 1 && (
-                      <div
-                        className="s-orderdetails-efd56e"
-                        style={{
-                          background: step.done ? "#000000" : "var(--ivory)",
-                        }}
-                      />
-                    )}
-                  </div>
-                  <span
-                    className="s-orderdetails-560d09"
-                    style={{
-                      color: step.done ? "#000000" : "var(--heirloom)",
-                      fontWeight: step.done ? 500 : 400,
-                    }}
-                  >
-                    {step.label}
-                  </span>
-                </div>
-              ))}
+                  <i className="bi bi-truck" />
+                  Track Order
+                </a>
+              ) : (
+                <p
+                  className="text-muted s-couponslist-030edf"
+                  style={{ fontSize: 13 }}
+                >
+                  Tracking will be available once your order ships.
+                </p>
+              )}
             </div>
           </div>
 
@@ -221,8 +225,8 @@ export default function OrderDetails() {
               ["Shipping", formatPrice(order.deliveryCharge || 0)],
               [
                 "Coupon Discount",
-                order.couponAmount
-                  ? `−${formatPrice(order.couponAmount)}`
+                (order as any).couponAmount
+                  ? `−${formatPrice((order as any).couponAmount)}`
                   : null,
               ],
             ]
