@@ -466,51 +466,49 @@ export default function Navbar() {
               ))}
             </nav>
           )}
-
-          {/* Search â€” always open */}
-          <div
-            className="nb-search-region nb-search-region--open nb-search-always"
-            ref={searchRef}
-          >
-            <div className="nb-inline-search">
-              <button
-                className={`nb-mic-btn${
-                  isListening ? " nb-mic-btn--active" : ""
-                }`}
-                onClick={startVoice}
-                title={isListening ? "Stop" : "Voice search"}
-              >
-                <i
-                  className={`bi ${
-                    isListening ? "bi-stop-circle-fill" : "bi-mic-fill"
-                  }`}
-                />
-              </button>
-              <div className="nb-search-field-wrap">
-                <input
-                  ref={searchInput}
-                  className="nb-search-input"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") onSearch();
-                  }}
-                  placeholder="What are you looking for?"
-                />
-              </div>
-              <button
-                className="nb-inline-search__submit"
-                onClick={onSearch}
-                aria-label="Search"
-              >
-                <i className="bi bi-search" />
-              </button>
-            </div>
-          </div>
-
-          {/* Right icons */}
+          {/* Right side: search anchored 30px left of wishlist, then icon buttons */}
           <div className="nb-right">
-            {/* Wishlist */}
+            {/* Search — always visible, fixed position 30px left of wishlist */}
+            <div
+              className="nb-search-region nb-search-region--open nb-search-always"
+              ref={searchRef}
+            >
+              <div className="nb-inline-search">
+                <button
+                  className={`nb-mic-btn${
+                    isListening ? " nb-mic-btn--active" : ""
+                  }`}
+                  onClick={startVoice}
+                  title={isListening ? "Stop" : "Voice search"}
+                >
+                  <i
+                    className={`bi ${
+                      isListening ? "bi-stop-circle-fill" : "bi-mic-fill"
+                    }`}
+                  />
+                </button>
+                <div className="nb-search-field-wrap">
+                  <input
+                    ref={searchInput}
+                    className="nb-search-input"
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") onSearch();
+                    }}
+                    placeholder="What are you looking for?"
+                  />
+                </div>
+                <button
+                  className="nb-inline-search__submit"
+                  onClick={onSearch}
+                  aria-label="Search"
+                >
+                  <i className="bi bi-search" />
+                </button>
+              </div>
+            </div>
+
             <button
               className="nb-icon-btn nb-icon-relative"
               onClick={() =>

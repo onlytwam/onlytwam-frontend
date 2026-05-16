@@ -1447,7 +1447,7 @@ export default function AdminBillingV2() {
       </div>
 
       {/* Invoice preview + print target */}
-      <div ref={printRef} style={{ padding:"1.25rem", maxHeight:"75vh", overflowY:"auto" }}>
+      <div ref={printRef} style={{ padding:"1.25rem" }}>
 
         {/* ── INVOICE CONTENT ── */}
         <div style={{ fontFamily:"Arial,sans-serif", background:"#fff", color:"#1a1a1a",

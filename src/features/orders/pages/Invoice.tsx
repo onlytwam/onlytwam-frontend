@@ -1,17 +1,17 @@
-import { useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getOrderDetail } from '@/features/orders/api/orders.api';
-import { formatDate } from '@/shared/utils/helpers';
+import { useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { getOrderDetail } from "@/features/orders/api/orders.api";
+import { formatDate } from "@/shared/utils/helpers";
 
 /* ─── Design tokens ─────────────────────────────────────────── */
 const C = {
-  burgundy:  '#6A012A',
-  ivory:     '#F6EEE1',
-  ivoryDark: '#EDE0CC',
-  ivoryMid:  '#F0E6D0',
-  text:      '#2C1018',
-  muted:     '#9B7080',
+  burgundy: "#6A012A",
+  ivory: "#F6EEE1",
+  ivoryDark: "#EDE0CC",
+  ivoryMid: "#F0E6D0",
+  text: "#2C1018",
+  muted: "#9B7080",
 };
 
 /* ─── Types ──────────────────────────────────────────────────── */
@@ -25,19 +25,19 @@ interface TotalRow {
 const styles: Record<string, React.CSSProperties> = {
   page: {
     background: C.ivory,
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    padding: '48px 16px 64px',
+    minHeight: "auto",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    padding: "48px 16px 64px",
     fontFamily: "'EB Garamond', 'Georgia', serif",
   },
   card: {
-    background: '#fff',
+    background: "#fff",
     maxWidth: 720,
-    width: '100%',
+    width: "100%",
     borderRadius: 2,
-    overflow: 'hidden',
+    overflow: "hidden",
     boxShadow: `0 2px 0 ${C.burgundy}, 0 12px 48px rgba(106,1,42,0.10)`,
   },
   accentBar: {
@@ -46,65 +46,54 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerBand: {
     background: C.burgundy,
-    padding: '28px 40px 24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 24,
+    padding: "10px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    minHeight: 52,
   },
   brandBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
+    display: "flex",
+    alignItems: "center",
   },
   brandName: {
-    fontFamily: "'EB Garamond', Georgia, serif",
-    fontSize: 34,
-    fontWeight: 700,
-    letterSpacing: '0.18em',
-    color: C.ivory,
-    lineHeight: 1,
-    textTransform: 'uppercase',
+    /* unused — logo img is used directly */
   },
   brandTagline: {
-    fontSize: 11,
-    letterSpacing: '0.22em',
-    color: 'rgba(246,238,225,0.65)',
-    textTransform: 'uppercase',
-    fontFamily: "'EB Garamond', Georgia, serif",
+    /* removed from slim header */
   },
   invoiceMeta: {
-    textAlign: 'right',
+    textAlign: "right",
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
   },
   invoiceLabel: {
-    fontSize: 11,
-    letterSpacing: '0.3em',
-    color: 'rgba(246,238,225,0.55)',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-    fontFamily: "'EB Garamond', Georgia, serif",
+    /* unused in slim header */
   },
   invoiceNumber: {
-    fontSize: 26,
+    fontSize: 13,
     fontWeight: 700,
     color: C.ivory,
-    letterSpacing: '0.06em',
+    letterSpacing: "0.08em",
     fontFamily: "'EB Garamond', Georgia, serif",
+    lineHeight: 1.3,
   },
   invoiceDate: {
-    fontSize: 12,
-    color: 'rgba(246,238,225,0.65)',
-    letterSpacing: '0.12em',
-    marginTop: 4,
+    fontSize: 11,
+    color: "rgba(246,238,225,0.70)",
+    letterSpacing: "0.10em",
     fontFamily: "'EB Garamond', Georgia, serif",
+    lineHeight: 1.3,
   },
   body: {
-    padding: '36px 40px 0',
+    padding: "36px 40px 0",
   },
   addressSection: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 36,
     paddingBottom: 28,
     borderBottom: `1.5px solid ${C.ivoryDark}`,
@@ -115,8 +104,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   addressLabel: {
     fontSize: 9,
-    letterSpacing: '0.28em',
-    textTransform: 'uppercase',
+    letterSpacing: "0.28em",
+    textTransform: "uppercase",
     color: C.muted,
     marginBottom: 10,
     fontFamily: "'EB Garamond', Georgia, serif",
@@ -125,13 +114,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 17,
     fontWeight: 700,
     color: C.text,
-    letterSpacing: '0.03em',
+    letterSpacing: "0.03em",
     marginBottom: 5,
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   addressLine: {
     fontSize: 13,
-    color: '#6B5060',
+    color: "#6B5060",
     lineHeight: 1.65,
     maxWidth: 340,
     fontFamily: "'EB Garamond', Georgia, serif",
@@ -140,120 +129,120 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: C.muted,
     marginTop: 6,
-    letterSpacing: '0.06em',
+    letterSpacing: "0.06em",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   statusBadge: {
     background: C.ivoryMid,
     border: `1px solid ${C.ivoryDark}`,
     borderRadius: 2,
-    padding: '8px 18px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
+    padding: "8px 18px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
     gap: 4,
     flexShrink: 0,
   },
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: '50%',
-    background: '#2E8B57',
+    borderRadius: "50%",
+    background: "#2E8B57",
     marginBottom: 2,
   },
   statusLabel: {
     fontSize: 9,
-    letterSpacing: '0.22em',
-    textTransform: 'uppercase',
+    letterSpacing: "0.22em",
+    textTransform: "uppercase",
     color: C.muted,
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   statusValue: {
     fontSize: 11,
     fontWeight: 600,
-    color: '#2E8B57',
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
+    color: "#2E8B57",
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   tableWrap: {
     marginBottom: 0,
   },
   tableHeadRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 80px 60px 100px 100px',
-    padding: '10px 16px',
+    display: "grid",
+    gridTemplateColumns: "1fr 80px 60px 100px 100px",
+    padding: "10px 16px",
     background: C.burgundy,
     borderRadius: 2,
     marginBottom: 2,
   },
   thCell: {
     fontSize: 9,
-    letterSpacing: '0.24em',
-    textTransform: 'uppercase',
-    color: 'rgba(246,238,225,0.7)',
+    letterSpacing: "0.24em",
+    textTransform: "uppercase",
+    color: "rgba(246,238,225,0.7)",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   thCellRight: {
-    textAlign: 'right',
+    textAlign: "right",
     fontSize: 9,
-    letterSpacing: '0.24em',
-    textTransform: 'uppercase',
-    color: 'rgba(246,238,225,0.7)',
+    letterSpacing: "0.24em",
+    textTransform: "uppercase",
+    color: "rgba(246,238,225,0.7)",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   itemRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 80px 60px 100px 100px',
-    padding: '16px 16px',
+    display: "grid",
+    gridTemplateColumns: "1fr 80px 60px 100px 100px",
+    padding: "16px 16px",
     borderBottom: `1px solid ${C.ivoryMid}`,
-    alignItems: 'center',
+    alignItems: "center",
   },
   itemName: {
     fontSize: 14,
     color: C.text,
     fontWeight: 500,
     fontFamily: "'EB Garamond', Georgia, serif",
-    letterSpacing: '0.02em',
+    letterSpacing: "0.02em",
   },
   itemCell: {
     fontSize: 13,
-    color: '#6B5060',
+    color: "#6B5060",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   itemCellRight: {
     fontSize: 13,
-    color: '#6B5060',
-    textAlign: 'right',
+    color: "#6B5060",
+    textAlign: "right",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   itemTotal: {
     fontSize: 14,
     color: C.text,
     fontWeight: 600,
-    textAlign: 'right',
+    textAlign: "right",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   totalsSection: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    padding: '24px 0 0',
+    display: "flex",
+    justifyContent: "flex-end",
+    padding: "24px 0 0",
   },
   totalsBox: {
     minWidth: 260,
   },
   totalRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '7px 0',
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "7px 0",
     borderBottom: `1px solid ${C.ivoryMid}`,
     gap: 40,
   },
   totalLabel: {
     fontSize: 12,
     color: C.muted,
-    letterSpacing: '0.10em',
-    textTransform: 'uppercase',
+    letterSpacing: "0.10em",
+    textTransform: "uppercase",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   totalValue: {
@@ -262,22 +251,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   grandTotalRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '14px 16px',
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "14px 16px",
     background: `linear-gradient(135deg, ${C.ivory} 0%, #fff 100%)`,
     border: `1.5px solid ${C.ivoryDark}`,
     borderLeft: `5px solid ${C.burgundy}`,
     borderRadius: 2,
     marginTop: 8,
     gap: 40,
-    boxShadow: '0 10px 20px rgba(106,1,42,0.08)',
+    boxShadow: "0 10px 20px rgba(106,1,42,0.08)",
   },
   grandTotalLabel: {
     fontSize: 11,
-    letterSpacing: '0.26em',
-    textTransform: 'uppercase',
+    letterSpacing: "0.26em",
+    textTransform: "uppercase",
     color: C.muted,
     fontFamily: "'EB Garamond', Georgia, serif",
   },
@@ -285,24 +274,24 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 22,
     fontWeight: 700,
     color: C.burgundy,
-    letterSpacing: '0.04em',
+    letterSpacing: "0.04em",
     fontFamily: "'EB Garamond', Georgia, serif",
   },
   footerNote: {
-    margin: '32px 0 0',
-    padding: '20px 40px',
+    margin: "32px 0 0",
+    padding: "20px 40px",
     background: C.ivoryMid,
     borderTop: `1.5px solid ${C.ivoryDark}`,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
     gap: 24,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   footerText: {
     fontSize: 11,
     color: C.muted,
-    letterSpacing: '0.08em',
+    letterSpacing: "0.08em",
     fontFamily: "'EB Garamond', Georgia, serif",
     maxWidth: 360,
     lineHeight: 1.6,
@@ -310,49 +299,49 @@ const styles: Record<string, React.CSSProperties> = {
   footerContact: {
     fontSize: 10,
     color: C.muted,
-    letterSpacing: '0.1em',
+    letterSpacing: "0.1em",
     fontFamily: "'EB Garamond', Georgia, serif",
-    textAlign: 'right',
+    textAlign: "right",
     lineHeight: 1.8,
   },
   actions: {
-    padding: '28px 40px 36px',
-    display: 'flex',
+    padding: "28px 40px 36px",
+    display: "flex",
     gap: 12,
-    background: '#fff',
+    background: "#fff",
   },
   btnPrint: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     gap: 8,
-    padding: '11px 26px',
+    padding: "11px 26px",
     background: C.burgundy,
     color: C.ivory,
-    border: 'none',
+    border: "none",
     borderRadius: 2,
-    cursor: 'pointer',
+    cursor: "pointer",
     fontSize: 12,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
     fontFamily: "'EB Garamond', Georgia, serif",
     fontWeight: 600,
   },
   btnBack: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     gap: 8,
-    padding: '11px 26px',
-    background: 'transparent',
+    padding: "11px 26px",
+    background: "transparent",
     color: C.burgundy,
     border: `1.5px solid ${C.burgundy}`,
     borderRadius: 2,
-    cursor: 'pointer',
+    cursor: "pointer",
     fontSize: 12,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
     fontFamily: "'EB Garamond', Georgia, serif",
     fontWeight: 600,
-    textDecoration: 'none',
+    textDecoration: "none",
   },
 };
 
@@ -361,26 +350,26 @@ export default function Invoice() {
   const { id } = useParams<{ id: string }>();
 
   const { data: order, isLoading } = useQuery({
-    queryKey: ['invoice', id],
+    queryKey: ["invoice", id],
     queryFn: () => getOrderDetail(Number(id)),
     enabled: !!id,
   });
 
   useEffect(() => {
     // Inject Google Font
-    if (!document.getElementById('twam-invoice-font')) {
-      const link = document.createElement('link');
-      link.id = 'twam-invoice-font';
-      link.rel = 'stylesheet';
+    if (!document.getElementById("twam-invoice-font")) {
+      const link = document.createElement("link");
+      link.id = "twam-invoice-font";
+      link.rel = "stylesheet";
       link.href =
-        'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap';
+        "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap";
       document.head.appendChild(link);
     }
 
     // Inject print styles
-    if (!document.getElementById('twam-invoice-print')) {
-      const style = document.createElement('style');
-      style.id = 'twam-invoice-print';
+    if (!document.getElementById("twam-invoice-print")) {
+      const style = document.createElement("style");
+      style.id = "twam-invoice-print";
       style.textContent = `
         @page {
           size: A4;
@@ -408,7 +397,7 @@ export default function Invoice() {
 
           /* Step 3: pull invoice to top-left so it fills the printed page */
           .invoice-print-root {
-            position: fixed !important;
+            position: absolute !important;
             top: 0 !important;
             left: 0 !important;
             width: 100% !important;
@@ -416,6 +405,8 @@ export default function Invoice() {
             margin: 0 !important;
             background: #fff !important;
             z-index: 99999 !important;
+            box-shadow: none !important;
+            break-inside: avoid;
           }
 
           /* Step 4: hide action buttons inside invoice */
@@ -431,14 +422,22 @@ export default function Invoice() {
 
     // Cleanup on unmount — remove styles so they don't bleed into other pages
     return () => {
-      document.getElementById('twam-invoice-print')?.remove();
+      document.getElementById("twam-invoice-print")?.remove();
     };
   }, []);
 
   if (isLoading) {
     return (
-      <div style={{ ...styles.page, justifyContent: 'center', alignItems: 'center' }}>
-        <span style={{ color: C.burgundy, letterSpacing: '0.18em', fontSize: 13 }}>
+      <div
+        style={{
+          ...styles.page,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{ color: C.burgundy, letterSpacing: "0.18em", fontSize: 13 }}
+        >
           LOADING INVOICE…
         </span>
       </div>
@@ -447,33 +446,42 @@ export default function Invoice() {
 
   if (!order) {
     return (
-      <div style={{ ...styles.page, justifyContent: 'center', alignItems: 'center' }}>
-        <span style={{ color: C.muted, letterSpacing: '0.12em', fontSize: 13 }}>
+      <div
+        style={{
+          ...styles.page,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <span style={{ color: C.muted, letterSpacing: "0.12em", fontSize: 13 }}>
           Invoice not found.
         </span>
       </div>
     );
   }
 
-  const items: any[] = order.orderItems || order.items || [];
+  // Exclude return/refund items — only show items actually placed
+  const items: any[] = (
+    Array.isArray(order.orderItems) ? order.orderItems : []
+  ).filter((item: any) => !item.isReturn);
 
   const totals: TotalRow[] = [
     {
-      label: 'Subtotal',
-      value: `₹${(order.subTotal || 0).toLocaleString('en-IN')}`,
+      label: "Subtotal",
+      value: `₹${(order.subTotal || 0).toLocaleString("en-IN")}`,
     },
     {
-      label: 'Shipping',
+      label: "Shipping",
       value:
         (order.deliveryCharge || 0) === 0
-          ? 'FREE'
-          : `₹${(order.deliveryCharge || 0).toLocaleString('en-IN')}`,
+          ? "FREE"
+          : `₹${(order.deliveryCharge || 0).toLocaleString("en-IN")}`,
     },
     ...(order.couponAmount > 0
       ? [
           {
-            label: 'Coupon Discount',
-            value: `−₹${order.couponAmount.toLocaleString('en-IN')}`,
+            label: "Coupon Discount",
+            value: `−₹${order.couponAmount.toLocaleString("en-IN")}`,
             green: true,
           },
         ]
@@ -481,39 +489,42 @@ export default function Invoice() {
   ];
 
   return (
-    // ← this className is what the print CSS targets
-    <div style={styles.page} className="invoice-print-root">
-      <div style={styles.card}>
-
+    <div style={styles.page}>
+      {/* invoice-print-root targets only the card — prevents the page wrapper from rendering twice on print */}
+      <div style={styles.card} className="invoice-print-root">
         {/* Accent bar */}
         <div style={styles.accentBar} />
 
         {/* ── Header ── */}
         <div style={styles.headerBand}>
           <div style={styles.brandBlock}>
-            <span style={styles.brandName}>
-              <img src="/assets/Twam-Logo-Burgundy.png" width="215" alt="TWAM" />
-            </span>
-            <span style={styles.brandTagline}>Only TWAM — It's all about you</span>
+            <img
+              src="/assets/Twam-Logo_White.png"
+              height="32"
+              alt="TWAM"
+              style={{ display: "block" }}
+            />
           </div>
           <div style={styles.invoiceMeta}>
-            <div style={styles.invoiceLabel}>Invoice</div>
-            <div style={styles.invoiceNumber}>#{order.orderNumber || id}</div>
+            <div style={styles.invoiceNumber}>
+              Order #{order.orderNumber || id}
+            </div>
             <div style={styles.invoiceDate}>
-              Date: {formatDate(order.orderDate || order.createdAt)}
+              {formatDate(order.orderDate || order.createdAt)}
             </div>
           </div>
         </div>
 
         {/* ── Body ── */}
         <div id="invoice-print" style={styles.body}>
-
           {/* Address + Status */}
           {order.shippingAddress && (
             <div style={styles.addressSection}>
               <div style={styles.addressBox}>
                 <div style={styles.addressLabel}>Bill / Ship To</div>
-                <div style={styles.addressName}>{order.shippingAddress.name}</div>
+                <div style={styles.addressName}>
+                  {order.shippingAddress.name}
+                </div>
                 <div style={styles.addressLine}>
                   {[
                     order.shippingAddress.addressLine,
@@ -523,15 +534,19 @@ export default function Invoice() {
                     order.shippingAddress.pinCode,
                   ]
                     .filter(Boolean)
-                    .join(', ')}
+                    .join(", ")}
                 </div>
-                <div style={styles.addressPhone}>{order.shippingAddress.phone}</div>
+                <div style={styles.addressPhone}>
+                  {order.shippingAddress.phone}
+                </div>
               </div>
 
               <div style={styles.statusBadge}>
                 <div style={styles.statusDot} />
                 <div style={styles.statusLabel}>Status</div>
-                <div style={styles.statusValue}>{order.status || 'Confirmed'}</div>
+                <div style={styles.statusValue}>
+                  {order.status || "Confirmed"}
+                </div>
               </div>
             </div>
           )}
@@ -548,14 +563,16 @@ export default function Invoice() {
 
             {items.map((item, i) => (
               <div key={i} style={styles.itemRow}>
-                <span style={styles.itemName}>{item.productName || item.name}</span>
-                <span style={styles.itemCell}>{item.size || '—'}</span>
+                <span style={styles.itemName}>
+                  {item.productName || item.name}
+                </span>
+                <span style={styles.itemCell}>{item.size || "—"}</span>
                 <span style={styles.itemCell}>{item.quantity}</span>
                 <span style={styles.itemCellRight}>
-                  ₹{(item.price || 0).toLocaleString('en-IN')}
+                  ₹{(item.price || 0).toLocaleString("en-IN")}
                 </span>
                 <span style={styles.itemTotal}>
-                  ₹{((item.price || 0) * item.quantity).toLocaleString('en-IN')}
+                  ₹{((item.price || 0) * item.quantity).toLocaleString("en-IN")}
                 </span>
               </div>
             ))}
@@ -570,7 +587,7 @@ export default function Invoice() {
                   <span
                     style={{
                       ...styles.totalValue,
-                      ...(green ? { color: '#2E8B57', fontWeight: 600 } : {}),
+                      ...(green ? { color: "#2E8B57", fontWeight: 600 } : {}),
                     }}
                   >
                     {value}
@@ -580,7 +597,7 @@ export default function Invoice() {
               <div style={styles.grandTotalRow}>
                 <span style={styles.grandTotalLabel}>Total</span>
                 <span style={styles.grandTotalValue}>
-                  ₹{(order.totalAmount || 0).toLocaleString('en-IN')}
+                  ₹{(order.totalAmount || 0).toLocaleString("en-IN")}
                 </span>
               </div>
             </div>
@@ -590,8 +607,9 @@ export default function Invoice() {
         {/* ── Footer note ── */}
         <div style={styles.footerNote}>
           <p style={styles.footerText}>
-            We are Only TWAM, a multibrand platform where women have a wide variety of lingerie
-            brands, that can help them pick their most comfortable fit based on their daily needs.
+            We are Only TWAM, a multibrand platform where women have a wide
+            variety of lingerie brands, that can help them pick their most
+            comfortable fit based on their daily needs.
           </p>
           <div style={styles.footerContact}>
             <div>onlytwam.com/contact-us</div>
@@ -603,13 +621,18 @@ export default function Invoice() {
           <button
             onClick={() => window.print()}
             style={styles.btnPrint}
-            onMouseOver={e => (e.currentTarget.style.opacity = '0.85')}
-            onMouseOut={e => (e.currentTarget.style.opacity = '1')}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = "0.85")}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
           >
             <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
               <polyline points="6 9 6 2 18 2 18 9" />
               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
@@ -621,7 +644,6 @@ export default function Invoice() {
             ← Back to Orders
           </Link>
         </div>
-
       </div>
     </div>
   );
