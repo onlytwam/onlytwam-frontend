@@ -349,6 +349,15 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  // viewOnly mode: when category is inactive, user can view but NOT add to cart/buy.
+  // This is triggered when navigating from wishlist or cart to the product detail page.
+  const _locState = location.state as any;
+  const isFromWishlistOrCart =
+    _locState?.fromWishlist === true ||
+    _locState?.fromCart === true ||
+    (typeof document !== "undefined" &&
+      (document.referrer.includes("/wishlist") ||
+        document.referrer.includes("/cart")));
   const qc = useQueryClient();
   const { hasValidToken, getUserId } = useAuthStore();
 
@@ -592,6 +601,10 @@ export default function ProductDetail() {
     enabled: currentVId > 0,
     staleTime: 5 * 60 * 1000,
   });
+
+  // viewOnly = category is inactive AND user arrived from wishlist or cart.
+  // Product info is shown; purchase controls (size, cup-size, cart, buy-now) are hidden.
+  const viewOnly = product?.categoryIsActive === false && isFromWishlistOrCart;
 
   useEffect(() => {
     if (!isLoading) window.dispatchEvent(new Event("page-content-ready"));
@@ -1761,7 +1774,7 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {allSizes.length > 0 && (
+            {allSizes.length > 0 && !viewOnly && (
               <div className="s-updateprofil-246fef">
                 <div className="s-productdetai-858448">
                   <p className="s-productdetai-8d5dc6 s-productdetai-ff85a0a9">
@@ -1847,7 +1860,7 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {hasCupSize && allCupSizes.length > 0 && (
+            {hasCupSize && allCupSizes.length > 0 && !viewOnly && (
               <div className="s-updateprofil-246fef">
                 <p className="s-productdetai-06262c s-productdetai-ff85a0a9">
                   Cup Size:{" "}
@@ -2037,30 +2050,50 @@ export default function ProductDetail() {
             })()}
 
             {/* Primary actions */}
-            <div className="pd-action-row" ref={actionRowRef}>
-              <button
-                onClick={handleAddToCart}
-                disabled={cartMutation.isPending || isOOS}
-                className="pd-action-btn pd-action-btn--cart"
+            {viewOnly ? (
+              <div
+                className="pd-action-row"
+                ref={actionRowRef}
+                style={{
+                  background: "rgba(245,245,245,0.95)",
+                  border: "1.5px solid #e0e0e0",
+                  borderRadius: 10,
+                  padding: "14px 18px",
+                  textAlign: "center",
+                  color: "#888",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
               >
-                {cartMutation.isPending ? (
-                  <span className="spinner-border spinner-border-sm" />
-                ) : (
-                  <i className="bi bi-cart3" />
-                )}
-                Add to Cart
-              </button>
-              <button
-                onClick={handleBuyNow}
-                disabled={cartMutation.isPending || isOOS}
-                className="pd-action-btn pd-action-btn--buy"
-              >
-                <i className="bi bi-bolt-fill" />
-                Buy Now
-              </button>
-            </div>
+                <i className="bi bi-eye me-2" />
+                This product is currently unavailable for purchase.
+              </div>
+            ) : (
+              <div className="pd-action-row" ref={actionRowRef}>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={cartMutation.isPending || isOOS}
+                  className="pd-action-btn pd-action-btn--cart"
+                >
+                  {cartMutation.isPending ? (
+                    <span className="spinner-border spinner-border-sm" />
+                  ) : (
+                    <i className="bi bi-cart3" />
+                  )}
+                  Add to Cart
+                </button>
+                <button
+                  onClick={handleBuyNow}
+                  disabled={cartMutation.isPending || isOOS}
+                  className="pd-action-btn pd-action-btn--buy"
+                >
+                  <i className="bi bi-bolt-fill" />
+                  Buy Now
+                </button>
+              </div>
+            )}
 
-            {isMobileViewport && (
+            {isMobileViewport && !viewOnly && (
               <div
                 className={`pd-sticky-action-shell${
                   showStickyActions ? " is-visible" : ""

@@ -130,6 +130,10 @@ export default function Wishlist() {
         item.productBrand ||
         meta?.brandName ||
         "",
+      // Preserve categoryIsActive so ProductCard can show the unavailable overlay.
+      // Defaults to true (available) when the field is not returned (e.g. guest items).
+      categoryIsActive:
+        item.categoryIsActive !== undefined ? item.categoryIsActive : true,
     };
   });
 

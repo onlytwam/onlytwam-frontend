@@ -1,6 +1,7 @@
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
 import { usePageImage, IMAGE_KEYS } from "@/features/images";
+import { getPageImage } from "@/features/images/api/images.api";
 import {
   useState,
   useEffect,
@@ -10,7 +11,7 @@ import {
   useMemo,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   listProducts,
@@ -749,21 +750,80 @@ function MobileProductSlider({
 function ShopByCategorySection() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
 
-  // "All Products" banner image — uploaded via the admin Images module
+  // Section-level visibility toggle -- admin can hide/show the whole
+  // 'Shop by Category' section from AdminBranding without touching categories.
+  const { data: sectionDto } = useQuery({
+    queryKey: ["page-image", IMAGE_KEYS.HOME_SHOP_BY_CATEGORY],
+    queryFn: () => getPageImage(IMAGE_KEYS.HOME_SHOP_BY_CATEGORY),
+    staleTime: 0,
+  });
+  // isActive defaults to true when the row hasn't been explicitly hidden
+  const sectionActive = sectionDto ? sectionDto.isActive !== false : true;
+
+  // "All Products" banner image -- uploaded via the admin Images module
   const allProductsImage = usePageImage(IMAGE_KEYS.HOME_SHOP_ALL_PRODUCTS);
 
   // Fetch live categories from the backend (includes categoryImage)
   const { data: catData } = useQuery({
     queryKey: ["shop-categories"],
     queryFn: () => listCategories({ pageSize: 200 }),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 
+  // Re-fetch when admin hides/shows a category (same tab, cross-tab, or
+  // cross-browser via visibilitychange) so the section appears/disappears
+  // without requiring a page reload.
+  useEffect(() => {
+    const refresh = () => {
+      queryClient.invalidateQueries({ queryKey: ["shop-categories"] });
+      queryClient.invalidateQueries({
+        queryKey: ["page-image", IMAGE_KEYS.HOME_SHOP_BY_CATEGORY],
+      });
+    };
+    window.addEventListener("categoriesUpdated", refresh);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("categoriesUpdated", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [queryClient]);
+
   // Build the slide list:
-  //  - "All Products" first — only included when an admin image has been uploaded
+  //  - "All Products" first -- only included when an admin image has been uploaded
+  //    AND there is at least one visible (active) category with an image.
+  //    If every category is hidden, the entire section hides -- including the
+  //    All Products tile -- because showing only "All Products" with no
+  //    categories to browse would be misleading.
   //  - Then parent (root) categories only: no parentCategoryId, active, with a categoryImage
   const slides = useMemo(() => {
+    const list: any[] = catData?.list ?? [];
+
+    // Active root categories that have an uploaded image
+    const activeCategorySlides = list
+      .filter(
+        (c: any) =>
+          c.isActive !== false &&
+          c.name &&
+          !c.parentCategoryId && // root categories only
+          c.categoryImage, // must have an uploaded image
+      )
+      .map((c: any) => ({
+        categoryId: c.categoryId as number | null,
+        name: c.name as string,
+        image: c.categoryImage as string,
+        url: `/user-products/product-list/${c.categoryId}`,
+      }));
+
+    // If every category is hidden (or none have images), suppress the whole
+    // section -- including the All Products tile -- so we never show a
+    // "Shop by Category" heading with only a generic All Products banner.
+    if (activeCategorySlides.length === 0) return [];
+
     const result: Array<{
       categoryId: number | null;
       name: string;
@@ -771,7 +831,7 @@ function ShopByCategorySection() {
       url: string;
     }> = [];
 
-    // "All Products" — only show if the admin has uploaded an image for it
+    // "All Products" tile -- only prepend when there are real categories to show
     if (allProductsImage) {
       result.push({
         categoryId: null,
@@ -781,26 +841,7 @@ function ShopByCategorySection() {
       });
     }
 
-    // Only root (parent) categories that are active and have an image
-    const list: any[] = catData?.list ?? [];
-    list
-      .filter(
-        (c: any) =>
-          c.isActive !== false &&
-          c.name &&
-          !c.parentCategoryId && // root categories only
-          c.categoryImage, // must have an uploaded image
-      )
-      .forEach((c: any) => {
-        result.push({
-          categoryId: c.categoryId,
-          name: c.name,
-          image: c.categoryImage,
-          url: `/user-products/product-list/${c.categoryId}`,
-        });
-      });
-
-    return result;
+    return [...result, ...activeCategorySlides];
   }, [catData, allProductsImage]);
 
   const SHOP_CAT_TOTAL = slides.length;
@@ -908,6 +949,9 @@ function ShopByCategorySection() {
   };
 
   if (isMobile) return null;
+
+  // Admin has explicitly hidden the entire 'Shop by Category' section
+  if (!sectionActive) return null;
 
   // Hide the entire section if there are no slides with images
   if (slides.length === 0) return null;
@@ -1842,7 +1886,7 @@ export default function Home() {
   );
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isSyncing = useAuthStore((state) => state.isSyncing);
-  const { menus, setMenus } = useMenuStore();
+  const { menus } = useMenuStore();
   const [selectedCategoryId, setSelectedCategoryId] = useState(0);
   const [categoryProducts, setCategoryProducts] = useState<any[] | null>(null);
   const [quickShopId, setQuickShopId] = useState(0);
@@ -1870,15 +1914,8 @@ export default function Home() {
     }
   }, [isMobile]);
 
-  useEffect(() => {
-    const cached = sessionStorage.getItem("menus");
-    if (cached) {
-      try {
-        const p = JSON.parse(cached);
-        if (p.length) setMenus(p);
-      } catch {}
-    }
-  }, []);
+  // NOTE: menus are loaded and kept fresh by Navbar.tsx (always re-fetches on mount
+  // + listens for "categoriesUpdated"). No stale sessionStorage read here.
 
   useEffect(() => {
     if (menus.length && !selectedCategoryId) {

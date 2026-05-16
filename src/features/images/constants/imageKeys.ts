@@ -26,6 +26,9 @@ export const IMAGE_KEYS = {
 
   /** Shop by Category — "All Products" banner image */
   HOME_SHOP_ALL_PRODUCTS: "home_shop_all_products",
+
+  /** Shop by Category section — visibility toggle (no image, isActive only) */
+  HOME_SHOP_BY_CATEGORY: "home_shop_by_category",
 } as const;
 
 export type ImageKey = (typeof IMAGE_KEYS)[keyof typeof IMAGE_KEYS];
@@ -43,4 +46,5 @@ export const IMAGE_FALLBACKS: Record<ImageKey, string> = {
   home_section_bestsellers: "",
   home_section_newarrivals: "",
   home_shop_all_products: "",
+  home_shop_by_category: "",
 };

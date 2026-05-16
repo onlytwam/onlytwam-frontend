@@ -393,107 +393,159 @@ export default function QuickCart({ onClose }: Props) {
                       ) : null}
                     </h5>
 
-                    {/* Color + Band/Cup size */}
-                    {(colorLabel || bandSize || cupSize) && (
-                      <div className="s-quickcart-0419ed">
-                        {colorLabel && (
-                          <span className="s-quickcart-b02946">
-                            <span className="s-adminsizes-b54cfc">Color:</span>
-                            <span
-                              className="s-quickcart-b68aaf"
-                              style={{ background: colorHex }}
-                            />
-                            <span>{colorLabel}</span>
-                          </span>
-                        )}
-                        {bandSize && (
-                          <span className="s-adminnewslet-f01220">
-                            <span className="s-adminsizes-b54cfc">
-                              Band Size:{" "}
-                            </span>
-                            <strong>{bandSize}</strong>
-                          </span>
-                        )}
-                        {cupSize && (
-                          <span className="s-adminnewslet-f01220">
-                            <span className="s-adminsizes-b54cfc">
-                              Cup Size:{" "}
-                            </span>
-                            <strong>{cupSize}</strong>
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Stock warning badge */}
-                    {maxStock !== null && maxStock <= 3 && maxStock > 0 && (
-                      <div className="s-quickcart-382f33">
-                        ⚠️ Only {maxStock} left in stock
-                      </div>
-                    )}
-
-                    {/* Price + Qty + Delete row */}
-                    <div className="s-quickcart-addeec">
-                      {/* Qty controls */}
-                      <div className="s-quickcart-f7ab1b">
-                        <button
-                          onClick={() => handleDecrease(item)}
-                          disabled={removeMut.isPending || updateMut.isPending}
-                          className="s-quickcart-456b82"
+                    {/* Unavailable badge OR normal color/size/price/qty */}
+                    {item.categoryIsActive === false ? (
+                      <>
+                        <span
                           style={{
-                            opacity:
-                              removeMut.isPending || updateMut.isPending
-                                ? 0.5
-                                : 1,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            background: "rgba(220,53,69,0.10)",
+                            color: "#b91c1c",
+                            border: "1.5px solid rgba(185,28,28,0.28)",
+                            borderRadius: 5,
+                            padding: "4px 10px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            letterSpacing: 0.8,
+                            textTransform: "uppercase",
+                            marginBottom: 6,
                           }}
                         >
-                          −
-                        </button>
-                        <span className="s-quickcart-b8376f">{qty}</span>
-                        <button
-                          onClick={() => handleIncrease(item)}
-                          disabled={updateMut.isPending || atMax}
-                          title={
-                            atMax
-                              ? `Max stock: ${maxStock}`
-                              : "Increase quantity"
-                          }
-                          className="s-quickcart-65fdad"
-                          style={{
-                            cursor: atMax ? "not-allowed" : "pointer",
-                            color: atMax ? "var(--ivory)" : "var(--brand)",
-                            opacity: updateMut.isPending ? 0.5 : 1,
-                          }}
+                          <i
+                            className="bi bi-exclamation-circle-fill"
+                            style={{ fontSize: 12 }}
+                          />
+                          Unavailable
+                        </span>
+                        {/* Delete only — no qty/price controls */}
+                        <div
+                          className="s-quickcart-addeec"
+                          style={{ justifyContent: "flex-end" }}
                         >
-                          +
-                        </button>
-                      </div>
-
-                      {/* Price */}
-                      <div className="s-quickcart-f66ceb">
-                        <div className="s-quickcart-c3a94f">
-                          ₹{(price * qty).toLocaleString("en-IN")}
+                          <button
+                            onClick={() => {
+                              if (hasValidToken()) void removeMergedItem(item);
+                              else removeGuest(item.productVariantDetailId);
+                            }}
+                            disabled={removeMut.isPending}
+                            className="s-quickcart-424294"
+                            style={{ opacity: removeMut.isPending ? 0.5 : 1 }}
+                          >
+                            <i className="bi bi-trash3 s-addresslist-92985e" />
+                          </button>
                         </div>
-                        {mrp > price && (
-                          <div className="s-quickcart-b469ce">
-                            ₹{(mrp * qty).toLocaleString("en-IN")}
+                      </>
+                    ) : (
+                      <>
+                        {/* Color + Band/Cup size */}
+                        {(colorLabel || bandSize || cupSize) && (
+                          <div className="s-quickcart-0419ed">
+                            {colorLabel && (
+                              <span className="s-quickcart-b02946">
+                                <span className="s-adminsizes-b54cfc">
+                                  Color:
+                                </span>
+                                <span
+                                  className="s-quickcart-b68aaf"
+                                  style={{ background: colorHex }}
+                                />
+                                <span>{colorLabel}</span>
+                              </span>
+                            )}
+                            {bandSize && (
+                              <span className="s-adminnewslet-f01220">
+                                <span className="s-adminsizes-b54cfc">
+                                  Band Size:{" "}
+                                </span>
+                                <strong>{bandSize}</strong>
+                              </span>
+                            )}
+                            {cupSize && (
+                              <span className="s-adminnewslet-f01220">
+                                <span className="s-adminsizes-b54cfc">
+                                  Cup Size:{" "}
+                                </span>
+                                <strong>{cupSize}</strong>
+                              </span>
+                            )}
                           </div>
                         )}
-                      </div>
 
-                      {/* Delete */}
-                      <button
-                        onClick={() => {
-                          if (hasValidToken()) void removeMergedItem(item);
-                          else removeGuest(item.productVariantDetailId);
-                        }}
-                        disabled={removeMut.isPending}
-                        className="s-quickcart-424294"
-                        style={{ opacity: removeMut.isPending ? 0.5 : 1 }}
-                      >
-                        <i className="bi bi-trash3 s-addresslist-92985e" />
-                      </button>
-                    </div>
+                        {/* Stock warning badge */}
+                        {maxStock !== null && maxStock <= 3 && maxStock > 0 && (
+                          <div className="s-quickcart-382f33">
+                            ⚠️ Only {maxStock} left in stock
+                          </div>
+                        )}
+
+                        {/* Price + Qty + Delete row */}
+                        <div className="s-quickcart-addeec">
+                          {/* Qty controls */}
+                          <div className="s-quickcart-f7ab1b">
+                            <button
+                              onClick={() => handleDecrease(item)}
+                              disabled={
+                                removeMut.isPending || updateMut.isPending
+                              }
+                              className="s-quickcart-456b82"
+                              style={{
+                                opacity:
+                                  removeMut.isPending || updateMut.isPending
+                                    ? 0.5
+                                    : 1,
+                              }}
+                            >
+                              −
+                            </button>
+                            <span className="s-quickcart-b8376f">{qty}</span>
+                            <button
+                              onClick={() => handleIncrease(item)}
+                              disabled={updateMut.isPending || atMax}
+                              title={
+                                atMax
+                                  ? `Max stock: ${maxStock}`
+                                  : "Increase quantity"
+                              }
+                              className="s-quickcart-65fdad"
+                              style={{
+                                cursor: atMax ? "not-allowed" : "pointer",
+                                color: atMax ? "var(--ivory)" : "var(--brand)",
+                                opacity: updateMut.isPending ? 0.5 : 1,
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          {/* Price */}
+                          <div className="s-quickcart-f66ceb">
+                            <div className="s-quickcart-c3a94f">
+                              ₹{(price * qty).toLocaleString("en-IN")}
+                            </div>
+                            {mrp > price && (
+                              <div className="s-quickcart-b469ce">
+                                ₹{(mrp * qty).toLocaleString("en-IN")}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Delete */}
+                          <button
+                            onClick={() => {
+                              if (hasValidToken()) void removeMergedItem(item);
+                              else removeGuest(item.productVariantDetailId);
+                            }}
+                            disabled={removeMut.isPending}
+                            className="s-quickcart-424294"
+                            style={{ opacity: removeMut.isPending ? 0.5 : 1 }}
+                          >
+                            <i className="bi bi-trash3 s-addresslist-92985e" />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               );

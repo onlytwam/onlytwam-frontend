@@ -27,7 +27,14 @@ import toast from "react-hot-toast";
 
 const SLOT_META: Record<
   string,
-  { label: string; hint: string; acceptBoth?: boolean; canHide?: boolean }
+  {
+    label: string;
+    hint: string;
+    acceptBoth?: boolean;
+    canHide?: boolean;
+    /** When set, the Hide/Show toggle operates on this key instead of pageKey */
+    visibilityKey?: string;
+  }
 > = {
   [IMAGE_KEYS.LOGIN_BACKGROUND]: {
     label: "Login Page Background",
@@ -58,8 +65,10 @@ const SLOT_META: Record<
     canHide: true,
   },
   [IMAGE_KEYS.HOME_SHOP_ALL_PRODUCTS]: {
-    label: "Shop by Category — All Products",
-    hint: "Banner image for the 'All Products' tile in the Shop by Category carousel.",
+    label: "Shop by Category",
+    hint: "Upload the banner image for the 'All Products' tile. Use Hide / Show to toggle the entire Shop by Category section on the home page.",
+    canHide: true,
+    visibilityKey: IMAGE_KEYS.HOME_SHOP_BY_CATEGORY,
   },
 };
 
@@ -202,6 +211,10 @@ interface SlotCardProps {
   hint: string;
   acceptBoth?: boolean;
   canHide?: boolean;
+  /** When provided, Hide/Show reads & writes this key's isActive instead of dto.pageKey */
+  visibilityKey?: string;
+  /** DTO for the visibilityKey slot (fetched separately by the parent) */
+  visibilityDto?: PageImageDto;
 }
 
 function ImageSlotCard({
@@ -210,6 +223,8 @@ function ImageSlotCard({
   hint,
   acceptBoth = false,
   canHide = false,
+  visibilityKey,
+  visibilityDto,
 }: SlotCardProps) {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -217,7 +232,12 @@ function ImageSlotCard({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { pageKey, imageUrl: currentUrl, isActive } = dto;
+  const { pageKey, imageUrl: currentUrl } = dto;
+  // If a separate visibilityKey is provided, use its isActive; otherwise fall back to dto.isActive
+  const isActive = visibilityKey
+    ? visibilityDto?.isActive ?? true
+    : dto.isActive;
+  const effectiveVisibilityKey = visibilityKey ?? pageKey;
 
   // ── Upload mutation ────────────────────────────────────────────────────
   const uploadMutation = useMutation({
@@ -250,7 +270,8 @@ function ImageSlotCard({
 
   // ── Visibility mutation ────────────────────────────────────────────────
   const visibilityMutation = useMutation({
-    mutationFn: (active: boolean) => setPageImageVisibility(pageKey, active),
+    mutationFn: (active: boolean) =>
+      setPageImageVisibility(effectiveVisibilityKey, active),
     onSuccess: (res) => {
       toast.success(
         res.isActive
@@ -259,6 +280,9 @@ function ImageSlotCard({
       );
       qc.invalidateQueries({ queryKey: ["all-page-images"] });
       qc.invalidateQueries({ queryKey: ["page-image", pageKey] });
+      qc.invalidateQueries({
+        queryKey: ["page-image", effectiveVisibilityKey],
+      });
     },
     onError: (err: any) => {
       toast.error(
@@ -848,6 +872,14 @@ export default function AdminBranding() {
                 isActive: true,
               };
               const dto = dtoMap[key] ?? fallbackDto;
+              // For slots that delegate visibility to a separate key, fetch that DTO too
+              const visibilityDto = meta.visibilityKey
+                ? dtoMap[meta.visibilityKey] ?? {
+                    pageKey: meta.visibilityKey,
+                    imageUrl: "",
+                    isActive: true,
+                  }
+                : undefined;
               return (
                 <ImageSlotCard
                   key={key}
@@ -856,6 +888,8 @@ export default function AdminBranding() {
                   hint={meta.hint}
                   acceptBoth={meta.acceptBoth}
                   canHide={meta.canHide}
+                  visibilityKey={meta.visibilityKey}
+                  visibilityDto={visibilityDto}
                 />
               );
             })}

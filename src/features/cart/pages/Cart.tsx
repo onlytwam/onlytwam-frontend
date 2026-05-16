@@ -24,6 +24,7 @@ import {
 import { getImageUrl, slugify } from "@/shared/utils/helpers";
 import { resolveHex } from "@/shared/utils/colorHelpers";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
+import { createWishlist } from "@/features/products/api/products.api";
 import {
   clearBuyNowSession,
   getBuyNowSession,
@@ -1152,6 +1153,13 @@ export default function Cart() {
     isBuyNowView ? normalizeBuyNowItems(getBuyNowSession()?.items ?? []) : [],
   );
 
+  // ── Inactive-category checkout gate ──────────────────────────────────────
+  // When user clicks checkout and some selected items belong to an inactive
+  // category, we show a popup asking them to remove or save-for-later first.
+  const [inactiveCategoryItems, setInactiveCategoryItems] = useState<any[]>([]);
+  const [showInactiveCategoryModal, setShowInactiveCategoryModal] =
+    useState(false);
+
   const { data: cartData, isLoading } = useQuery({
     queryKey: ["cart", userId],
     queryFn: () => listCart({ userProfileId: userId }),
@@ -1293,12 +1301,10 @@ export default function Cart() {
       const session = getBuyNowSession();
       if (!session?.items?.length) return;
 
-      const returnKey = `buy-now-return:${
-        session.createdAt ?? Date.now()
-      }:${session.cartSignature ?? "no-signature"}`;
-      const processedKey = localStorage.getItem(
-        "processedBuyNowCartAddKey",
-      );
+      const returnKey = `buy-now-return:${session.createdAt ?? Date.now()}:${
+        session.cartSignature ?? "no-signature"
+      }`;
+      const processedKey = localStorage.getItem("processedBuyNowCartAddKey");
       if (processedKey === returnKey) return;
 
       if (isAuth && userId) {
@@ -1445,6 +1451,16 @@ export default function Cart() {
   const proceedToCheckoutAddress = async () => {
     if (checkoutTransitionInProgressRef.current) return;
     try {
+      // Gate: block checkout if any selected item has an inactive category
+      const inactiveSelected = selectedItems.filter(
+        (i: any) => i.categoryIsActive === false,
+      );
+      if (inactiveSelected.length > 0) {
+        setInactiveCategoryItems(inactiveSelected);
+        setShowInactiveCategoryModal(true);
+        return;
+      }
+
       const isStockOk = await validateCartStock();
       if (!isStockOk) return;
 
@@ -2274,6 +2290,273 @@ export default function Cart() {
       </div>
     );
 
+  // ── Render: inactive-category modal helper ──────────────────────────────
+  const renderInactiveCategoryModal = () => {
+    if (!showInactiveCategoryModal) return null;
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          background: "rgba(0,0,0,0.45)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setShowInactiveCategoryModal(false);
+        }}
+      >
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 14,
+            padding: "28px 28px 24px",
+            maxWidth: 480,
+            width: "100%",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 14,
+              marginBottom: 20,
+            }}
+          >
+            <span style={{ fontSize: 28, lineHeight: 1 }}>🚫</span>
+            <div>
+              <h5
+                style={{
+                  margin: 0,
+                  fontWeight: 700,
+                  fontSize: 17,
+                  color: "#1a1a1a",
+                }}
+              >
+                Some items are no longer available
+              </h5>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: 14,
+                  color: "#555",
+                  lineHeight: 1.5,
+                }}
+              >
+                The following item
+                {inactiveCategoryItems.length > 1 ? "s are" : " is"} from a
+                category that's currently unavailable. Please remove or save for
+                later before proceeding to checkout.
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              marginBottom: 22,
+            }}
+          >
+            {inactiveCategoryItems.map((item: any) => (
+              <div
+                key={item.cartId ?? item.productVariantId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  background: "#fafafa",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                  border: "1px solid #eee",
+                }}
+              >
+                {(item.image || item.imageURL) && (
+                  <img
+                    src={getImageUrl(item.image || item.imageURL)}
+                    alt={item.productName || item.name || ""}
+                    style={{
+                      width: 52,
+                      height: 52,
+                      objectFit: "cover",
+                      borderRadius: 6,
+                      opacity: 0.5,
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: 13,
+                      color: "#1a1a1a",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {item.productName || item.name}
+                  </div>
+                  {(item.color || item.size) && (
+                    <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+                      {item.color && <span>{item.color}</span>}
+                      {item.color && item.size && <span> · </span>}
+                      {item.size && <span>{item.size}</span>}
+                    </div>
+                  )}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    flexShrink: 0,
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      // Save for later: add to wishlist then remove from cart
+                      // Save to wishlist via API then remove from cart
+                      if (isAuth && userId) {
+                        createWishlist({
+                          productId: item.productId,
+                          productVariantId: item.productVariantId,
+                          productVariantDetailId: item.productVariantDetailId,
+                          userProfileId: userId,
+                          state: "Active",
+                        }).catch(() => {});
+                      }
+                      const ids = [
+                        item.cartId,
+                        ...(item._extraCartIds ?? []),
+                      ].filter(Boolean);
+                      ids.forEach((id: number) => deleteCartItem(id));
+                      // Optimistic update: remove item from cart state immediately
+                      // so the cart list reflects the change without waiting for refetch
+                      const removedCartIds = new Set(ids);
+                      setAuthItems((prev: any[]) =>
+                        prev.filter((i: any) => !removedCartIds.has(i.cartId)),
+                      );
+                      // Decrement the badge counter immediately and resync bootstrap
+                      setCartCount(Math.max(0, (cartCount || 1) - 1));
+                      qc.invalidateQueries({ queryKey: ["cart", userId] });
+                      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+                      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+                      qc.invalidateQueries({ queryKey: ["wishlist", userId] });
+                      toast.success("Saved to wishlist");
+                      setInactiveCategoryItems((prev) =>
+                        prev.filter((i: any) => i.cartId !== item.cartId),
+                      );
+                    }}
+                    style={{
+                      fontSize: 12,
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      border: "1.5px solid #e0a800",
+                      background: "#fff8e1",
+                      color: "#856404",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <i className="bi bi-bookmark me-1" />
+                    Save for Later
+                  </button>
+                  <button
+                    onClick={() => {
+                      const ids = [
+                        item.cartId,
+                        ...(item._extraCartIds ?? []),
+                      ].filter(Boolean);
+                      ids.forEach((id: number) => deleteCartItem(id));
+                      // Optimistic update: remove from cart state immediately
+                      const removedIds = new Set(ids);
+                      setAuthItems((prev: any[]) =>
+                        prev.filter((i: any) => !removedIds.has(i.cartId)),
+                      );
+                      // Decrement the badge counter immediately and resync bootstrap
+                      setCartCount(Math.max(0, (cartCount || 1) - 1));
+                      qc.invalidateQueries({ queryKey: ["cart", userId] });
+                      qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
+                      qc.invalidateQueries({ queryKey: ["quick-cart"] });
+                      toast("Removed from cart", { icon: "🗑️" });
+                      setInactiveCategoryItems((prev) =>
+                        prev.filter((i: any) => i.cartId !== item.cartId),
+                      );
+                    }}
+                    style={{
+                      fontSize: 12,
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      border: "1.5px solid #dc3545",
+                      background: "#fff5f5",
+                      color: "#dc3545",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <i className="bi bi-trash3 me-1" />
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {inactiveCategoryItems.length === 0 ? (
+            <button
+              onClick={() => {
+                setShowInactiveCategoryModal(false);
+                // Re-trigger checkout now that all unavailable items are cleared
+                setTimeout(() => proceedToCheckoutAddress(), 200);
+              }}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: 8,
+                background: "var(--brand, #333)",
+                color: "#fff",
+                border: "none",
+                fontWeight: 700,
+                fontSize: 15,
+                cursor: "pointer",
+              }}
+            >
+              Continue to Checkout
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowInactiveCategoryModal(false)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: 8,
+                background: "#f5f5f5",
+                color: "#444",
+                border: "1px solid #ddd",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (cartItems.length === 0)
     return (
       <div className="container py-5">
@@ -2299,6 +2582,7 @@ export default function Cart() {
 
   return (
     <>
+      {renderInactiveCategoryModal()}
       <div className="container s-cart-2eb199">
         {isBuyNowView && (
           <div
@@ -2385,6 +2669,7 @@ export default function Cart() {
                       `/user-products/product-detail/${
                         item.productVariantId
                       }/${slugify(item.productName || item.name || "")}`,
+                      { state: { fromCart: true } },
                     )
                   }
                   className="s-cart-c9a7a1"
@@ -2403,135 +2688,169 @@ export default function Cart() {
                     )}
                   </h6>
 
-                  {/* Color + Size */}
-                  <div className="s-cart-0e031f">
-                    {(item.colorName || item.color) && (
-                      <span className="s-cart-c8ff6d">
-                        <span
-                          className="s-cart-552e26"
-                          style={{
-                            background: resolveHex(item.colorHex ?? item.color),
-                          }}
-                        />
-                        {item.colorName ?? item.color}
-                      </span>
-                    )}
-                    {(item.size || item.bandSize) && (
-                      <span className="s-adminnewslet-f01220">
-                        Band Size: <strong>{item.size || item.bandSize}</strong>
-                      </span>
-                    )}
-                    {item.cupSize && (
-                      <span className="s-adminnewslet-f01220">
-                        Cup Size: <strong>{item.cupSize}</strong>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Quantity */}
-                  <div className="s-adminbar-877368">
-                    <span className="s-adminnewslet-f01220">Quantity:</span>
-                    <div
-                      className="s-cart-13c6e0"
-                      style={{ position: "relative" }}
-                    >
-                      <button
-                        onClick={() =>
-                          handleQtyChange(
-                            item,
-                            (item.processedQuantity || 1) - 1,
-                          )
-                        }
-                        className="s-cart-bbdb9d"
-                        disabled={(item.processedQuantity || 1) <= 1}
+                  {/* Color + Size — hidden when category is inactive */}
+                  {item.categoryIsActive === false ? (
+                    <div style={{ marginBottom: 8 }}>
+                      <span
                         style={{
-                          cursor:
-                            (item.processedQuantity || 1) <= 1
-                              ? "not-allowed"
-                              : "pointer",
-                          color:
-                            (item.processedQuantity || 1) <= 1
-                              ? "var(--ivory)"
-                              : undefined,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "rgba(220,53,69,0.10)",
+                          color: "#b91c1c",
+                          border: "1.5px solid rgba(185,28,28,0.30)",
+                          borderRadius: 6,
+                          padding: "5px 12px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          letterSpacing: 0.8,
+                          textTransform: "uppercase",
                         }}
                       >
-                        −
-                      </button>
-                      <span className="s-cart-686e55">
-                        {item.processedQuantity || 1}
+                        <i
+                          className="bi bi-exclamation-circle-fill"
+                          style={{ fontSize: 13 }}
+                        />
+                        Unavailable
                       </span>
-                      {(() => {
-                        const stock: number | null =
-                          item.stockQuantity != null
-                            ? Number(item.stockQuantity)
-                            : null;
-                        const atMax =
-                          stock !== null &&
-                          (item.processedQuantity || 1) >= stock;
-                        const itemKey = String(
-                          item.cartId ??
-                            item.productVariantDetailId ??
-                            item.productVariantId,
-                        );
-                        return (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleQtyChange(
-                                  item,
-                                  (item.processedQuantity || 1) + 1,
-                                )
-                              }
-                              className="s-cart-bbdb9d"
-                              disabled={atMax}
-                              style={{
-                                cursor: atMax ? "not-allowed" : "pointer",
-                                color: atMax ? "var(--ivory)" : undefined,
-                              }}
-                            >
-                              +
-                            </button>
-                            {stockTipItemId === itemKey && stock !== null && (
-                              <span
+                    </div>
+                  ) : (
+                    <div className="s-cart-0e031f">
+                      {(item.colorName || item.color) && (
+                        <span className="s-cart-c8ff6d">
+                          <span
+                            className="s-cart-552e26"
+                            style={{
+                              background: resolveHex(
+                                item.colorHex ?? item.color,
+                              ),
+                            }}
+                          />
+                          {item.colorName ?? item.color}
+                        </span>
+                      )}
+                      {(item.size || item.bandSize) && (
+                        <span className="s-adminnewslet-f01220">
+                          Band Size:{" "}
+                          <strong>{item.size || item.bandSize}</strong>
+                        </span>
+                      )}
+                      {item.cupSize && (
+                        <span className="s-adminnewslet-f01220">
+                          Cup Size: <strong>{item.cupSize}</strong>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Quantity — hidden when category is inactive */}
+                  {item.categoryIsActive !== false && (
+                    <div className="s-adminbar-877368">
+                      <span className="s-adminnewslet-f01220">Quantity:</span>
+                      <div
+                        className="s-cart-13c6e0"
+                        style={{ position: "relative" }}
+                      >
+                        <button
+                          onClick={() =>
+                            handleQtyChange(
+                              item,
+                              (item.processedQuantity || 1) - 1,
+                            )
+                          }
+                          className="s-cart-bbdb9d"
+                          disabled={(item.processedQuantity || 1) <= 1}
+                          style={{
+                            cursor:
+                              (item.processedQuantity || 1) <= 1
+                                ? "not-allowed"
+                                : "pointer",
+                            color:
+                              (item.processedQuantity || 1) <= 1
+                                ? "var(--ivory)"
+                                : undefined,
+                          }}
+                        >
+                          −
+                        </button>
+                        <span className="s-cart-686e55">
+                          {item.processedQuantity || 1}
+                        </span>
+                        {(() => {
+                          const stock: number | null =
+                            item.stockQuantity != null
+                              ? Number(item.stockQuantity)
+                              : null;
+                          const atMax =
+                            stock !== null &&
+                            (item.processedQuantity || 1) >= stock;
+                          const itemKey = String(
+                            item.cartId ??
+                              item.productVariantDetailId ??
+                              item.productVariantId,
+                          );
+                          return (
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleQtyChange(
+                                    item,
+                                    (item.processedQuantity || 1) + 1,
+                                  )
+                                }
+                                className="s-cart-bbdb9d"
+                                disabled={atMax}
                                 style={{
-                                  position: "absolute",
-                                  top: "-28px",
-                                  left: "50%",
-                                  transform: "translateX(-50%)",
-                                  whiteSpace: "nowrap",
-                                  background: "rgba(0,0,0,0.75)",
-                                  color: "#fff",
-                                  fontSize: 11,
-                                  padding: "3px 8px",
-                                  borderRadius: 6,
-                                  pointerEvents: "none",
+                                  cursor: atMax ? "not-allowed" : "pointer",
+                                  color: atMax ? "var(--ivory)" : undefined,
                                 }}
                               >
-                                Only {stock} available
-                              </span>
-                            )}
-                          </>
-                        );
-                      })()}
+                                +
+                              </button>
+                              {stockTipItemId === itemKey && stock !== null && (
+                                <span
+                                  style={{
+                                    position: "absolute",
+                                    top: "-28px",
+                                    left: "50%",
+                                    transform: "translateX(-50%)",
+                                    whiteSpace: "nowrap",
+                                    background: "rgba(0,0,0,0.75)",
+                                    color: "#fff",
+                                    fontSize: 11,
+                                    padding: "3px 8px",
+                                    borderRadius: 6,
+                                    pointerEvents: "none",
+                                  }}
+                                >
+                                  Only {stock} available
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-
-                {/* Right: price + save + delete */}
                 <div className="s-cart-4c5975">
-                  <span className="s-cart-abec22">
-                    ₹
-                    {(
-                      (item.finalPrice || 0) * (item.processedQuantity || 1)
-                    ).toLocaleString("en-IN")}
-                  </span>
-                  {item.mrpPrice && item.mrpPrice > item.finalPrice && (
-                    <span className="s-cart-c7ed91">
-                      ₹
-                      {(
-                        item.mrpPrice * (item.processedQuantity || 1)
-                      ).toLocaleString("en-IN")}
-                    </span>
+                  {item.categoryIsActive !== false && (
+                    <>
+                      <span className="s-cart-abec22">
+                        ₹
+                        {(
+                          (item.finalPrice || 0) * (item.processedQuantity || 1)
+                        ).toLocaleString("en-IN")}
+                      </span>
+                      {item.mrpPrice && item.mrpPrice > item.finalPrice && (
+                        <span className="s-cart-c7ed91">
+                          ₹
+                          {(
+                            item.mrpPrice * (item.processedQuantity || 1)
+                          ).toLocaleString("en-IN")}
+                        </span>
+                      )}
+                    </>
                   )}
                   <div className="s-adminbar-877368">
                     <SaveForLater
