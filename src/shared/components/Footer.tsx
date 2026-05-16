@@ -245,15 +245,6 @@ export default function Footer() {
               <button onClick={() => goTo("/size-guide")} className="fmob-link">
                 Size Guide
               </button>
-              <button onClick={goToOrder} className="fmob-link">
-                Order Status
-              </button>
-              <button
-                onClick={() => goTo("/returns-exchanges")}
-                className="fmob-link"
-              >
-                Returns
-              </button>
               <button
                 onClick={() => goTo("/shipping-info")}
                 className="fmob-link"
@@ -531,19 +522,6 @@ export default function Footer() {
                   className="footer-link-btn"
                 >
                   Size Guide
-                </button>
-              </li>
-              <li>
-                <button onClick={goToOrder} className="footer-link-btn">
-                  Order Status
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => goTo("/returns-exchanges")}
-                  className="footer-link-btn"
-                >
-                  Returns &amp; Exchanges
                 </button>
               </li>
               <li>

@@ -87,7 +87,6 @@ const MOBILE_BACK_HEADER_ROUTES: MobileBackHeaderRoute[] = [
   { path: "/privacy-policy", title: "Privacy Policy" },
   { path: "/terms-conditions", title: "Terms & Conditions" },
   { path: "/shipping-info", title: "Shipping Info" },
-  { path: "/returns-exchanges", title: "Returns & Exchanges" },
   { path: "/return-refund-policy", title: "Return & Refund Policy" },
   { path: "/news-privacy-policy", title: "Newsletter Privacy" },
   { path: "/only-twam", title: "Only TWAM" },
@@ -150,9 +149,6 @@ const TermsConditions = lazy(
   () => import("@/features/content/pages/TermsConditions"),
 );
 const ShippingInfo = lazy(() => import("@/features/orders/pages/ShippingInfo"));
-const ReturnsExchanges = lazy(
-  () => import("@/features/orders/pages/ReturnsExchanges"),
-);
 const ReturnRefundPolicy = lazy(
   () => import("@/features/orders/pages/ReturnRefundPolicy"),
 );
@@ -333,7 +329,6 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   "/news-privacy-policy": [{ label: "Newsletter Privacy" }],
   "/unsubscribe": [{ label: "Unsubscribe" }],
   "/shipping-info": [{ label: "Shipping Info" }],
-  "/returns-exchanges": [{ label: "Returns & Exchanges" }],
   "/order-details": [{ label: "Order Details" }],
   "/only-twam": [{ label: "Only TWAM" }],
   "/shop-by-size": [{ label: "Shop by Size" }],
@@ -925,7 +920,6 @@ export default function App() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/shipping-info" element={<ShippingInfo />} />
-            <Route path="/returns-exchanges" element={<ReturnsExchanges />} />
             <Route
               path="/return-refund-policy"
               element={<ReturnRefundPolicy />}
