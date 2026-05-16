@@ -25,7 +25,7 @@ interface TotalRow {
 const styles: Record<string, React.CSSProperties> = {
   page: {
     background: C.ivory,
-    minHeight: '100vh',
+    minHeight: 'auto',
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'center',
@@ -416,6 +416,7 @@ export default function Invoice() {
             margin: 0 !important;
             background: #fff !important;
             z-index: 99999 !important;
+            break-inside: avoid;
           }
 
           /* Step 4: hide action buttons inside invoice */
@@ -455,7 +456,7 @@ export default function Invoice() {
     );
   }
 
-  const items: any[] = order.orderItems || order.items || [];
+  const items: any[] = Array.isArray(order.orderItems) ? order.orderItems : [];
 
   const totals: TotalRow[] = [
     {

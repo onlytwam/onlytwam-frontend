@@ -79,6 +79,8 @@ export default function InvoicePrint(props: InvoicePrintProps) {
           .invoice-root {
             box-shadow: none !important;
             border: none !important;
+            min-height: auto !important;
+            break-inside: avoid;
           }
         }
         .invoice-root {
@@ -90,7 +92,6 @@ export default function InvoicePrint(props: InvoicePrintProps) {
           margin: 0 auto;
           padding: 28px 32px;
           box-sizing: border-box;
-          min-height: 100vh;
           display: flex;
           flex-direction: column;
         }
