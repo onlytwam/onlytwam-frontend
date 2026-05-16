@@ -69,7 +69,12 @@ const ALL_NAV = [
     label: "Billing",
     roles: [1, 3, 4, 7], // v2 added role 7 â€” kept
   },
-  // { path: '/admin/brands',  icon: 'bi-bookmark-star', label: 'Brands',  roles: [1,4] },
+  {
+    path: "/admin/brands",
+    icon: "bi-bookmark-star",
+    label: "Brands",
+    roles: [1, 4],
+  },
   // { path: '/admin/sizes',   icon: 'bi-rulers',        label: 'Sizes',   roles: [1,3] },
   {
     path: "/admin/MDM",

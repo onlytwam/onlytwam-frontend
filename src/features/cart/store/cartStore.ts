@@ -64,10 +64,23 @@ export const useCartStore = create<CartState>((set, get) => ({
   physicalCouponCode: null,
 
   setItems: (items) => {
-    const itemsWithSelection = items.map((i) => ({ ...i, isSelected: true }));
+    // Preserve explicit selection state from any previous render of the same
+    // cart items (e.g. user de-selected something before proceeding to
+    // checkout).  Only fall back to isSelected=true for brand-new items that
+    // didn't exist before.
+    const existingMap = new Map(
+      get().items.map((i) => [i.cartId, i.isSelected]),
+    );
+    const itemsWithSelection = items.map((i) => ({
+      ...i,
+      isSelected: existingMap.has(i.cartId) ? existingMap.get(i.cartId)! : true,
+    }));
+    const allSelected =
+      itemsWithSelection.length > 0 &&
+      itemsWithSelection.every((i) => i.isSelected);
     set({
       items: itemsWithSelection,
-      selectAll: true,
+      selectAll: allSelected,
       ...recalculate(itemsWithSelection),
     });
   },
