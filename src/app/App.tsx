@@ -84,15 +84,10 @@ const MOBILE_BACK_HEADER_ROUTES: MobileBackHeaderRoute[] = [
   { path: "/our-stores", title: "Our Stores" },
   { path: "/our-blog", title: "Our Blog" },
   { path: "/blog-1", title: "Blog" },
-  { path: "/help-center", title: "Help Center" },
   { path: "/privacy-policy", title: "Privacy Policy" },
   { path: "/terms-conditions", title: "Terms & Conditions" },
   { path: "/shipping-info", title: "Shipping Info" },
   { path: "/returns-exchanges", title: "Returns & Exchanges" },
-  {
-    path: "/delivery-shipping-policy",
-    title: "Delivery & Shipping Policy",
-  },
   { path: "/return-refund-policy", title: "Return & Refund Policy" },
   { path: "/news-privacy-policy", title: "Newsletter Privacy" },
   { path: "/only-twam", title: "Only TWAM" },
@@ -148,7 +143,6 @@ const Unsubscribe = lazy(() => import("@/features/content/pages/Unsubscribe"));
 const OurStores = lazy(() => import("@/features/content/pages/OurStores"));
 const OurBlog = lazy(() => import("@/features/content/pages/OurBlog"));
 const Blog1 = lazy(() => import("@/features/content/pages/Blog1"));
-const HelpCenter = lazy(() => import("@/features/content/pages/HelpCenter"));
 const PrivacyPolicy = lazy(
   () => import("@/features/content/pages/PrivacyPolicy"),
 );
@@ -158,9 +152,6 @@ const TermsConditions = lazy(
 const ShippingInfo = lazy(() => import("@/features/orders/pages/ShippingInfo"));
 const ReturnsExchanges = lazy(
   () => import("@/features/orders/pages/ReturnsExchanges"),
-);
-const DeliveryShippingPolicy = lazy(
-  () => import("@/features/content/pages/DeliveryShippingPolicy"),
 );
 const ReturnRefundPolicy = lazy(
   () => import("@/features/orders/pages/ReturnRefundPolicy"),
@@ -336,10 +327,8 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
   "/contact-us": [{ label: "Contact Us" }],
   "/our-stores": [{ label: "Our Stores" }],
   "/our-blog": [{ label: "Our Blog" }],
-  "/help-center": [{ label: "Help Center" }],
   "/privacy-policy": [{ label: "Privacy Policy" }],
   "/terms-conditions": [{ label: "Terms & Conditions" }],
-  "/delivery-shipping-policy": [{ label: "Delivery & Shipping Policy" }],
   "/return-refund-policy": [{ label: "Return & Refund Policy" }],
   "/news-privacy-policy": [{ label: "Newsletter Privacy" }],
   "/unsubscribe": [{ label: "Unsubscribe" }],
@@ -933,15 +922,10 @@ export default function App() {
             <Route path="/our-stores" element={<OurStores />} />
             <Route path="/our-blog" element={<OurBlog />} />
             <Route path="/blog-1/:id" element={<Blog1 />} />
-            <Route path="/help-center" element={<HelpCenter />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/shipping-info" element={<ShippingInfo />} />
             <Route path="/returns-exchanges" element={<ReturnsExchanges />} />
-            <Route
-              path="/delivery-shipping-policy"
-              element={<DeliveryShippingPolicy />}
-            />
             <Route
               path="/return-refund-policy"
               element={<ReturnRefundPolicy />}

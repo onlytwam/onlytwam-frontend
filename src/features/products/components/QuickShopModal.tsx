@@ -554,6 +554,12 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
       `/user-products/product-detail/${variantId}/${slugify(
         product?.name || "",
       )}`,
+      // When the category is inactive the product detail page needs to know
+      // it was opened from a wishlist/modal context so the viewOnly gate fires.
+      // Pass fromWishlist:true whenever categoryIsActive is false.
+      product?.categoryIsActive === false
+        ? { state: { fromWishlist: true } }
+        : undefined,
     );
     onClose();
   };
@@ -762,21 +768,24 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Price row */}
-              <div className="qsm-price-row">
-                <span className="qsm-price">{formatPrice(dispPrice)}</span>
-                {dispMrp > dispPrice && (
-                  <>
-                    <span className="qsm-mrp">{formatPrice(dispMrp)}</span>
-                    <span className="qsm-discount">
-                      {Math.round(((dispMrp - dispPrice) / dispMrp) * 100)}% OFF
-                    </span>
-                  </>
-                )}
-              </div>
+              {/* Price row — hidden when category is inactive */}
+              {product.categoryIsActive !== false && (
+                <div className="qsm-price-row">
+                  <span className="qsm-price">{formatPrice(dispPrice)}</span>
+                  {dispMrp > dispPrice && (
+                    <>
+                      <span className="qsm-mrp">{formatPrice(dispMrp)}</span>
+                      <span className="qsm-discount">
+                        {Math.round(((dispMrp - dispPrice) / dispMrp) * 100)}%
+                        OFF
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
 
-              {/* Color */}
-              {colors.length > 1 && (
+              {/* Color — hidden when category inactive */}
+              {product.categoryIsActive !== false && colors.length > 1 && (
                 <div>
                   <p className="qsm-color-label">Color</p>
                   <div className="qsm-swatches">
@@ -799,198 +808,252 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                 </div>
               )}
 
-              {/* Sizes */}
-              <div>
-                <div className="qsm-size-head">
-                  <p className="qsm-size-title">
-                    Size
-                    {selLabel && (
-                      <span className="qsm-selected-size">
-                        {selLabel}
-                        {cupLabel ? ` / ${cupLabel}` : ""}
-                        {selStock !== null && !isOOS && (
-                          <span
-                            className={`qsm-stock-hint ${
-                              selStock <= 3 ? "is-low" : "is-ok"
+              {/* Sizes — hidden when category inactive */}
+              {product.categoryIsActive !== false && (
+                <div>
+                  <div className="qsm-size-head">
+                    <p className="qsm-size-title">
+                      Size
+                      {selLabel && (
+                        <span className="qsm-selected-size">
+                          {selLabel}
+                          {cupLabel ? ` / ${cupLabel}` : ""}
+                          {selStock !== null && !isOOS && (
+                            <span
+                              className={`qsm-stock-hint ${
+                                selStock <= 3 ? "is-low" : "is-ok"
+                              }`}
+                            >
+                              {selStock <= 3
+                                ? `(${selStock} left)`
+                                : "✓ In stock"}
+                            </span>
+                          )}
+                          {isOOS && (
+                            <span className="qsm-stock-hint is-oos">
+                              Out of stock
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </p>
+                    <Link
+                      to="/size-guide"
+                      onClick={onClose}
+                      className="qsm-size-chart"
+                    >
+                      Size Chart
+                    </Link>
+                  </div>
+
+                  <p className="qsm-size-hint">
+                    {hasCupSize
+                      ? "Select your band size:"
+                      : "Select your size:"}
+                  </p>
+                  <div
+                    className={`qsm-size-list${hasCupSize ? " has-cup" : ""}`}
+                  >
+                    {allSizes.map((s: any) => (
+                      <SizeBtn
+                        key={s.sizeId}
+                        label={s.sizeLabel}
+                        selected={selBandId === s.sizeId}
+                        inVariant={s.inVariant}
+                        hasStock={s.hasStock}
+                        stock={s.stock}
+                        onClick={() => onBand(s)}
+                      />
+                    ))}
+                  </div>
+
+                  {hasCupSize && allCupSizes.length > 0 && (
+                    <>
+                      <p className="qsm-size-hint">Select your cup size:</p>
+                      <div className="qsm-size-list">
+                        {allCupSizes.map((c: any) => {
+                          const av = cupAvail(c.cupSizeId);
+                          return (
+                            <SizeBtn
+                              key={c.cupSizeId}
+                              label={c.sizeLabel}
+                              selected={selCupId === c.cupSizeId}
+                              inVariant={av.inVariant}
+                              hasStock={av.hasStock}
+                              stock={selBandId ? av.stock : 0}
+                              onClick={() => onCup(c.cupSizeId)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Unavailable banner (shown instead of qty+CTA when category is hidden) */}
+              {product.categoryIsActive === false ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "14px 18px",
+                    borderRadius: 10,
+                    background: "rgba(220,53,69,0.07)",
+                    border: "1.5px solid rgba(185,28,28,0.25)",
+                    margin: "10px 0",
+                  }}
+                >
+                  <i
+                    className="bi bi-slash-circle"
+                    style={{ fontSize: 22, color: "#b91c1c", flexShrink: 0 }}
+                  />
+                  <div>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "#b91c1c",
+                      }}
+                    >
+                      Not Available
+                    </p>
+                    <p
+                      style={{ margin: "2px 0 0", fontSize: 12, color: "#888" }}
+                    >
+                      This product is from a category that's currently hidden.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Qty — replaced by OOS banner when all sizes unavailable */}
+                  {(() => {
+                    const entirelyOOS =
+                      allSizes.length > 0 &&
+                      allSizes.every((s: any) => !s.hasStock) &&
+                      (!hasCupSize ||
+                        allCupSizes.every((c: any) => !c.hasStock));
+
+                    if (entirelyOOS)
+                      return (
+                        <div className="qsm-oos-banner">
+                          <i className="bi bi-slash-circle qsm-oos-banner-icon" />
+                          <div>
+                            <p className="qsm-oos-banner-title">Out of Stock</p>
+                            <p className="qsm-oos-banner-text">
+                              We'll be back soon — check again later!
+                            </p>
+                          </div>
+                        </div>
+                      );
+
+                    const hasSizes = allSizes.some((s: any) => s.inVariant);
+                    const qtyLocked = hasSizes && selPVDId === null;
+                    return (
+                      <div className="qsm-qty-row">
+                        <div className="qsm-qty-wrap">
+                          <p
+                            className={`qsm-qty-label${
+                              qtyLocked ? " is-locked" : ""
                             }`}
                           >
-                            {selStock <= 3
-                              ? `(${selStock} left)`
-                              : "✓ In stock"}
-                          </span>
-                        )}
-                        {isOOS && (
-                          <span className="qsm-stock-hint is-oos">
-                            Out of stock
-                          </span>
-                        )}
-                      </span>
-                    )}
-                  </p>
-                  <Link
-                    to="/size-guide"
-                    onClick={onClose}
-                    className="qsm-size-chart"
-                  >
-                    Size Chart
-                  </Link>
-                </div>
-
-                <p className="qsm-size-hint">
-                  {hasCupSize ? "Select your band size:" : "Select your size:"}
-                </p>
-                <div className={`qsm-size-list${hasCupSize ? " has-cup" : ""}`}>
-                  {allSizes.map((s: any) => (
-                    <SizeBtn
-                      key={s.sizeId}
-                      label={s.sizeLabel}
-                      selected={selBandId === s.sizeId}
-                      inVariant={s.inVariant}
-                      hasStock={s.hasStock}
-                      stock={s.stock}
-                      onClick={() => onBand(s)}
-                    />
-                  ))}
-                </div>
-
-                {hasCupSize && allCupSizes.length > 0 && (
-                  <>
-                    <p className="qsm-size-hint">Select your cup size:</p>
-                    <div className="qsm-size-list">
-                      {allCupSizes.map((c: any) => {
-                        const av = cupAvail(c.cupSizeId);
-                        return (
-                          <SizeBtn
-                            key={c.cupSizeId}
-                            label={c.sizeLabel}
-                            selected={selCupId === c.cupSizeId}
-                            inVariant={av.inVariant}
-                            hasStock={av.hasStock}
-                            stock={selBandId ? av.stock : 0}
-                            onClick={() => onCup(c.cupSizeId)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Qty — replaced by OOS banner when all sizes unavailable */}
-              {(() => {
-                const entirelyOOS =
-                  allSizes.length > 0 &&
-                  allSizes.every((s: any) => !s.hasStock) &&
-                  (!hasCupSize || allCupSizes.every((c: any) => !c.hasStock));
-
-                if (entirelyOOS)
-                  return (
-                    <div className="qsm-oos-banner">
-                      <i className="bi bi-slash-circle qsm-oos-banner-icon" />
-                      <div>
-                        <p className="qsm-oos-banner-title">Out of Stock</p>
-                        <p className="qsm-oos-banner-text">
-                          We'll be back soon — check again later!
-                        </p>
-                      </div>
-                    </div>
-                  );
-
-                const hasSizes = allSizes.some((s: any) => s.inVariant);
-                const qtyLocked = hasSizes && selPVDId === null;
-                return (
-                  <div className="qsm-qty-row">
-                    <div className="qsm-qty-wrap">
-                      <p
-                        className={`qsm-qty-label${
-                          qtyLocked ? " is-locked" : ""
-                        }`}
-                      >
-                        Qty
-                      </p>
-                      <div
-                        className={`qsm-qty-box${
-                          qtyLocked ? " is-locked" : ""
-                        }`}
-                      >
-                        <button
-                          disabled={qtyLocked || qty <= 1}
-                          onClick={() => setQty((q) => Math.max(1, q - 1))}
-                          className="qsm-qty-btn"
-                        >
-                          −
-                        </button>
-                        <span className="qsm-qty-value">{qty}</span>
-                        <button
-                          disabled={qtyLocked}
-                          onClick={() => {
-                            if (selStock !== null && qty >= selStock) {
-                              setShowStockTip(true);
-                              setTimeout(() => setShowStockTip(false), 2200);
-                              return;
-                            }
-                            setQty((q) => q + 1);
-                          }}
-                          className="qsm-qty-btn"
-                        >
-                          +
-                        </button>
-                      </div>
-                      {showStockTip && selStock !== null && (
-                        <div className="qsm-stock-tip">
-                          {selStock} available
+                            Qty
+                          </p>
+                          <div
+                            className={`qsm-qty-box${
+                              qtyLocked ? " is-locked" : ""
+                            }`}
+                          >
+                            <button
+                              disabled={qtyLocked || qty <= 1}
+                              onClick={() => setQty((q) => Math.max(1, q - 1))}
+                              className="qsm-qty-btn"
+                            >
+                              −
+                            </button>
+                            <span className="qsm-qty-value">{qty}</span>
+                            <button
+                              disabled={qtyLocked}
+                              onClick={() => {
+                                if (selStock !== null && qty >= selStock) {
+                                  setShowStockTip(true);
+                                  setTimeout(
+                                    () => setShowStockTip(false),
+                                    2200,
+                                  );
+                                  return;
+                                }
+                                setQty((q) => q + 1);
+                              }}
+                              className="qsm-qty-btn"
+                            >
+                              +
+                            </button>
+                          </div>
+                          {showStockTip && selStock !== null && (
+                            <div className="qsm-stock-tip">
+                              {selStock} available
+                            </div>
+                          )}
+                          {qtyLocked && (
+                            <p className="qsm-qty-lock-msg">
+                              ↑ Select a size first
+                            </p>
+                          )}
                         </div>
-                      )}
-                      {qtyLocked && (
-                        <p className="qsm-qty-lock-msg">
-                          ↑ Select a size first
-                        </p>
-                      )}
-                    </div>
 
-                    {/* Stock status */}
-                    {!qtyLocked && selStock !== null && (
-                      <div
-                        className={`qsm-stock-status ${
-                          isOOS ? "is-oos" : selStock <= 3 ? "is-low" : "is-ok"
-                        }`}
-                      >
-                        <p>
-                          {isOOS
-                            ? "🚫 Out of stock"
-                            : selStock <= 3
-                            ? `⚠️ Only ${selStock} left!`
-                            : "✓ In stock"}
-                        </p>
+                        {/* Stock status */}
+                        {!qtyLocked && selStock !== null && (
+                          <div
+                            className={`qsm-stock-status ${
+                              isOOS
+                                ? "is-oos"
+                                : selStock <= 3
+                                ? "is-low"
+                                : "is-ok"
+                            }`}
+                          >
+                            <p>
+                              {isOOS
+                                ? "🚫 Out of stock"
+                                : selStock <= 3
+                                ? `⚠️ Only ${selStock} left!`
+                                : "✓ In stock"}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })()}
+                    );
+                  })()}
 
-              {/* CTA buttons */}
-              <div className="qsm-cta-row">
-                <button
-                  onClick={handleAddToCart}
-                  disabled={addMut.isPending || isOOS}
-                  className="qsm-btn-add"
-                >
-                  {addMut.isPending ? (
-                    <div className="qsm-btn-spinner" />
-                  ) : (
-                    <i className="bi bi-cart-plus" />
-                  )}
-                  Add to Cart
-                </button>
-                <button
-                  onClick={handleBuyNow}
-                  disabled={isOOS}
-                  className="qsm-btn-buy"
-                >
-                  <i className="bi bi-lightning-fill" />
-                  Buy Now
-                </button>
-              </div>
+                  {/* CTA buttons */}
+                  <div className="qsm-cta-row">
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={addMut.isPending || isOOS}
+                      className="qsm-btn-add"
+                    >
+                      {addMut.isPending ? (
+                        <div className="qsm-btn-spinner" />
+                      ) : (
+                        <i className="bi bi-cart-plus" />
+                      )}
+                      Add to Cart
+                    </button>
+                    <button
+                      onClick={handleBuyNow}
+                      disabled={isOOS}
+                      className="qsm-btn-buy"
+                    >
+                      <i className="bi bi-lightning-fill" />
+                      Buy Now
+                    </button>
+                  </div>
+                </>
+              )}
 
               {/* Delivery / return info */}
               <div className="qsm-delivery">

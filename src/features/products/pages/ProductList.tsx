@@ -10,7 +10,7 @@
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listProducts,
   listCategories,
@@ -51,6 +51,19 @@ export default function ProductList() {
   const { categoryId } = useParams<{ categoryId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setCrumbs } = useBreadcrumbStore();
+  const queryClient = useQueryClient();
+
+  // When admin hides/shows a category, immediately invalidate stale caches
+  // so hidden-category products and nav entries disappear without a page reload.
+  useEffect(() => {
+    const onCategoriesUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["products-list"] });
+    };
+    window.addEventListener("categoriesUpdated", onCategoriesUpdated);
+    return () =>
+      window.removeEventListener("categoriesUpdated", onCategoriesUpdated);
+  }, [queryClient]);
 
   const catId = Number(categoryId) || 0;
   const urlSearch = searchParams.get("search") || searchParams.get("q") || "";
@@ -158,7 +171,7 @@ export default function ProductList() {
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
     queryFn: () => listCategories({ pageSize: 200 }),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 
   const buildParams = useCallback(() => {

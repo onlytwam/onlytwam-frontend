@@ -206,33 +206,82 @@ export default function Navbar() {
     ? wishlistServerIds.size
     : guestWishlistCount;
 
-  // Load menus: sessionStorage first, then live API if cache is empty/cleared
+  // Load menus: seed from sessionStorage immediately (avoids flash), then always
+  // re-fetch live so that admin hide/unhide changes are reflected in real-time.
   useEffect(() => {
-    if (menus.length > 0) return;
-
-    const cached = sessionStorage.getItem("menus");
-    if (cached) {
-      try {
-        const nextMenus = JSON.parse(cached);
-        if (Array.isArray(nextMenus) && nextMenus.length > 0) {
-          setMenus(nextMenus);
-          return;
+    // Seed from cache so the navbar renders immediately while the fetch is in flight.
+    if (menus.length === 0) {
+      const cached = sessionStorage.getItem("menus");
+      if (cached) {
+        try {
+          const nextMenus = JSON.parse(cached);
+          if (Array.isArray(nextMenus) && nextMenus.length > 0) {
+            setMenus(nextMenus);
+          }
+        } catch {
+          /* ignore malformed cache */
         }
-      } catch {
-        /* ignore malformed cache */
       }
     }
 
-    // Cache was empty or cleared (e.g. admin toggled visibility) — re-fetch live
-    getCategories({ roleId: 2 })
-      .then((cats) => {
-        if (Array.isArray(cats) && cats.length > 0) {
-          sessionStorage.setItem("menus", JSON.stringify(cats));
-          setMenus(cats);
+    // Core fetch — always pulls fresh data and updates the store + sessionStorage.
+    const fetchFresh = () => {
+      getCategories({ roleId: 2 })
+        .then((cats) => {
+          if (Array.isArray(cats) && cats.length > 0) {
+            sessionStorage.setItem("menus", JSON.stringify(cats));
+            setMenus(cats);
+          }
+        })
+        .catch(() => {
+          /* silent */
+        });
+    };
+
+    // Initial fetch on mount.
+    fetchFresh();
+
+    // -- Same-tab: CustomEvent dispatched by AdminCategories after a toggle --
+    const onCategoriesUpdated = () => {
+      sessionStorage.removeItem("menus");
+      fetchFresh();
+    };
+    window.addEventListener("categoriesUpdated", onCategoriesUpdated);
+
+    // -- Same-browser cross-tab: BroadcastChannel --
+    // When admin hides/shows a category in the admin tab, it posts a message
+    // on this channel. Every other open tab receives it and re-fetches
+    // immediately — no polling needed for same-browser scenarios.
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      channel = new BroadcastChannel("category_visibility");
+      channel.onmessage = (e) => {
+        if (e.data?.type === "CATEGORIES_UPDATED") {
+          sessionStorage.removeItem("menus");
+          fetchFresh();
         }
-      })
-      .catch(() => { /* silent — navbar just shows nothing until reload */ });
-  }, [menus.length, setMenus]);
+      };
+    }
+
+    // -- Cross-browser / mobile: re-fetch when tab becomes visible --
+    // Covers the case where the admin changed a category in a different browser.
+    // When the user switches back to this tab, we silently re-validate so
+    // stale hidden categories disappear within one tab-focus — no reload needed.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        sessionStorage.removeItem("menus");
+        fetchFresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("categoriesUpdated", onCategoriesUpdated);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      channel?.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 2);
@@ -418,7 +467,7 @@ export default function Navbar() {
             </nav>
           )}
 
-          {/* Search — always open */}
+          {/* Search â€” always open */}
           <div
             className="nb-search-region nb-search-region--open nb-search-always"
             ref={searchRef}
@@ -724,7 +773,7 @@ export default function Navbar() {
                   icon: "bi-journal-text",
                 },
                 {
-                  label: "Contact Us",
+                  label: "Customer Support",
                   path: "/contact-us",
                   icon: "bi-envelope",
                 },

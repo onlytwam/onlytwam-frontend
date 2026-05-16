@@ -137,15 +137,11 @@ export default function Footer() {
           {/* Logo + tagline */}
           <div className="fmob-brand">
             <img
-              src="/assets/Twam-Logo-Burgundy.png"
+              src="/assets/Twam-Logo-Burgundy.svg"
               alt="TWAM"
               className="fmob-logo"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  "/assets/Twam-Logo-Black.png";
-              }}
             />
-            <p className="fmob-tagline">Comfort for every woman.</p>
+            <p className="fmob-tagline">Where comfort meets quiet confidence.</p>
           </div>
 
           {/* Newsletter — compact single row */}
@@ -312,7 +308,7 @@ export default function Footer() {
               className="fmob-addr-link"
               style={{ marginLeft: 8, fontWeight: 600 }}
             >
-              Contact Us
+              Customer Support
             </a>
           </div>
 
@@ -519,7 +515,7 @@ export default function Footer() {
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             >
               <img
-                src="/assets/Twam-Logo-Burgundy.png"
+                src="/assets/Twam-Logo-Burgundy.svg"
                 alt="TWAM"
                 className="footer-logo"
               />
@@ -556,22 +552,6 @@ export default function Footer() {
                   className="footer-link-btn"
                 >
                   Shipping Info
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => goTo("/help-center")}
-                  className="footer-link-btn"
-                >
-                  Help Center
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => goTo("/delivery-shipping-policy")}
-                  className="footer-link-btn"
-                >
-                  Delivery &amp; Shipping Policy
                 </button>
               </li>
               <li>
@@ -638,7 +618,7 @@ export default function Footer() {
                 letterSpacing: 0.3,
               }}
             >
-              <i className="bi bi-headset" /> Contact Us
+              <i className="bi bi-headset" /> Customer Support
             </button>
           </div>
         </div>

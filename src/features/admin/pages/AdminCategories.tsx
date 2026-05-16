@@ -535,23 +535,91 @@ export default function AdminCategories() {
       api.patch(`/Category/${id}/visibility`, null, {
         params: unhideChildren ? { unhideChildren: true } : undefined,
       }),
+
+    // ── Optimistic update ────────────────────────────────────────────────────
+    // Immediately flip isActive in every "admin-categories" cache entry so the
+    // row badge and button label change the instant the user clicks — no waiting
+    // for the network round-trip.
+    onMutate: async ({ id, unhideChildren }) => {
+      // Cancel any in-flight refetches so they don't overwrite our optimistic data
+      await qc.cancelQueries({ queryKey: ["admin-categories"] });
+
+      // Snapshot current data for rollback on error
+      const previousData = qc.getQueriesData({
+        queryKey: ["admin-categories"],
+      });
+
+      // Apply optimistic flip to every cached page/search variant
+      qc.setQueriesData({ queryKey: ["admin-categories"] }, (old: any) => {
+        if (!old?.list) return old;
+        const newList = old.list.map((cat: any) => {
+          if (cat.categoryId === id) {
+            const newActive = !cat.isActive;
+            // If hiding a parent, also optimistically hide its children in this page
+            if (!newActive) {
+              return { ...cat, isActive: false };
+            }
+            return { ...cat, isActive: true };
+          }
+          // If hiding — cascade to children already loaded in this page
+          const parentBeingHidden = old.list.find(
+            (c: any) => c.categoryId === id && c.isActive !== false,
+          );
+          if (parentBeingHidden && cat.parentCategoryId === id) {
+            return { ...cat, isActive: false };
+          }
+          // If un-hiding with unhideChildren — restore children
+          if (unhideChildren && cat.parentCategoryId === id) {
+            return { ...cat, isActive: true };
+          }
+          return cat;
+        });
+        return { ...old, list: newList };
+      });
+
+      return { previousData };
+    },
+
     onSuccess: (res: any) => {
       const state = res?.data?.isActive ? "visible" : "hidden";
       toast.success(`Category is now ${state}.`);
-      // Invalidate admin grid
+      // Reconcile with server truth
       qc.invalidateQueries({ queryKey: ["admin-categories"] });
       // Invalidate every public category query so storefront reflects change immediately
-      qc.invalidateQueries({ predicate: (q) => {
-        const key = String(q.queryKey[0] ?? "");
-        return key.includes("categor") || key === "gs-categories";
-      }});
+      qc.invalidateQueries({
+        predicate: (q) => {
+          const key = String(q.queryKey[0] ?? "");
+          return key.includes("categor") || key === "gs-categories";
+        },
+      });
+      // Also invalidate product queries so hidden-category products disappear
+      qc.invalidateQueries({ queryKey: ["all-products-page"] });
+      qc.invalidateQueries({ queryKey: ["products-list"] });
       // Clear the navbar sessionStorage cache and zustand store so Navbar re-fetches
       sessionStorage.removeItem("menus");
       setMenus([]);
+      // Notify same-tab Navbar via CustomEvent
+      window.dispatchEvent(new CustomEvent("categoriesUpdated"));
+      // Notify all other open tabs in the same browser via BroadcastChannel
+      // (covers the storefront open in a separate tab while admin is in another)
+      if (typeof BroadcastChannel !== "undefined") {
+        const ch = new BroadcastChannel("category_visibility");
+        ch.postMessage({ type: "CATEGORIES_UPDATED" });
+        ch.close();
+      }
       setHideParentConfirm(null);
       setUnhideChildrenConfirm(null);
     },
-    onError: () => toast.error("Could not update visibility."),
+
+    // Roll back optimistic update if the API call fails
+    onError: (_err, _vars, context: any) => {
+      if (context?.previousData) {
+        context.previousData.forEach(([queryKey, data]: [any, any]) => {
+          qc.setQueryData(queryKey, data);
+        });
+      }
+      toast.error("Could not update visibility.");
+    },
   });
 
   const deleteImageMutation = useMutation({
@@ -654,7 +722,9 @@ export default function AdminCategories() {
                 <tr
                   key={c.categoryId}
                   className="s-adminbrands-59d787"
-                  style={{ background: c.isActive === false ? "#fffbf0" : undefined }}
+                  style={{
+                    background: c.isActive === false ? "#fffbf0" : undefined,
+                  }}
                 >
                   <td className="s-admincategor-ec7211">{c.categoryId}</td>
 
@@ -829,7 +899,14 @@ export default function AdminCategories() {
                           fontWeight: 600,
                           borderRadius: 6,
                           border: "1px solid",
-                          cursor: "pointer",
+                          cursor: doToggleVisibility.isPending
+                            ? "not-allowed"
+                            : "pointer",
+                          opacity:
+                            doToggleVisibility.isPending &&
+                            doToggleVisibility.variables?.id === c.categoryId
+                              ? 0.6
+                              : 1,
                           background:
                             c.isActive !== false ? "#fff8e1" : "#e8f5e9",
                           borderColor:
@@ -837,7 +914,12 @@ export default function AdminCategories() {
                           color: c.isActive !== false ? "#e65100" : "#2e7d32",
                         }}
                       >
-                        {c.isActive !== false ? "🙈 Hide" : "👁 Show"}
+                        {doToggleVisibility.isPending &&
+                        doToggleVisibility.variables?.id === c.categoryId
+                          ? "…"
+                          : c.isActive !== false
+                          ? "🙈 Hide"
+                          : "👁 Show"}
                       </button>
                       <button
                         onClick={() => setConfirm(c)}

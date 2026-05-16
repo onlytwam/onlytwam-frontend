@@ -62,6 +62,10 @@ export default function ProductCard({
   );
   const [selectedVariant, setSelectedVariant] = useState(product);
   const isRemovableCard = typeof onRemove === "function";
+  // When a product's category is inactive, it should only be accessible from
+  // wishlist/cart (where it was saved before the category was hidden).
+  const isCategoryInactive = product.categoryIsActive === false;
+  const showUnavailableOverlay = isCategoryInactive && isRemovableCard;
   // Track which variant's hover image has fully loaded.
   // Derived synchronously → no stale-state flash when the user switches colour.
   const [hoverLoadedVariantId, setHoverLoadedVariantId] = useState(-1);
@@ -189,6 +193,9 @@ export default function ProductCard({
       `/user-products/product-detail/${
         selectedVariant.productVariantId
       }/${slugify(selectedVariant.name || selectedVariant.productName || "")}`,
+      // When used in the wishlist context (isRemovableCard), tell ProductDetail
+      // it came from wishlist so viewOnly logic works for inactive categories.
+      isRemovableCard ? { state: { fromWishlist: true } } : undefined,
     );
 
   const price = selectedVariant.price ?? selectedVariant.finalPrice ?? 0;
@@ -845,6 +852,14 @@ export default function ProductCard({
               alt={selectedVariant.name || product.name}
               loading="lazy"
               decoding="async"
+              style={
+                showUnavailableOverlay
+                  ? {
+                      filter: "blur(6px) brightness(0.65) grayscale(30%)",
+                      transform: "scale(1.04)",
+                    }
+                  : undefined
+              }
               onLoad={(e) => {
                 refreshTearVisualStyle(e.currentTarget);
               }}
@@ -852,17 +867,53 @@ export default function ProductCard({
                 (e.target as HTMLImageElement).src = "/assets/category-bg.png";
               }}
             />
-            {enableHoverImageTransition && hoverImgSrc && (
-              <img
-                className="pc-img-hover"
-                src={hoverImgSrc}
-                alt=""
-                aria-hidden="true"
-                loading="lazy"
-                decoding="async"
-              />
-            )}
+            {enableHoverImageTransition &&
+              hoverImgSrc &&
+              !showUnavailableOverlay && (
+                <img
+                  className="pc-img-hover"
+                  src={hoverImgSrc}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
 
+            {showUnavailableOverlay && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 10,
+                  pointerEvents: "none",
+                  borderRadius: "inherit",
+                  overflow: "hidden",
+                }}
+              >
+                <span
+                  style={{
+                    background: "rgba(0,0,0,0.62)",
+                    color: "#fff",
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: 1.2,
+                    textTransform: "uppercase",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                    backdropFilter: "blur(2px)",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                  }}
+                >
+                  Not Available
+                </span>
+              </div>
+            )}
             <div className="pc-actions">
               <button
                 className={`pc-action-btn${inWishlist ? " active" : ""}`}
@@ -954,20 +1005,50 @@ export default function ProductCard({
                 </h4>
               </div>
               <div className="pc-price-block">
-                {hasDiscount && (
-                  <span className="pc-mrp">
-                    ₹{Number(oldPrice).toLocaleString("en-IN")}
+                {showUnavailableOverlay ? (
+                  /* Category hidden — show badge instead of price */
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      background: "rgba(220,53,69,0.10)",
+                      color: "#b91c1c",
+                      border: "1.5px solid rgba(185,28,28,0.28)",
+                      borderRadius: 5,
+                      padding: "3px 8px",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: 0.7,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    <i
+                      className="bi bi-exclamation-circle-fill"
+                      style={{ fontSize: 10 }}
+                    />
+                    Unavailable
                   </span>
+                ) : (
+                  <>
+                    {hasDiscount && (
+                      <span className="pc-mrp">
+                        ₹{Number(oldPrice).toLocaleString("en-IN")}
+                      </span>
+                    )}
+                    <span
+                      className={`pc-price${
+                        !hasDiscount ? " pc-price--full" : ""
+                      }`}
+                      style={compact ? { fontSize: "13px" } : undefined}
+                    >
+                      ₹
+                      {Number(
+                        hasDiscount ? price : oldPrice || price,
+                      ).toLocaleString("en-IN")}
+                    </span>
+                  </>
                 )}
-                <span
-                  className={`pc-price${!hasDiscount ? " pc-price--full" : ""}`}
-                  style={compact ? { fontSize: "13px" } : undefined}
-                >
-                  ₹
-                  {Number(
-                    hasDiscount ? price : oldPrice || price,
-                  ).toLocaleString("en-IN")}
-                </span>
               </div>
             </div>
 
@@ -996,21 +1077,27 @@ export default function ProductCard({
               </div>
 
               <div className="pc-btn-group">
-                <button
-                  className="pc-quick-btn"
-                  style={
-                    compact
-                      ? { padding: "5px 8px", fontSize: "10px", maxWidth: 110 }
-                      : undefined
-                  }
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onQuickShop(selectedVariant.productVariantId);
-                  }}
-                >
-                  <i className="bi bi-cart3 pc-cart-icon" />
-                  QUICK ADD
-                </button>
+                {!showUnavailableOverlay && (
+                  <button
+                    className="pc-quick-btn"
+                    style={
+                      compact
+                        ? {
+                            padding: "5px 8px",
+                            fontSize: "10px",
+                            maxWidth: 110,
+                          }
+                        : undefined
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onQuickShop(selectedVariant.productVariantId);
+                    }}
+                  >
+                    <i className="bi bi-cart3 pc-cart-icon" />
+                    QUICK ADD
+                  </button>
+                )}
                 {isRemovableCard && (
                   <button
                     className="pc-remove-btn"

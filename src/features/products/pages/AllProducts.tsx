@@ -2,7 +2,7 @@
 
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   listProducts,
@@ -49,6 +49,19 @@ export default function AllProducts() {
   const navigate = useNavigate();
   const filterScrollY = useRef(0);
   const { setCrumbs } = useBreadcrumbStore();
+  const queryClient = useQueryClient();
+
+  // When admin hides/shows a category, immediately invalidate stale caches
+  // so hidden-category products and nav entries disappear without a page reload.
+  useEffect(() => {
+    const onCategoriesUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ["all-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products-page"] });
+    };
+    window.addEventListener("categoriesUpdated", onCategoriesUpdated);
+    return () =>
+      window.removeEventListener("categoriesUpdated", onCategoriesUpdated);
+  }, [queryClient]);
 
   const [sortOption, setSortOption] = useState("latest");
   const [page, setPage] = useState(1);
@@ -133,7 +146,7 @@ export default function AllProducts() {
   const { data: categoriesData } = useQuery({
     queryKey: ["all-categories"],
     queryFn: () => listCategories({ pageSize: 200 }),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 
   const heroTiles = useMemo(() => {
@@ -159,7 +172,7 @@ export default function AllProducts() {
         orderProperty: "ModifiedDate",
         orderAscending: false,
       }),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   useEffect(() => {
