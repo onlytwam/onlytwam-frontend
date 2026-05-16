@@ -479,11 +479,13 @@ function SectionTitle({
 
 // ─── Brands Marquee ───────────────────────────────────────────────────────────
 function BrandsSection({ logos }: { logos: any[] }) {
-  // Only keep brands that actually have a logo/image uploaded
+  // Only show brands that have a dedicated brandImage uploaded via the admin
+  // image-upload feature. brandLogo is excluded here — logos are small
+  // transparent PNGs; brandImage is the banner uploaded for this marquee.
   const brandImages = useMemo(() => {
     return logos
       .map((b: any) => ({
-        src: b.brandLogo ?? b.brandImage ?? "",
+        src: b.brandImage ?? "",
         name: b.brandName ?? b.name ?? "",
       }))
       .filter((b) => !!b.src);

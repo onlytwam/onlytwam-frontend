@@ -122,8 +122,21 @@ export default function ShippingOption() {
     };
   });
 
+  // ── Show only Standard and Free shipping options ─────────────────────────
+  // All other types (express, same-day, etc.) are hidden from the checkout UI.
+  const visibleOptions = normalizedOptions.filter((opt) => {
+    if (opt.isFree) return true;
+    const label = (
+      opt.shippingType?.shippingType ??
+      opt.description ??
+      opt.name ??
+      ""
+    ).toLowerCase();
+    return label.includes("standard");
+  });
+
   const selectedOpt =
-    normalizedOptions.find((opt) => opt.deliveryChargeId === selectedId) ??
+    visibleOptions.find((opt) => opt.deliveryChargeId === selectedId) ??
     (selectedId === FALLBACK_OPTION.deliveryChargeId ? FALLBACK_OPTION : null);
   const activeSelectedOpt =
     selectedOpt?.isEligible === false ? null : selectedOpt;
@@ -236,7 +249,7 @@ export default function ShippingOption() {
                 ))}
               </div>
             </div>
-          ) : normalizedOptions.length === 0 ? (
+          ) : visibleOptions.length === 0 ? (
             <div
               onClick={() => setSelectedId(FALLBACK_OPTION.deliveryChargeId)}
               className="s-shippingopti-b63dfb checkout-card checkout-card--option"
@@ -269,7 +282,7 @@ export default function ShippingOption() {
               </div>
             </div>
           ) : (
-            normalizedOptions.map((opt) => {
+            visibleOptions.map((opt) => {
               const isSelected =
                 selectedId === opt.deliveryChargeId && opt.isEligible !== false;
 

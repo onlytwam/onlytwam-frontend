@@ -327,11 +327,25 @@ export default function Payment() {
   const sessionSelectedItems = checkoutSession?.items?.length
     ? checkoutSession.items
     : [];
+
+  // ── FIX: extra-item bug ─────────────────────────────────────────────────
+  // The authoritative list of items for this checkout is the *session* that
+  // was written by Cart.tsx when the user clicked "Proceed" (it contains only
+  // the items the user deliberately selected).
+  //
+  // The cartStore fallback (`cartSelectedItems`) is dangerous here because
+  // `useCartLoader` runs globally and calls `setItems(allCartItems)`, which
+  // re-marks EVERY cart item as `isSelected:true`.  If `_selectedItems` ever
+  // gets cleared (page refresh, hot-reload, store reset), `getSelectedItems()`
+  // returns ALL cart items — not just the ones the user chose — causing extra
+  // items to appear in the order and invoice.
+  //
+  // Priority: buyNow session → checkout session → store fallback (last resort)
   const selectedItems = buyNowItems.length
     ? buyNowItems
-    : cartSelectedItems.length
-    ? cartSelectedItems
-    : sessionSelectedItems;
+    : sessionSelectedItems.length
+    ? sessionSelectedItems
+    : cartSelectedItems;
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
   const shippingCost = Number(
     (selectedShipping as any)?.cost ??
