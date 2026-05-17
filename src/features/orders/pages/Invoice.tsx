@@ -375,7 +375,23 @@ export default function Invoice() {
           size: A4;
           margin: 10mm;
         }
+
         @media print {
+          /*
+           * FIX 1 — Full-colour printing
+           * Browsers strip background-colors and images by default to save ink.
+           * print-color-adjust:exact forces every background-color, gradient,
+           * and <img> to render exactly as on screen — burgundy header, accent
+           * bar, and logo all appear correctly in the PDF / printout.
+           */
+          *,
+          *::before,
+          *::after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+
           html, body {
             background: #fff !important;
             margin: 0 !important;
@@ -384,32 +400,47 @@ export default function Invoice() {
             overflow: visible !important;
           }
 
-          /* Step 1: hide absolutely everything */
+          /* Step 1: hide everything outside the invoice */
           body * {
             visibility: hidden !important;
           }
 
-          /* Step 2: reveal only the invoice wrapper and all its children */
+          /* Step 2: reveal only the invoice card and its children */
           .invoice-print-root,
           .invoice-print-root * {
             visibility: visible !important;
           }
 
-          /* Step 3: pull invoice to top-left so it fills the printed page */
-          .invoice-print-root {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
+          /*
+           * FIX 2 — Prevent the blank second page
+           * The old code used position:absolute which pulled the card out of
+           * normal flow. The outer .invoice-page-wrapper still occupied its
+           * full padded height (48px top + 64px bottom), pushing past one A4
+           * boundary and generating an empty second page.
+           *
+           * Fix: keep the card in normal flow (position:static) and zero out
+           * the wrapper padding so there is no dead space around the invoice.
+           */
+          .invoice-page-wrapper {
             padding: 0 !important;
             margin: 0 !important;
-            background: #fff !important;
-            z-index: 99999 !important;
+            min-height: 0 !important;
+            background: none !important;
+            display: block !important;
+            visibility: visible !important;
+          }
+
+          .invoice-print-root {
+            position: static !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
             box-shadow: none !important;
             break-inside: avoid;
           }
 
-          /* Step 4: hide action buttons inside invoice */
+          /* Step 4: hide action buttons */
           .no-print,
           .no-print * {
             display: none !important;
@@ -489,8 +520,8 @@ export default function Invoice() {
   ];
 
   return (
-    <div style={styles.page}>
-      {/* invoice-print-root targets only the card — prevents the page wrapper from rendering twice on print */}
+    <div style={styles.page} className="invoice-page-wrapper">
+      {/* invoice-page-wrapper: collapsed in @media print to prevent blank second page */}
       <div style={styles.card} className="invoice-print-root">
         {/* Accent bar */}
         <div style={styles.accentBar} />
@@ -499,7 +530,7 @@ export default function Invoice() {
         <div style={styles.headerBand}>
           <div style={styles.brandBlock}>
             <img
-              src="/assets/Twam-Logo_White.png"
+              src="/assets/Twam-Logo-White.png"
               height="32"
               alt="TWAM"
               style={{ display: "block" }}

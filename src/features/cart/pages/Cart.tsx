@@ -1174,13 +1174,24 @@ export default function Cart() {
     select: (data: any) =>
       (data?.list ?? data ?? []).map((item: any) => ({
         ...item,
-        isSelected: true,
+        // NOTE: isSelected is intentionally NOT set here.
+        // Selection state is merged in the useEffect below using authItemsRef,
+        // which preserves deselections the user made across refetches.
+        // Hardcoding isSelected:true here overrides user choices on every
+        // refetch and is the root cause of unordered items appearing in invoices.
         finalPrice: Number(item.finalPrice || item.price) || 0,
         processedQuantity: Number(item.quantity) || 1,
       })),
   });
 
   const [authItems, setAuthItems] = useState<any[]>([]);
+  // Ref that always holds the latest authItems so the cartData sync
+  // useEffect can read current selection state without needing authItems
+  // in its dependency array (which would cause infinite loops).
+  const authItemsRef = useRef<any[]>([]);
+  useEffect(() => {
+    authItemsRef.current = authItems;
+  }, [authItems]);
   const [guestItems, setGuestItems] = useState<any[]>([]);
   const [cartItemsHydrated, setCartItemsHydrated] = useState(false);
   // Dynamically loaded from SurpriseGiftRule table — no hardcoded values
@@ -1271,7 +1282,23 @@ export default function Cart() {
 
     if (isAuth) {
       if (cartData !== undefined) {
-        setAuthItems(cartData);
+        // ── FIX: preserve user's deselections across refetches ───────────────
+        // cartData from useQuery never carries isSelected (the server has no
+        // concept of it). Without this merge, every refetch resets all items
+        // to isSelected:true, causing previously-deselected items (e.g. a
+        // "Saree Shaper" left over in the cart) to silently re-join the
+        // checkout and appear on the invoice.
+        const prevSelectionMap = new Map(
+          authItemsRef.current.map((i: any) => [i.cartId, i.isSelected]),
+        );
+        const merged = cartData.map((item: any) => ({
+          ...item,
+          // Keep the user's explicit choice; default new items to selected.
+          isSelected: prevSelectionMap.has(item.cartId)
+            ? prevSelectionMap.get(item.cartId)
+            : true,
+        }));
+        setAuthItems(merged);
         setCartItemsHydrated(true);
       }
       return;
