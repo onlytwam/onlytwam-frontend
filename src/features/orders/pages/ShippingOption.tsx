@@ -78,9 +78,32 @@ export default function ShippingOption() {
 
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
   const cartValue = Number(subTotal || 0);
-  const checkoutItems = checkoutSession?.items?.length
-    ? checkoutSession.items
-    : getSelectedItems();
+
+  // FIX: NEVER fall back to getSelectedItems() here.
+  // If the checkout session is empty (e.g. user navigated directly to this
+  // page or the session was cleared), we do NOT know which items the user
+  // actually wants to order.  Using getSelectedItems() would return every
+  // item in the cart store with isSelected:true (all items by default) and
+  // then saveCheckoutSession() would OVERWRITE the session with all of them —
+  // causing every cart item to appear in the order even when the user only
+  // chose one.  Instead, treat an empty session as an invalid checkout state
+  // and redirect to cart so the user can restart cleanly.
+  const checkoutItems = checkoutSession?.items ?? [];
+
+  // Guard: if there are no items in the checkout session at all, the user
+  // reached this page without going through the cart flow.  Send them back.
+  useEffect(() => {
+    if (!checkoutItems.length) {
+      toast.error(
+        "Your checkout session expired. Please start again from your cart.",
+      );
+      navigate(
+        isBuyNow ? "/user-products/cart?buyNow=1" : "/user-products/cart",
+        { replace: true },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const normalizedOptions: ShippingOption[] = (
     (shippingOptions as any[]) || []
   ).map((opt: any) => {
