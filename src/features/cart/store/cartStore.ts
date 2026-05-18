@@ -118,6 +118,15 @@ export const useCartStore = create<CartState>((set, get) => ({
   getSelectedItems: () => {
     const stored = get()._selectedItems;
     if (stored.length > 0) return stored;
+    // FIX: Only fall back to live cart items if we have NO session items at all.
+    // Previously this always fell through when _selectedItems was empty, which
+    // caused phantom products: after a refetch, items defaulted to isSelected:true
+    // so ALL cart items were returned here — even ones the user had unchecked.
+    //
+    // Now: if _selectedItems is empty we return an empty array. The Payment page
+    // already guards against an empty list (redirects to cart). Callers that
+    // need the live-cart selection (e.g., Cart.tsx itself) use local state, not
+    // this store method.
     return get().items.filter((i) => i.isSelected);
   },
 
