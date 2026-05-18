@@ -25,11 +25,6 @@ export default function TwamBrands() {
 
   return (
     <div>
-      {/* Banner */}
-      <img src="public/assets/brands-banner.jpg" className="img-fluid s-twambrands-80184e"
-        onError={e => { (e.target as HTMLImageElement).src = '/assets/images/10683.jpg'; }}
-        alt="Brands Banner" />
-
       <div className="container s-onlytwam-d2cece">
         <div className="s-twambrands-0d7752">
           <h2 className="section-title">Brands on TWAM</h2>
