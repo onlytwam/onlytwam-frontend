@@ -1192,6 +1192,12 @@ export default function Cart() {
   useEffect(() => {
     authItemsRef.current = authItems;
   }, [authItems]);
+
+  // FIX: Explicit set of cartIds the user has manually deselected.
+  // This survives React re-renders and cartData refetches.
+  // When cartData arrives (or re-arrives), we use this set to ensure
+  // previously-deselected items are never silently re-selected.
+  const manuallyDeselectedCartIds = useRef<Set<number>>(new Set());
   const [guestItems, setGuestItems] = useState<any[]>([]);
   const [cartItemsHydrated, setCartItemsHydrated] = useState(false);
   // Dynamically loaded from SurpriseGiftRule table — no hardcoded values
@@ -1283,21 +1289,28 @@ export default function Cart() {
     if (isAuth) {
       if (cartData !== undefined) {
         // ── FIX: preserve user's deselections across refetches ───────────────
-        // cartData from useQuery never carries isSelected (the server has no
-        // concept of it). Without this merge, every refetch resets all items
-        // to isSelected:true, causing previously-deselected items (e.g. a
-        // "Saree Shaper" left over in the cart) to silently re-join the
-        // checkout and appear on the invoice.
+        // We use TWO sources for deselection state (most reliable wins):
+        //  1. manuallyDeselectedCartIds ref — explicit user clicks, immune to
+        //     React re-render timing and cartData refetch race conditions.
+        //  2. authItemsRef — current in-memory state, fallback for items
+        //     not yet in the explicit deselection set.
         const prevSelectionMap = new Map(
           authItemsRef.current.map((i: any) => [i.cartId, i.isSelected]),
         );
-        const merged = cartData.map((item: any) => ({
-          ...item,
-          // Keep the user's explicit choice; default new items to selected.
-          isSelected: prevSelectionMap.has(item.cartId)
-            ? prevSelectionMap.get(item.cartId)
-            : true,
-        }));
+        const merged = cartData.map((item: any) => {
+          const cartIdNum = Number(item.cartId);
+          // If user explicitly deselected this item, always keep it deselected.
+          if (manuallyDeselectedCartIds.current.has(cartIdNum)) {
+            return { ...item, isSelected: false };
+          }
+          // Otherwise preserve existing state; default new items to selected.
+          return {
+            ...item,
+            isSelected: prevSelectionMap.has(item.cartId)
+              ? prevSelectionMap.get(item.cartId)
+              : true,
+          };
+        });
         setAuthItems(merged);
         setCartItemsHydrated(true);
       }
@@ -1981,6 +1994,21 @@ export default function Cart() {
         ),
       );
       return;
+    }
+    // FIX: Track explicit deselections in a persistent ref so they survive
+    // cartData refetches. Without this, a background refetch would reset
+    // deselected items back to isSelected:true before the user checks out.
+    if (isAuth && item.cartId != null) {
+      const currentlySelected =
+        authItemsRef.current.find((i: any) => i.cartId === item.cartId)
+          ?.isSelected ?? true;
+      if (currentlySelected) {
+        // User is deselecting — record it
+        manuallyDeselectedCartIds.current.add(Number(item.cartId));
+      } else {
+        // User is re-selecting — remove from deselected set
+        manuallyDeselectedCartIds.current.delete(Number(item.cartId));
+      }
     }
     const fn = (arr: any[]) =>
       arr.map((i) => {
