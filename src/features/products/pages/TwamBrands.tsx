@@ -42,21 +42,28 @@ export default function TwamBrands() {
         ) : (
           <div className="s-twambrands-e2516f">
             {logos.map((brand: any) => (
-              <div key={brand.brandId} onClick={() => goToProducts(brand.brandId)}
+              <button
+                key={brand.brandId}
+                type="button"
+                onClick={() => goToProducts(brand.brandId)}
                 className="s-twambrands-cd99a8"
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,.1)'; e.currentTarget.style.borderColor = 'var(--brand)'; }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--ivory)'; }}>
-                <img src={getImageUrl(brand.brandLogo || brand.brandImage)}
-                  alt={brand.brandName}
-                  className="s-twambrands-62d26f"
-                  onError={e => {
-                    console.log("Image failed:", brand);
-                    (e.target as HTMLImageElement).src = '/assets/fallback.png';
-                  }} />
+                aria-label={`Shop ${brand.brandName}`}
+              >
+                <span className="s-twambrands-image-frame">
+                  <img
+                    src={getImageUrl(brand.brandImage || brand.brandLogo)}
+                    alt={brand.brandName}
+                    className="s-twambrands-62d26f"
+                    onError={e => {
+                      console.log("Image failed:", brand);
+                      (e.target as HTMLImageElement).src = '/assets/fallback.png';
+                    }}
+                  />
+                </span>
                 {brand.brandName && (
                   <p className="s-twambrands-f87e81">{brand.brandName}</p>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         )}

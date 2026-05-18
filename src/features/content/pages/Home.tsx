@@ -521,8 +521,8 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
   // Nothing to show — hide section entirely
   if (!brandImages.length) return null;
 
-  const itemWidth = 250,
-    itemHeight = 140,
+  const itemWidth = 300,
+    itemHeight = itemWidth / 3,
     gap = 0,
     durationSeconds = 34;
   const setWidth = brandImages.length * itemWidth;
@@ -561,10 +561,13 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
                   className="brand-marquee-item"
                   aria-hidden={isClone}
                   style={{
+                    flex: `0 0 ${itemWidth}px`,
                     width: itemWidth,
                     minWidth: itemWidth,
                     height: itemHeight,
+                    aspectRatio: "3 / 1",
                     marginRight: gap,
+                    overflow: "hidden",
                   }}
                 >
                   <button
@@ -582,6 +585,8 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
                       padding: 0,
                       background: "transparent",
                       cursor: brand.brandId ? "pointer" : "default",
+                      display: "block",
+                      overflow: "hidden",
                     }}
                   >
                     <img
