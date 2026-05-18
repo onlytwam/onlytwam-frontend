@@ -47,7 +47,13 @@ const normalizeItem = (item: CartModel): CartModel => ({
   ...item,
   cartId: Number(item.cartId ?? 0),
   processedQuantity: Number(item.processedQuantity ?? 1),
-  isSelected: item.isSelected ?? true,
+  // FIX: Do NOT default isSelected to true here.
+  // The checkout session should only ever contain items the user explicitly
+  // selected.  Defaulting to true was the root cause of phantom products
+  // appearing in orders: if the session was accidentally written with
+  // unselected items, normalizeItem would "select" them on read, causing them
+  // to be included in the order and invoice.
+  isSelected: item.isSelected === false ? false : true,
 });
 
 const computeSubTotal = (items: CartModel[]): number =>
@@ -104,7 +110,12 @@ export const readCheckoutSession = (): CheckoutSessionState | null => {
     const parsed = JSON.parse(raw) as Partial<CheckoutSessionState> | null;
     if (!parsed || !Array.isArray(parsed.items)) return null;
 
-    const items = parsed.items.map(normalizeItem);
+    // FIX: Filter out any items that are explicitly NOT selected.
+    // The session should only contain selected items (Cart.tsx passes selectedItems
+    // to saveCheckoutSession), but as a safety net we strip any that slipped through.
+    const items = parsed.items
+      .map(normalizeItem)
+      .filter((i) => i.isSelected !== false);
     const subTotal = toNumber(parsed.subTotal, computeSubTotal(items));
     const cartSignature =
       typeof parsed.cartSignature === "string"
