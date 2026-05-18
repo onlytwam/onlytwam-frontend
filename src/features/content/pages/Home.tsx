@@ -9,6 +9,7 @@ import {
   useRef,
   useCallback,
   useMemo,
+  type CSSProperties,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,14 @@ import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
 
 const GAP = 12;
+
+type HomeBrandLogo = {
+  brandId?: number | string;
+  id?: number | string;
+  brandImage?: string | null;
+  brandName?: string | null;
+  name?: string | null;
+};
 
 // No static brand images — all brand logos come from the /Brand/ API
 
@@ -478,30 +487,54 @@ function SectionTitle({
 }
 
 // ─── Brands Marquee ───────────────────────────────────────────────────────────
-function BrandsSection({ logos }: { logos: any[] }) {
+function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
   // Only show brands that have a dedicated brandImage uploaded via the admin
   // image-upload feature. brandLogo is excluded here — logos are small
   // transparent PNGs; brandImage is the banner uploaded for this marquee.
   const brandImages = useMemo(() => {
-    return logos
-      .map((b: any) => ({
-        src: b.brandImage ?? "",
-        name: b.brandName ?? b.name ?? "",
-      }))
-      .filter((b) => !!b.src);
+    const seen = new Set<string>();
+
+    return logos.reduce(
+      (
+        items: { src: string; name: string; brandId: number | string | null }[],
+        b,
+      ) => {
+        const src = b.brandImage ?? "";
+        if (!src) return items;
+
+        const key = String(b.brandId ?? b.id ?? src);
+        if (seen.has(key)) return items;
+
+        seen.add(key);
+        items.push({
+          src,
+          name: b.brandName ?? b.name ?? "",
+          brandId: b.brandId ?? b.id ?? null,
+        });
+        return items;
+      },
+      [],
+    );
   }, [logos]);
+  const navigate = useNavigate();
 
   // Nothing to show — hide section entirely
   if (!brandImages.length) return null;
 
   const itemWidth = 250,
     itemHeight = 140,
-    gap = 40,
+    gap = 0,
     durationSeconds = 34;
-  const setWidth = Math.max(
-    0,
-    brandImages.length * itemWidth + Math.max(0, brandImages.length - 1) * gap,
-  );
+  const setWidth = brandImages.length * itemWidth;
+  const marqueeStyle: CSSProperties & {
+    "--brand-gap": string;
+    "--brand-duration": string;
+    "--brand-set-width": string;
+  } = {
+    "--brand-gap": `${gap}px`,
+    "--brand-duration": `${durationSeconds}s`,
+    "--brand-set-width": `${setWidth}px`,
+  };
 
   return (
     <section className="s-home-be6933">
@@ -510,35 +543,59 @@ function BrandsSection({ logos }: { logos: any[] }) {
         <SectionTitle title="Brands" />
         <div
           className="brand-marquee s-home-68cb82"
-          style={{
-            ["--brand-gap" as any]: `${gap}px`,
-            ["--brand-duration" as any]: `${durationSeconds}s`,
-            ["--brand-set-width" as any]: `${setWidth}px`,
-          }}
+          style={marqueeStyle}
         >
           <div className="brand-marquee-track">
-            {[...brandImages, ...brandImages].map((brand, i) => (
-              <div
-                key={`${brand.src}-${i}`}
-                className="brand-marquee-item"
-                style={{
-                  width: itemWidth,
-                  minWidth: itemWidth,
-                  height: itemHeight,
-                  marginRight:
-                    i % brandImages.length === brandImages.length - 1 ? 0 : gap,
-                }}
-              >
-                <img
-                  src={brand.src}
-                  alt={brand.name}
-                  className="s-home-783e28"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
+            {[...brandImages, ...brandImages].map((brand, i) => {
+              const isClone = i >= brandImages.length;
+              const goToBrand = () => {
+                if (!brand.brandId) return;
+                navigate(`/user-products/product-list?brandId=${brand.brandId}`);
+              };
+
+              return (
+                <div
+                  key={`${brand.src}-${brand.name || i}-${
+                    isClone ? "clone" : "original"
+                  }`}
+                  className="brand-marquee-item"
+                  aria-hidden={isClone}
+                  style={{
+                    width: itemWidth,
+                    minWidth: itemWidth,
+                    height: itemHeight,
+                    marginRight: gap,
                   }}
-                />
-              </div>
-            ))}
+                >
+                  <button
+                    type="button"
+                    onClick={goToBrand}
+                    disabled={!brand.brandId}
+                    tabIndex={isClone ? -1 : 0}
+                    aria-label={
+                      isClone ? undefined : `View ${brand.name} products`
+                    }
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      border: 0,
+                      padding: 0,
+                      background: "transparent",
+                      cursor: brand.brandId ? "pointer" : "default",
+                    }}
+                  >
+                    <img
+                      src={brand.src}
+                      alt={isClone ? "" : brand.name}
+                      className="s-home-783e28"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -754,6 +811,14 @@ function ShopByCategorySection() {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
+  // Use the same category list (and order) that the navbar already resolved.
+  // The navbar fetches getCategories({ roleId: 2 }) which filters hidden
+  // categories server-side, caches the result in useMenuStore, and keeps it
+  // fresh via BroadcastChannel + visibilitychange. Reusing that here means
+  // Shop-by-Category automatically mirrors navbar visibility and order with
+  // zero extra fetches.
+  const { menus } = useMenuStore();
+
   // Section-level visibility toggle -- admin can hide/show the whole
   // 'Shop by Category' section from AdminBranding without touching categories.
   const { data: sectionDto } = useQuery({
@@ -801,25 +866,31 @@ function ShopByCategorySection() {
   //    If every category is hidden, the entire section hides -- including the
   //    All Products tile -- because showing only "All Products" with no
   //    categories to browse would be misleading.
-  //  - Then parent (root) categories only: no parentCategoryId, active, with a categoryImage
+  //  - Then the exact categories shown in the navbar, in navbar order,
+  //    but only those that have an uploaded categoryImage.
   const slides = useMemo(() => {
     const list: any[] = catData?.list ?? [];
 
-    // Active root categories that have an uploaded image
-    const activeCategorySlides = list
-      .filter(
-        (c: any) =>
-          c.isActive !== false &&
-          c.name &&
-          !c.parentCategoryId && // root categories only
-          c.categoryImage, // must have an uploaded image
-      )
-      .map((c: any) => ({
-        categoryId: c.categoryId as number | null,
-        name: c.name as string,
-        image: c.categoryImage as string,
-        url: `/user-products/product-list/${c.categoryId}`,
-      }));
+    // Build a fast categoryId → categoryImage lookup from the full category
+    // list (which carries the image URLs). We still need this fetch to get
+    // the images; we just no longer use it to decide *which* categories to
+    // show or in *what order* — the navbar already made those decisions.
+    const imageMap = new Map<number, string>();
+    list.forEach((c: any) => {
+      if (c.categoryImage) imageMap.set(c.categoryId, c.categoryImage);
+    });
+
+    // Walk the navbar menus in their display order. Include a slide only when
+    // an image has been uploaded for that category. Categories hidden in the
+    // navbar (already absent from `menus`) are automatically excluded.
+    const activeCategorySlides = menus
+      .map((cat) => ({
+        categoryId: cat.categoryId as number | null,
+        name: cat.name as string,
+        image: imageMap.get(cat.categoryId) ?? "",
+        url: `/user-products/product-list/${cat.categoryId}`,
+      }))
+      .filter((s) => s.image); // skip categories with no uploaded image
 
     // If every category is hidden (or none have images), suppress the whole
     // section -- including the All Products tile -- so we never show a
@@ -844,7 +915,7 @@ function ShopByCategorySection() {
     }
 
     return [...result, ...activeCategorySlides];
-  }, [catData, allProductsImage]);
+  }, [catData, allProductsImage, menus]);
 
   const SHOP_CAT_TOTAL = slides.length;
   // Keep a ref so the advance callback always reads the live slide count

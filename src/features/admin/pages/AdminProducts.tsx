@@ -4,33 +4,206 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
 
-const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  Approved:                         { bg: "var(--ivory)", color: "var(--brand)" },
-  Pending:                          { bg: "var(--ivory)", color: "var(--brand)" },
-  Draft:                            { bg: "var(--ivory)", color: "var(--heirloom)" },
-  Rejected:                         { bg: "#fff0f0",      color: "#c0392b" },
-  "Submitted To Inventory Manager": { bg: "var(--ivory)", color: "var(--brand)" },
-  "Submitted To Product Manager":   { bg: "var(--ivory)", color: "var(--brand)" },
-  Created:                          { bg: "#f0fff4",      color: "#27ae60" },
-  Modified:                         { bg: "#fffbf0",      color: "#e67e22" },
-};
-
-const STATUS_OPTIONS = [
-  "All", "Approved", "Pending", "Draft", "Created",
-  "Modified", "Rejected", "Submitted To Inventory Manager", "Submitted To Product Manager",
-];
 const PAGE_SIZE = 15;
+
+/** Returns all reasons why a product is hidden from customers. */
+function getInactiveReasons(p: any): string[] {
+  const reasons: string[] = [];
+  if (p.brandDeletedInd) reasons.push("Brand has been deleted");
+  else if (p.brandIsActive === false) reasons.push("Brand is hidden");
+  if (p.categoryDeletedInd) reasons.push("Category has been deleted");
+  else if (p.categoryIsActive === false) reasons.push("Category is inactive");
+  return reasons;
+}
+
+// ── Active / Inactive pill shown in the Status column ────────────────────────
+function StatusPill({
+  product,
+  openId,
+  setOpenId,
+  popoverRef,
+}: {
+  product: any;
+  openId: number | null;
+  setOpenId: (id: number | null) => void;
+  popoverRef: React.RefObject<HTMLDivElement>;
+}) {
+  const reasons = getInactiveReasons(product);
+  const isInactive = reasons.length > 0;
+  const isOpen = openId === product.productId;
+
+  if (!isInactive) {
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "4px 12px",
+          fontSize: 12,
+          fontWeight: 700,
+          background: "#e8f5e9",
+          color: "#2e7d32",
+          borderRadius: 20,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#43a047",
+            display: "inline-block",
+          }}
+        />
+        Active
+      </span>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpenId(isOpen ? null : product.productId)}
+        title="Click to see why this product is hidden from customers"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "4px 12px",
+          fontSize: 12,
+          fontWeight: 700,
+          background: "#fdecea",
+          color: "#c62828",
+          border: "1.5px solid #ef9a9a",
+          borderRadius: 20,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#e53935",
+            display: "inline-block",
+          }}
+        />
+        Inactive
+        <i
+          className={`bi bi-chevron-${isOpen ? "up" : "down"}`}
+          style={{ fontSize: 9, marginLeft: 2 }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          ref={popoverRef}
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            background: "#fff",
+            border: "1px solid #ef9a9a",
+            borderRadius: 10,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.14)",
+            padding: "14px 16px",
+            minWidth: 240,
+          }}
+        >
+          {/* Arrow */}
+          <div
+            style={{
+              position: "absolute",
+              top: -7,
+              left: "50%",
+              transform: "translateX(-50%) rotate(45deg)",
+              width: 12,
+              height: 12,
+              background: "#fff",
+              borderTop: "1px solid #ef9a9a",
+              borderLeft: "1px solid #ef9a9a",
+            }}
+          />
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginBottom: 8,
+              fontWeight: 700,
+              fontSize: 12,
+              color: "#b71c1c",
+            }}
+          >
+            <i className="bi bi-eye-slash-fill" />
+            Hidden from customers
+          </div>
+
+          <div style={{ fontSize: 11, color: "#777", marginBottom: 10 }}>
+            This product is not visible because:
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {reasons.map((reason) => (
+              <div
+                key={reason}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#c62828",
+                }}
+              >
+                <i
+                  className="bi bi-x-circle-fill"
+                  style={{ fontSize: 13, flexShrink: 0 }}
+                />
+                {reason}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminProducts() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const [searchInput, setSearchInput] = useState("");
-  const [search,      setSearch]      = useState("");
+  const [search, setSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [page,          setPage]    = useState(1);
-  const [statusFilter,  setStatus]  = useState("All");
+  const [page, setPage] = useState(1);
   const [confirmDelete, setConfirm] = useState<any>(null);
+
+  // Which product's status popover is open
+  const [openPopover, setOpenPopover] = useState<number | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on outside click
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
+        setOpenPopover(null);
+      }
+    }
+    if (openPopover !== null)
+      document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [openPopover]);
 
   const handleSearchChange = useCallback((val: string) => {
     setSearchInput(val);
@@ -41,27 +214,36 @@ export default function AdminProducts() {
     }, 400);
   }, []);
 
-  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
+  );
 
   const buildParams = useCallback(() => {
     const filters: any[] = [];
     if (search.trim())
-      filters.push({ property: "QuickSearch", comparison: "contains", value: search.trim() });
-    if (statusFilter !== "All")
-      filters.push({ property: "State", comparison: "==", value: statusFilter });
+      filters.push({
+        property: "QuickSearch",
+        comparison: "contains",
+        value: search.trim(),
+      });
     return {
       ...(filters.length ? { Filters: JSON.stringify(filters) } : {}),
-      "Page.Index":      page,
-      "Page.Size":       PAGE_SIZE,
-      "Order.Property":  "ModifiedDate",
-      // ✅ FIX 1: was boolean false — must be a string
+      "Page.Index": page,
+      "Page.Size": PAGE_SIZE,
+      "Order.Property": "ModifiedDate",
       "Order.Ascending": "false",
     };
-  }, [search, page, statusFilter]);
+  }, [search, page]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-products", search, page, statusFilter],
-    queryFn:  () => api.get("/Products/", { params: buildParams() }).then((r) => r.data),
+    queryKey: ["admin-products", search, page],
+    queryFn: () =>
+      api
+        .get("/Products/", { params: { ...buildParams(), adminView: true } })
+        .then((r) => r.data),
   });
 
   const deleteProduct = useMutation({
@@ -73,45 +255,26 @@ export default function AdminProducts() {
     onError: () => toast.error("Failed to delete"),
   });
 
-  // ✅ FIX 2: Pass the full product object so PUT doesn't wipe other fields
-  const updateState = useMutation({
-    mutationFn: ({ id, state, product }: { id: number; state: string; product: any }) =>
-      api.put(`/Products/${id}`, { ...product, state }),
-    onSuccess: () => {
-      toast.success("Status updated!");
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-    },
-    onError: () => toast.error("Failed to update status"),
-  });
-
   const products = data?.list ?? [];
-  const total    = data?.count ?? 0;
-  const pages    = Math.ceil(total / PAGE_SIZE) || 1;
-
-  const badge = (state: string) => {
-    const s = STATUS_STYLE[state] ?? { bg: "var(--ivory)", color: "var(--heirloom)" };
-    return (
-      <span
-        className="s-adminorders-3cbcde s-adminproduct-69e3b0"
-        style={{ background: s.bg, color: s.color, fontWeight: 600, borderRadius: 20, padding: "3px 10px", fontSize: 12 }}
-      >
-        {state || "Draft"}
-      </span>
-    );
-  };
+  const total = data?.count ?? 0;
+  const pages = Math.ceil(total / PAGE_SIZE) || 1;
 
   return (
     <div>
+      {/* ── Header ── */}
       <div className="s-adminblog-fe4afb">
         <div>
           <h2 className="s-adminblog-91c675">Products</h2>
           <p className="s-adminblog-1c2c10">
             {total} product{total !== 1 ? "s" : ""}
-            {(search || statusFilter !== "All") ? " (filtered)" : " total"}
+            {search ? " (filtered)" : " total"}
           </p>
         </div>
         <div className="s-adminproduct-0f6417">
-          <button onClick={() => navigate("/admin/products/new")} className="s-adminproduct-1f0204">
+          <button
+            onClick={() => navigate("/admin/products/new")}
+            className="s-adminproduct-1f0204"
+          >
             <i className="bi bi-plus-lg" /> Create New Product
           </button>
           <input
@@ -120,23 +283,27 @@ export default function AdminProducts() {
             placeholder="Search products…"
             className="s-adminproduct-def428"
           />
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-            className="s-adminproduct-3cdc6b"
-          >
-            {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
-          </select>
         </div>
       </div>
 
+      {/* ── Table ── */}
       <div className="s-adminbrands-a637bc">
         <div className="s-admindashboa-ce7380">
           <table className="s-adminbrands-de3642">
             <thead>
               <tr className="s-admininvento-d3aab0">
-                {["Image", "Name", "Code", "Brand", "Category", "Status", "Actions"].map((h) => (
-                  <th key={h} className="s-admininvento-947fb4">{h}</th>
+                {[
+                  "Image",
+                  "Name",
+                  "Code",
+                  "Brand",
+                  "Category",
+                  "Status",
+                  "Actions",
+                ].map((h) => (
+                  <th key={h} className="s-admininvento-947fb4">
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -161,80 +328,176 @@ export default function AdminProducts() {
                   <tr
                     key={p.productId}
                     className="s-adminbrands-59d787"
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ivory)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "var(--ivory)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
                   >
+                    {/* Image */}
                     <td className="s-adminbrands-7dcd2c">
-                      {/* ✅ FIX 3: Added more image field name fallbacks */}
-                      {(p.imageUrl || p.image || p.selectedImage || p.thumbnail) ? (
+                      {p.imageUrl ||
+                      p.image ||
+                      p.selectedImage ||
+                      p.thumbnail ? (
                         <img
-                          src={p.imageUrl || p.image || p.selectedImage || p.thumbnail}
+                          src={
+                            p.imageUrl ||
+                            p.image ||
+                            p.selectedImage ||
+                            p.thumbnail
+                          }
                           alt={p.name}
                           className="s-adminproduct-b1c1e9"
-                          onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0"; }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.opacity = "0";
+                          }}
                         />
                       ) : (
-                        <div style={{ width: 48, height: 48, background: "var(--ivory)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <i className="bi bi-image" style={{ color: "var(--heirloom)", fontSize: 18 }} />
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            background: "var(--ivory)",
+                            borderRadius: 8,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <i
+                            className="bi bi-image"
+                            style={{ color: "var(--heirloom)", fontSize: 18 }}
+                          />
                         </div>
                       )}
                     </td>
+
+                    {/* Name */}
                     <td className="s-adminbrands-7dcd2c">
                       <div
-                        onClick={() => navigate(`/admin/products/${p.productId}`)}
+                        onClick={() =>
+                          navigate(`/admin/products/${p.productId}`)
+                        }
                         className="s-adminproduct-48c60a"
                         style={{ cursor: "pointer" }}
                       >
                         {p.name}
                       </div>
-                      <div className="s-adminproduct-ee9064">{p.description}</div>
+                      <div className="s-adminproduct-ee9064">
+                        {p.description}
+                      </div>
                     </td>
-                    <td className="s-adminproduct-4d12db">{p.productCode || "—"}</td>
-                    {/* ✅ FIX 4: Guard against p.brand being a plain object */}
-                    <td className="s-adminproduct-d86977">
-                      {p.brandName || p.brand?.name || (typeof p.brand === "string" ? p.brand : null) || "—"}
+
+                    {/* Code */}
+                    <td className="s-adminproduct-4d12db">
+                      {p.productCode || "—"}
                     </td>
+
+                    {/* Brand */}
                     <td className="s-adminproduct-d86977">
-                      {p.categoryName || "—"}
-                      {p.categoryIsActive === false && (
+                      <span>
+                        {p.brandName ||
+                          p.brand?.name ||
+                          (typeof p.brand === "string" ? p.brand : null) ||
+                          "—"}
+                      </span>
+                      {p.brandDeletedInd && (
                         <span
                           style={{
                             marginLeft: 5,
                             fontSize: 10,
                             background: "#fdecea",
                             color: "#c62828",
-                            padding: "2px 6px",
-                            borderRadius: 10,
+                            borderRadius: 4,
+                            padding: "1px 5px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          DELETED
+                        </span>
+                      )}
+                      {!p.brandDeletedInd && p.brandIsActive === false && (
+                        <span
+                          style={{
+                            marginLeft: 5,
+                            fontSize: 10,
+                            background: "#fff8e1",
+                            color: "#e65100",
+                            borderRadius: 4,
+                            padding: "1px 5px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          HIDDEN
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Category */}
+                    <td className="s-adminproduct-d86977">
+                      <span>{p.categoryName || "—"}</span>
+                      {p.categoryDeletedInd && (
+                        <span
+                          style={{
+                            marginLeft: 5,
+                            fontSize: 10,
+                            background: "#fdecea",
+                            color: "#c62828",
+                            padding: "1px 5px",
+                            borderRadius: 4,
                             fontWeight: 700,
                             textTransform: "uppercase" as const,
                             letterSpacing: "0.04em",
                             whiteSpace: "nowrap" as const,
                           }}
                         >
-                          Inactive
+                          DELETED
                         </span>
                       )}
+                      {!p.categoryDeletedInd &&
+                        p.categoryIsActive === false && (
+                          <span
+                            style={{
+                              marginLeft: 5,
+                              fontSize: 10,
+                              background: "#fff8e1",
+                              color: "#e65100",
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              fontWeight: 700,
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.04em",
+                              whiteSpace: "nowrap" as const,
+                            }}
+                          >
+                            INACTIVE
+                          </span>
+                        )}
                     </td>
-                    <td className="s-adminbrands-7dcd2c">{badge(p.state)}</td>
+
+                    {/* ── Status column: Active or Inactive (clickable) ── */}
+                    <td className="s-adminbrands-7dcd2c">
+                      <StatusPill
+                        product={p}
+                        openId={openPopover}
+                        setOpenId={setOpenPopover}
+                        popoverRef={popoverRef}
+                      />
+                    </td>
+
+                    {/* Actions */}
                     <td className="s-adminbrands-7dcd2c">
                       <div className="s-adminproduct-6209be">
                         <button
-                          onClick={() => navigate(`/admin/products/${p.productId}`)}
+                          onClick={() =>
+                            navigate(`/admin/products/${p.productId}`)
+                          }
                           className="s-adminproduct-bec64d"
                         >
                           <i className="bi bi-pencil" /> Edit
                         </button>
-                        {p.state !== "Approved" && (
-                          <button
-                            // ✅ FIX 2 (cont): pass full product to avoid wiping fields
-                            onClick={() => updateState.mutate({ id: p.productId, state: "Approved", product: p })}
-                            disabled={updateState.isPending}
-                            className="s-adminproduct-d37b04"
-                            title="Approve"
-                          >
-                            ✓
-                          </button>
-                        )}
                         <button
                           onClick={() => setConfirm(p)}
                           className="s-adminproduct-d37b04"
@@ -251,29 +514,44 @@ export default function AdminProducts() {
           </table>
         </div>
 
+        {/* Pagination */}
         {pages > 1 && (
           <div className="s-adminorders-0fe0c2">
-            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="s-adminproduct-26d310">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="s-adminproduct-26d310"
+            >
               ← Prev
             </button>
-            <span className="s-adminorders-caf6f2">Page {page} of {pages}</span>
-            <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="s-adminproduct-26d310">
+            <span className="s-adminorders-caf6f2">
+              Page {page} of {pages}
+            </span>
+            <button
+              disabled={page >= pages}
+              onClick={() => setPage((p) => p + 1)}
+              className="s-adminproduct-26d310"
+            >
               Next →
             </button>
           </div>
         )}
       </div>
 
+      {/* Delete confirm modal */}
       {confirmDelete && (
         <div className="s-adminproduct-d9e7c0" onClick={() => setConfirm(null)}>
-          <div className="s-adminblog-69ab70" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="s-adminblog-69ab70"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="s-adminproduct-23729b">Delete Product</h3>
             <p className="s-adminproduct-655c7d">
-              Delete <strong>"{confirmDelete.name}"</strong>? This cannot be undone.
+              Delete <strong>"{confirmDelete.name}"</strong>? This cannot be
+              undone.
             </p>
             <div className="s-adminbrands-bccf37">
               <button
-                // ✅ FIX 5: Close modal immediately, don't wait for onSuccess
                 onClick={() => {
                   setConfirm(null);
                   deleteProduct.mutate(confirmDelete.productId);
@@ -283,7 +561,10 @@ export default function AdminProducts() {
               >
                 {deleteProduct.isPending ? "Deleting…" : "Delete"}
               </button>
-              <button onClick={() => setConfirm(null)} className="s-adminproduct-c641e3">
+              <button
+                onClick={() => setConfirm(null)}
+                className="s-adminproduct-c641e3"
+              >
                 Cancel
               </button>
             </div>

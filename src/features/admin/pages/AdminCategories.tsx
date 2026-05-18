@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
 import { useMenuStore } from "@/shared/store/menuStore";
 
-const PAGE_SIZE = 20;
+const BRAND = "#6B0F2A";
 
 // ── Category image upload hook ───────────────────────────────────────────────
 function useCategoryImageUpload(
@@ -46,7 +46,7 @@ function ImageUploadField({
   const qc = useQueryClient();
 
   const upload = useCategoryImageUpload(categoryId, (imageUrl: string) => {
-    qc.invalidateQueries({ queryKey: ["admin-categories"] });
+    qc.invalidateQueries({ queryKey: ["admin-categories-tree"] });
     if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     setPreview("");
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -103,7 +103,7 @@ function ImageUploadField({
               position: "absolute",
               top: 6,
               right: 6,
-              background: "#6B0F2A",
+              background: BRAND,
               color: "#fff",
               fontSize: 9,
               fontWeight: 700,
@@ -137,7 +137,7 @@ function ImageUploadField({
           disabled={upload.isPending || !preview}
           style={{
             flex: 1,
-            background: upload.isPending || !preview ? "#d4b8be" : "#6B0F2A",
+            background: upload.isPending || !preview ? "#d4b8be" : BRAND,
             color: "#fff",
             border: "none",
             borderRadius: 8,
@@ -157,7 +157,7 @@ function ImageUploadField({
             }}
             style={{
               background: "#f5f0eb",
-              color: "#6B0F2A",
+              color: BRAND,
               border: "1px solid #d9cac2",
               borderRadius: 8,
               padding: "8px 12px",
@@ -252,7 +252,6 @@ function ImageViewerModal({
             borderRadius: 8,
           }}
         />
-        {/* Footer row: open link + delete button */}
         <div
           style={{
             display: "flex",
@@ -265,11 +264,7 @@ function ImageViewerModal({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{
-              fontSize: 12,
-              color: "#6B0F2A",
-              textDecoration: "underline",
-            }}
+            style={{ fontSize: 12, color: BRAND, textDecoration: "underline" }}
           >
             Open full image ↗
           </a>
@@ -370,7 +365,6 @@ function ViewCategoryModal({
             ✕
           </button>
         </div>
-
         {cat.categoryImage && (
           <div
             style={{
@@ -394,7 +388,6 @@ function ViewCategoryModal({
             />
           </div>
         )}
-
         <div style={{ display: "flex", flexDirection: "column" }}>
           {row("ID", `#${cat.categoryId}`)}
           {row("Name", cat.name)}
@@ -424,7 +417,6 @@ function ViewCategoryModal({
             </span>,
           )}
         </div>
-
         <div className="s-adminblog-679e96" style={{ marginTop: 16 }}>
           <button onClick={onClose} className="s-admincategor-68998a">
             Close
@@ -438,13 +430,25 @@ function ViewCategoryModal({
   );
 }
 
+// ── Types ────────────────────────────────────────────────────────────────────
+type CatItem = {
+  categoryId: number;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+  description?: string;
+  categoryImage?: string;
+  parentCategoryId?: number | null;
+  parentCategoryName?: string;
+  deletedInd?: boolean;
+};
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdminCategories() {
   const qc = useQueryClient();
   const { setMenus } = useMenuStore();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
 
+  // ── Modal / confirm state ──────────────────────────────────────────────────
   const [viewModal, setViewModal] = useState<any>(null);
   const [modal, setModal] = useState<any>(null);
   const [confirm, setConfirm] = useState<any>(null);
@@ -460,30 +464,141 @@ export default function AdminCategories() {
     childCount: number;
   } | null>(null);
 
+  // ── Tree / reorder state ───────────────────────────────────────────────────
+  const [search, setSearch] = useState("");
+  const [expandedParents, setExpandedParents] = useState<Set<number>>(
+    new Set(),
+  );
+  const [rootOrder, setRootOrder] = useState<CatItem[]>([]);
+  const [childOrder, setChildOrder] = useState<Record<number, CatItem[]>>({});
+  const [dirty, setDirty] = useState(false);
+  const dragItem = useRef<{ list: "root" | number; index: number } | null>(
+    null,
+  );
+
+  // ── Fetch all categories (tree needs full list, ordered by displayOrder) ───
+  const INV = ["admin-categories-tree"] as const;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-categories", page, search],
-    queryFn: () => {
-      const filters: any[] = [];
-      if (search.trim())
-        filters.push({
-          property: "QuickSearch",
-          comparison: "contains",
-          value: search.trim(),
-        });
-      return api
+    queryKey: INV,
+    queryFn: () =>
+      api
         .get("/Category", {
           params: {
-            ...(filters.length ? { Filters: JSON.stringify(filters) } : {}),
-            "Page.Index": page,
-            "Page.Size": PAGE_SIZE,
-            "Order.Property": "Name",
+            "Page.Size": 500,
+            "Order.Property": "DisplayOrder",
             "Order.Ascending": true,
           },
         })
-        .then((r) => r.data);
-    },
+        .then((r) => r.data),
+    staleTime: 0,
   });
 
+  const allCats: CatItem[] = data?.list ?? [];
+  const total = data?.count ?? 0;
+
+  // ── Build tree ────────────────────────────────────────────────────────────
+  const roots = useMemo(
+    () =>
+      allCats
+        .filter((c) => !c.parentCategoryId)
+        .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999)),
+    [allCats],
+  );
+
+  const childrenOf = useCallback(
+    (parentId: number) =>
+      allCats
+        .filter((c) => c.parentCategoryId === parentId)
+        .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999)),
+    [allCats],
+  );
+
+  // Signature used to detect when server data has meaningfully changed
+  const allCatsSig = allCats
+    .map((c) => `${c.categoryId}:${c.displayOrder}:${c.isActive}`)
+    .join(",");
+
+  // Re-seed local drag state only when NOT mid-edit (dirty=false)
+  useEffect(() => {
+    if (!roots.length || dirty) return;
+    setRootOrder(roots.slice());
+    const kids: Record<number, CatItem[]> = {};
+    roots.forEach((r) => {
+      const ch = childrenOf(r.categoryId);
+      if (ch.length) kids[r.categoryId] = ch.slice();
+    });
+    setChildOrder(kids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCatsSig]);
+
+  // ── Drag handlers ─────────────────────────────────────────────────────────
+  const handleDragStart = (list: "root" | number, index: number) => {
+    dragItem.current = { list, index };
+  };
+
+  const handleDragEnter = (list: "root" | number, index: number) => {
+    if (!dragItem.current) return;
+    if (dragItem.current.list !== list) return; // cross-list not allowed
+    const from = dragItem.current.index;
+    if (from === index) return;
+
+    if (list === "root") {
+      setRootOrder((prev) => {
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        next.splice(index, 0, moved);
+        dragItem.current!.index = index;
+        return next;
+      });
+    } else {
+      setChildOrder((prev) => {
+        const kids = [...(prev[list as number] ?? [])];
+        const [moved] = kids.splice(from, 1);
+        kids.splice(index, 0, moved);
+        dragItem.current!.index = index;
+        return { ...prev, [list as number]: kids };
+      });
+    }
+    setDirty(true);
+  };
+
+  const handleDragEnd = () => {
+    dragItem.current = null;
+  };
+
+  // ── Save order ────────────────────────────────────────────────────────────
+  const saveOrderMut = useMutation({
+    mutationFn: (payload: { categoryId: number; displayOrder: number }[]) =>
+      api.patch("/Category/reorder", payload),
+    onSuccess: () => {
+      toast.success("Order saved!");
+      qc.invalidateQueries({ queryKey: INV });
+      window.dispatchEvent(new CustomEvent("categoriesUpdated"));
+      if (typeof BroadcastChannel !== "undefined") {
+        const ch = new BroadcastChannel("category_visibility");
+        ch.postMessage({ type: "CATEGORIES_UPDATED" });
+        ch.close();
+      }
+      setDirty(false);
+    },
+    onError: () => toast.error("Failed to save order."),
+  });
+
+  const handleSaveOrder = () => {
+    const payload: { categoryId: number; displayOrder: number }[] = [];
+    rootOrder.forEach((r, i) =>
+      payload.push({ categoryId: r.categoryId, displayOrder: i + 1 }),
+    );
+    Object.entries(childOrder).forEach(([, kids]) => {
+      (kids as CatItem[]).forEach((k, i) =>
+        payload.push({ categoryId: k.categoryId, displayOrder: i + 1 }),
+      );
+    });
+    saveOrderMut.mutate(payload);
+  };
+
+  // ── CRUD mutations ────────────────────────────────────────────────────────
   const saveMutation = useMutation({
     mutationFn: (form: any) => {
       const { bandSizeType: _b, hasCupSize: _h, ...payload } = form;
@@ -493,7 +608,7 @@ export default function AdminCategories() {
     },
     onSuccess: (res, form) => {
       toast.success("Saved!");
-      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      qc.invalidateQueries({ queryKey: INV });
       if (form.categoryId) {
         setModal(null);
       } else {
@@ -513,12 +628,12 @@ export default function AdminCategories() {
       const deleted = res?.data?.childrenDeleted ?? 0;
       toast.success(
         deleted > 0
-          ? `Deleted category and ${deleted} child categor${
+          ? `Category deleted. ${deleted} child categor${
               deleted === 1 ? "y" : "ies"
-            }.`
-          : "Category deleted.",
+            } also deleted. All affected products are now inactive.`
+          : "Category deleted. All its products are now inactive.",
       );
-      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      qc.invalidateQueries({ queryKey: INV });
       setConfirm(null);
     },
     onError: () => toast.error("Delete failed"),
@@ -536,39 +651,22 @@ export default function AdminCategories() {
         params: unhideChildren ? { unhideChildren: true } : undefined,
       }),
 
-    // ── Optimistic update ────────────────────────────────────────────────────
-    // Immediately flip isActive in every "admin-categories" cache entry so the
-    // row badge and button label change the instant the user clicks — no waiting
-    // for the network round-trip.
     onMutate: async ({ id, unhideChildren }) => {
-      // Cancel any in-flight refetches so they don't overwrite our optimistic data
-      await qc.cancelQueries({ queryKey: ["admin-categories"] });
+      await qc.cancelQueries({ queryKey: INV });
+      const previousData = qc.getQueriesData({ queryKey: INV });
 
-      // Snapshot current data for rollback on error
-      const previousData = qc.getQueriesData({
-        queryKey: ["admin-categories"],
-      });
-
-      // Apply optimistic flip to every cached page/search variant
-      qc.setQueriesData({ queryKey: ["admin-categories"] }, (old: any) => {
+      qc.setQueriesData({ queryKey: INV }, (old: any) => {
         if (!old?.list) return old;
         const newList = old.list.map((cat: any) => {
           if (cat.categoryId === id) {
-            const newActive = !cat.isActive;
-            // If hiding a parent, also optimistically hide its children in this page
-            if (!newActive) {
-              return { ...cat, isActive: false };
-            }
-            return { ...cat, isActive: true };
+            return { ...cat, isActive: !cat.isActive };
           }
-          // If hiding — cascade to children already loaded in this page
           const parentBeingHidden = old.list.find(
             (c: any) => c.categoryId === id && c.isActive !== false,
           );
           if (parentBeingHidden && cat.parentCategoryId === id) {
             return { ...cat, isActive: false };
           }
-          // If un-hiding with unhideChildren — restore children
           if (unhideChildren && cat.parentCategoryId === id) {
             return { ...cat, isActive: true };
           }
@@ -576,32 +674,24 @@ export default function AdminCategories() {
         });
         return { ...old, list: newList };
       });
-
       return { previousData };
     },
 
     onSuccess: (res: any) => {
       const state = res?.data?.isActive ? "visible" : "hidden";
       toast.success(`Category is now ${state}.`);
-      // Reconcile with server truth
-      qc.invalidateQueries({ queryKey: ["admin-categories"] });
-      // Invalidate every public category query so storefront reflects change immediately
+      qc.invalidateQueries({ queryKey: INV });
       qc.invalidateQueries({
         predicate: (q) => {
           const key = String(q.queryKey[0] ?? "");
           return key.includes("categor") || key === "gs-categories";
         },
       });
-      // Also invalidate product queries so hidden-category products disappear
       qc.invalidateQueries({ queryKey: ["all-products-page"] });
       qc.invalidateQueries({ queryKey: ["products-list"] });
-      // Clear the navbar sessionStorage cache and zustand store so Navbar re-fetches
       sessionStorage.removeItem("menus");
       setMenus([]);
-      // Notify same-tab Navbar via CustomEvent
       window.dispatchEvent(new CustomEvent("categoriesUpdated"));
-      // Notify all other open tabs in the same browser via BroadcastChannel
-      // (covers the storefront open in a separate tab while admin is in another)
       if (typeof BroadcastChannel !== "undefined") {
         const ch = new BroadcastChannel("category_visibility");
         ch.postMessage({ type: "CATEGORIES_UPDATED" });
@@ -611,11 +701,10 @@ export default function AdminCategories() {
       setUnhideChildrenConfirm(null);
     },
 
-    // Roll back optimistic update if the API call fails
-    onError: (_err, _vars, context: any) => {
+    onError: (_err: any, _vars: any, context: any) => {
       if (context?.previousData) {
-        context.previousData.forEach(([queryKey, data]: [any, any]) => {
-          qc.setQueryData(queryKey, data);
+        context.previousData.forEach(([queryKey, oldData]: [any, any]) => {
+          qc.setQueryData(queryKey, oldData);
         });
       }
       toast.error("Could not update visibility.");
@@ -626,19 +715,16 @@ export default function AdminCategories() {
     mutationFn: (id: number) => api.delete(`/Category/${id}/image`),
     onSuccess: () => {
       toast.success("Category image removed.");
-      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      qc.invalidateQueries({ queryKey: INV });
       setConfirmDeleteImage(null);
       setViewImage(null);
     },
     onError: () => toast.error("Could not delete image."),
   });
 
-  const cats = data?.list ?? [];
-  const total = data?.count ?? 0;
-  const pages = Math.ceil(total / PAGE_SIZE);
-
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const getChildCount = (categoryId: number) =>
-    cats.filter((c: any) => c.parentCategoryId === categoryId).length;
+    (childOrder[categoryId] ?? childrenOf(categoryId)).length;
 
   const handleToggleVisibility = (c: any) => {
     const childCount = getChildCount(c.categoryId);
@@ -660,6 +746,169 @@ export default function AdminCategories() {
       categoryImage: "",
     });
 
+  // ── Search filter (flat) ──────────────────────────────────────────────────
+  const searchLower = search.trim().toLowerCase();
+  const isSearching = !!searchLower;
+  const filteredFlat = isSearching
+    ? allCats.filter(
+        (c) =>
+          c.name?.toLowerCase().includes(searchLower) ||
+          (c.description as any)?.toLowerCase().includes(searchLower),
+      )
+    : [];
+
+  // ── Shared render helpers ─────────────────────────────────────────────────
+  const renderThumb = (c: any) =>
+    c.categoryImage ? (
+      <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
+        <img
+          src={c.categoryImage}
+          alt={c.name}
+          onClick={() =>
+            setViewImage({
+              url: c.categoryImage,
+              name: c.name,
+              categoryId: c.categoryId,
+            })
+          }
+          onError={(e) =>
+            ((e.target as HTMLImageElement).style.display = "none")
+          }
+          style={{
+            width: 42,
+            height: 42,
+            objectFit: "cover",
+            borderRadius: 7,
+            border: "1px solid #eadfd8",
+            display: "block",
+            cursor: "pointer",
+          }}
+          title="Click to view"
+        />
+        <button
+          onClick={() => setConfirmDeleteImage(c)}
+          title="Remove image"
+          style={{
+            position: "absolute",
+            top: -5,
+            right: -5,
+            width: 16,
+            height: 16,
+            background: BRAND,
+            color: "#fff",
+            border: "none",
+            borderRadius: "50%",
+            fontSize: 9,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+          }}
+        >
+          ×
+        </button>
+      </div>
+    ) : (
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 7,
+          background: "#f5f0eb",
+          border: "1px dashed #d9cac2",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: 8, color: "#b89fa8" }}>None</span>
+      </div>
+    );
+
+  const renderActions = (c: any) => (
+    <div style={{ display: "flex", gap: 4, flexWrap: "nowrap" }}>
+      <button
+        onClick={() => setViewModal(c)}
+        style={{
+          padding: "4px 9px",
+          fontSize: 11,
+          fontWeight: 600,
+          borderRadius: 6,
+          border: "1px solid #9fa8da",
+          background: "#e8eaf6",
+          color: "#3949ab",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        👁 View
+      </button>
+      <button
+        onClick={() => setModal(c)}
+        style={{
+          padding: "4px 9px",
+          fontSize: 11,
+          fontWeight: 600,
+          borderRadius: 6,
+          border: "1px solid #d9cac2",
+          background: "#f5f0eb",
+          color: BRAND,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        ✏️ Edit
+      </button>
+      <button
+        onClick={() => handleToggleVisibility(c)}
+        disabled={doToggleVisibility.isPending}
+        style={{
+          padding: "4px 9px",
+          fontSize: 11,
+          fontWeight: 600,
+          borderRadius: 6,
+          border: "1px solid",
+          cursor: doToggleVisibility.isPending ? "not-allowed" : "pointer",
+          opacity:
+            doToggleVisibility.isPending &&
+            doToggleVisibility.variables?.id === c.categoryId
+              ? 0.6
+              : 1,
+          background: c.isActive !== false ? "#fff8e1" : "#e8f5e9",
+          borderColor: c.isActive !== false ? "#f9a825" : "#43a047",
+          color: c.isActive !== false ? "#e65100" : "#2e7d32",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {doToggleVisibility.isPending &&
+        doToggleVisibility.variables?.id === c.categoryId
+          ? "…"
+          : c.isActive !== false
+          ? "🙈 Hide"
+          : "👁 Show"}
+      </button>
+      <button
+        onClick={() => setConfirm(c)}
+        style={{
+          padding: "4px 9px",
+          fontSize: 11,
+          fontWeight: 600,
+          borderRadius: 6,
+          border: "1px solid #f5c6cb",
+          background: "#fdecea",
+          color: "#c62828",
+          cursor: "pointer",
+        }}
+      >
+        🗑
+      </button>
+    </div>
+  );
+
+  // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div>
       {/* ─── Header ─── */}
@@ -668,12 +917,32 @@ export default function AdminCategories() {
           <h2 className="s-adminblog-91c675">Categories</h2>
           <p className="s-adminblog-1c2c10">{total} total</p>
         </div>
-        <div className="s-adminbrands-bccf37">
+        <div className="s-adminbrands-bccf37" style={{ gap: 8 }}>
+          {/* Save Order — only visible when there are unsaved drag changes */}
+          {dirty && (
+            <button
+              onClick={handleSaveOrder}
+              disabled={saveOrderMut.isPending}
+              style={{
+                padding: "8px 18px",
+                fontSize: 13,
+                fontWeight: 700,
+                borderRadius: 7,
+                border: "none",
+                background: saveOrderMut.isPending ? "#c4788c" : BRAND,
+                color: "#fff",
+                cursor: saveOrderMut.isPending ? "not-allowed" : "pointer",
+                boxShadow: "0 0 0 3px rgba(107,15,42,0.18)",
+                animation: "pulse 1.8s ease-in-out infinite",
+              }}
+            >
+              {saveOrderMut.isPending ? "Saving…" : "💾 Save Order"}
+            </button>
+          )}
           <input
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1);
             }}
             placeholder="Search…"
             className="inp-field s-admincategor-7a6c83"
@@ -684,283 +953,511 @@ export default function AdminCategories() {
         </div>
       </div>
 
-      {/* ─── Table ─── */}
-      <div className="s-adminbrands-a637bc">
-        <table className="s-adminbrands-de3642">
-          <thead>
-            <tr className="s-adminbrands-1ba202">
-              {[
-                "ID",
-                "Image",
-                "Name",
-                "Description",
-                "Parent",
-                "Status",
-                "Actions",
-              ].map((h) => (
-                <th key={h} className="s-adminbrands-84e069">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={7} className="s-adminbrands-3e0634">
-                  Loading…
-                </td>
+      {/* ─── Content area ─── */}
+      {isLoading ? (
+        <div
+          style={{
+            padding: 48,
+            textAlign: "center",
+            color: "#bbb",
+            fontSize: 14,
+          }}
+        >
+          Loading categories…
+        </div>
+      ) : isSearching ? (
+        /* ── SEARCH: flat filtered table ─────────────────────────────── */
+        <div className="s-adminbrands-a637bc">
+          <table className="s-adminbrands-de3642">
+            <thead>
+              <tr className="s-adminbrands-1ba202">
+                {[
+                  "ID",
+                  "Image",
+                  "Name",
+                  "Description",
+                  "Parent",
+                  "Status",
+                  "Actions",
+                ].map((h) => (
+                  <th key={h} className="s-adminbrands-84e069">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ) : cats.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="s-adminbrands-3e0634">
-                  No categories found.
-                </td>
-              </tr>
-            ) : (
-              cats.map((c: any) => (
-                <tr
-                  key={c.categoryId}
-                  className="s-adminbrands-59d787"
-                  style={{
-                    background: c.isActive === false ? "#fffbf0" : undefined,
-                  }}
-                >
-                  <td className="s-admincategor-ec7211">{c.categoryId}</td>
-
-                  {/* Image cell */}
-                  <td className="s-admincategor-ec7211">
-                    {c.categoryImage ? (
-                      <div style={{ position: "relative", width: 52 }}>
-                        <img
-                          src={c.categoryImage}
-                          alt={c.name}
+            </thead>
+            <tbody>
+              {filteredFlat.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="s-adminbrands-3e0634">
+                    No categories match "{search}".
+                  </td>
+                </tr>
+              ) : (
+                filteredFlat.map((c) => (
+                  <tr
+                    key={c.categoryId}
+                    className="s-adminbrands-59d787"
+                    style={{
+                      background: c.isActive === false ? "#fffbf0" : undefined,
+                    }}
+                  >
+                    <td className="s-admincategor-ec7211">{c.categoryId}</td>
+                    <td className="s-admincategor-ec7211">{renderThumb(c)}</td>
+                    <td className="s-admincategor-46dbfc">
+                      {c.name}
+                      {c.isActive === false && (
+                        <span
                           style={{
-                            width: 52,
-                            height: 52,
-                            objectFit: "cover",
-                            borderRadius: 8,
-                            border: "1px solid #eadfd8",
-                            display: "block",
-                            cursor: "pointer",
-                          }}
-                          onClick={() =>
-                            setViewImage({
-                              url: c.categoryImage,
-                              name: c.name,
-                              categoryId: c.categoryId,
-                            })
-                          }
-                          title="Click to view full image"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                        <button
-                          onClick={() => setConfirmDeleteImage(c)}
-                          title="Remove image"
-                          style={{
-                            position: "absolute",
-                            top: -6,
-                            right: -6,
-                            width: 18,
-                            height: 18,
-                            background: "#6B0F2A",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "50%",
+                            marginLeft: 6,
                             fontSize: 10,
+                            background: "#fdecea",
+                            color: "#c62828",
+                            padding: "2px 6px",
+                            borderRadius: 10,
                             fontWeight: 700,
-                            cursor: "pointer",
-                            lineHeight: "18px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                            textTransform: "uppercase",
                           }}
                         >
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 8,
-                          background: "#f5f0eb",
-                          border: "1px dashed #d9cac2",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <span style={{ fontSize: 9, color: "#b89fa8" }}>
-                          None
+                          Inactive
                         </span>
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="s-admincategor-46dbfc">
-                    {c.name}
-                    {c.isActive === false && (
+                      )}
+                      {getChildCount(c.categoryId) > 0 && (
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            fontSize: 10,
+                            background: "#e3f2fd",
+                            color: "#1565c0",
+                            padding: "2px 6px",
+                            borderRadius: 10,
+                            fontWeight: 600,
+                          }}
+                        >
+                          parent
+                        </span>
+                      )}
+                    </td>
+                    <td className="s-admincategor-ec7211">
+                      {c.description || "—"}
+                    </td>
+                    <td className="s-admincategor-ec7211">
+                      {(c as any).parentCategoryName
+                        ? `${(c as any).parentCategoryName} (#${
+                            c.parentCategoryId
+                          })`
+                        : c.parentCategoryId
+                        ? `#${c.parentCategoryId}`
+                        : "Root"}
+                    </td>
+                    <td className="s-admincategor-ec7211">
                       <span
                         style={{
-                          marginLeft: 6,
-                          fontSize: 10,
-                          background: "#fdecea",
-                          color: "#c62828",
-                          padding: "2px 6px",
-                          borderRadius: 10,
+                          display: "inline-block",
+                          padding: "3px 10px",
+                          borderRadius: 20,
+                          fontSize: 11,
                           fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.04em",
+                          background:
+                            c.isActive !== false ? "#e6f4ea" : "#fdecea",
+                          color: c.isActive !== false ? "#2e7d32" : "#c62828",
                         }}
                       >
-                        Inactive
+                        {c.isActive !== false ? "Active" : "Inactive"}
                       </span>
-                    )}
-                    {getChildCount(c.categoryId) > 0 && (
-                      <span
-                        style={{
-                          marginLeft: 6,
-                          fontSize: 10,
-                          background: "#e3f2fd",
-                          color: "#1565c0",
-                          padding: "2px 6px",
-                          borderRadius: 10,
-                          fontWeight: 600,
-                        }}
-                      >
-                        parent
-                      </span>
-                    )}
-                  </td>
-                  <td className="s-admincategor-ec7211">
-                    {c.description || "—"}
-                  </td>
-                  <td className="s-admincategor-ec7211">
-                    {c.parentCategoryName
-                      ? `${c.parentCategoryName} (#${c.parentCategoryId})`
-                      : c.parentCategoryId
-                      ? `#${c.parentCategoryId}`
-                      : "Root"}
-                  </td>
+                    </td>
+                    <td className="s-admincategor-19b711">
+                      {renderActions(c)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* ── TREE VIEW: drag-and-drop reorder + expand/collapse ──────── */
+        <div style={{ padding: "4px 0 32px" }}>
+          {/* Hint bar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 12,
+              padding: "8px 14px",
+              background: "#faf8f6",
+              border: "1px solid #ece6f0",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "#888",
+            }}
+          >
+            <span style={{ color: "#ccc", fontSize: 16 }}>⠿</span>
+            <span>Drag any row to reorder.</span>
+            <span>▶ to expand subcategories and reorder them too.</span>
+            {dirty && (
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontWeight: 700,
+                  color: BRAND,
+                  fontSize: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                ● Unsaved changes — click <strong>💾 Save Order</strong> to
+                apply
+              </span>
+            )}
+          </div>
 
-                  {/* Status badge */}
-                  <td className="s-admincategor-ec7211">
+          {rootOrder.length === 0 ? (
+            <p style={{ textAlign: "center", color: "#bbb", padding: 48 }}>
+              No categories found.
+            </p>
+          ) : (
+            rootOrder.map((root, ri) => {
+              const kids = childOrder[root.categoryId] ?? [];
+              const expanded = expandedParents.has(root.categoryId);
+
+              return (
+                <div key={root.categoryId} style={{ marginBottom: 3 }}>
+                  {/* ── Parent row ─────────────────────────────────────── */}
+                  <div
+                    draggable
+                    onDragStart={() => handleDragStart("root", ri)}
+                    onDragEnter={() => handleDragEnter("root", ri)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => e.preventDefault()}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 14px",
+                      background: root.isActive !== false ? "#fff" : "#fffbf0",
+                      border: `1.5px solid ${
+                        root.isActive !== false ? "#e0d5f0" : "#f5c6cb"
+                      }`,
+                      borderLeft: `4px solid ${BRAND}`,
+                      borderRadius: 9,
+                      cursor: "grab",
+                      userSelect: "none",
+                      boxShadow: "0 1px 5px rgba(0,0,0,0.06)",
+                      transition: "box-shadow 0.12s",
+                    }}
+                  >
+                    {/* Drag handle */}
                     <span
                       style={{
-                        display: "inline-block",
-                        padding: "3px 10px",
+                        color: "#c8b8c4",
+                        fontSize: 18,
+                        flexShrink: 0,
+                        lineHeight: 1,
+                      }}
+                    >
+                      ⠿
+                    </span>
+
+                    {/* Position badge */}
+                    <span
+                      style={{
+                        minWidth: 24,
+                        height: 24,
+                        borderRadius: 6,
+                        background: BRAND,
+                        color: "#fff",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {ri + 1}
+                    </span>
+
+                    {/* Expand / collapse children */}
+                    {kids.length > 0 ? (
+                      <button
+                        onClick={() =>
+                          setExpandedParents((prev) => {
+                            const next = new Set(prev);
+                            next.has(root.categoryId)
+                              ? next.delete(root.categoryId)
+                              : next.add(root.categoryId);
+                            return next;
+                          })
+                        }
+                        style={{
+                          background: expanded ? "#f0e8f8" : "#f5f0fb",
+                          border: `1px solid ${
+                            expanded ? "#c9a8d8" : "#d8cce8"
+                          }`,
+                          borderRadius: 6,
+                          padding: "3px 10px",
+                          fontSize: 11,
+                          cursor: "pointer",
+                          color: BRAND,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          whiteSpace: "nowrap",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-block",
+                            transform: expanded
+                              ? "rotate(90deg)"
+                              : "rotate(0deg)",
+                            transition: "transform 0.15s",
+                            fontSize: 10,
+                          }}
+                        >
+                          ▶
+                        </span>
+                        {kids.length} {kids.length === 1 ? "sub" : "subs"}
+                      </button>
+                    ) : (
+                      /* spacer so rows without children still align */
+                      <span style={{ width: 62, flexShrink: 0 }} />
+                    )}
+
+                    {/* Thumbnail */}
+                    {renderThumb(root as any)}
+
+                    {/* Name + description */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 14,
+                            color: "#1a1a1a",
+                          }}
+                        >
+                          {root.name}
+                        </span>
+                        {root.isActive === false && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              background: "#fdecea",
+                              color: "#c62828",
+                              padding: "2px 7px",
+                              borderRadius: 20,
+                              fontWeight: 700,
+                            }}
+                          >
+                            Hidden
+                          </span>
+                        )}
+                      </div>
+                      {root.description && (
+                        <p
+                          style={{
+                            margin: "3px 0 0",
+                            fontSize: 12,
+                            color: "#999",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {root.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status pill */}
+                    <span
+                      style={{
+                        padding: "3px 11px",
                         borderRadius: 20,
                         fontSize: 11,
                         fontWeight: 700,
+                        flexShrink: 0,
                         background:
-                          c.isActive !== false ? "#e6f4ea" : "#fdecea",
-                        color: c.isActive !== false ? "#2e7d32" : "#c62828",
-                        letterSpacing: "0.04em",
+                          root.isActive !== false ? "#e6f4ea" : "#fdecea",
+                        color: root.isActive !== false ? "#2e7d32" : "#c62828",
                       }}
                     >
-                      {c.isActive !== false ? "Active" : "Inactive"}
+                      {root.isActive !== false ? "Active" : "Inactive"}
                     </span>
-                  </td>
 
-                  {/* Actions */}
-                  <td className="s-admincategor-19b711">
-                    <div
-                      className="s-adminbrands-ac734d"
-                      style={{ gap: 4, flexWrap: "wrap" }}
-                    >
-                      <button
-                        onClick={() => setViewModal(c)}
-                        className="s-adminbrands-6ea383"
-                        style={{
-                          background: "#e8eaf6",
-                          color: "#3949ab",
-                          border: "1px solid #9fa8da",
-                        }}
-                      >
-                        👁 View
-                      </button>
-                      <button
-                        onClick={() => handleToggleVisibility(c)}
-                        disabled={doToggleVisibility.isPending}
-                        title={
-                          c.isActive !== false
-                            ? "Hide this category everywhere"
-                            : "Make this category visible again"
-                        }
-                        style={{
-                          padding: "5px 10px",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          borderRadius: 6,
-                          border: "1px solid",
-                          cursor: doToggleVisibility.isPending
-                            ? "not-allowed"
-                            : "pointer",
-                          opacity:
-                            doToggleVisibility.isPending &&
-                            doToggleVisibility.variables?.id === c.categoryId
-                              ? 0.6
-                              : 1,
-                          background:
-                            c.isActive !== false ? "#fff8e1" : "#e8f5e9",
-                          borderColor:
-                            c.isActive !== false ? "#f9a825" : "#43a047",
-                          color: c.isActive !== false ? "#e65100" : "#2e7d32",
-                        }}
-                      >
-                        {doToggleVisibility.isPending &&
-                        doToggleVisibility.variables?.id === c.categoryId
-                          ? "…"
-                          : c.isActive !== false
-                          ? "🙈 Hide"
-                          : "👁 Show"}
-                      </button>
-                      <button
-                        onClick={() => setConfirm(c)}
-                        className="s-adminbrands-6ea383"
-                        style={{
-                          background: "#fdecea",
-                          color: "#c62828",
-                          border: "1px solid #f5c6cb",
-                        }}
-                      >
-                        🗑 Delete
-                      </button>
+                    {/* Actions */}
+                    <div style={{ flexShrink: 0 }}>
+                      {renderActions(root as any)}
                     </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </div>
 
-      {pages > 1 && (
-        <div className="s-adminblog-213a15">
-          {Array.from({ length: pages }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => setPage(i + 1)}
-              className="s-admincategor-431a8a"
-              style={{
-                borderColor: page === i + 1 ? "var(--brand)" : "var(--ivory)",
-                background: page === i + 1 ? "var(--brand)" : "#fff",
-                color: page === i + 1 ? "#fff" : "#000",
-              }}
-            >
-              {i + 1}
-            </button>
-          ))}
+                  {/* ── Child rows (collapsible) ─────────────────────── */}
+                  {expanded && kids.length > 0 && (
+                    <div style={{ marginLeft: 36, marginTop: 2 }}>
+                      {kids.map((kid, ki) => (
+                        <div
+                          key={kid.categoryId}
+                          draggable
+                          onDragStart={() =>
+                            handleDragStart(root.categoryId, ki)
+                          }
+                          onDragEnter={() =>
+                            handleDragEnter(root.categoryId, ki)
+                          }
+                          onDragEnd={handleDragEnd}
+                          onDragOver={(e) => e.preventDefault()}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "8px 12px",
+                            background:
+                              kid.isActive !== false ? "#fdf6f9" : "#fffbf0",
+                            border: `1px solid ${
+                              kid.isActive !== false ? "#e8d5e3" : "#f5c6cb"
+                            }`,
+                            borderLeft: "3px solid #c9a8d8",
+                            borderRadius: 7,
+                            marginBottom: 2,
+                            cursor: "grab",
+                            userSelect: "none",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          {/* Drag handle */}
+                          <span
+                            style={{
+                              color: "#ddd",
+                              fontSize: 15,
+                              flexShrink: 0,
+                            }}
+                          >
+                            ⠿
+                          </span>
+
+                          {/* Position badge */}
+                          <span
+                            style={{
+                              minWidth: 21,
+                              height: 21,
+                              borderRadius: 5,
+                              background: "#ead5e8",
+                              color: BRAND,
+                              fontSize: 10,
+                              fontWeight: 800,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {ki + 1}
+                          </span>
+
+                          {/* spacer aligns with expand-button column above */}
+                          <span style={{ width: 62, flexShrink: 0 }} />
+
+                          {/* Thumbnail */}
+                          {renderThumb(kid as any)}
+
+                          {/* Name + description */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: 13,
+                                  color: "#333",
+                                }}
+                              >
+                                {kid.name}
+                              </span>
+                              {kid.isActive === false && (
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    background: "#fdecea",
+                                    color: "#c62828",
+                                    padding: "2px 7px",
+                                    borderRadius: 20,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  Hidden
+                                </span>
+                              )}
+                            </div>
+                            {kid.description && (
+                              <p
+                                style={{
+                                  margin: "2px 0 0",
+                                  fontSize: 11,
+                                  color: "#aaa",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {kid.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Status pill */}
+                          <span
+                            style={{
+                              padding: "2px 9px",
+                              borderRadius: 20,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              flexShrink: 0,
+                              background:
+                                kid.isActive !== false ? "#e6f4ea" : "#fdecea",
+                              color:
+                                kid.isActive !== false ? "#2e7d32" : "#c62828",
+                            }}
+                          >
+                            {kid.isActive !== false ? "Active" : "Inactive"}
+                          </span>
+
+                          {/* Actions */}
+                          <div style={{ flexShrink: 0 }}>
+                            {renderActions(kid as any)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       )}
 
-      {/* ─── View-only Modal ─── */}
+      {/* ─── View Modal ─── */}
       {viewModal && (
         <ViewCategoryModal
           cat={viewModal}
@@ -975,7 +1472,7 @@ export default function AdminCategories() {
         />
       )}
 
-      {/* ─── Edit/Add Modal ─── */}
+      {/* ─── Edit / Add Modal ─── */}
       {modal && (
         <div className="s-admincategor-172a23">
           <div className="s-adminbrands-cd5358">
@@ -1084,7 +1581,7 @@ export default function AdminCategories() {
         </div>
       )}
 
-      {/* ─── Delete Confirm (parent warning) ─── */}
+      {/* ─── Delete Confirm ─── */}
       {confirm &&
         (() => {
           const childCount = getChildCount(confirm.categoryId);
@@ -1120,8 +1617,8 @@ export default function AdminCategories() {
                           {childCount} child categor
                           {childCount === 1 ? "y" : "ies"}
                         </strong>
-                        . Deleting it will also permanently delete all its child
-                        categories.
+                        . Deleting it will also delete all its child categories
+                        and <strong>make all their products inactive</strong>.
                       </span>
                     </div>
                     <p
@@ -1135,7 +1632,11 @@ export default function AdminCategories() {
                     </p>
                   </>
                 ) : (
-                  <p className="s-adminbrands-93cf07">This cannot be undone.</p>
+                  <p className="s-adminbrands-93cf07">
+                    All products in this category will become{" "}
+                    <strong>inactive</strong> and hidden from the storefront.
+                    This cannot be undone.
+                  </p>
                 )}
                 <div className="s-adminblog-679e96">
                   <button
@@ -1266,7 +1767,7 @@ export default function AdminCategories() {
             <p style={{ fontSize: 13, color: "#555", margin: "0 0 16px" }}>
               Choose <strong>Yes</strong> to restore all child categories, or{" "}
               <strong>No</strong> to show only this parent — you can then
-              manually restore individual children as needed.
+              manually restore individual children.
             </p>
             <div
               style={{
@@ -1384,9 +1885,8 @@ export default function AdminCategories() {
           onDelete={
             viewImage.categoryId
               ? () => {
-                  // find the full cat object to reuse existing confirmDeleteImage flow
-                  const cat = cats.find(
-                    (c: any) => c.categoryId === viewImage.categoryId,
+                  const cat = allCats.find(
+                    (c) => c.categoryId === viewImage.categoryId,
                   );
                   setViewImage(null);
                   setConfirmDeleteImage(

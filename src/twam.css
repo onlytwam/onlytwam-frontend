@@ -594,6 +594,10 @@ button {
   will-change: transform;
 }
 
+.brand-marquee:hover .brand-marquee-track {
+  animation-play-state: paused;
+}
+
 .brand-marquee-item {
   flex: 0 0 auto;
   display: flex;

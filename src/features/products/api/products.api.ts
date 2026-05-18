@@ -86,7 +86,7 @@ export const listProducts = async (params: Record<string, any>) => {
     "order.ascending":
       params.orderAscending !== undefined
         ? params.orderAscending
-        : (params["order.ascending"] ?? false),
+        : params["order.ascending"] ?? false,
   };
 
   filters.forEach((f, i) => {
@@ -115,7 +115,7 @@ export const listCategories = async (params?: any) => {
   const response = await api.get("/Category/GetProductDetailCategory", {
     params: {
       "page.size": params?.pageSize || params?.["page.size"] || 200,
-      "order.property": params?.orderProperty || "Name",
+      "order.property": params?.orderProperty || "DisplayOrder",
       "order.ascending": params?.orderAscending ?? true,
     },
   });
@@ -213,7 +213,6 @@ export const listUserReviews = async (params?: Record<string, any>) => {
 //   return response.data;
 // };
 
-
 export const createReview = async (data: any) => {
   const form = new FormData();
   Object.entries(data).forEach(([key, val]) => {
@@ -225,7 +224,8 @@ export const createReview = async (data: any) => {
   });
 
   const token = localStorage.getItem("access_token");
-  const baseURL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api");
+  const baseURL =
+    import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
 
   const res = await fetch(`${baseURL}/ProductReview`, {
     method: "POST",

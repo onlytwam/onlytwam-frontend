@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
-import { getImageUrl } from "@/shared/utils/helpers";
 import toast from "react-hot-toast";
 
 // ─────────────────────────────────────────────
@@ -12,20 +11,16 @@ interface Brand {
   brandId: number;
   brandName: string;
   brandDescription: string | null;
-  brandLogo: string | null;
   brandImage: string | null;
   isActive: boolean;
+  deletedInd?: boolean;
 }
 
 interface ModalState {
   brandId?: number;
   brandName: string;
   description: string;
-  _logoFile: File | null;
-  _existingLogo: string | null;
-  // image fields (uploaded via dedicated /image endpoint after save)
-  _existingImage: string | null;
-  _imageUrl: string; // live URL returned after upload
+  _imageUrl: string;
 }
 
 // ─────────────────────────────────────────────
@@ -41,20 +36,11 @@ const PAGE_SIZE = 20;
 function resolveImgSrc(src: string | null | undefined): string {
   if (!src) return "";
   if (src.startsWith("http") || src.startsWith("/")) return src;
-  return getImageUrl(`/${src}`);
-}
-
-function buildBrandFormData(modal: ModalState): FormData {
-  const fd = new FormData();
-  fd.append("brandName", modal.brandName.trim());
-  fd.append("brandDescription", modal.description.trim());
-  fd.append("isActive", "true");
-  if (modal._logoFile) fd.append("brandLogo", modal._logoFile);
-  return fd;
+  return "/" + src.replace(/\\/g, "/");
 }
 
 // ─────────────────────────────────────────────
-// Brand image upload hook  (mirrors useCategoryImageUpload)
+// Brand image upload hook
 // ─────────────────────────────────────────────
 
 function useBrandImageUpload(
@@ -82,7 +68,7 @@ function useBrandImageUpload(
 }
 
 // ─────────────────────────────────────────────
-// ImageUploadField  (identical UI to AdminCategories)
+// ImageUploadField
 // ─────────────────────────────────────────────
 
 function ImageUploadField({
@@ -130,7 +116,6 @@ function ImageUploadField({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* Preview box */}
       <div
         style={{
           width: "100%",
@@ -171,7 +156,6 @@ function ImageUploadField({
         )}
       </div>
 
-      {/* File picker */}
       <input
         ref={fileInputRef}
         type="file"
@@ -187,7 +171,6 @@ function ImageUploadField({
         }}
       />
 
-      {/* Upload / clear buttons */}
       <div style={{ display: "flex", gap: 8 }}>
         <button
           onClick={handleSave}
@@ -238,6 +221,128 @@ function ImageUploadField({
 }
 
 // ─────────────────────────────────────────────
+// ImageViewerModal
+// ─────────────────────────────────────────────
+
+function ImageViewerModal({
+  url,
+  name,
+  onClose,
+  onDelete,
+}: {
+  url: string;
+  name: string;
+  onClose: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 3000,
+        background: "rgba(0,0,0,0.75)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          padding: 24,
+          maxWidth: "90vw",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.3)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontWeight: 700, fontSize: 15, color: "#333" }}>
+            {name}
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 20,
+              cursor: "pointer",
+              color: "#888",
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        <img
+          src={url}
+          alt={name}
+          style={{
+            maxWidth: "80vw",
+            maxHeight: "70vh",
+            objectFit: "contain",
+            borderRadius: 8,
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+          }}
+        >
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 12,
+              color: "#6B0F2A",
+              textDecoration: "underline",
+            }}
+          >
+            Open full image ↗
+          </a>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 7,
+                border: "1px solid #f5c6cb",
+                background: "#fdecea",
+                color: "#c62828",
+                cursor: "pointer",
+              }}
+            >
+              🗑 Delete Image
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // DeleteImageConfirm modal
 // ─────────────────────────────────────────────
 
@@ -258,6 +363,20 @@ function DeleteImageModal({
         <h3 className="s-adminblog-caf79d">
           Remove image from "{brand.brandName}"?
         </h3>
+        {brand.brandImage && (
+          <img
+            src={resolveImgSrc(brand.brandImage)}
+            alt={brand.brandName}
+            style={{
+              width: 80,
+              height: 80,
+              objectFit: "cover",
+              borderRadius: 8,
+              margin: "8px auto",
+              display: "block",
+            }}
+          />
+        )}
         <p className="s-adminbrands-93cf07">
           The image will be permanently deleted and cannot be recovered.
         </p>
@@ -283,6 +402,65 @@ function DeleteImageModal({
 }
 
 // ─────────────────────────────────────────────
+// Status badge helper
+// ─────────────────────────────────────────────
+
+function BrandStatusBadge({ brand }: { brand: Brand }) {
+  if (brand.deletedInd) {
+    return (
+      <span
+        style={{
+          display: "inline-block",
+          fontSize: 10,
+          fontWeight: 700,
+          background: "#fdecea",
+          color: "#c62828",
+          borderRadius: 20,
+          padding: "2px 8px",
+          letterSpacing: "0.05em",
+        }}
+      >
+        DELETED
+      </span>
+    );
+  }
+  if (!brand.isActive) {
+    return (
+      <span
+        style={{
+          display: "inline-block",
+          fontSize: 10,
+          fontWeight: 700,
+          background: "#fff8e1",
+          color: "#e65100",
+          borderRadius: 20,
+          padding: "2px 8px",
+          letterSpacing: "0.05em",
+        }}
+      >
+        HIDDEN
+      </span>
+    );
+  }
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: 10,
+        fontWeight: 700,
+        background: "#e8f5e9",
+        color: "#2e7d32",
+        borderRadius: 20,
+        padding: "2px 8px",
+        letterSpacing: "0.05em",
+      }}
+    >
+      ACTIVE
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────
 
@@ -294,8 +472,13 @@ export default function AdminBrands() {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [confirm, setConfirm] = useState<Brand | null>(null);
   const [confirmDelImage, setConfirmDelImage] = useState<Brand | null>(null);
+  const [viewImage, setViewImage] = useState<{
+    url: string;
+    name: string;
+    brandId: number;
+  } | null>(null);
 
-  // ── Query ───────────────────────────────────────────────────────────────────
+  // ── Query — admin view: showAll=true includes hidden brands ─────────────────
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-brands", page, search],
@@ -316,6 +499,7 @@ export default function AdminBrands() {
           "Page.Size": PAGE_SIZE,
           "Order.Property": "Name",
           "Order.Ascending": true,
+          showAll: true, // admin sees hidden brands too (never sees deleted ones via list)
         },
       });
       return data as { list: Brand[]; count: number };
@@ -331,7 +515,10 @@ export default function AdminBrands() {
   const saveMutation = useMutation({
     mutationFn: (m: ModalState) => {
       if (!m.brandName.trim()) throw new Error("Brand name is required");
-      const fd = buildBrandFormData(m);
+      const fd = new FormData();
+      fd.append("brandName", m.brandName.trim());
+      fd.append("brandDescription", m.description.trim());
+      fd.append("isActive", "true");
       return m.brandId
         ? api.put(`/Brand/${m.brandId}`, fd)
         : api.post("/Brand/", fd);
@@ -340,15 +527,12 @@ export default function AdminBrands() {
       toast.success("Brand saved!");
       qc.invalidateQueries({ queryKey: ["admin-brands"] });
       if (m.brandId) {
-        // Editing — close modal
         setModal(null);
       } else {
-        // Creating — keep modal open so image can be uploaded
         const newId = res?.data?.brandId;
         setModal((prev) => (prev ? { ...prev, brandId: newId } : prev));
-        if (newId) {
+        if (newId)
           toast("Brand created — you can now upload an image.", { icon: "🖼️" });
-        }
       }
     },
     onError: (e: any) =>
@@ -358,11 +542,53 @@ export default function AdminBrands() {
   const deleteMutation = useMutation({
     mutationFn: (brandId: number) => api.delete(`/Brand/${brandId}`),
     onSuccess: () => {
-      toast.success("Brand deleted");
+      toast.success(
+        "Brand deleted. All its products are now inactive and hidden from all user pages.",
+      );
       qc.invalidateQueries({ queryKey: ["admin-brands"] });
+      // Also invalidate product queries so admin products list refreshes brand badges
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
       setConfirm(null);
     },
-    onError: () => toast.error("Delete failed — brand may be in use"),
+    onError: () => toast.error("Delete failed"),
+  });
+
+  // ── Toggle visibility mutation ──────────────────────────────────────────────
+
+  const toggleVisibilityMutation = useMutation({
+    mutationFn: (brandId: number) =>
+      api.patch(`/Brand/${brandId}/toggle-visibility`),
+    // Optimistic update: flip isActive immediately in the cache
+    onMutate: async (brandId: number) => {
+      await qc.cancelQueries({ queryKey: ["admin-brands"] });
+      const previous = qc.getQueriesData({ queryKey: ["admin-brands"] });
+      qc.setQueriesData({ queryKey: ["admin-brands"] }, (old: any) => {
+        if (!old?.list) return old;
+        return {
+          ...old,
+          list: old.list.map((b: Brand) =>
+            b.brandId === brandId ? { ...b, isActive: !b.isActive } : b,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onSuccess: (res, brandId) => {
+      const newState = res?.data?.isActive;
+      toast.success(
+        newState
+          ? "Brand is now visible. All its products are shown again."
+          : "Brand hidden. All its products are hidden from users.",
+      );
+      qc.invalidateQueries({ queryKey: ["admin-brands"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (_err, _brandId, ctx: any) => {
+      if (ctx?.previous) {
+        ctx.previous.forEach(([key, val]: any) => qc.setQueryData(key, val));
+      }
+      toast.error("Could not update brand visibility.");
+    },
   });
 
   const deleteImageMutation = useMutation({
@@ -371,10 +597,8 @@ export default function AdminBrands() {
       toast.success("Brand image removed.");
       qc.invalidateQueries({ queryKey: ["admin-brands"] });
       setConfirmDelImage(null);
-      // Also clear the image in the open modal if applicable
-      setModal((prev) =>
-        prev ? { ...prev, _existingImage: null, _imageUrl: "" } : prev,
-      );
+      setViewImage(null);
+      setModal((prev) => (prev ? { ...prev, _imageUrl: "" } : prev));
     },
     onError: () => toast.error("Could not delete image."),
   });
@@ -382,23 +606,13 @@ export default function AdminBrands() {
   // ── Modal helpers ───────────────────────────────────────────────────────────
 
   const openAdd = () =>
-    setModal({
-      brandName: "",
-      description: "",
-      _logoFile: null,
-      _existingLogo: null,
-      _existingImage: null,
-      _imageUrl: "",
-    });
+    setModal({ brandName: "", description: "", _imageUrl: "" });
 
   const openEdit = (b: Brand) =>
     setModal({
       brandId: b.brandId,
       brandName: b.brandName,
       description: b.brandDescription ?? "",
-      _logoFile: null,
-      _existingLogo: b.brandLogo ?? null,
-      _existingImage: b.brandImage ?? null,
       _imageUrl: b.brandImage ?? "",
     });
 
@@ -433,11 +647,13 @@ export default function AdminBrands() {
         <table className="s-adminbrands-de3642">
           <thead>
             <tr className="s-adminbrands-1ba202">
-              {["Logo", "Image", "Name", "Description", "Actions"].map((h) => (
-                <th key={h} className="s-adminbrands-84e069">
-                  {h}
-                </th>
-              ))}
+              {["Image", "Name", "Description", "Status", "Actions"].map(
+                (h) => (
+                  <th key={h} className="s-adminbrands-84e069">
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -455,32 +671,24 @@ export default function AdminBrands() {
               </tr>
             ) : (
               brands.map((b) => {
-                const logoSrc = resolveImgSrc(b.brandLogo);
-                const imageSrc = resolveImgSrc(b.brandImage);
+                const imgSrc = resolveImgSrc(b.brandImage);
+                const isDeleted = !!b.deletedInd;
                 return (
-                  <tr key={b.brandId} className="s-adminbrands-59d787">
-                    {/* Logo */}
+                  <tr
+                    key={b.brandId}
+                    className="s-adminbrands-59d787"
+                    style={{
+                      opacity: isDeleted ? 0.5 : 1,
+                      background: isDeleted
+                        ? "#fdf5f5"
+                        : !b.isActive
+                        ? "#fffbf0"
+                        : undefined,
+                    }}
+                  >
+                    {/* Image */}
                     <td className="s-adminbrands-7dcd2c">
-                      {logoSrc ? (
-                        <img
-                          src={logoSrc}
-                          alt={b.brandName}
-                          className="s-adminbrands-0c5599"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="s-adminbrands-6167ec">
-                          <i className="bi bi-image s-adminbrands-95b451" />
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Brand image */}
-                    <td className="s-adminbrands-7dcd2c">
-                      {imageSrc ? (
+                      {imgSrc ? (
                         <div
                           style={{
                             position: "relative",
@@ -488,8 +696,17 @@ export default function AdminBrands() {
                           }}
                         >
                           <img
-                            src={imageSrc}
-                            alt={`${b.brandName} image`}
+                            src={imgSrc}
+                            alt={b.brandName}
+                            title="Click to view"
+                            onClick={() =>
+                              !isDeleted &&
+                              setViewImage({
+                                url: imgSrc,
+                                name: b.brandName,
+                                brandId: b.brandId,
+                              })
+                            }
                             style={{
                               width: 56,
                               height: 56,
@@ -497,42 +714,45 @@ export default function AdminBrands() {
                               borderRadius: 8,
                               border: "1px solid #e8ddd8",
                               display: "block",
+                              cursor: isDeleted ? "default" : "pointer",
+                              filter: isDeleted ? "grayscale(80%)" : undefined,
                             }}
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display =
                                 "none";
                             }}
                           />
-                          {/* Quick-remove button */}
-                          <button
-                            title="Remove image"
-                            onClick={() => setConfirmDelImage(b)}
-                            style={{
-                              position: "absolute",
-                              top: -6,
-                              right: -6,
-                              width: 18,
-                              height: 18,
-                              borderRadius: "50%",
-                              background: "#6B0F2A",
-                              color: "#fff",
-                              border: "none",
-                              fontSize: 10,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              lineHeight: "18px",
-                              padding: 0,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            ✕
-                          </button>
+                          {!isDeleted && (
+                            <button
+                              title="Remove image"
+                              onClick={() => setConfirmDelImage(b)}
+                              style={{
+                                position: "absolute",
+                                top: -6,
+                                right: -6,
+                                width: 18,
+                                height: 18,
+                                borderRadius: "50%",
+                                background: "#6B0F2A",
+                                color: "#fff",
+                                border: "none",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                lineHeight: "18px",
+                                padding: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div className="s-adminbrands-6167ec">
-                          <i className="bi bi-card-image s-adminbrands-95b451" />
+                          <i className="bi bi-image s-adminbrands-95b451" />
                         </div>
                       )}
                     </td>
@@ -542,21 +762,97 @@ export default function AdminBrands() {
                       {b.brandDescription ?? "—"}
                     </td>
 
+                    {/* Status badge */}
+                    <td className="s-adminbrands-7dcd2c">
+                      <BrandStatusBadge brand={b} />
+                    </td>
+
                     {/* Actions */}
                     <td className="s-adminbrands-7dcd2c">
                       <div className="s-adminbrands-ac734d">
-                        <button
-                          onClick={() => openEdit(b)}
-                          className="s-adminbrands-6ea383"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setConfirm(b)}
-                          className="s-adminbrands-6ea383"
-                        >
-                          Delete
-                        </button>
+                        {/* Edit — disabled for deleted brands */}
+                        {!isDeleted && (
+                          <button
+                            onClick={() => openEdit(b)}
+                            className="s-adminbrands-6ea383"
+                          >
+                            Edit
+                          </button>
+                        )}
+
+                        {/* Hide / Show toggle — only for non-deleted brands */}
+                        {!isDeleted && (
+                          <button
+                            onClick={() =>
+                              toggleVisibilityMutation.mutate(b.brandId)
+                            }
+                            disabled={toggleVisibilityMutation.isPending}
+                            title={
+                              b.isActive
+                                ? "Hide brand — removes it and all its products from all user pages"
+                                : "Show brand — makes it and its products visible to users again"
+                            }
+                            style={{
+                              padding: "5px 12px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              borderRadius: 7,
+                              border: `1px solid ${
+                                b.isActive ? "#ffe082" : "#c8e6c9"
+                              }`,
+                              background: b.isActive ? "#fff8e1" : "#e8f5e9",
+                              color: b.isActive ? "#e65100" : "#2e7d32",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {b.isActive ? "🙈 Hide" : "👁 Show"}
+                          </button>
+                        )}
+
+                        {/* Delete — soft-delete; shows confirmation */}
+                        {!isDeleted && (
+                          <button
+                            onClick={() => setConfirm(b)}
+                            style={{
+                              padding: "5px 12px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              borderRadius: 7,
+                              border: "1px solid #f5c6cb",
+                              background: "#fdecea",
+                              color: "#c62828",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            🗑 Delete
+                          </button>
+                        )}
+
+                        {/* Deleted brand: show inactive button that toasts "Brand deleted" */}
+                        {isDeleted && (
+                          <button
+                            onClick={() =>
+                              toast.error(
+                                "This brand has been deleted. Its products are inactive.",
+                              )
+                            }
+                            style={{
+                              padding: "5px 12px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              borderRadius: 7,
+                              border: "1px solid #f5c6cb",
+                              background: "#fdecea",
+                              color: "#c62828",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Brand Deleted
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -595,7 +891,6 @@ export default function AdminBrands() {
               {modal.brandId ? "Edit" : "New"} Brand
             </h3>
 
-            {/* Name & Description */}
             {(
               [
                 ["Brand Name *", "brandName", "text"],
@@ -617,98 +912,55 @@ export default function AdminBrands() {
               </div>
             ))}
 
-            {/* Logo upload (sent with save FormData) */}
-            <div className="s-adminblog-22a617">
-              <label className="s-addressform-f1fb64">Logo</label>
-              {modal._existingLogo && !modal._logoFile && (
-                <img
-                  src={resolveImgSrc(modal._existingLogo)}
-                  alt="current logo"
-                  style={{
-                    height: 40,
-                    marginBottom: 6,
-                    display: "block",
-                    objectFit: "contain",
-                  }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              )}
-              {modal._logoFile && (
-                <img
-                  src={URL.createObjectURL(modal._logoFile)}
-                  alt="new logo preview"
-                  style={{
-                    height: 40,
-                    marginBottom: 6,
-                    display: "block",
-                    objectFit: "contain",
-                  }}
-                />
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                className="inp-field"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] ?? null;
-                  setModal((prev) =>
-                    prev ? { ...prev, _logoFile: file } : prev,
-                  );
-                }}
-              />
-            </div>
-
-            {/* Divider */}
             <hr style={{ margin: "12px 0", borderColor: "#ede6e1" }} />
 
-            {/* Brand Image — dedicated upload endpoint (same as AdminCategories) */}
             <div className="s-adminblog-22a617">
-              <label
-                className="s-addressform-f1fb64"
-                style={{ marginBottom: 6, display: "block" }}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 6,
+                }}
               >
-                Brand Image
-              </label>
+                <label className="s-addressform-f1fb64" style={{ margin: 0 }}>
+                  🖼️ Brand Image
+                </label>
+                {modal._imageUrl && (
+                  <button
+                    onClick={() =>
+                      modal.brandId &&
+                      setViewImage({
+                        url: modal._imageUrl,
+                        name: modal.brandName,
+                        brandId: modal.brandId,
+                      })
+                    }
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#6B0F2A",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      padding: 0,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    👁 View Current Image
+                  </button>
+                )}
+              </div>
               <ImageUploadField
                 brandId={modal.brandId}
-                currentUrl={
-                  modal._imageUrl || modal._existingImage || undefined
-                }
+                currentUrl={modal._imageUrl || undefined}
                 onUploaded={(url) =>
                   setModal((prev) =>
-                    prev
-                      ? { ...prev, _imageUrl: url, _existingImage: url }
-                      : prev,
+                    prev ? { ...prev, _imageUrl: url } : prev,
                   )
                 }
               />
-              {/* Show remove-image link when an image already exists */}
-              {(modal._imageUrl || modal._existingImage) && modal.brandId && (
-                <button
-                  onClick={() =>
-                    setConfirmDelImage(
-                      brands.find((b) => b.brandId === modal.brandId) ?? null,
-                    )
-                  }
-                  style={{
-                    marginTop: 6,
-                    background: "none",
-                    border: "none",
-                    color: "#c0392b",
-                    fontSize: 12,
-                    cursor: "pointer",
-                    padding: 0,
-                    textDecoration: "underline",
-                  }}
-                >
-                  🗑 Remove image
-                </button>
-              )}
             </div>
 
-            {/* Modal buttons */}
             <div className="s-adminbrands-fcea5e">
               <button
                 onClick={() => setModal(null)}
@@ -742,8 +994,17 @@ export default function AdminBrands() {
               Delete "{confirm.brandName}"?
             </h3>
             <p className="s-adminbrands-93cf07">
-              This cannot be undone. Products linked to this brand may be
-              affected.
+              Deleting this brand will{" "}
+              <strong>make all its products inactive</strong> and hide them from
+              every user-facing page (categories, all-products, filters, brand
+              page). The brand record is preserved in the database.
+            </p>
+            <p
+              className="s-adminbrands-93cf07"
+              style={{ fontSize: 11, color: "#999" }}
+            >
+              Admin products list will still show affected products with a
+              "BRAND DELETED" badge.
             </p>
             <div className="s-adminblog-679e96">
               <button
@@ -760,7 +1021,7 @@ export default function AdminBrands() {
                 disabled={deleteMutation.isPending}
                 className="s-adminbrands-ad5bf3"
               >
-                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                {deleteMutation.isPending ? "Deleting…" : "Delete Brand"}
               </button>
             </div>
           </div>
@@ -774,6 +1035,28 @@ export default function AdminBrands() {
           isPending={deleteImageMutation.isPending}
           onConfirm={() => deleteImageMutation.mutate(confirmDelImage.brandId)}
           onCancel={() => setConfirmDelImage(null)}
+        />
+      )}
+
+      {/* ── Image Viewer ── */}
+      {viewImage && (
+        <ImageViewerModal
+          url={viewImage.url}
+          name={viewImage.name}
+          onClose={() => setViewImage(null)}
+          onDelete={() => {
+            const brand = brands.find((b) => b.brandId === viewImage.brandId);
+            setViewImage(null);
+            setConfirmDelImage(
+              brand ?? {
+                brandId: viewImage.brandId,
+                brandName: viewImage.name,
+                brandDescription: null,
+                brandImage: viewImage.url,
+                isActive: true,
+              },
+            );
+          }}
         />
       )}
     </div>

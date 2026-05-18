@@ -20,6 +20,7 @@ import ProductFilters, {
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
+import { useMenuStore } from "@/shared/store/menuStore";
 
 const DEFAULT_FILTERS: ProductFilterState = {
   colors: [],
@@ -33,16 +34,6 @@ const DEFAULT_FILTERS: ProductFilterState = {
 };
 
 // ─── 6 hero categories config ─────────────────────────────────────────────────
-const HERO_CATEGORIES = [
-  { pattern: /\bbras?\b/i, file: "Bra.png", label: "BRAS" },
-  { pattern: /panties|panty/i, file: "Panties.png", label: "PANTIES" },
-  {
-    pattern: /leak.?proof|leakproof/i,
-    file: "Leakproof.png",
-    label: "LEAKPROOF",
-  },
-];
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AllProducts() {
   const isMobile = useIsMobile();
@@ -50,6 +41,7 @@ export default function AllProducts() {
   const filterScrollY = useRef(0);
   const { setCrumbs } = useBreadcrumbStore();
   const queryClient = useQueryClient();
+  const { menus } = useMenuStore();
 
   // When admin hides/shows a category, immediately invalidate stale caches
   // so hidden-category products and nav entries disappear without a page reload.
@@ -149,19 +141,22 @@ export default function AllProducts() {
     staleTime: 0,
   });
 
-  const heroTiles = useMemo(() => {
+  const categoryTiles = useMemo(() => {
     const cats: any[] = categoriesData?.list ?? [];
-    return HERO_CATEGORIES.map((hero) => {
-      const matched = cats.find((c: any) =>
-        hero.pattern.test(c.name ?? c.categoryName ?? ""),
-      );
-      return {
-        ...hero,
-        categoryId: matched?.categoryId ?? null,
-        categoryImage: matched?.categoryImage ?? null,
-      };
+    const imageByCategoryId = new Map<number, string>();
+
+    cats.forEach((cat: any) => {
+      if (cat.categoryImage) {
+        imageByCategoryId.set(cat.categoryId, cat.categoryImage);
+      }
     });
-  }, [categoriesData]);
+
+    return menus.map((menu) => ({
+      categoryId: menu.categoryId,
+      label: menu.name,
+      image: imageByCategoryId.get(menu.categoryId) ?? "",
+    }));
+  }, [categoriesData, menus]);
 
   // ── Fetch all products ─────────────────────────────────────────────────────
   const { data: rawData, isLoading } = useQuery({
@@ -299,77 +294,39 @@ export default function AllProducts() {
   return (
     <div className="s-productlist-3ab64d s-productlist-ff586331">
       {/* ── Desktop hero: title + 3×2 category grid ── */}
-      {!isMobile && (
-        <div className="ap-hero-section">
+      <section className="ap-hero-section" aria-label="Shop by category">
           {/* Burgundy centered heading */}
-          <div className="ap-hero-title-bar">
-            <h1 className="ap-hero-title">All Products</h1>
-          </div>
+        <div className="ap-hero-title-bar">
+          <h1 className="ap-hero-title">All Products</h1>
+        </div>
 
           {/* 3-row x 2-col category grid — images from API, no static assets */}
-          <div className="ap-category-grid">
-            {heroTiles.map((tile) => (
-              <button
-                key={tile.label}
-                className="ap-category-tile"
-                onClick={() =>
-                  tile.categoryId &&
-                  navigate(`/user-products/product-list/${tile.categoryId}`)
-                }
-                aria-label={`Shop ${tile.label}`}
-              >
-                {tile.categoryImage ? (
-                  <img
-                    src={tile.categoryImage}
-                    alt={tile.label}
-                    className="ap-category-img"
-                    loading="lazy"
-                  />
-                ) : (
-                  <span className="ap-category-label">{tile.label}</span>
-                )}
-              </button>
-            ))}
-          </div>
+        <div className="ap-category-grid">
+          {categoryTiles.map((tile) => (
+            <button
+              key={tile.categoryId}
+              className="ap-category-tile"
+              onClick={() =>
+                navigate(`/user-products/product-list/${tile.categoryId}`)
+              }
+              aria-label={`Shop ${tile.label}`}
+            >
+              {tile.image ? (
+                <img
+                  src={tile.image}
+                  alt={tile.label}
+                  className="ap-category-img"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="ap-category-label">{tile.label}</span>
+              )}
+            </button>
+          ))}
         </div>
-      )}
+      </section>
 
       {/* ── Mobile: hero banner from API — only shown when image is uploaded ── */}
-      {isMobile &&
-        (() => {
-          const allCat = (categoriesData?.list ?? []).find((c: any) =>
-            /all.?product/i.test(c.name ?? ""),
-          );
-          const mobileHero: string | null = allCat?.categoryImage ?? null;
-          return mobileHero ? (
-            <div
-              className="category-hero-banner"
-              style={{
-                width: "100%",
-                maxWidth: "100vw",
-                height: "calc(100dvh - 64px)",
-                overflow: "hidden",
-                margin: 0,
-                padding: 0,
-                lineHeight: 0,
-              }}
-            >
-              <img
-                src={mobileHero}
-                alt="All Products"
-                loading="lazy"
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: "center",
-                }}
-              />
-            </div>
-          ) : null;
-        })()}
-
       {/* Toolbar */}
       <ProductToolbar
         productCount={displayProducts.length}
@@ -545,19 +502,14 @@ export default function AllProducts() {
         /* Hero wrapper fills viewport below navbar */
         .ap-hero-section {
           width: 100%;
-          display: flex;
-          flex-direction: column;
-          height: calc(100dvh - 64px);
-          overflow: hidden;
+          padding: clamp(12px, 2vw, 24px);
+          background: #fff;
         }
 
         /* "All Products" — burgundy, centered */
         .ap-hero-title-bar {
-          flex-shrink: 0;
-          padding: 16px 0 14px;
-          background: #fff;
+          padding: 8px 0 18px;
           text-align: center;
-          border-bottom: 1px solid #f0ece8;
         }
 
         .ap-hero-title {
@@ -572,32 +524,27 @@ export default function AllProducts() {
 
         /* 3 rows x 2 cols grid — no text overlays */
         .ap-category-grid {
-          flex: 1;
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: repeat(3, 1fr);
-          gap: 0;
-          overflow: hidden;
-          min-height: 0;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+          gap: clamp(10px, 1.4vw, 18px);
+          max-width: 1280px;
+          margin: 0 auto;
         }
 
         .ap-category-tile {
           position: relative;
           overflow: hidden;
           cursor: pointer;
-          border: none;
+          border: 1px solid rgba(107, 15, 42, 0.08);
+          border-radius: 8px;
           padding: 0;
-          background: #c8b8a8;
-          display: block;
+          background: #f5f0eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           width: 100%;
-          height: 100%;
+          aspect-ratio: 3 / 1;
         }
-
-        .ap-category-tile:nth-child(odd)  { border-right: 1.5px solid rgba(255,255,255,0.25); }
-        .ap-category-tile:nth-child(1),
-        .ap-category-tile:nth-child(2)    { border-bottom: 1.5px solid rgba(255,255,255,0.25); }
-        .ap-category-tile:nth-child(3),
-        .ap-category-tile:nth-child(4)    { border-bottom: 1.5px solid rgba(255,255,255,0.25); }
 
         .ap-category-img {
           width: 100%;
@@ -610,6 +557,24 @@ export default function AllProducts() {
 
         .ap-category-tile:hover .ap-category-img {
           transform: scale(1.06);
+        }
+
+        .ap-category-label {
+          color: var(--brand);
+          font-size: clamp(13px, 1.5vw, 18px);
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        @media (max-width: 700px) {
+          .ap-hero-section {
+            padding: 10px;
+          }
+
+          .ap-hero-title-bar {
+            padding: 6px 0 12px;
+          }
         }
       `}</style>
     </div>
