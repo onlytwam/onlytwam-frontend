@@ -330,22 +330,21 @@ export default function Payment() {
 
   // ── FIX: extra-item bug ─────────────────────────────────────────────────
   // The authoritative list of items for this checkout is the *session* that
-  // was written by Cart.tsx when the user clicked "Proceed" (it contains only
-  // the items the user deliberately selected).
+  // was written by Cart.tsx when the user clicked "Proceed".
   //
-  // The cartStore fallback (`cartSelectedItems`) is dangerous here because
-  // `useCartLoader` runs globally and calls `setItems(allCartItems)`, which
-  // re-marks EVERY cart item as `isSelected:true`.  If `_selectedItems` ever
-  // gets cleared (page refresh, hot-reload, store reset), `getSelectedItems()`
-  // returns ALL cart items — not just the ones the user chose — causing extra
-  // items to appear in the order and invoice.
+  // REMOVED: the old cartStore fallback (cartSelectedItems) that returned ALL
+  // cart items with isSelected:true when _selectedItems was empty.  This was
+  // the second vector for phantom products: if the session happened to be
+  // empty (e.g. same-tab back navigation after a session reset), the fallback
+  // would include every item in the user's cart.
   //
-  // Priority: buyNow session → checkout session → store fallback (last resort)
+  // If the session is empty we now show an error and redirect to cart rather
+  // than silently ordering the wrong set of products.
   const selectedItems = buyNowItems.length
     ? buyNowItems
     : sessionSelectedItems.length
     ? sessionSelectedItems
-    : cartSelectedItems;
+    : []; // ← empty → handleProceedToPayment guard will catch this and show error
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
   const shippingCost = Number(
     (selectedShipping as any)?.cost ??
@@ -689,7 +688,13 @@ export default function Payment() {
       return;
     }
     if (selectedItems.length === 0) {
-      toast.error("Your cart is empty");
+      // Session is empty — the user most likely navigated directly to this
+      // page or their session storage was cleared.  Redirect to cart so they
+      // can restart the checkout flow cleanly instead of placing an empty order.
+      toast.error(
+        "Your checkout session expired. Please start again from your cart.",
+      );
+      navigate("/user-products/cart", { replace: true });
       return;
     }
     if (!selectedShipping?.shippingTypeId) {
