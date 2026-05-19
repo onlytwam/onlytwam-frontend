@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listProducts,
   listCategories,
+  listBrands,
 } from "@/features/products/api/products.api";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
@@ -30,6 +31,16 @@ import ProductFilters, {
 import ProductToolbar from "@/features/products/components/ProductToolbar";
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
+const API_ASSET_ORIGIN = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+).replace(/\/api\/?$/, "");
+
+function getBrandImageUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http") || path.startsWith("/assets")) return path;
+  if (path.startsWith("/")) return encodeURI(`${API_ASSET_ORIGIN}${path}`);
+  return encodeURI(`${API_ASSET_ORIGIN}/${path.replace(/\\/g, "/")}`);
+}
 
 // ─── Category images ──────────────────────────────────────────────────────────
 // NOTE: Order matters — more specific patterns must come BEFORE general ones.
@@ -102,7 +113,10 @@ export default function ProductList() {
     setSearchQuery(urlSearch || "");
     setIsBestSeller(urlBestSeller);
     setSortOption(urlSort || "default");
-  }, [urlSearch, urlBestSeller, urlSort]);
+    if (urlBrand) {
+      setFilters((current) => ({ ...current, brandIds: [urlBrand] }));
+    }
+  }, [urlSearch, urlBestSeller, urlSort, urlBrand]);
 
   // Filter drawer: scroll lock + positioning (mobile only)
   useEffect(() => {
@@ -172,6 +186,12 @@ export default function ProductList() {
     queryKey: ["categories"],
     queryFn: () => listCategories({ pageSize: 200 }),
     staleTime: 0,
+  });
+
+  const { data: brandsData } = useQuery({
+    queryKey: ["brands"],
+    queryFn: () => listBrands({ "Page.Size": 500 }),
+    staleTime: 10 * 60 * 1000,
   });
 
   const buildParams = useCallback(() => {
@@ -276,9 +296,18 @@ export default function ProductList() {
 
   // ── Category data ──────────────────────────────────────────────────────────
   const categories = categoriesData?.list ?? [];
+  const brands = brandsData?.list ?? [];
   const currentCategory = categories.find((c: any) => c.categoryId === catId);
   const categoryName = currentCategory?.name || "";
   const categoryImage: string | null = currentCategory?.categoryImage ?? null;
+  const selectedBrandId =
+    filters.brandIds.length === 1 ? filters.brandIds[0] : urlBrand || 0;
+  const selectedBrand = brands.find((b: any) => b.brandId === selectedBrandId);
+  const selectedBrandImage = getBrandImageUrl(
+    selectedBrand?.brandImage || selectedBrand?.brandLogo,
+  );
+  const heroImage = categoryImage || selectedBrandImage;
+  const heroAlt = categoryImage ? categoryName : selectedBrand?.brandName || "";
 
   const currentSubcategoryId = currentCategory?.parentCategoryId ? catId : null;
 
@@ -326,7 +355,7 @@ export default function ProductList() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: FONTS }}>
-      {categoryImage && (
+      {heroImage && (
         <div
           className="category-hero-banner"
           style={{
@@ -339,8 +368,8 @@ export default function ProductList() {
           }}
         >
           <img
-            src={categoryImage}
-            alt={categoryName}
+            src={heroImage}
+            alt={heroAlt}
             loading="lazy"
             style={{
               display: "block",
