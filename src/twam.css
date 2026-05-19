@@ -22768,12 +22768,16 @@ section.s-home-bcf04f {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 24px 16px 0;
   box-sizing: border-box;
 }
 
 /* ── Mobile: stack columns ── */
 @media (max-width: 768px) {
+  .s-productdetai-312006 {
+    padding-top: 14px;
+  }
+
   .s-productdetai-3bf9d0 {
     grid-template-columns: 1fr;
   }
