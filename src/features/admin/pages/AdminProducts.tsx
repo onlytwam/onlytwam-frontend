@@ -13,6 +13,13 @@ const grey = "#F3EFEC";
 const sub = "#8A7F7A";
 const txt = "#2B2B2B";
 
+// ── Image helpers ─────────────────────────────────────────────────────────────
+function resolveImg(src: string | null | undefined): string {
+  if (!src) return "";
+  if (src.startsWith("http") || src.startsWith("/")) return src;
+  return "/" + src.replace(/\\/g, "/");
+}
+
 // ── Status helpers ────────────────────────────────────────────────────────────
 interface StatusInfo {
   fullyActive: boolean;
@@ -22,7 +29,6 @@ interface StatusInfo {
 function getStatusInfo(p: any, isExplicitlyHidden?: boolean): StatusInfo {
   const reasons: StatusInfo["reasons"] = [];
 
-  // 1. Brand status
   if (p.brandDeletedInd) {
     reasons.push({
       label: `Brand "${p.brandName || p.brandId}" has been deleted`,
@@ -35,7 +41,6 @@ function getStatusInfo(p: any, isExplicitlyHidden?: boolean): StatusInfo {
     });
   }
 
-  // 2. Category status
   if (p.categoryDeletedInd) {
     reasons.push({
       label: `Category "${p.categoryName || p.categoryId}" has been deleted`,
@@ -48,19 +53,16 @@ function getStatusInfo(p: any, isExplicitlyHidden?: boolean): StatusInfo {
     });
   }
 
-  // 3. Own product status
   if (p.isActive === false && reasons.length === 0) {
-    // Only own-hide, no external cascade
     reasons.push({ label: "Product is hidden by admin", type: "inactive" });
   } else if (isExplicitlyHidden && reasons.length > 0) {
-    // Admin explicitly hid the product on top of brand/category cascade
     reasons.unshift({ label: "Product is hidden by admin", type: "inactive" });
   }
 
   return { fullyActive: reasons.length === 0, reasons };
 }
 
-// ── Status Pill — shows Active/Inactive, click opens reason popover ───────────
+// ── Status Pill ───────────────────────────────────────────────────────────────
 function StatusPill({
   product,
   isExplicitlyHidden,
@@ -77,17 +79,12 @@ function StatusPill({
     top: number;
     left: number;
     above: boolean;
-  }>({
-    top: 0,
-    left: 0,
-    above: false,
-  });
+  }>({ top: 0, left: 0, above: false });
   const btnRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const { fullyActive, reasons } = getStatusInfo(product, isExplicitlyHidden);
   const isOwnActive = product.isActive !== false;
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
@@ -105,13 +102,12 @@ function StatusPill({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Reposition whenever open or on scroll/resize — flips above if near bottom
   useEffect(() => {
     if (!open) return;
     function reposition() {
       if (btnRef.current) {
         const rect = btnRef.current.getBoundingClientRect();
-        const POPOVER_HEIGHT = 220; // generous estimate
+        const POPOVER_HEIGHT = 220;
         const MARGIN = 12;
         const spaceBelow = window.innerHeight - rect.bottom;
         const above = spaceBelow < POPOVER_HEIGHT + MARGIN;
@@ -173,7 +169,6 @@ function StatusPill({
     );
   }
 
-  // Inactive — red pill, click opens portal popover
   return (
     <>
       <button
@@ -238,7 +233,6 @@ function StatusPill({
               pointerEvents: "auto",
             }}
           >
-            {/* caret — top when opening below, bottom when opening above */}
             <div
               style={{
                 position: "absolute",
@@ -264,7 +258,6 @@ function StatusPill({
                 background: "#fff",
               }}
             />
-
             <div
               style={{
                 fontWeight: 700,
@@ -278,7 +271,6 @@ function StatusPill({
             <div style={{ fontSize: 11, color: "#777", marginBottom: 10 }}>
               This product is not visible because:
             </div>
-
             {reasons.map((r, i) => (
               <div
                 key={i}
@@ -304,7 +296,6 @@ function StatusPill({
                 <span>{r.label}</span>
               </div>
             ))}
-
             {isOwnActive &&
               reasons.some(
                 (r) =>
@@ -323,7 +314,6 @@ function StatusPill({
                   again.
                 </div>
               )}
-
             {!isOwnActive &&
               !reasons.some(
                 (r) =>
@@ -358,7 +348,7 @@ function StatusPill({
   );
 }
 
-// ── Simple toggle pill for variants / pvd ─────────────────────────────────────
+// ── Toggle pill ───────────────────────────────────────────────────────────────
 function TogglePill({
   isActive,
   onToggle,
@@ -404,7 +394,7 @@ function TogglePill({
   );
 }
 
-// ── Hide / Show button (in Actions column) ────────────────────────────────────
+// ── Hide/Show button ──────────────────────────────────────────────────────────
 function HideShowButton({
   isOwnActive,
   hasExternalReasons,
@@ -418,10 +408,6 @@ function HideShowButton({
   onToggle: () => void;
   loading?: boolean;
 }) {
-  // showAsActive = true  →  show "Hide" button
-  // showAsActive = false →  show "Show" button
-  // When brand/category cascade hides the product (hasExternalReasons=true, isOwnActive=false),
-  // treat as "active from admin's view" UNLESS admin has explicitly marked it hidden.
   const showAsActive =
     (isOwnActive || hasExternalReasons) && !isExplicitlyHidden;
   return (
@@ -562,7 +548,7 @@ function ImageModal({
   );
 }
 
-// ── Variant Detail Row ────────────────────────────────────────────────────────
+// ── VariantDetailRow ──────────────────────────────────────────────────────────
 function VariantDetailRow({
   pvd,
   sizes,
@@ -824,7 +810,7 @@ function VariantDetailRow({
   );
 }
 
-// ── Variant Detail Panel ──────────────────────────────────────────────────────
+// ── VariantDetailPanel ────────────────────────────────────────────────────────
 function VariantDetailPanel({ variantId }: { variantId: number }) {
   const { data: pvdData, refetch } = useQuery({
     queryKey: ["pvd-list", variantId],
@@ -857,7 +843,6 @@ function VariantDetailPanel({ variantId }: { variantId: number }) {
   const pvds = pvdData?.list ?? [];
   const sizes = Array.isArray(sizesData) ? sizesData : [];
   const cups = Array.isArray(cupSizesData) ? cupSizesData : [];
-
   const thStyle: React.CSSProperties = {
     padding: "8px 12px",
     textAlign: "left",
@@ -936,7 +921,7 @@ function VariantDetailPanel({ variantId }: { variantId: number }) {
   );
 }
 
-// ── Variant Row ───────────────────────────────────────────────────────────────
+// ── VariantRow ────────────────────────────────────────────────────────────────
 function VariantRow({
   variant,
   productId,
@@ -1082,7 +1067,7 @@ function VariantRow({
   );
 }
 
-// ── Variant Panel ─────────────────────────────────────────────────────────────
+// ── VariantPanel ──────────────────────────────────────────────────────────────
 function VariantPanel({ productId }: { productId: number }) {
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({
@@ -1204,47 +1189,234 @@ function VariantPanel({ productId }: { productId: number }) {
   );
 }
 
-// ── Main AdminProducts ────────────────────────────────────────────────────────
-export default function AdminProducts() {
+// ── Icon card (used for brands, categories) ───────────────────────────────────
+// Matches TwamBrands card: 3:1 banner image + name below
+function BannerCard({
+  image,
+  name,
+  count,
+  onClick,
+  isActive = true,
+  badge,
+}: {
+  image?: string | null;
+  name: string;
+  count?: number;
+  onClick: () => void;
+  isActive?: boolean;
+  badge?: string;
+}) {
+  const imgSrc = resolveImg(image);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        border: "1px solid #f5f0e6",
+        borderRadius: 8,
+        padding: 0,
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        transition: "all 0.2s",
+        background: "#fff",
+        textAlign: "left",
+        overflow: "hidden",
+        opacity: isActive ? 1 : 0.62,
+        width: "100%",
+      }}
+      onMouseEnter={(e) => {
+        const b = e.currentTarget as HTMLButtonElement;
+        b.style.borderColor = primary;
+        b.style.boxShadow = "0 8px 24px rgba(0,0,0,0.1)";
+        b.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        const b = e.currentTarget as HTMLButtonElement;
+        b.style.borderColor = "#f5f0e6";
+        b.style.boxShadow = "none";
+        b.style.transform = "none";
+      }}
+    >
+      {/* 3:1 banner frame */}
+      <span
+        style={{
+          width: "100%",
+          aspectRatio: "3 / 1",
+          background: "#f5f0e6",
+          display: "block",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt={name}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "column",
+              gap: 4,
+            }}
+          >
+            <i
+              className="bi bi-image"
+              style={{ fontSize: 30, color: "#c8b8b0" }}
+            />
+          </span>
+        )}
+        {badge && (
+          <span
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              background: badge === "DELETED" ? "#c62828" : "#e65100",
+              color: "#fff",
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: 20,
+            }}
+          >
+            {badge}
+          </span>
+        )}
+      </span>
+      {/* name + count */}
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "11px 14px 13px",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: "#000",
+            lineHeight: 1.3,
+          }}
+        >
+          {name}
+        </span>
+        {count !== undefined && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              background: count > 0 ? primaryLt : grey,
+              color: count > 0 ? primary : sub,
+              borderRadius: 20,
+              padding: "2px 9px",
+              flexShrink: 0,
+            }}
+          >
+            {count} {count === 1 ? "product" : "products"}
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+// ── Breadcrumb bar ────────────────────────────────────────────────────────────
+function Breadcrumbs({
+  crumbs,
+  onNavigate,
+}: {
+  crumbs: { label: string; onClick?: () => void }[];
+  onNavigate: (i: number) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        flexWrap: "wrap",
+        fontSize: 13,
+        marginBottom: 18,
+      }}
+    >
+      {crumbs.map((c, i) => (
+        <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {i > 0 && (
+            <i
+              className="bi bi-chevron-right"
+              style={{ fontSize: 10, color: sub }}
+            />
+          )}
+          <span
+            onClick={c.onClick ? c.onClick : undefined}
+            style={{
+              color: c.onClick ? primary : txt,
+              fontWeight: c.onClick ? 600 : 700,
+              cursor: c.onClick ? "pointer" : "default",
+              textDecoration: c.onClick ? "underline" : "none",
+            }}
+          >
+            {c.label}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── Products table ────────────────────────────────────────────────────────────
+function ProductsTable({
+  brandId,
+  categoryId,
+  totalLabel,
+}: {
+  brandId?: number;
+  categoryId?: number;
+  totalLabel: string;
+}) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [page, setPage] = useState(1);
-  const [confirmDelete, setConfirm] = useState<any>(null);
   const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
-  // Tracks products that admin explicitly hid even when brand/category cascade
-  // already set isActive=false. Needed because cascade sets isActive=false, so
-  // we cannot distinguish cascade-hidden vs admin-hidden without this local set.
+  const [confirmDelete, setConfirm] = useState<any>(null);
   const [explicitlyHiddenIds, setExplicitlyHiddenIds] = useState<Set<number>>(
     new Set(),
   );
 
-  const handleSearchChange = useCallback((val: string) => {
-    setSearchInput(val);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setSearch(val);
-      setPage(1);
-    }, 400);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    [],
-  );
-
   const buildParams = useCallback(() => {
     const filters: any[] = [];
-    if (search.trim())
+    if (brandId !== undefined)
       filters.push({
-        property: "QuickSearch",
-        comparison: "contains",
-        value: search.trim(),
+        property: "brandId",
+        comparison: "eq",
+        value: String(brandId),
+      });
+    if (categoryId !== undefined)
+      filters.push({
+        property: "categoryId",
+        comparison: "eq",
+        value: String(categoryId),
       });
     return {
       ...(filters.length ? { Filters: JSON.stringify(filters) } : {}),
@@ -1253,10 +1425,10 @@ export default function AdminProducts() {
       "Order.Property": "ModifiedDate",
       "Order.Ascending": "false",
     };
-  }, [search, page]);
+  }, [brandId, categoryId, page]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-products", search, page],
+    queryKey: ["admin-products-filtered", brandId, categoryId, page],
     queryFn: () =>
       api
         .get("/Products/", { params: { ...buildParams(), adminView: true } })
@@ -1267,14 +1439,11 @@ export default function AdminProducts() {
     mutationFn: (id: number) => api.patch(`/Products/${id}/toggle-active`),
     onSuccess: () => {
       toast.success("Product updated");
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
     },
     onError: () => toast.error("Failed to update"),
   });
 
-  // Smart toggle: when brand/category cascade already set isActive=false,
-  // clicking "Hide" should just mark locally (no API call needed).
-  // Clicking "Show" on an explicitly-hidden cascaded product removes the local mark.
   const handleToggleProduct = (p: any) => {
     const hasExt =
       p.brandIsActive === false ||
@@ -1282,19 +1451,15 @@ export default function AdminProducts() {
       p.categoryIsActive === false ||
       !!p.categoryDeletedInd;
     const isExpHidden = explicitlyHiddenIds.has(p.productId);
-
     if (hasExt && p.isActive === false && !isExpHidden) {
-      // Cascade-hidden, admin wants to explicitly hide → mark locally, no API call
       setExplicitlyHiddenIds((prev) => new Set([...prev, p.productId]));
     } else if (hasExt && isExpHidden) {
-      // Admin explicitly hid + cascade, clicking "Show" → remove local mark only
       setExplicitlyHiddenIds((prev) => {
         const s = new Set(prev);
         s.delete(p.productId);
         return s;
       });
     } else {
-      // Normal case: call the toggle API
       toggleProduct.mutate(p.productId);
     }
   };
@@ -1303,7 +1468,7 @@ export default function AdminProducts() {
     mutationFn: (id: number) => api.delete(`/Products/${id}`),
     onSuccess: () => {
       toast.success("Product deleted");
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
     },
     onError: () => toast.error("Failed to delete"),
   });
@@ -1314,32 +1479,12 @@ export default function AdminProducts() {
 
   return (
     <div>
-      {/* ── Header ── */}
-      <div className="s-adminblog-fe4afb">
-        <div>
-          <h2 className="s-adminblog-91c675">Products</h2>
-          <p className="s-adminblog-1c2c10">
-            {total} product{total !== 1 ? "s" : ""}
-            {search ? " (filtered)" : " total"}
-          </p>
-        </div>
-        <div className="s-adminproduct-0f6417">
-          <button
-            onClick={() => navigate("/admin/products/new")}
-            className="s-adminproduct-1f0204"
-          >
-            <i className="bi bi-plus-lg" /> Create New Product
-          </button>
-          <input
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search products…"
-            className="s-adminproduct-def428"
-          />
-        </div>
+      <div style={{ fontSize: 13, color: sub, marginBottom: 14 }}>
+        {isLoading
+          ? "Loading…"
+          : `${total} product${total !== 1 ? "s" : ""} in ${totalLabel}`}
       </div>
 
-      {/* ── Table ── */}
       <div className="s-adminbrands-a637bc">
         <div className="s-admindashboa-ce7380">
           <table className="s-adminbrands-de3642">
@@ -1503,7 +1648,7 @@ export default function AdminProducts() {
                         {p.productCode || "—"}
                       </td>
 
-                      {/* Brand — name only, status moved to Status column */}
+                      {/* Brand */}
                       <td className="s-adminproduct-d86977">
                         <span
                           style={{
@@ -1551,7 +1696,7 @@ export default function AdminProducts() {
                         )}
                       </td>
 
-                      {/* Category — name only, status moved to Status column */}
+                      {/* Category */}
                       <td className="s-adminproduct-d86977">
                         <span
                           style={{
@@ -1597,7 +1742,7 @@ export default function AdminProducts() {
                           )}
                       </td>
 
-                      {/* ── STATUS column — the new centrepiece ── */}
+                      {/* Status */}
                       <td
                         className="s-adminbrands-7dcd2c"
                         style={{ textAlign: "center" }}
@@ -1612,7 +1757,7 @@ export default function AdminProducts() {
                         />
                       </td>
 
-                      {/* Actions: Edit | Hide/Show | Delete */}
+                      {/* Actions */}
                       <td className="s-adminbrands-7dcd2c">
                         <div className="s-adminproduct-6209be">
                           <button
@@ -1694,7 +1839,6 @@ export default function AdminProducts() {
         )}
       </div>
 
-      {/* ── Delete confirm modal ── */}
       {confirmDelete && (
         <div className="s-adminproduct-d9e7c0" onClick={() => setConfirm(null)}>
           <div
@@ -1727,6 +1871,636 @@ export default function AdminProducts() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Banner card grid (matches TwamBrands layout) ─────────────────────────────
+function BannerGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+        gap: 24,
+        padding: "4px 0 28px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BROWSE BY BRAND
+// ─────────────────────────────────────────────────────────────────────────────
+
+type BrandLevel =
+  | { view: "brands" }
+  | { view: "categories"; brand: any }
+  | { view: "subcategories"; brand: any; category: any }
+  | { view: "products"; brand: any; category?: any; subCategory?: any };
+
+function BrowseByBrand({ onCreateProduct }: { onCreateProduct: () => void }) {
+  const navigate = useNavigate();
+  const [level, setLevel] = useState<BrandLevel>({ view: "brands" });
+
+  // All brands (admin — include inactive so admin can see them)
+  const { data: brandsData, isLoading: brandsLoading } = useQuery({
+    queryKey: ["admin-brands-browse"],
+    queryFn: () =>
+      api
+        .get("/Brand/", { params: { showAll: true, "Page.Size": 200 } })
+        .then((r) => r.data),
+  });
+  const brands: any[] = brandsData?.list ?? [];
+
+  // All categories (flat list, admin)
+  const { data: catsData, isLoading: catsLoading } = useQuery({
+    queryKey: ["admin-cats-browse"],
+    queryFn: () =>
+      api
+        .get("/Category/", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+  });
+  const allCats: any[] = catsData?.list ?? [];
+
+  // ── Derive categories to show for a brand ────────────────────────────────
+  // We get products filtered by brandId, collect all unique categoryIds,
+  // then show only parent categories (parentCategoryId == null) that appear.
+  // Products fetch to get category presence.
+  const selectedBrand = level.view !== "brands" ? (level as any).brand : null;
+  const selectedCat =
+    level.view === "subcategories" ||
+    (level.view === "products" && (level as any).category)
+      ? (level as any).category
+      : null;
+
+  // Fetch all products for this brand (lightweight — just for category presence)
+  const { data: brandProductsData } = useQuery({
+    queryKey: ["brand-products-meta", selectedBrand?.brandId],
+    enabled: !!selectedBrand,
+    queryFn: () =>
+      api
+        .get("/Products/", {
+          params: {
+            Filters: JSON.stringify([
+              {
+                property: "brandId",
+                comparison: "eq",
+                value: String(selectedBrand.brandId),
+              },
+            ]),
+            "Page.Size": 1000,
+            adminView: true,
+          },
+        })
+        .then((r) => r.data),
+  });
+  const brandProducts: any[] = brandProductsData?.list ?? [];
+
+  // categoryIds present in this brand
+  const catIdsInBrand = new Set(
+    brandProducts.map((p: any) => p.categoryId).filter(Boolean),
+  );
+
+  // parent categories (parentCategoryId == null) that appear in this brand
+  const parentCatsInBrand = allCats.filter(
+    (c) => !c.parentCategoryId && catIdsInBrand.has(c.categoryId),
+  );
+
+  // If category has NO children → products live directly here.
+  // If category HAS children → show subcategory icons.
+  const getChildCats = (catId: number) =>
+    allCats.filter(
+      (c) => c.parentCategoryId === catId && catIdsInBrand.has(c.categoryId),
+    );
+
+  // count products per category (within brand)
+  const countInCat = (catId: number) =>
+    brandProducts.filter((p: any) => p.categoryId === catId).length;
+
+  // ── Breadcrumbs ──────────────────────────────────────────────────────────
+  function buildCrumbs() {
+    const crumbs: { label: string; onClick?: () => void }[] = [
+      {
+        label: "All Brands",
+        onClick:
+          level.view !== "brands"
+            ? () => setLevel({ view: "brands" })
+            : undefined,
+      },
+    ];
+    if (level.view !== "brands") {
+      const b = (level as any).brand;
+      crumbs.push({
+        label: b.brandName,
+        onClick:
+          level.view !== "categories"
+            ? () => setLevel({ view: "categories", brand: b })
+            : undefined,
+      });
+    }
+    if (
+      level.view === "subcategories" ||
+      (level.view === "products" && (level as any).category)
+    ) {
+      const b = (level as any).brand;
+      const cat = (level as any).category;
+      crumbs.push({
+        label: cat.name,
+        onClick:
+          level.view === "products" && (level as any).subCategory
+            ? () => {
+                const children = getChildCats(cat.categoryId);
+                if (children.length)
+                  setLevel({ view: "subcategories", brand: b, category: cat });
+                else setLevel({ view: "products", brand: b, category: cat });
+              }
+            : undefined,
+      });
+    }
+    if (level.view === "products" && (level as any).subCategory) {
+      crumbs.push({ label: (level as any).subCategory.name });
+    }
+    return crumbs;
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  if (level.view === "brands") {
+    return (
+      <div>
+        {brandsLoading ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: sub }}>
+            Loading brands…
+          </div>
+        ) : brands.length === 0 ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: sub }}>
+            No brands found
+          </div>
+        ) : (
+          <BannerGrid>
+            {brands.map((b: any) => (
+              <BannerCard
+                key={b.brandId}
+                image={b.brandImage}
+                name={b.brandName}
+                isActive={b.isActive !== false}
+                badge={
+                  b.deletedInd
+                    ? "DELETED"
+                    : b.isActive === false
+                    ? "HIDDEN"
+                    : undefined
+                }
+                onClick={() => setLevel({ view: "categories", brand: b })}
+              />
+            ))}
+          </BannerGrid>
+        )}
+      </div>
+    );
+  }
+
+  const brand = (level as any).brand;
+
+  if (level.view === "categories") {
+    const isLoadingCats = catsLoading || !brandProductsData;
+    return (
+      <div>
+        <Breadcrumbs crumbs={buildCrumbs()} onNavigate={() => {}} />
+        {isLoadingCats ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: sub }}>
+            Loading categories…
+          </div>
+        ) : parentCatsInBrand.length === 0 ? (
+          // No categories at all — show products directly
+          <ProductsTable brandId={brand.brandId} totalLabel={brand.brandName} />
+        ) : (
+          <BannerGrid>
+            {parentCatsInBrand.map((cat: any) => (
+              <BannerCard
+                key={cat.categoryId}
+                image={cat.categoryImage}
+                name={cat.name}
+                count={countInCat(cat.categoryId)}
+                isActive={cat.isActive !== false}
+                badge={cat.isActive === false ? "INACTIVE" : undefined}
+                onClick={() => {
+                  const children = getChildCats(cat.categoryId);
+                  if (children.length > 0) {
+                    setLevel({ view: "subcategories", brand, category: cat });
+                  } else {
+                    setLevel({ view: "products", brand, category: cat });
+                  }
+                }}
+              />
+            ))}
+          </BannerGrid>
+        )}
+      </div>
+    );
+  }
+
+  if (level.view === "subcategories") {
+    const cat = (level as any).category;
+    const children = getChildCats(cat.categoryId);
+    return (
+      <div>
+        <Breadcrumbs crumbs={buildCrumbs()} onNavigate={() => {}} />
+        {children.length === 0 ? (
+          <ProductsTable
+            brandId={brand.brandId}
+            categoryId={cat.categoryId}
+            totalLabel={cat.name}
+          />
+        ) : (
+          <BannerGrid>
+            {children.map((subItem: any) => (
+              <BannerCard
+                key={subItem.categoryId}
+                image={subItem.categoryImage}
+                name={subItem.name}
+                count={countInCat(subItem.categoryId)}
+                isActive={subItem.isActive !== false}
+                badge={subItem.isActive === false ? "INACTIVE" : undefined}
+                onClick={() =>
+                  setLevel({
+                    view: "products",
+                    brand,
+                    category: cat,
+                    subCategory: subItem,
+                  })
+                }
+              />
+            ))}
+          </BannerGrid>
+        )}
+      </div>
+    );
+  }
+
+  // products
+  const cat = (level as any).category;
+  const subCat = (level as any).subCategory;
+  const targetCat = subCat || cat;
+  return (
+    <div>
+      <Breadcrumbs crumbs={buildCrumbs()} onNavigate={() => {}} />
+      <ProductsTable
+        brandId={brand.brandId}
+        categoryId={targetCat?.categoryId}
+        totalLabel={targetCat?.name || brand.brandName}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BROWSE BY CATEGORY
+// ─────────────────────────────────────────────────────────────────────────────
+
+type CatLevel =
+  | { view: "categories" }
+  | { view: "subcategories"; category: any }
+  | { view: "brands"; category: any; subCategory?: any }
+  | { view: "products"; category: any; subCategory?: any; brand: any };
+
+function BrowseByCategory({
+  onCreateProduct,
+}: {
+  onCreateProduct: () => void;
+}) {
+  const navigate = useNavigate();
+  const [level, setLevel] = useState<CatLevel>({ view: "categories" });
+
+  // All categories (admin)
+  const { data: catsData, isLoading: catsLoading } = useQuery({
+    queryKey: ["admin-cats-browse"],
+    queryFn: () =>
+      api
+        .get("/Category/", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+  });
+  const allCats: any[] = catsData?.list ?? [];
+
+  // All brands
+  const { data: brandsData } = useQuery({
+    queryKey: ["admin-brands-browse"],
+    queryFn: () =>
+      api
+        .get("/Brand/", { params: { showAll: true, "Page.Size": 200 } })
+        .then((r) => r.data),
+  });
+  const allBrands: any[] = brandsData?.list ?? [];
+
+  const selectedCat =
+    level.view !== "categories" ? (level as any).category : null;
+  const selectedSubCat =
+    level.view === "brands" || level.view === "products"
+      ? (level as any).subCategory
+      : null;
+
+  // Fetch all products for the active category (to find which brands are present)
+  const activeCatId = selectedSubCat?.categoryId ?? selectedCat?.categoryId;
+  const { data: catProductsData } = useQuery({
+    queryKey: ["cat-products-meta", activeCatId],
+    enabled: !!activeCatId,
+    queryFn: () =>
+      api
+        .get("/Products/", {
+          params: {
+            Filters: JSON.stringify([
+              {
+                property: "categoryId",
+                comparison: "eq",
+                value: String(activeCatId),
+              },
+            ]),
+            "Page.Size": 1000,
+            adminView: true,
+          },
+        })
+        .then((r) => r.data),
+  });
+  const catProducts: any[] = catProductsData?.list ?? [];
+
+  // top-level (parent) categories
+  const parentCats = allCats.filter((c) => !c.parentCategoryId);
+  const getChildCats = (catId: number) =>
+    allCats.filter((c) => c.parentCategoryId === catId);
+
+  // brands present in a given set of products
+  const brandIdsInCat = new Set(
+    catProducts.map((p: any) => p.brandId).filter(Boolean),
+  );
+  const brandsInCat = allBrands.filter((b: any) =>
+    brandIdsInCat.has(b.brandId),
+  );
+
+  const countInBrand = (brandId: number) =>
+    catProducts.filter((p: any) => p.brandId === brandId).length;
+
+  function buildCrumbs() {
+    const crumbs: { label: string; onClick?: () => void }[] = [
+      {
+        label: "All Categories",
+        onClick:
+          level.view !== "categories"
+            ? () => setLevel({ view: "categories" })
+            : undefined,
+      },
+    ];
+    if (level.view !== "categories") {
+      const cat = (level as any).category;
+      crumbs.push({
+        label: cat.name,
+        onClick:
+          level.view !== "subcategories"
+            ? () => {
+                const children = getChildCats(cat.categoryId);
+                if (children.length)
+                  setLevel({ view: "subcategories", category: cat });
+                else setLevel({ view: "brands", category: cat });
+              }
+            : undefined,
+      });
+    }
+    if (
+      (level.view === "brands" || level.view === "products") &&
+      (level as any).subCategory
+    ) {
+      const subCat = (level as any).subCategory;
+      crumbs.push({
+        label: subCat.name,
+        onClick:
+          level.view === "products"
+            ? () =>
+                setLevel({
+                  view: "brands",
+                  category: (level as any).category,
+                  subCategory: subCat,
+                })
+            : undefined,
+      });
+    }
+    if (level.view === "products") {
+      crumbs.push({ label: (level as any).brand?.brandName });
+    }
+    return crumbs;
+  }
+
+  if (level.view === "categories") {
+    return (
+      <div>
+        {catsLoading ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: sub }}>
+            Loading categories…
+          </div>
+        ) : parentCats.length === 0 ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: sub }}>
+            No categories found
+          </div>
+        ) : (
+          <BannerGrid>
+            {parentCats.map((cat: any) => (
+              <BannerCard
+                key={cat.categoryId}
+                image={cat.categoryImage}
+                name={cat.name}
+                isActive={cat.isActive !== false}
+                onClick={() => {
+                  const children = getChildCats(cat.categoryId);
+                  if (children.length)
+                    setLevel({ view: "subcategories", category: cat });
+                  else setLevel({ view: "brands", category: cat });
+                }}
+              />
+            ))}
+          </BannerGrid>
+        )}
+      </div>
+    );
+  }
+
+  if (level.view === "subcategories") {
+    const cat = (level as any).category;
+    const children = getChildCats(cat.categoryId);
+    return (
+      <div>
+        <Breadcrumbs crumbs={buildCrumbs()} onNavigate={() => {}} />
+        {children.length === 0 ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: sub }}>
+            No sub-categories
+          </div>
+        ) : (
+          <BannerGrid>
+            {children.map((subItem: any) => (
+              <BannerCard
+                key={subItem.categoryId}
+                image={subItem.categoryImage}
+                name={subItem.name}
+                isActive={subItem.isActive !== false}
+                onClick={() =>
+                  setLevel({
+                    view: "brands",
+                    category: cat,
+                    subCategory: subItem,
+                  })
+                }
+              />
+            ))}
+          </BannerGrid>
+        )}
+      </div>
+    );
+  }
+
+  if (level.view === "brands") {
+    const cat = (level as any).category;
+    const subCat = (level as any).subCategory;
+    const isLoadingBrands = !catProductsData;
+    return (
+      <div>
+        <Breadcrumbs crumbs={buildCrumbs()} onNavigate={() => {}} />
+        {isLoadingBrands ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: sub }}>
+            Loading brands…
+          </div>
+        ) : brandsInCat.length === 0 ? (
+          // No brands → show products directly
+          <ProductsTable
+            categoryId={activeCatId}
+            totalLabel={subCat?.name || cat.name}
+          />
+        ) : (
+          <BannerGrid>
+            {brandsInCat.map((b: any) => (
+              <BannerCard
+                key={b.brandId}
+                image={b.brandImage}
+                name={b.brandName}
+                count={countInBrand(b.brandId)}
+                isActive={b.isActive !== false}
+                onClick={() =>
+                  setLevel({
+                    view: "products",
+                    category: cat,
+                    subCategory: subCat,
+                    brand: b,
+                  })
+                }
+              />
+            ))}
+          </BannerGrid>
+        )}
+      </div>
+    );
+  }
+
+  // products
+  const cat = (level as any).category;
+  const subCat = (level as any).subCategory;
+  const brand = (level as any).brand;
+  return (
+    <div>
+      <Breadcrumbs crumbs={buildCrumbs()} onNavigate={() => {}} />
+      <ProductsTable
+        brandId={brand.brandId}
+        categoryId={activeCatId}
+        totalLabel={`${subCat?.name || cat.name} › ${brand.brandName}`}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN AdminProducts
+// ─────────────────────────────────────────────────────────────────────────────
+export default function AdminProducts() {
+  const navigate = useNavigate();
+  const [browseBy, setBrowseBy] = useState<"brands" | "categories">("brands");
+  // Reset browse state when switching modes
+  const [browseKey, setBrowseKey] = useState(0);
+
+  function handleBrowseChange(val: "brands" | "categories") {
+    setBrowseBy(val);
+    setBrowseKey((k) => k + 1);
+  }
+
+  return (
+    <div>
+      {/* ── Header ── */}
+      <div className="s-adminblog-fe4afb">
+        <div>
+          <h2 className="s-adminblog-91c675">Products</h2>
+          <p className="s-adminblog-1c2c10">
+            Browse and manage products by brand or category
+          </p>
+        </div>
+        <div
+          className="s-adminproduct-0f6417"
+          style={{ gap: 12, alignItems: "center" }}
+        >
+          {/* Browse-by dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: sub,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Browse by
+            </label>
+            <select
+              value={browseBy}
+              onChange={(e) =>
+                handleBrowseChange(e.target.value as "brands" | "categories")
+              }
+              style={{
+                border: `1.5px solid ${border}`,
+                borderRadius: 8,
+                padding: "7px 32px 7px 12px",
+                fontSize: 13,
+                fontWeight: 600,
+                color: txt,
+                background: `#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%238A7F7A' d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 10px center`,
+                appearance: "none",
+                cursor: "pointer",
+                outline: "none",
+                minWidth: 130,
+              }}
+            >
+              <option value="brands">Brands</option>
+              <option value="categories">Categories</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => navigate("/admin/products/new")}
+            className="s-adminproduct-1f0204"
+          >
+            <i className="bi bi-plus-lg" /> Create New Product
+          </button>
+        </div>
+      </div>
+
+      {/* ── Browse panel ── */}
+      <div className="s-adminbrands-a637bc" style={{ padding: "20px 24px" }}>
+        {browseBy === "brands" ? (
+          <BrowseByBrand
+            key={browseKey}
+            onCreateProduct={() => navigate("/admin/products/new")}
+          />
+        ) : (
+          <BrowseByCategory
+            key={browseKey}
+            onCreateProduct={() => navigate("/admin/products/new")}
+          />
+        )}
+      </div>
     </div>
   );
 }
