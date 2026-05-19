@@ -24,7 +24,10 @@ const REASON_LABELS: Record<string, string> = {
   failed: "Payment failed. Please try again.",
   cancelled: "You cancelled the payment.",
   timeout: "The payment window expired before your payment was confirmed.",
-  error: "An error occurred while processing your payment.",
+  error:
+    "We couldn't confirm your payment status. Please check your orders — if money was deducted, your order will appear shortly.",
+  pending:
+    "Your payment is still being processed. Please check your orders page in a minute — if money was deducted, your order will appear once confirmed.",
 };
 
 function friendlyReason(code: string | null, reason: string | null): string {
@@ -32,6 +35,8 @@ function friendlyReason(code: string | null, reason: string | null): string {
     return REASON_LABELS[reason.toLowerCase()];
   }
   if (code === "2") return "Your payment was declined by the bank.";
+  if (code === "0" || code === "4") return REASON_LABELS["pending"];
+  if (code === "-1") return REASON_LABELS["error"];
   return reason || "Payment could not be completed. Please try again.";
 }
 
@@ -104,10 +109,17 @@ function PaymentFailure({
   message: string | null;
   isBuyNowRetry: boolean;
 }) {
+  const isPending =
+    reason?.toLowerCase() === "pending" || code === "0" || code === "4";
+  const isApiError = reason?.toLowerCase() === "error" || code === "-1";
   const isTimeout = reason?.toLowerCase() === "timeout";
 
   const heading =
-    status === "error" ? "Something went wrong" : "Payment Not Completed";
+    status === "error" || isApiError
+      ? "Payment Status Unknown"
+      : isPending
+      ? "Payment Processing"
+      : "Payment Not Completed";
   const detail =
     status === "error"
       ? message?.replace(/\+/g, " ") || "We could not process your order."
@@ -138,13 +150,23 @@ function PaymentFailure({
         <i className="bi bi-shield-check me-1 text-success" />
         {isTimeout
           ? "No order was placed and you were not charged. Your cart is still intact."
+          : isPending || isApiError
+          ? "If any amount was deducted from your account, your order will appear in My Orders once the payment is confirmed."
           : "No order was placed. You were not charged. Your cart is still intact."}
       </p>
 
       <div className="d-flex gap-3 justify-content-center flex-wrap">
+        {(isPending || isApiError) && (
+          <Link to="/user-products/orders" className="btn btn-dark px-4">
+            <i className="bi bi-bag-check me-2" />
+            Check My Orders
+          </Link>
+        )}
         <Link
           to={"/user-products/payment" + (isBuyNowRetry ? "?buyNow=1" : "")}
-          className="btn btn-dark px-4"
+          className={`btn px-4 ${
+            isPending || isApiError ? "btn-outline-dark" : "btn-dark"
+          }`}
         >
           <i className="bi bi-arrow-repeat me-2" />
           Try Again
