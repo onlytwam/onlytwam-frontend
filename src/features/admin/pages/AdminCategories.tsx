@@ -458,10 +458,15 @@ export default function AdminCategories() {
     name: string;
     categoryId?: number;
   } | null>(null);
-  const [hideParentConfirm, setHideParentConfirm] = useState<any>(null);
+  // ── Unhide flow: two-step (children first → then products) ─────────────────
   const [unhideChildrenConfirm, setUnhideChildrenConfirm] = useState<{
     cat: any;
     childCount: number;
+  } | null>(null);
+  // Step 2 of unhide flow: ask whether to also restore products
+  const [unhideProductsConfirm, setUnhideProductsConfirm] = useState<{
+    cat: any;
+    unhideChildren: boolean;
   } | null>(null);
 
   // ── Tree / reorder state ───────────────────────────────────────────────────
@@ -496,6 +501,43 @@ export default function AdminCategories() {
 
   const allCats: CatItem[] = data?.list ?? [];
   const total = data?.count ?? 0;
+
+  // ── Product count per category ───────────────────────────────────────────
+  const { data: productCountData } = useQuery({
+    queryKey: ["category-product-counts"],
+    queryFn: () =>
+      api
+        .get("/Category/GetCategoryProductCount")
+        .then((r) => r.data as { categoryId: number; count: number }[]),
+    staleTime: 30_000,
+  });
+
+  const productCountMap = useMemo<Record<number, number>>(() => {
+    if (!productCountData) return {};
+    return Object.fromEntries(
+      productCountData.map((r: any) => [r.categoryId, r.count]),
+    );
+  }, [productCountData]);
+
+  // For a parent category, total = products directly on the parent (no child
+  // assigned) + products in every child category.  The backend SQL now filters
+  // ChildCategoryId IS NULL on the parent-direct branch, so there is no
+  // overlap between the two buckets even in the mixed case (parent has both
+  // child categories AND some products filed straight on it).
+  const getCategoryProductCount = useCallback(
+    (catId: number): number => {
+      const direct = productCountMap[catId] ?? 0;
+      const children = allCats.filter((c) => c.parentCategoryId === catId);
+      return (
+        direct +
+        children.reduce(
+          (sum, ch) => sum + (productCountMap[ch.categoryId] ?? 0),
+          0,
+        )
+      );
+    },
+    [productCountMap, allCats],
+  );
 
   // ── Build tree ────────────────────────────────────────────────────────────
   const roots = useMemo(
@@ -643,13 +685,21 @@ export default function AdminCategories() {
     mutationFn: ({
       id,
       unhideChildren,
-    }: {
+      cascadeProducts,
+    }: // catName is UI-only; not sent to API
+    {
       id: number;
+      catName?: string;
       unhideChildren?: boolean;
-    }) =>
-      api.patch(`/Category/${id}/visibility`, null, {
-        params: unhideChildren ? { unhideChildren: true } : undefined,
-      }),
+      cascadeProducts?: boolean;
+    }) => {
+      const params: Record<string, any> = {};
+      if (unhideChildren) params.unhideChildren = true;
+      if (cascadeProducts) params.cascadeProducts = true;
+      return api.patch(`/Category/${id}/visibility`, null, {
+        params: Object.keys(params).length ? params : undefined,
+      });
+    },
 
     onMutate: async ({ id, unhideChildren }) => {
       await qc.cancelQueries({ queryKey: INV });
@@ -677,9 +727,13 @@ export default function AdminCategories() {
       return { previousData };
     },
 
-    onSuccess: (res: any) => {
-      const state = res?.data?.isActive ? "visible" : "hidden";
-      toast.success(`Category is now ${state}.`);
+    onSuccess: (res: any, { catName, id }) => {
+      const newIsActive = res?.data?.isActive;
+      const displayName = catName ?? "Category";
+      // Toast only when unhiding — hiding is intentionally silent
+      if (newIsActive) {
+        toast.success(`"${displayName}" is now visible.`);
+      }
       qc.invalidateQueries({ queryKey: INV });
       qc.invalidateQueries({
         predicate: (q) => {
@@ -689,6 +743,7 @@ export default function AdminCategories() {
       });
       qc.invalidateQueries({ queryKey: ["all-products-page"] });
       qc.invalidateQueries({ queryKey: ["products-list"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
       sessionStorage.removeItem("menus");
       setMenus([]);
       window.dispatchEvent(new CustomEvent("categoriesUpdated"));
@@ -697,8 +752,8 @@ export default function AdminCategories() {
         ch.postMessage({ type: "CATEGORIES_UPDATED" });
         ch.close();
       }
-      setHideParentConfirm(null);
       setUnhideChildrenConfirm(null);
+      setUnhideProductsConfirm(null);
     },
 
     onError: (_err: any, _vars: any, context: any) => {
@@ -729,12 +784,34 @@ export default function AdminCategories() {
   const handleToggleVisibility = (c: any) => {
     const childCount = getChildCount(c.categoryId);
     const isCurrentlyVisible = c.isActive !== false;
+
     if (isCurrentlyVisible) {
-      if (childCount > 0) setHideParentConfirm({ cat: c, childCount });
-      else doToggleVisibility.mutate({ id: c.categoryId });
+      // ── HIDING ─────────────────────────────────────────────────────────
+      // Always auto-cascade products. No confirmation needed.
+      // For parent categories: show an info toast so admin knows children are also hidden.
+      if (childCount > 0) {
+        toast(
+          `"${c.name}" hidden — ${childCount} child ${
+            childCount === 1 ? "category" : "categories"
+          } and all their products are also hidden.`,
+          { icon: "🙈" },
+        );
+      }
+      doToggleVisibility.mutate({
+        id: c.categoryId,
+        catName: c.name,
+        cascadeProducts: true,
+      });
     } else {
-      if (childCount > 0) setUnhideChildrenConfirm({ cat: c, childCount });
-      else doToggleVisibility.mutate({ id: c.categoryId });
+      // ── UNHIDING ───────────────────────────────────────────────────────
+      // Collect all choices first (children? products?), then fire ONE API call.
+      if (childCount > 0) {
+        // Parent: step 1 → ask about children
+        setUnhideChildrenConfirm({ cat: c, childCount });
+      } else {
+        // Child (leaf) category: skip children step, go straight to products
+        setUnhideProductsConfirm({ cat: c, unhideChildren: false });
+      }
     }
   };
 
@@ -1037,6 +1114,28 @@ export default function AdminCategories() {
                           parent
                         </span>
                       )}
+                      {(() => {
+                        const count = getCategoryProductCount(c.categoryId);
+                        return (
+                          <span
+                            title={`${count} product${
+                              count !== 1 ? "s" : ""
+                            } in this category`}
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 10,
+                              background: count > 0 ? "#f3e5f5" : "#f5f5f5",
+                              color: count > 0 ? "#6a1b9a" : "#9e9e9e",
+                              padding: "2px 7px",
+                              borderRadius: 10,
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {count} {count === 1 ? "product" : "products"}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="s-admincategor-ec7211">
                       {c.description || "—"}
@@ -1267,6 +1366,29 @@ export default function AdminCategories() {
                             Hidden
                           </span>
                         )}
+                        {(() => {
+                          const count = getCategoryProductCount(
+                            root.categoryId,
+                          );
+                          return (
+                            <span
+                              title={`${count} product${
+                                count !== 1 ? "s" : ""
+                              } in this category`}
+                              style={{
+                                fontSize: 10,
+                                background: count > 0 ? "#f3e5f5" : "#f5f5f5",
+                                color: count > 0 ? "#6a1b9a" : "#9e9e9e",
+                                padding: "2px 7px",
+                                borderRadius: 10,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {count} {count === 1 ? "product" : "products"}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {root.description && (
                         <p
@@ -1408,6 +1530,30 @@ export default function AdminCategories() {
                                   Hidden
                                 </span>
                               )}
+                              {(() => {
+                                const count =
+                                  productCountMap[kid.categoryId] ?? 0;
+                                return (
+                                  <span
+                                    title={`${count} product${
+                                      count !== 1 ? "s" : ""
+                                    } in this category`}
+                                    style={{
+                                      fontSize: 10,
+                                      background:
+                                        count > 0 ? "#f3e5f5" : "#f5f5f5",
+                                      color: count > 0 ? "#6a1b9a" : "#9e9e9e",
+                                      padding: "2px 7px",
+                                      borderRadius: 10,
+                                      fontWeight: 700,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {count}{" "}
+                                    {count === 1 ? "product" : "products"}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             {kid.description && (
                               <p
@@ -1664,78 +1810,7 @@ export default function AdminCategories() {
           );
         })()}
 
-      {/* ─── Hide Parent Confirm ─── */}
-      {hideParentConfirm && (
-        <div className="s-admincategor-172a23">
-          <div className="s-adminblog-69ab70" style={{ maxWidth: 440 }}>
-            <h3 className="s-adminblog-caf79d">
-              Hide "{hideParentConfirm.cat.name}"?
-            </h3>
-            <div
-              style={{
-                background: "#fff8e1",
-                border: "1px solid #f9a825",
-                borderRadius: 8,
-                padding: "10px 14px",
-                marginBottom: 12,
-                display: "flex",
-                gap: 8,
-                alignItems: "flex-start",
-              }}
-            >
-              <span style={{ fontSize: 18 }}>🙈</span>
-              <span style={{ fontSize: 13, color: "#e65100", fontWeight: 600 }}>
-                This is a parent category with{" "}
-                <strong>
-                  {hideParentConfirm.childCount} child categor
-                  {hideParentConfirm.childCount === 1 ? "y" : "ies"}
-                </strong>
-                . Hiding it will also hide all its child categories from the
-                storefront.
-              </span>
-            </div>
-            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#555" }}>
-              You can restore individual child categories later by clicking
-              "Show" on each one.
-            </p>
-            <div className="s-adminblog-679e96">
-              <button
-                onClick={() => setHideParentConfirm(null)}
-                className="s-admincategor-3dc5de"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() =>
-                  doToggleVisibility.mutate({
-                    id: hideParentConfirm.cat.categoryId,
-                  })
-                }
-                disabled={doToggleVisibility.isPending}
-                style={{
-                  padding: "8px 16px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  borderRadius: 7,
-                  border: "none",
-                  background: "#e65100",
-                  color: "#fff",
-                  cursor: "pointer",
-                  opacity: doToggleVisibility.isPending ? 0.6 : 1,
-                }}
-              >
-                {doToggleVisibility.isPending
-                  ? "Please wait…"
-                  : `Hide + ${hideParentConfirm.childCount} Child${
-                      hideParentConfirm.childCount === 1 ? "" : "ren"
-                    }`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Unhide Children? ─── */}
+      {/* ─── Unhide Children? (Step 1 of 2) ─── */}
       {unhideChildrenConfirm && (
         <div className="s-admincategor-172a23">
           <div className="s-adminblog-69ab70" style={{ maxWidth: 460 }}>
@@ -1765,9 +1840,9 @@ export default function AdminCategories() {
               </span>
             </div>
             <p style={{ fontSize: 13, color: "#555", margin: "0 0 16px" }}>
-              Choose <strong>Yes</strong> to restore all child categories, or{" "}
-              <strong>No</strong> to show only this parent — you can then
-              manually restore individual children.
+              <strong>Yes</strong> = restore all child categories (then you'll
+              be asked about products). <strong>No</strong> = show only this
+              parent — restore children manually later.
             </p>
             <div
               style={{
@@ -1783,13 +1858,15 @@ export default function AdminCategories() {
               >
                 Cancel
               </button>
+              {/* No = just unhide parent, no products question */}
               <button
-                onClick={() =>
+                onClick={() => {
                   doToggleVisibility.mutate({
                     id: unhideChildrenConfirm.cat.categoryId,
-                    unhideChildren: false,
-                  })
-                }
+                    catName: unhideChildrenConfirm.cat.name,
+                  });
+                  setUnhideChildrenConfirm(null);
+                }}
                 disabled={doToggleVisibility.isPending}
                 style={{
                   padding: "8px 16px",
@@ -1804,13 +1881,15 @@ export default function AdminCategories() {
               >
                 No, Show Parent Only
               </button>
+              {/* Yes = proceed to Step 2 (products question) */}
               <button
-                onClick={() =>
-                  doToggleVisibility.mutate({
-                    id: unhideChildrenConfirm.cat.categoryId,
+                onClick={() => {
+                  setUnhideChildrenConfirm(null);
+                  setUnhideProductsConfirm({
+                    cat: unhideChildrenConfirm.cat,
                     unhideChildren: true,
-                  })
-                }
+                  });
+                }}
                 disabled={doToggleVisibility.isPending}
                 style={{
                   padding: "8px 16px",
@@ -1821,12 +1900,9 @@ export default function AdminCategories() {
                   background: "#2e7d32",
                   color: "#fff",
                   cursor: "pointer",
-                  opacity: doToggleVisibility.isPending ? 0.6 : 1,
                 }}
               >
-                {doToggleVisibility.isPending
-                  ? "Please wait…"
-                  : "Yes, Show All Children Too"}
+                Yes, Show All Children Too
               </button>
             </div>
           </div>
@@ -1870,6 +1946,121 @@ export default function AdminCategories() {
                 className="s-admincategor-5e62fe"
               >
                 {deleteImageMutation.isPending ? "Removing…" : "Remove Image"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Unhide Products? (Step 2 of 2 for parent / standalone for child) ── */}
+      {unhideProductsConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => {
+            // Backdrop click = "No" — fire the toggle without cascading products
+            doToggleVisibility.mutate({
+              id: unhideProductsConfirm.cat.categoryId,
+              catName: unhideProductsConfirm.cat.name,
+              unhideChildren: unhideProductsConfirm.unhideChildren,
+            });
+            setUnhideProductsConfirm(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              padding: "28px 28px 22px",
+              maxWidth: 430,
+              width: "90%",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 22, marginBottom: 10 }}>👁</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>
+              Also show all products under "{unhideProductsConfirm.cat.name}"
+              {unhideProductsConfirm.unhideChildren
+                ? " and its child categories"
+                : ""}
+              ?
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "#666",
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              The categor
+              {unhideProductsConfirm.unhideChildren ? "ies are" : "y is"} now
+              visible. Do you also want to reactivate all their products so
+              customers can see them?{" "}
+              <span style={{ color: "#999" }}>
+                (No = products stay inactive; manage them individually from the
+                Products page.)
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {/* Yes: unhide with cascadeProducts=true — ONE single API call */}
+              <button
+                onClick={() => {
+                  doToggleVisibility.mutate({
+                    id: unhideProductsConfirm.cat.categoryId,
+                    catName: unhideProductsConfirm.cat.name,
+                    unhideChildren: unhideProductsConfirm.unhideChildren,
+                    cascadeProducts: true,
+                  });
+                  setUnhideProductsConfirm(null);
+                }}
+                disabled={doToggleVisibility.isPending}
+                style={{
+                  flex: 1,
+                  padding: "9px 0",
+                  borderRadius: 8,
+                  border: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  background: "#2e7d32",
+                  color: "#fff",
+                }}
+              >
+                Yes, show all products
+              </button>
+              {/* No: unhide WITHOUT cascading products — ONE single API call */}
+              <button
+                onClick={() => {
+                  doToggleVisibility.mutate({
+                    id: unhideProductsConfirm.cat.categoryId,
+                    catName: unhideProductsConfirm.cat.name,
+                    unhideChildren: unhideProductsConfirm.unhideChildren,
+                  });
+                  setUnhideProductsConfirm(null);
+                }}
+                disabled={doToggleVisibility.isPending}
+                style={{
+                  flex: 1,
+                  padding: "9px 0",
+                  borderRadius: 8,
+                  border: "1.5px solid #ddd",
+                  background: "#f9f9f9",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  color: "#444",
+                }}
+              >
+                No, manage manually
               </button>
             </div>
           </div>

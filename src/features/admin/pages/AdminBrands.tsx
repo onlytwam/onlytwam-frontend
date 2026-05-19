@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
@@ -477,6 +477,11 @@ export default function AdminBrands() {
     name: string;
     brandId: number;
   } | null>(null);
+  // Shown before unhiding: ask whether to also reactivate products (single API call)
+  const [productCascadeConfirm, setProductCascadeConfirm] = useState<{
+    brandId: number;
+    brandName: string;
+  } | null>(null);
 
   // ── Query — admin view: showAll=true includes hidden brands ─────────────────
 
@@ -509,6 +514,26 @@ export default function AdminBrands() {
   const brands = data?.list ?? [];
   const total = data?.count ?? 0;
   const pages = Math.ceil(total / PAGE_SIZE);
+
+  // ── Product count per brand ───────────────────────────────────────────────
+  const { data: brandCountData } = useQuery({
+    queryKey: ["brand-product-counts"],
+    queryFn: () =>
+      api
+        .get("/MDM/BrandProductCount", { params: { "Page.Size": 500 } })
+        .then(
+          (r) =>
+            (r.data?.list ?? []) as { brandId: number; productCount: number }[],
+        ),
+    staleTime: 30_000,
+  });
+
+  const brandCountMap = useMemo<Record<number, number>>(() => {
+    if (!brandCountData) return {};
+    return Object.fromEntries(
+      brandCountData.map((r: any) => [r.brandId, r.productCount]),
+    );
+  }, [brandCountData]);
 
   // ── Mutations ───────────────────────────────────────────────────────────────
 
@@ -555,11 +580,19 @@ export default function AdminBrands() {
 
   // ── Toggle visibility mutation ──────────────────────────────────────────────
 
+  // ── Toggle visibility mutation ──────────────────────────────────────────────
   const toggleVisibilityMutation = useMutation({
-    mutationFn: (brandId: number) =>
-      api.patch(`/Brand/${brandId}/toggle-visibility`),
-    // Optimistic update: flip isActive immediately in the cache
-    onMutate: async (brandId: number) => {
+    mutationFn: ({
+      brandId,
+      cascadeProducts,
+    }: {
+      brandId: number;
+      cascadeProducts?: boolean;
+    }) =>
+      api.patch(`/Brand/${brandId}/toggle-visibility`, null, {
+        params: cascadeProducts ? { cascadeProducts: true } : undefined,
+      }),
+    onMutate: async ({ brandId }) => {
       await qc.cancelQueries({ queryKey: ["admin-brands"] });
       const previous = qc.getQueriesData({ queryKey: ["admin-brands"] });
       qc.setQueriesData({ queryKey: ["admin-brands"] }, (old: any) => {
@@ -573,17 +606,22 @@ export default function AdminBrands() {
       });
       return { previous };
     },
-    onSuccess: (res, brandId) => {
-      const newState = res?.data?.isActive;
-      toast.success(
-        newState
-          ? "Brand is now visible. All its products are shown again."
-          : "Brand hidden. All its products are hidden from users.",
-      );
+    onSuccess: (res, { brandId, cascadeProducts }) => {
+      const newIsActive = res?.data?.isActive;
+      const brandName = res?.data?.brandName ?? "Brand";
+      // Toast only when SHOWING (unhiding) — hiding is intentionally silent
+      if (newIsActive) {
+        toast.success(
+          cascadeProducts
+            ? `"${brandName}" is now visible. All its products are shown.`
+            : `"${brandName}" is now visible.`,
+        );
+      }
       qc.invalidateQueries({ queryKey: ["admin-brands"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
+      setProductCascadeConfirm(null);
     },
-    onError: (_err, _brandId, ctx: any) => {
+    onError: (_err, _vars, ctx: any) => {
       if (ctx?.previous) {
         ctx.previous.forEach(([key, val]: any) => qc.setQueryData(key, val));
       }
@@ -757,7 +795,31 @@ export default function AdminBrands() {
                       )}
                     </td>
 
-                    <td className="s-adminbrands-c25a6e">{b.brandName}</td>
+                    <td className="s-adminbrands-c25a6e">
+                      {b.brandName}
+                      {(() => {
+                        const count = brandCountMap[b.brandId] ?? 0;
+                        return (
+                          <span
+                            title={`${count} product${
+                              count !== 1 ? "s" : ""
+                            } in this brand`}
+                            style={{
+                              marginLeft: 7,
+                              fontSize: 10,
+                              background: count > 0 ? "#f3e5f5" : "#f5f5f5",
+                              color: count > 0 ? "#6a1b9a" : "#9e9e9e",
+                              padding: "2px 7px",
+                              borderRadius: 10,
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {count} {count === 1 ? "product" : "products"}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="s-adminbrands-6d0b42">
                       {b.brandDescription ?? "—"}
                     </td>
@@ -783,9 +845,21 @@ export default function AdminBrands() {
                         {/* Hide / Show toggle — only for non-deleted brands */}
                         {!isDeleted && (
                           <button
-                            onClick={() =>
-                              toggleVisibilityMutation.mutate(b.brandId)
-                            }
+                            onClick={() => {
+                              if (b.isActive) {
+                                // HIDING: silent, auto-cascade all products immediately
+                                toggleVisibilityMutation.mutate({
+                                  brandId: b.brandId,
+                                  cascadeProducts: true,
+                                });
+                              } else {
+                                // UNHIDING: ask about products first, then fire ONE call
+                                setProductCascadeConfirm({
+                                  brandId: b.brandId,
+                                  brandName: b.brandName,
+                                });
+                              }
+                            }}
                             disabled={toggleVisibilityMutation.isPending}
                             title={
                               b.isActive
@@ -1036,6 +1110,109 @@ export default function AdminBrands() {
           onConfirm={() => deleteImageMutation.mutate(confirmDelImage.brandId)}
           onCancel={() => setConfirmDelImage(null)}
         />
+      )}
+
+      {/* ── Show Brand — Also show products? (asked BEFORE the API call) ── */}
+      {productCascadeConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => {
+            // Backdrop = "No" — unhide brand without cascading products
+            toggleVisibilityMutation.mutate({
+              brandId: productCascadeConfirm.brandId,
+            });
+            setProductCascadeConfirm(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              padding: "28px 28px 22px",
+              maxWidth: 420,
+              width: "90%",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 22, marginBottom: 10 }}>👁</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>
+              Also show all products under "{productCascadeConfirm.brandName}"?
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "#666",
+                marginBottom: 20,
+                lineHeight: 1.5,
+              }}
+            >
+              Do you also want to reactivate all products under this brand so
+              customers can see them?{" "}
+              <span style={{ color: "#999" }}>
+                (No = products stay inactive; manage them individually from the
+                Products page.)
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {/* Yes — ONE call: unhide brand + cascade products */}
+              <button
+                onClick={() => {
+                  toggleVisibilityMutation.mutate({
+                    brandId: productCascadeConfirm.brandId,
+                    cascadeProducts: true,
+                  });
+                  setProductCascadeConfirm(null);
+                }}
+                disabled={toggleVisibilityMutation.isPending}
+                style={{
+                  flex: 1,
+                  padding: "9px 0",
+                  borderRadius: 8,
+                  border: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  background: "#2e7d32",
+                  color: "#fff",
+                }}
+              >
+                Yes, show all products
+              </button>
+              {/* No — ONE call: unhide brand only */}
+              <button
+                onClick={() => {
+                  toggleVisibilityMutation.mutate({
+                    brandId: productCascadeConfirm.brandId,
+                  });
+                  setProductCascadeConfirm(null);
+                }}
+                disabled={toggleVisibilityMutation.isPending}
+                style={{
+                  flex: 1,
+                  padding: "9px 0",
+                  borderRadius: 8,
+                  border: "1.5px solid #ddd",
+                  background: "#f9f9f9",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  color: "#444",
+                }}
+              >
+                No, manage manually
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Image Viewer ── */}
