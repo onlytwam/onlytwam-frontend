@@ -2,6 +2,11 @@
 import { useState } from "react";
 import { useAuthStore } from "@/features/auth/store/authStore";
 
+export interface AdminLayoutOutletContext {
+  isSidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+}
+
 // Role label map â€” Record<number,string> avoids ts(7053) implicit-any index error
 const ROLE_LABELS: Record<number, string> = {
   1: "Super Admin",
@@ -242,7 +247,12 @@ export default function AdminLayout() {
           <span className="s-adminlayout-217eb8">{roleLabel}</span>
         </div>
         <div className="s-adminlayout-52a355">
-          <Outlet />
+          <Outlet
+            context={{
+              isSidebarCollapsed,
+              setSidebarCollapsed: setIsSidebarCollapsed,
+            }}
+          />
         </div>
       </main>
     </div>

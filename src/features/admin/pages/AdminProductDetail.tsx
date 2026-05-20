@@ -9,11 +9,13 @@
  * Sizes shown as chips with live stock count; click to expand inline edit.
  * "Hide / Show Variant" sits where Buy-Now / Add-to-Cart would be on the user page.
  */
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
+import { getImageUrl } from "@/shared/utils/helpers";
+import type { AdminLayoutOutletContext } from "@/features/admin/components/AdminLayout";
 
 // ─── Design tokens (same palette as the rest of the admin) ───────────────────
 const P = "#7A1E2C";
@@ -28,8 +30,51 @@ const WHITE = "#ffffff";
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function imgUrl(src: string | null | undefined): string {
   if (!src) return "";
-  if (src.startsWith("http") || src.startsWith("/")) return src;
-  return "http://127.0.0.1:8000/" + src.replace(/\\/g, "/");
+  if (src.startsWith("data:") || src.startsWith("blob:")) return src;
+  if (src.startsWith("http://") || src.startsWith("https://")) return src;
+  if (src.startsWith("/assets/")) return src;
+  if (src.startsWith("/uploads/")) return `http://127.0.0.1:8000${src}`;
+  if (src.startsWith("uploads/")) return `http://127.0.0.1:8000/${src}`;
+  return getImageUrl(src, "");
+}
+
+function imagePathFromAny(image: any): string {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+  return (
+    image.fileData ||
+    image.imageUrl ||
+    image.imageURL ||
+    image.filePath ||
+    image.image ||
+    image.selectedImage ||
+    image.thumbnail ||
+    image.src ||
+    image.url ||
+    image.path ||
+    ""
+  );
+}
+
+function mergeImageSources(...sources: any[]): any[] {
+  const merged: any[] = [];
+  const seen = new Set<string>();
+
+  sources.flat().forEach((image) => {
+    const filePath = imagePathFromAny(image);
+    if (!filePath) return;
+
+    const key = filePath.trim().toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    merged.push({
+      ...(typeof image === "object" && image !== null ? image : {}),
+      filePath,
+    });
+  });
+
+  return merged;
 }
 
 function resolveColor(c: string | null | undefined): string {
@@ -318,7 +363,7 @@ function ImagePane({
   onSelect,
   onRefresh,
 }: {
-  images: { productImageId?: number; filePath?: string }[];
+  images: any[];
   variantId: number;
   activeIdx: number;
   onSelect: (i: number) => void;
@@ -330,7 +375,7 @@ function ImagePane({
   const thumbRef = useRef<HTMLDivElement>(null);
 
   const resolved = images
-    .map((im, i) => ({ ...im, src: imgUrl(im.filePath), idx: i }))
+    .map((im, i) => ({ ...im, src: imgUrl(imagePathFromAny(im)), idx: i }))
     .filter((im) => im.src);
 
   // Scroll active thumb into view
@@ -1381,6 +1426,8 @@ function AddVariantModal({
 export default function AdminProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const adminLayout = useOutletContext<AdminLayoutOutletContext | null>();
+  const setSidebarCollapsed = adminLayout?.setSidebarCollapsed;
   const qc = useQueryClient();
   const productId = Number(id);
   const isNew = !id || id === "new";
@@ -1388,6 +1435,10 @@ export default function AdminProductDetail() {
   const [selVariantId, setSelVariantId] = useState<number | null>(null);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [addVariantOpen, setAddVariantOpen] = useState(false);
+
+  useEffect(() => {
+    setSidebarCollapsed?.(true);
+  }, [setSidebarCollapsed]);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
   const {
@@ -1425,16 +1476,20 @@ export default function AdminProductDetail() {
   const childCats = (pid: number) =>
     allCats.filter((c) => Number(c.parentCategoryId) === Number(pid));
 
+  const productVariants = Array.isArray(product?.allVariants)
+    ? product.allVariants.filter((v: any) => v.deletedInd !== true)
+    : [];
+
   const { data: variantsData, refetch: refetchVariants } = useQuery({
     queryKey: ["admin-variants-full", productId],
     queryFn: () =>
       api
-        .get("/ProductVariants/", {
+        .get("/ProductVariants", {
           params: {
             Filters: JSON.stringify([
               {
-                property: "productId",
-                comparison: "eq",
+                property: "ProductId",
+                comparison: "==",
                 value: String(productId),
               },
             ]),
@@ -1442,9 +1497,13 @@ export default function AdminProductDetail() {
           },
         })
         .then((r) => r.data),
-    enabled: !isNew,
+    enabled: !isNew && productVariants.length === 0,
   });
-  const variants: any[] = variantsData?.list ?? [];
+  const fetchedVariants: any[] = (
+    Array.isArray(variantsData) ? variantsData : variantsData?.list ?? []
+  ).filter((v: any) => v.deletedInd !== true);
+  const variants: any[] =
+    productVariants.length > 0 ? productVariants : fetchedVariants;
 
   // Auto-select first variant
   useEffect(() => {
@@ -1461,12 +1520,42 @@ export default function AdminProductDetail() {
       api.get(`/ProductVariants/${selVariantId}/images`).then((r) => r.data),
     enabled: !!selVariantId,
   });
-  const variantImages: any[] = Array.isArray(imagesData) ? imagesData : [];
+
+  const { data: userVariantDetail } = useQuery({
+    queryKey: ["admin-user-variant-detail", selVariantId],
+    queryFn: () =>
+      api
+        .get(`/ProductVariantDetail/UserProductVariant/${selVariantId}`)
+        .then((r) => r.data),
+    enabled: !!selVariantId,
+    staleTime: 60_000,
+  });
+
+  const variantImages: any[] = useMemo(
+    () =>
+      mergeImageSources(
+        Array.isArray(imagesData) ? imagesData : imagesData?.list ?? [],
+        userVariantDetail?.images,
+        userVariantDetail?.image,
+        selVariant?.images,
+        selVariant?.imageUrl ||
+          selVariant?.image ||
+          selVariant?.selectedImage ||
+          selVariant?.thumbnail,
+      ),
+    [imagesData, userVariantDetail, selVariant],
+  );
 
   // Reset image index when variant switches
   useEffect(() => {
     setActiveImgIdx(0);
   }, [selVariantId]);
+
+  useEffect(() => {
+    if (activeImgIdx >= variantImages.length) {
+      setActiveImgIdx(Math.max(0, variantImages.length - 1));
+    }
+  }, [activeImgIdx, variantImages.length]);
 
   // PVD (sizes) for selected variant
   const { data: pvdData, refetch: refetchPvd } = useQuery({
@@ -1874,7 +1963,7 @@ export default function AdminProductDetail() {
                   const isSel = v.productVariantId === selVariantId;
                   const hex = resolveColor(v.color);
                   const firstImg = (v.images ?? [])[0];
-                  const imgSrc = firstImg ? imgUrl(firstImg.filePath) : null;
+                  const imgSrc = firstImg ? imgUrl(imagePathFromAny(firstImg)) : null;
                   return (
                     <button
                       key={v.productVariantId}

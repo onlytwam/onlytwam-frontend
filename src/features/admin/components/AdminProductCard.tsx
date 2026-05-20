@@ -258,8 +258,17 @@ export function VariantSwatchRow({
         </div>
 
         {count > 1 && (
-          <span className="pc-color-count" title={`${count} colors`}>
-            {count}
+          <span
+            className="pc-color-count"
+            title={`${count} variants`}
+            style={{
+              width: "auto",
+              minWidth: 0,
+              padding: "0 7px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {count} variants
           </span>
         )}
       </div>
