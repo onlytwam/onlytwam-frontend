@@ -1,4 +1,4 @@
-// src/features/orders/pages/OrderConfirm.tsx  (FIXED)
+// src/features/orders/pages/OrderConfirm.tsx
 //
 // Fixes:
 //  ① shippingAddress.state → shippingAddress.city only (backend AddressResponse
@@ -6,11 +6,20 @@
 //    the simple _get_address() helper used in get_order_details)
 //  ② Show full address line from shippingAddress.addressLine
 //  ③ Removed unused navigate import
+//  ④ Handle ?payment=pending — polls /Payment/Status until resolved
 
-import { useEffect } from "react";
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import {
+  useParams,
+  Link,
+  useSearchParams,
+  useNavigate,
+} from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getOrderDetail } from "@/features/orders/api/orders.api";
+import {
+  getOrderDetail,
+  getPaymentStatus,
+} from "@/features/orders/api/orders.api";
 import { useCartStore } from "@/features/cart/store/cartStore";
 import { clearCheckoutSession } from "@/features/cart/utils/checkoutSession";
 import { useAuthStore } from "@/features/auth/store/authStore";
@@ -22,12 +31,69 @@ import {
 
 export default function OrderConfirm() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { clearCart } = useCartStore();
   const { setCartCount } = useAuthStore();
   const qc = useQueryClient();
   const isBuyNowOrder = !!getBuyNowSession()?.items?.length;
   const paymentSucceeded = searchParams.get("payment") === "success";
+  const paymentPending = searchParams.get("payment") === "pending";
+
+  // ── Pending payment polling ────────────────────────────────────────────
+  // When PayG's Detail API fails at callback time (race condition), the backend
+  // sends the user here with ?payment=pending instead of the error page.
+  // We poll /Payment/Status every 3 seconds (up to 2 minutes) until the
+  // payment resolves to Confirmed or Failed, then update the URL accordingly.
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCount = useRef(0);
+  const MAX_POLLS = 40; // 40 × 3s = 2 minutes
+  const [pollMsg, setPollMsg] = useState("Verifying your payment…");
+
+  useEffect(() => {
+    if (!paymentPending || !id) return;
+
+    const orderId = Number(id);
+    if (!Number.isFinite(orderId)) return;
+
+    pollRef.current = setInterval(async () => {
+      pollCount.current += 1;
+      try {
+        const status = await getPaymentStatus(orderId);
+        const state = (status?.state ?? "").toLowerCase();
+        if (state === "confirmed") {
+          clearInterval(pollRef.current!);
+          setSearchParams({ payment: "success" }, { replace: true });
+          return;
+        }
+        if (
+          state === "payment failed" ||
+          state === "failed" ||
+          state === "cancelled"
+        ) {
+          clearInterval(pollRef.current!);
+          navigate(
+            `/user-products/payment-callback?status=failed&orderId=${orderId}&code=2&reason=declined`,
+            { replace: true },
+          );
+          return;
+        }
+      } catch {
+        // Network hiccup — keep polling
+      }
+
+      if (pollCount.current >= MAX_POLLS) {
+        clearInterval(pollRef.current!);
+        setPollMsg(
+          "Taking longer than usual. Check your email or visit My Orders.",
+        );
+      }
+    }, 3000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [paymentPending, id, navigate, setSearchParams]);
 
   // Clear cart only after the backend confirms payment success.
   useEffect(() => {
@@ -50,13 +116,7 @@ export default function OrderConfirm() {
     qc.invalidateQueries({ queryKey: ["cart"] });
     qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
     qc.invalidateQueries({ queryKey: ["quick-cart"] });
-  }, [
-    paymentSucceeded,
-    isBuyNowOrder,
-    qc,
-    clearCart,
-    setCartCount,
-  ]);
+  }, [paymentSucceeded, isBuyNowOrder, qc, clearCart, setCartCount]);
 
   const { data: order } = useQuery({
     queryKey: ["order-confirm", id],
@@ -72,6 +132,48 @@ export default function OrderConfirm() {
   const addrLine = addr
     ? [addr.addressLine, addr.city, addr.pinCode].filter(Boolean).join(", ")
     : "";
+
+  // ── Payment pending overlay ─────────────────────────────────────────────
+  // Shown when PayG's Detail API couldn't resolve the status at callback time.
+  // The polling useEffect above will flip ?payment=pending → success/failure.
+  if (paymentPending) {
+    return (
+      <div className="container py-5 text-center" style={{ maxWidth: 480 }}>
+        <div
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: "50%",
+            background: "#fef9c3",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 1.5rem",
+          }}
+        >
+          <i
+            className="bi bi-clock-history"
+            style={{ fontSize: 36, color: "#ca8a04" }}
+          />
+        </div>
+        <h2 className="fw-bold mb-2">Verifying Payment</h2>
+        <p className="text-muted mb-4">{pollMsg}</p>
+        <div
+          className="spinner-border text-warning"
+          role="status"
+          style={{ width: 28, height: 28, borderWidth: 3 }}
+        >
+          <span className="visually-hidden">Checking…</span>
+        </div>
+        <p className="text-muted mt-4 small">
+          This usually takes a few seconds. Please don't close this tab.
+        </p>
+        <Link to="/user-products/orders" className="btn btn-outline-dark mt-3">
+          Check My Orders
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="container s-orderconfirm-9e0ea5">
