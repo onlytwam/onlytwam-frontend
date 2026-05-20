@@ -1,5 +1,11 @@
 ﻿import { Outlet, Navigate, NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useAuthStore } from "@/features/auth/store/authStore";
+
+export interface AdminLayoutOutletContext {
+  isSidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+}
 
 // Role label map â€” Record<number,string> avoids ts(7053) implicit-any index error
 const ROLE_LABELS: Record<number, string> = {
@@ -142,6 +148,7 @@ export default function AdminLayout() {
   const { isAuthenticated, isAdmin, getUserName, logout, user } =
     useAuthStore();
   const navigate = useNavigate();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const roleId: number = (user as any)?.roleId ?? 0;
 
   // Redirect if not authenticated or not a staff role
@@ -160,26 +167,33 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="s-adminlayout-474885">
+    <div
+      className={`s-adminlayout-474885${
+        isSidebarCollapsed ? " s-adminlayout-474885--collapsed" : ""
+      }`}
+    >
       {/* â”€â”€ Sidebar â”€â”€ */}
       <aside className="s-adminlayout-358067">
-        {/* Logo */}
+        {/* Sidebar collapse control */}
         <div className="s-adminlayout-418b89">
-          <img
-            src="/assets/Twam-Logo-Black.png"
-            alt="TWAM"
-            className="s-adminlayout-563ef2"
-            onError={(e) => {
-              const t = e.target as HTMLImageElement;
-              t.style.display = "none";
-              const span = document.createElement("span");
-              span.textContent = "TWAM Admin";
-              span.style.cssText =
-                "color:#fff;font-weight:800;font-size:16px;letter-spacing:2px";
-              t.parentNode?.insertBefore(span, t);
-            }}
-          />
-          <p className="s-adminlayout-94ca0e">{roleLabel}</p>
+          <h1 className="s-adminlayout-side-title">TWAM Admin</h1>
+          <button
+            type="button"
+            className="s-adminlayout-collapse-btn"
+            onClick={() => setIsSidebarCollapsed((value) => !value)}
+            aria-label={
+              isSidebarCollapsed
+                ? "Expand admin sidebar"
+                : "Collapse admin sidebar"
+            }
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <i
+              className={`bi ${
+                isSidebarCollapsed ? "bi-chevron-right" : "bi-chevron-left"
+              }`}
+            />
+          </button>
         </div>
 
         {/* Role-filtered navigation */}
@@ -188,23 +202,13 @@ export default function AdminLayout() {
             <NavLink
               key={item.path}
               to={item.path}
-              style={({ isActive }) => ({
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "11px 20px",
-                textDecoration: "none",
-                color: isActive ? "#fff" : "var(--heirloom)",
-                background: isActive ? "rgba(106,1,42,.6)" : "transparent",
-                borderLeft: isActive
-                  ? "3px solid #6b0f2a"
-                  : "3px solid transparent",
-                fontSize: 13,
-                transition: "all .15s",
-              })}
+              className={({ isActive }) =>
+                `s-adminlayout-navlink${isActive ? " is-active" : ""}`
+              }
+              title={isSidebarCollapsed ? item.label : undefined}
             >
               <i className={`bi ${item.icon} s-adminlayout-c758b0`} />
-              {item.label}
+              <span className="s-adminlayout-navlabel">{item.label}</span>
             </NavLink>
           ))}
         </nav>
@@ -214,7 +218,8 @@ export default function AdminLayout() {
           <p className="s-adminlayout-185312">Signed in as</p>
           <p className="s-adminlayout-700e11">{getUserName()}</p>
           <button onClick={goToStore} className="s-adminlayout-c2ed36">
-            <i className="bi bi-shop" /> View Store
+            <i className="bi bi-shop" />
+            <span className="s-adminlayout-action-label">View Store</span>
           </button>
           <button
             onClick={() => {
@@ -223,7 +228,8 @@ export default function AdminLayout() {
             }}
             className="s-adminlayout-e5f366"
           >
-            <i className="bi bi-box-arrow-right" /> Sign Out
+            <i className="bi bi-box-arrow-right" />
+            <span className="s-adminlayout-action-label">Sign Out</span>
           </button>
         </div>
       </aside>
@@ -231,11 +237,22 @@ export default function AdminLayout() {
       {/* â”€â”€ Main content â”€â”€ */}
       <main className="s-adminlayout-5679e3">
         <div className="s-adminlayout-5527a1">
-          <h1 className="s-adminlayout-6a1182">TWAM Admin</h1>
+          <div className="s-adminlayout-header-brand">
+            <img
+              src="/assets/Twam-Logo-White.png"
+              alt="TWAM"
+              className="s-adminlayout-header-logo"
+            />
+          </div>
           <span className="s-adminlayout-217eb8">{roleLabel}</span>
         </div>
         <div className="s-adminlayout-52a355">
-          <Outlet />
+          <Outlet
+            context={{
+              isSidebarCollapsed,
+              setSidebarCollapsed: setIsSidebarCollapsed,
+            }}
+          />
         </div>
       </main>
     </div>

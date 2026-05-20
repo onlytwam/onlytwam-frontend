@@ -969,6 +969,15 @@ export default function ProductCard({
                     ))}
                   </div>
 
+                  {colorVariants.length > 1 && (
+                    <span
+                      className="pc-color-count"
+                      title={`${colorVariants.length} colors`}
+                    >
+                      {colorVariants.length}
+                    </span>
+                  )}
+
                   {(hasScrollableColors || isOverflowing) && (
                     <button
                       className="pc-swatch-arrow"

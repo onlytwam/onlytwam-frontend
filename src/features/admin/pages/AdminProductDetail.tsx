@@ -9,11 +9,13 @@
  * Sizes shown as chips with live stock count; click to expand inline edit.
  * "Hide / Show Variant" sits where Buy-Now / Add-to-Cart would be on the user page.
  */
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
+import { getImageUrl } from "@/shared/utils/helpers";
+import type { AdminLayoutOutletContext } from "@/features/admin/components/AdminLayout";
 
 // ─── Design tokens (same palette as the rest of the admin) ───────────────────
 const P = "#7A1E2C";
@@ -28,8 +30,51 @@ const WHITE = "#ffffff";
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function imgUrl(src: string | null | undefined): string {
   if (!src) return "";
-  if (src.startsWith("http") || src.startsWith("/")) return src;
-  return "http://127.0.0.1:8000/" + src.replace(/\\/g, "/");
+  if (src.startsWith("data:") || src.startsWith("blob:")) return src;
+  if (src.startsWith("http://") || src.startsWith("https://")) return src;
+  if (src.startsWith("/assets/")) return src;
+  if (src.startsWith("/uploads/")) return `http://127.0.0.1:8000${src}`;
+  if (src.startsWith("uploads/")) return `http://127.0.0.1:8000/${src}`;
+  return getImageUrl(src, "");
+}
+
+function imagePathFromAny(image: any): string {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+  return (
+    image.fileData ||
+    image.imageUrl ||
+    image.imageURL ||
+    image.filePath ||
+    image.image ||
+    image.selectedImage ||
+    image.thumbnail ||
+    image.src ||
+    image.url ||
+    image.path ||
+    ""
+  );
+}
+
+function mergeImageSources(...sources: any[]): any[] {
+  const merged: any[] = [];
+  const seen = new Set<string>();
+
+  sources.flat().forEach((image) => {
+    const filePath = imagePathFromAny(image);
+    if (!filePath) return;
+
+    const key = filePath.trim().toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    merged.push({
+      ...(typeof image === "object" && image !== null ? image : {}),
+      filePath,
+    });
+  });
+
+  return merged;
 }
 
 function resolveColor(c: string | null | undefined): string {
@@ -318,7 +363,7 @@ function ImagePane({
   onSelect,
   onRefresh,
 }: {
-  images: { productImageId?: number; filePath?: string }[];
+  images: any[];
   variantId: number;
   activeIdx: number;
   onSelect: (i: number) => void;
@@ -330,7 +375,7 @@ function ImagePane({
   const thumbRef = useRef<HTMLDivElement>(null);
 
   const resolved = images
-    .map((im, i) => ({ ...im, src: imgUrl(im.filePath), idx: i }))
+    .map((im, i) => ({ ...im, src: imgUrl(imagePathFromAny(im)), idx: i }))
     .filter((im) => im.src);
 
   // Scroll active thumb into view
@@ -620,6 +665,63 @@ function ImagePane({
 }
 
 // ─── Inline editable size row ─────────────────────────────────────────────────
+// ── Stock breakdown mini-card (read-only, shown in header when collapsed too) ─
+function StockBreakdown({ pvd }: { pvd: any }) {
+  const total = pvd.stockQuantity ?? 0;
+  const processed = pvd.processedQuantity ?? 0;
+  const refunded = pvd.returnedQuantity ?? 0;
+  const available =
+    pvd.availableQuantity ?? Math.max(0, total - processed + refunded);
+
+  const isOOS = available <= 0;
+  const isLow = available > 0 && available <= 3;
+  const availColor = isOOS ? "#c62828" : isLow ? "#e65100" : "#2e7d32";
+  const availBg = isOOS ? "#fdecea" : isLow ? "#fff3e0" : "#e8f5e9";
+
+  const pill = (label: string, value: number, color: string, bg: string) => (
+    <div style={{ textAlign: "center", minWidth: 58 }}>
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color,
+          background: bg,
+          borderRadius: 8,
+          padding: "4px 8px",
+          display: "inline-block",
+          minWidth: 36,
+        }}
+      >
+        {value}
+      </div>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: SUB,
+          marginTop: 3,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {pill("Total", total, "#1565c0", "#e3f2fd")}
+      <span style={{ color: SUB, fontSize: 13 }}>−</span>
+      {pill("Processed", processed, "#6a1b9a", "#f3e5f5")}
+      <span style={{ color: SUB, fontSize: 13 }}>+</span>
+      {pill("Refunded", refunded, "#2e7d32", "#e8f5e9")}
+      <span style={{ color: SUB, fontSize: 13 }}>=</span>
+      {pill("Available", available, availColor, availBg)}
+    </div>
+  );
+}
+
 function SizeRow({ pvd, onRefresh }: { pvd: any; onRefresh: () => void }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -647,6 +749,9 @@ function SizeRow({ pvd, onRefresh }: { pvd: any; onRefresh: () => void }) {
   async function save() {
     setSaving(true);
     try {
+      // Only stockQuantity (total) is editable here.
+      // processedQuantity / returnedQuantity are managed automatically by the
+      // order and refund flows; availableQuantity is derived server-side.
       await api.put(
         `/ProductVariantDetail/${pvd.productVariantDetailId}`,
         form,
@@ -675,15 +780,22 @@ function SizeRow({ pvd, onRefresh }: { pvd: any; onRefresh: () => void }) {
     }
   }
 
-  const stock = pvd.stockQuantity ?? 0;
-  const isOOS = stock <= 0;
-  const isLow = stock > 0 && stock <= 3;
+  const available =
+    pvd.availableQuantity ??
+    Math.max(
+      0,
+      (pvd.stockQuantity ?? 0) -
+        (pvd.processedQuantity ?? 0) +
+        (pvd.returnedQuantity ?? 0),
+    );
+  const isOOS = available <= 0;
+  const isLow = available > 0 && available <= 3;
   const stockColor = isOOS ? "#c62828" : isLow ? "#e65100" : "#2e7d32";
   const stockLabel = isOOS
     ? "Out of stock"
     : isLow
-    ? `Only ${stock} left`
-    : `${stock} in stock`;
+    ? `Only ${available} left`
+    : `${available} available`;
 
   const numField = (key: keyof typeof form, label: string) => (
     <div key={key}>
@@ -772,6 +884,46 @@ function SizeRow({ pvd, onRefresh }: { pvd: any; onRefresh: () => void }) {
             borderTop: `1px solid ${BDR}`,
           }}
         >
+          {/* ── Stock breakdown (read-only) ─────────────────────────────── */}
+          <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: SUB,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 8,
+              }}
+            >
+              Stock Breakdown
+            </div>
+            <div
+              style={{
+                background: GRY,
+                borderRadius: 10,
+                padding: "10px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                flexWrap: "wrap",
+              }}
+            >
+              <StockBreakdown pvd={pvd} />
+              <div
+                style={{
+                  marginLeft: "auto",
+                  fontSize: 10,
+                  color: SUB,
+                  fontStyle: "italic",
+                }}
+              >
+                Available = Total − Processed + Refunded
+              </div>
+            </div>
+          </div>
+
+          {/* ── Editable fields ─────────────────────────────────────────── */}
           <div
             style={{
               display: "grid",
@@ -780,12 +932,23 @@ function SizeRow({ pvd, onRefresh }: { pvd: any; onRefresh: () => void }) {
               marginBottom: 14,
             }}
           >
-            {numField("stockQuantity", "Stock Qty")}
+            {numField("stockQuantity", "Total Qty (Restock)")}
             {numField("mrpPrice", "MRP (₹)")}
             {numField("discountPercent", "Discount %")}
             {numField("finalPrice", "Final Price (₹)")}
             {numField("cgst", "CGST %")}
             {numField("sgst", "SGST %")}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: SUB,
+              marginBottom: 12,
+              fontStyle: "italic",
+            }}
+          >
+            Processed &amp; Refunded quantities are updated automatically by the
+            order and refund flows.
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
@@ -1019,7 +1182,7 @@ function AddSizeForm({
           </select>
         </div>
         {[
-          ["stockQuantity", "Stock *"],
+          ["stockQuantity", "Total Qty (Stock) *"],
           ["mrpPrice", "MRP (₹) *"],
           ["discountPercent", "Discount %"],
           ["finalPrice", "Final Price (₹) *"],
@@ -1263,6 +1426,8 @@ function AddVariantModal({
 export default function AdminProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const adminLayout = useOutletContext<AdminLayoutOutletContext | null>();
+  const setSidebarCollapsed = adminLayout?.setSidebarCollapsed;
   const qc = useQueryClient();
   const productId = Number(id);
   const isNew = !id || id === "new";
@@ -1270,6 +1435,10 @@ export default function AdminProductDetail() {
   const [selVariantId, setSelVariantId] = useState<number | null>(null);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [addVariantOpen, setAddVariantOpen] = useState(false);
+
+  useEffect(() => {
+    setSidebarCollapsed?.(true);
+  }, [setSidebarCollapsed]);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
   const {
@@ -1307,16 +1476,20 @@ export default function AdminProductDetail() {
   const childCats = (pid: number) =>
     allCats.filter((c) => Number(c.parentCategoryId) === Number(pid));
 
+  const productVariants = Array.isArray(product?.allVariants)
+    ? product.allVariants.filter((v: any) => v.deletedInd !== true)
+    : [];
+
   const { data: variantsData, refetch: refetchVariants } = useQuery({
     queryKey: ["admin-variants-full", productId],
     queryFn: () =>
       api
-        .get("/ProductVariants/", {
+        .get("/ProductVariants", {
           params: {
             Filters: JSON.stringify([
               {
-                property: "productId",
-                comparison: "eq",
+                property: "ProductId",
+                comparison: "==",
                 value: String(productId),
               },
             ]),
@@ -1324,9 +1497,13 @@ export default function AdminProductDetail() {
           },
         })
         .then((r) => r.data),
-    enabled: !isNew,
+    enabled: !isNew && productVariants.length === 0,
   });
-  const variants: any[] = variantsData?.list ?? [];
+  const fetchedVariants: any[] = (
+    Array.isArray(variantsData) ? variantsData : variantsData?.list ?? []
+  ).filter((v: any) => v.deletedInd !== true);
+  const variants: any[] =
+    productVariants.length > 0 ? productVariants : fetchedVariants;
 
   // Auto-select first variant
   useEffect(() => {
@@ -1343,12 +1520,42 @@ export default function AdminProductDetail() {
       api.get(`/ProductVariants/${selVariantId}/images`).then((r) => r.data),
     enabled: !!selVariantId,
   });
-  const variantImages: any[] = Array.isArray(imagesData) ? imagesData : [];
+
+  const { data: userVariantDetail } = useQuery({
+    queryKey: ["admin-user-variant-detail", selVariantId],
+    queryFn: () =>
+      api
+        .get(`/ProductVariantDetail/UserProductVariant/${selVariantId}`)
+        .then((r) => r.data),
+    enabled: !!selVariantId,
+    staleTime: 60_000,
+  });
+
+  const variantImages: any[] = useMemo(
+    () =>
+      mergeImageSources(
+        Array.isArray(imagesData) ? imagesData : imagesData?.list ?? [],
+        userVariantDetail?.images,
+        userVariantDetail?.image,
+        selVariant?.images,
+        selVariant?.imageUrl ||
+          selVariant?.image ||
+          selVariant?.selectedImage ||
+          selVariant?.thumbnail,
+      ),
+    [imagesData, userVariantDetail, selVariant],
+  );
 
   // Reset image index when variant switches
   useEffect(() => {
     setActiveImgIdx(0);
   }, [selVariantId]);
+
+  useEffect(() => {
+    if (activeImgIdx >= variantImages.length) {
+      setActiveImgIdx(Math.max(0, variantImages.length - 1));
+    }
+  }, [activeImgIdx, variantImages.length]);
 
   // PVD (sizes) for selected variant
   const { data: pvdData, refetch: refetchPvd } = useQuery({
@@ -1414,6 +1621,8 @@ export default function AdminProductDetail() {
     }
   }
 
+  const goBack = () => navigate(-1);
+
   if (isNew) {
     navigate("/admin/products/new-form");
     return null;
@@ -1433,18 +1642,24 @@ export default function AdminProductDetail() {
       <div style={{ padding: 60, textAlign: "center" }}>
         <p style={{ color: "#c62828" }}>Product not found.</p>
         <button
-          onClick={() => navigate("/admin/products")}
+          onClick={goBack}
           style={{
             marginTop: 12,
-            padding: "8px 20px",
-            background: P,
-            color: WHITE,
-            border: "none",
-            borderRadius: 8,
+            width: 34,
+            height: 34,
+            background: WHITE,
+            color: P,
+            border: `1px solid ${BDR}`,
+            borderRadius: 999,
             cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
+          aria-label="Go back"
+          title="Back"
         >
-          ← Back
+          <i className="bi bi-arrow-left" />
         </button>
       </div>
     );
@@ -1477,19 +1692,25 @@ export default function AdminProductDetail() {
         }}
       >
         <button
-          onClick={() => navigate("/admin/products")}
+          onClick={goBack}
           style={{
-            padding: "6px 14px",
-            background: GRY,
-            border: "none",
-            borderRadius: 8,
+            width: 34,
+            height: 34,
+            background: WHITE,
+            border: `1px solid ${BDR}`,
+            borderRadius: 999,
             cursor: "pointer",
-            fontSize: 13,
-            color: TXT,
-            fontWeight: 600,
+            fontSize: 14,
+            color: P,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
           }}
+          aria-label="Go back"
+          title="Back"
         >
-          ← Products
+          <i className="bi bi-arrow-left" />
         </button>
         <div style={{ flex: 1 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: TXT }}>
@@ -1742,7 +1963,7 @@ export default function AdminProductDetail() {
                   const isSel = v.productVariantId === selVariantId;
                   const hex = resolveColor(v.color);
                   const firstImg = (v.images ?? [])[0];
-                  const imgSrc = firstImg ? imgUrl(firstImg.filePath) : null;
+                  const imgSrc = firstImg ? imgUrl(imagePathFromAny(firstImg)) : null;
                   return (
                     <button
                       key={v.productVariantId}
