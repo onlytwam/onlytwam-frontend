@@ -41,13 +41,13 @@ export default function OrderConfirm() {
   const paymentPending = searchParams.get("payment") === "pending";
 
   // ── Pending payment polling ────────────────────────────────────────────
-  // When PayG's Detail API fails at callback time (race condition), the backend
-  // sends the user here with ?payment=pending instead of the error page.
-  // We poll /Payment/Status every 3 seconds (up to 2 minutes) until the
-  // payment resolves to Confirmed or Failed, then update the URL accordingly.
+  // When PayG's Detail API fails at callback time (race condition / IP not
+  // whitelisted), the backend sends the user here with ?payment=pending.
+  // We poll /Payment/Status every 4 seconds (up to 5 minutes) until the
+  // payment resolves to Confirmed or Payment Failed via the S2S webhook.
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
-  const MAX_POLLS = 40; // 40 × 3s = 2 minutes
+  const MAX_POLLS = 75; // 75 × 4s = 5 minutes
   const [pollMsg, setPollMsg] = useState("Verifying your payment…");
 
   useEffect(() => {
@@ -60,14 +60,17 @@ export default function OrderConfirm() {
       pollCount.current += 1;
       try {
         const status = await getPaymentStatus(orderId);
-        const state = (status?.state ?? "").toLowerCase();
+        const state = (status?.state ?? "").toLowerCase().trim();
+
         if (state === "confirmed") {
           clearInterval(pollRef.current!);
           setSearchParams({ payment: "success" }, { replace: true });
           return;
         }
+
         if (
           state === "payment failed" ||
+          state === "paymentfailed" ||
           state === "failed" ||
           state === "cancelled"
         ) {
@@ -78,6 +81,17 @@ export default function OrderConfirm() {
           );
           return;
         }
+
+        // states "awaitingpayment" / "payment pending" / "pending" → keep polling
+        if (pollCount.current === 10) {
+          setPollMsg(
+            "Still verifying… this can take up to a minute for UPI payments.",
+          );
+        } else if (pollCount.current === 30) {
+          setPollMsg(
+            "Taking a bit longer than usual. Hang tight — don't close this tab.",
+          );
+        }
       } catch {
         // Network hiccup — keep polling
       }
@@ -85,10 +99,11 @@ export default function OrderConfirm() {
       if (pollCount.current >= MAX_POLLS) {
         clearInterval(pollRef.current!);
         setPollMsg(
-          "Taking longer than usual. Check your email or visit My Orders.",
+          "We couldn't confirm your payment automatically. " +
+            "If money was debited, your order will appear in My Orders once our team verifies it.",
         );
       }
-    }, 3000);
+    }, 4000);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
