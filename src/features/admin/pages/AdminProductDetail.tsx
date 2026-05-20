@@ -30,6 +30,9 @@ const WHITE = "#ffffff";
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function imgUrl(src: string | null | undefined): string {
   if (!src) return "";
+  if (/^data:image\//.test(src)) return src;
+  if (/^[A-Za-z0-9+/]+=*$/.test(src) && src.length > 120)
+    return `data:image/jpeg;base64,${src}`;
   if (src.startsWith("data:") || src.startsWith("blob:")) return src;
   if (src.startsWith("http://") || src.startsWith("https://")) return src;
   if (src.startsWith("/assets/")) return src;
@@ -49,6 +52,8 @@ function imagePathFromAny(image: any): string {
     image.image ||
     image.selectedImage ||
     image.thumbnail ||
+    image.fileName ||
+    image.imagePath ||
     image.src ||
     image.url ||
     image.path ||
@@ -83,6 +88,29 @@ function resolveColor(c: string | null | undefined): string {
   if (s.startsWith("#") || s.startsWith("rgb")) return s;
   if (/^[0-9a-fA-F]{6}$/.test(s)) return `#${s}`;
   return s;
+}
+
+function getVariantColor(variant: any): string {
+  return resolveColor(
+    variant?.color ||
+      variant?.colorHex ||
+      variant?.colourHex ||
+      variant?.hexCode ||
+      variant?.colorCode ||
+      variant?.colorName ||
+      variant?.colourName ||
+      variant?.variantColor,
+  );
+}
+
+function imageIdFromAny(image: any): number | undefined {
+  const raw =
+    image?.productImageId ??
+    image?.productVariantImageId ??
+    image?.imageId ??
+    image?.id;
+  const id = Number(raw);
+  return Number.isFinite(id) && id > 0 ? id : undefined;
 }
 
 const fieldStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -370,20 +398,44 @@ function ImagePane({
   onRefresh: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [thumbStart, setThumbStart] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
-  const thumbRef = useRef<HTMLDivElement>(null);
 
   const resolved = images
-    .map((im, i) => ({ ...im, src: imgUrl(imagePathFromAny(im)), idx: i }))
+    .map((im, i) => ({
+      ...(typeof im === "object" && im !== null ? im : {}),
+      src: imgUrl(imagePathFromAny(im)),
+      idx: i,
+      productImageId: imageIdFromAny(im),
+    }))
     .filter((im) => im.src);
+  const activeResolvedIdx = Math.max(
+    0,
+    resolved.findIndex((im) => im.idx === activeIdx),
+  );
+  const currentImage = resolved[activeResolvedIdx] ?? resolved[0];
+  const maxVisibleThumbs = 4;
+  const visibleThumbs = resolved.slice(
+    thumbStart,
+    thumbStart + maxVisibleThumbs,
+  );
+  const canPageThumbsUp = thumbStart > 0;
+  const canPageThumbsDown = thumbStart + maxVisibleThumbs < resolved.length;
 
-  // Scroll active thumb into view
   useEffect(() => {
-    if (!thumbRef.current) return;
-    const el = thumbRef.current.children[activeIdx] as HTMLElement;
-    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [activeIdx]);
+    if (resolved.length <= maxVisibleThumbs) {
+      setThumbStart(0);
+      return;
+    }
+
+    setThumbStart((start) => {
+      if (activeResolvedIdx < start) return activeResolvedIdx;
+      if (activeResolvedIdx >= start + maxVisibleThumbs) {
+        return activeResolvedIdx - maxVisibleThumbs + 1;
+      }
+      return Math.min(start, Math.max(0, resolved.length - maxVisibleThumbs));
+    });
+  }, [activeResolvedIdx, resolved.length]);
 
   async function handleUpload(files: FileList | null) {
     if (!files || !files.length) return;
@@ -405,7 +457,11 @@ function ImagePane({
   }
 
   async function handleDelete(imageId?: number, idx?: number) {
-    if (!imageId || !window.confirm("Delete this image?")) return;
+    if (!imageId) {
+      toast.error("This image cannot be deleted from here yet");
+      return;
+    }
+    if (!window.confirm("Delete this image?")) return;
     try {
       await api.delete(`/ProductVariants/${variantId}/images/${imageId}`);
       toast.success("Image deleted");
@@ -422,19 +478,38 @@ function ImagePane({
       {/* Vertical thumbnail strip */}
       {resolved.length > 1 && (
         <div
-          ref={thumbRef}
           style={{
             display: "flex",
             flexDirection: "column",
             gap: 6,
             width: 72,
             flexShrink: 0,
-            maxHeight: 440,
-            overflowY: "auto",
-            scrollbarWidth: "none",
+            alignItems: "stretch",
           }}
         >
-          {resolved.map((im) => (
+          {resolved.length > maxVisibleThumbs && (
+            <button
+              type="button"
+              onClick={() => setThumbStart((s) => Math.max(0, s - 1))}
+              disabled={!canPageThumbsUp}
+              aria-label="Previous thumbnails"
+              title="Previous thumbnails"
+              style={{
+                height: 24,
+                borderRadius: 999,
+                border: `1px solid ${BDR}`,
+                background: WHITE,
+                color: canPageThumbsUp ? P : "#c9beb8",
+                cursor: canPageThumbsUp ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <i className="bi bi-chevron-up" />
+            </button>
+          )}
+          {visibleThumbs.map((im) => (
             <div
               key={im.idx}
               onClick={() => onSelect(im.idx)}
@@ -449,39 +524,40 @@ function ImagePane({
                 border: `2px solid ${im.idx === activeIdx ? P : BDR}`,
                 opacity: im.idx === activeIdx ? 1 : 0.65,
               }}
-              onMouseEnter={() => setHoveredIdx(im.idx)}
-              onMouseLeave={() => setHoveredIdx(null)}
             >
               <img
                 src={im.src}
                 alt=""
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
-              {hoveredIdx === im.idx && im.productImageId && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(im.productImageId, im.idx);
-                  }}
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(198,40,40,0.75)",
-                    border: "none",
-                    color: WHITE,
-                    cursor: "pointer",
-                    fontSize: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  title="Delete"
-                >
-                  <i className="bi bi-trash" />
-                </button>
-              )}
             </div>
           ))}
+          {resolved.length > maxVisibleThumbs && (
+            <button
+              type="button"
+              onClick={() =>
+                setThumbStart((s) =>
+                  Math.min(resolved.length - maxVisibleThumbs, s + 1),
+                )
+              }
+              disabled={!canPageThumbsDown}
+              aria-label="Next thumbnails"
+              title="Next thumbnails"
+              style={{
+                height: 24,
+                borderRadius: 999,
+                border: `1px solid ${BDR}`,
+                background: WHITE,
+                color: canPageThumbsDown ? P : "#c9beb8",
+                cursor: canPageThumbsDown ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <i className="bi bi-chevron-down" />
+            </button>
+          )}
         </div>
       )}
 
@@ -495,17 +571,21 @@ function ImagePane({
             overflow: "hidden",
             aspectRatio: "3/4",
           }}
-          onMouseEnter={() => setHoveredIdx(-1)}
-          onMouseLeave={() => setHoveredIdx(null)}
         >
           {resolved.length > 0 ? (
             <>
               <img
-                src={resolved[activeIdx]?.src ?? resolved[0].src}
+                src={currentImage.src}
                 alt="product"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  display: "block",
+                }}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
+                  (e.target as HTMLImageElement).src =
+                    "/assets/category-bg.png";
                 }}
               />
               {/* Prev / Next */}
@@ -514,7 +594,10 @@ function ImagePane({
                   <button
                     onClick={() =>
                       onSelect(
-                        (activeIdx - 1 + resolved.length) % resolved.length,
+                        resolved[
+                          (activeResolvedIdx - 1 + resolved.length) %
+                            resolved.length
+                        ].idx,
                       )
                     }
                     style={{
@@ -538,7 +621,9 @@ function ImagePane({
                     ‹
                   </button>
                   <button
-                    onClick={() => onSelect((activeIdx + 1) % resolved.length)}
+                    onClick={() =>
+                      onSelect(resolved[(activeResolvedIdx + 1) % resolved.length].idx)
+                    }
                     style={{
                       position: "absolute",
                       right: 8,
@@ -562,11 +647,12 @@ function ImagePane({
                 </>
               )}
               {/* Delete current */}
-              {hoveredIdx === -1 && resolved[activeIdx]?.productImageId && (
+              {currentImage?.productImageId && (
                 <button
-                  onClick={() =>
-                    handleDelete(resolved[activeIdx].productImageId, activeIdx)
-                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(currentImage.productImageId, currentImage.idx);
+                  }}
                   style={{
                     position: "absolute",
                     top: 8,
@@ -604,7 +690,7 @@ function ImagePane({
                     borderRadius: 12,
                   }}
                 >
-                  {activeIdx + 1}/{resolved.length}
+                  {activeResolvedIdx + 1}/{resolved.length}
                 </span>
               )}
             </>
@@ -1497,13 +1583,20 @@ export default function AdminProductDetail() {
           },
         })
         .then((r) => r.data),
-    enabled: !isNew && productVariants.length === 0,
+    enabled: !isNew,
   });
   const fetchedVariants: any[] = (
     Array.isArray(variantsData) ? variantsData : variantsData?.list ?? []
   ).filter((v: any) => v.deletedInd !== true);
-  const variants: any[] =
-    productVariants.length > 0 ? productVariants : fetchedVariants;
+  const variants: any[] = useMemo(() => {
+    const byId = new Map<number, any>();
+    [...productVariants, ...fetchedVariants].forEach((variant) => {
+      const id = Number(variant?.productVariantId);
+      if (!id) return;
+      byId.set(id, { ...(byId.get(id) ?? {}), ...variant });
+    });
+    return Array.from(byId.values());
+  }, [productVariants, fetchedVariants]);
 
   // Auto-select first variant
   useEffect(() => {
@@ -1752,21 +1845,6 @@ export default function AdminProductDetail() {
         >
           {product.isActive !== false ? "Active" : "Inactive"}
         </span>
-        <button
-          onClick={() => setAddVariantOpen(true)}
-          style={{
-            padding: "7px 16px",
-            background: P,
-            color: WHITE,
-            border: "none",
-            borderRadius: 9,
-            fontSize: 13,
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
-          <i className="bi bi-plus-lg" /> Add Variant
-        </button>
       </div>
 
       {/* ── Two-column layout (mirrors user ProductDetail) ──────────────────────── */}
@@ -1822,23 +1900,14 @@ export default function AdminProductDetail() {
         ══════════════════════════════════════════════════════════════════════ */}
         <div>
           {/* Brand */}
-          <InlineField
+          <InlineSelect
             label="Brand"
-            value={
-              allBrands.find((b) => b.brandId === product.brandId)?.brandName ??
-              ""
-            }
-            placeholder="Set brand…"
-            onSave={(v) => {
-              const match = allBrands.find(
-                (b) => b.brandName.toLowerCase() === v.toLowerCase(),
-              );
-              if (match) patchProduct({ brandId: match.brandId });
-              else
-                toast("Brand not found — use the dropdown below", {
-                  icon: "⚠️",
-                });
-            }}
+            value={product.brandId}
+            options={allBrands.map((b) => ({
+              id: b.brandId,
+              name: b.brandName,
+            }))}
+            onSave={(v) => patchProduct({ brandId: v })}
           />
 
           {/* Product Name */}
@@ -1948,22 +2017,59 @@ export default function AdminProductDetail() {
             <div style={{ marginBottom: 20 }}>
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: SUB,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
                   marginBottom: 8,
                 }}
               >
-                Variants ({variants.length})
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: SUB,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Variants ({variants.length})
+                </div>
+                <button
+                  onClick={() => setAddVariantOpen(true)}
+                  style={{
+                    padding: "6px 12px",
+                    background: P,
+                    color: WHITE,
+                    border: "none",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <i className="bi bi-plus-lg" /> Add Variant
+                </button>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {variants.map((v) => {
                   const isSel = v.productVariantId === selVariantId;
-                  const hex = resolveColor(v.color);
-                  const firstImg = (v.images ?? [])[0];
-                  const imgSrc = firstImg ? imgUrl(imagePathFromAny(firstImg)) : null;
+                  const hex = getVariantColor(v);
+                  const firstImg = mergeImageSources(
+                    v.images,
+                    v.imageUrl ||
+                      v.imageURL ||
+                      v.image ||
+                      v.selectedImage ||
+                      v.thumbnail,
+                  )[0];
+                  const imgSrc = firstImg
+                    ? imgUrl(imagePathFromAny(firstImg))
+                    : null;
                   return (
                     <button
                       key={v.productVariantId}
