@@ -5,6 +5,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useEffect } from "react";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
+import {
+  AdminProductCard,
+  AdminProductCardSkeleton,
+} from "@/features/admin/components/AdminProductCard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -544,7 +548,7 @@ function VariantPanel({ productId }: { productId: number }) {
             {variants.length !== 1 ? "s" : ""}
           </div>
           <button
-            onClick={() => navigate(`/admin/products/${productId}`)}
+            onClick={() => navigate(`/admin/products/${productId}/detail`)}
             style={{
               background: PRIMARY,
               color: "#fff",
@@ -720,8 +724,10 @@ function VariantPanel({ productId }: { productId: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ProductsTable
+// ProductsTable  (now renders as an admin product card grid)
 // ─────────────────────────────────────────────────────────────────────────────
+const CARD_PAGE_SIZE = 12; // cards per page — 4 per row × 3 rows
+
 function ProductsTable({
   brandId,
   categoryId,
@@ -731,12 +737,9 @@ function ProductsTable({
   categoryId?: number;
   totalLabel: string;
 }) {
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
-  const [expanded, setExpanded] = useState<number | null>(null);
   const [confirmDelete, setConfirm] = useState<any>(null);
-  const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
 
   const buildParams = useCallback(() => {
     const filters: any[] = [];
@@ -755,7 +758,7 @@ function ProductsTable({
     return {
       ...(filters.length ? { Filters: JSON.stringify(filters) } : {}),
       "Page.Index": page,
-      "Page.Size": PAGE_SIZE,
+      "Page.Size": CARD_PAGE_SIZE,
       "Order.Property": "ModifiedDate",
       "Order.Ascending": "false",
     };
@@ -774,9 +777,11 @@ function ProductsTable({
     onSuccess: () => {
       toast.success("Updated");
       qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
+      qc.invalidateQueries({ queryKey: ["admin-card-variants"] });
     },
     onError: () => toast.error("Failed"),
   });
+
   const deleteProduct = useMutation({
     mutationFn: (id: number) => api.delete(`/Products/${id}`),
     onSuccess: () => {
@@ -788,313 +793,144 @@ function ProductsTable({
 
   const products = data?.list ?? [];
   const total = data?.count ?? 0;
-  const pages = Math.ceil(total / PAGE_SIZE) || 1;
-  const thS: React.CSSProperties = {
-    padding: "8px 12px",
-    textAlign: "left",
-    fontSize: 11,
-    fontWeight: 700,
-    color: SUB,
-    borderBottom: `1px solid ${BORDER}`,
-  };
+  const pages = Math.ceil(total / CARD_PAGE_SIZE) || 1;
 
   return (
     <div>
-      <div style={{ fontSize: 13, color: SUB, marginBottom: 14 }}>
-        {isLoading
-          ? "Loading…"
-          : `${total} product${total !== 1 ? "s" : ""} in ${totalLabel}`}
-      </div>
-      <div className="s-adminbrands-a637bc">
-        <div className="s-admindashboa-ce7380">
-          <table className="s-adminbrands-de3642">
-            <thead>
-              <tr className="s-admininvento-d3aab0">
-                <th style={{ width: 40 }} />
-                {[
-                  "Image",
-                  "Name",
-                  "Code",
-                  "Brand",
-                  "Category",
-                  "Status",
-                  "Actions",
-                ].map((h) => (
-                  <th key={h} className="s-admininvento-947fb4">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td colSpan={8} className="s-adminorders-652ef8">
-                      <div className="s-adminorders-ac15d0" />
-                    </td>
-                  </tr>
-                ))
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="s-admininvento-2925c8">
-                    <i className="bi bi-box-seam s-adminorders-9fdb4f" /> No
-                    products found
-                  </td>
-                </tr>
-              ) : (
-                products.flatMap((p: any) => {
-                  const isExp = expanded === p.productId;
-                  const { fullyActive } = getStatusInfo(p);
-                  const isHidden = hiddenIds.has(p.productId);
-                  const rows: any[] = [];
-                  rows.push(
-                    <tr
-                      key={p.productId}
-                      className="s-adminbrands-59d787"
-                      style={{
-                        background: isExp
-                          ? PRIMARY_LT
-                          : fullyActive
-                          ? "transparent"
-                          : "#fff8f8",
-                        opacity: fullyActive ? 1 : 0.82,
-                      }}
-                    >
-                      <td
-                        className="s-adminbrands-7dcd2c"
-                        style={{ width: 40 }}
-                      >
-                        <button
-                          onClick={() =>
-                            setExpanded(isExp ? null : p.productId)
-                          }
-                          style={{
-                            background: isExp ? PRIMARY : "none",
-                            color: isExp ? "#fff" : SUB,
-                            border: isExp ? "none" : `1px solid ${BORDER}`,
-                            borderRadius: 6,
-                            width: 28,
-                            height: 28,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 13,
-                          }}
-                        >
-                          <i
-                            className={`bi bi-chevron-${
-                              isExp ? "down" : "right"
-                            }`}
-                          />
-                        </button>
-                      </td>
-                      <td className="s-adminbrands-7dcd2c">
-                        {p.imageUrl ||
-                        p.image ||
-                        p.selectedImage ||
-                        p.thumbnail ? (
-                          <img
-                            src={
-                              p.imageUrl ||
-                              p.image ||
-                              p.selectedImage ||
-                              p.thumbnail
-                            }
-                            alt={p.name}
-                            className="s-adminproduct-b1c1e9"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.opacity =
-                                "0";
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 48,
-                              height: 48,
-                              background: GREY,
-                              borderRadius: 8,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <i
-                              className="bi bi-image"
-                              style={{ color: SUB, fontSize: 18 }}
-                            />
-                          </div>
-                        )}
-                      </td>
-                      <td className="s-adminbrands-7dcd2c">
-                        <div
-                          onClick={() =>
-                            navigate(`/admin/products/${p.productId}`)
-                          }
-                          className="s-adminproduct-48c60a"
-                          style={{ cursor: "pointer" }}
-                        >
-                          {p.name}
-                        </div>
-                        <div className="s-adminproduct-ee9064">
-                          {p.description}
-                        </div>
-                      </td>
-                      <td className="s-adminproduct-4d12db">
-                        {p.productCode || "—"}
-                      </td>
-                      <td className="s-adminproduct-d86977">
-                        <span
-                          style={{
-                            color: p.brandDeletedInd
-                              ? "#c62828"
-                              : p.brandIsActive === false
-                              ? "#e65100"
-                              : undefined,
-                          }}
-                        >
-                          {p.brandName || "—"}
-                        </span>
-                        {p.brandDeletedInd && (
-                          <span
-                            style={{
-                              marginLeft: 5,
-                              fontSize: 10,
-                              background: "#fdecea",
-                              color: "#c62828",
-                              borderRadius: 4,
-                              padding: "1px 5px",
-                              fontWeight: 700,
-                            }}
-                          >
-                            DEL
-                          </span>
-                        )}
-                        {!p.brandDeletedInd && p.brandIsActive === false && (
-                          <span
-                            style={{
-                              marginLeft: 5,
-                              fontSize: 10,
-                              background: "#fff8e1",
-                              color: "#e65100",
-                              borderRadius: 4,
-                              padding: "1px 5px",
-                              fontWeight: 700,
-                            }}
-                          >
-                            HIDDEN
-                          </span>
-                        )}
-                      </td>
-                      <td className="s-adminproduct-d86977">
-                        <span
-                          style={{
-                            color: p.categoryDeletedInd
-                              ? "#c62828"
-                              : p.categoryIsActive === false
-                              ? "#e65100"
-                              : undefined,
-                          }}
-                        >
-                          {p.categoryName || "—"}
-                        </span>
-                        {p.categoryDeletedInd && (
-                          <span
-                            style={{
-                              marginLeft: 5,
-                              fontSize: 10,
-                              background: "#fdecea",
-                              color: "#c62828",
-                              borderRadius: 4,
-                              padding: "1px 5px",
-                              fontWeight: 700,
-                            }}
-                          >
-                            DEL
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="s-adminbrands-7dcd2c"
-                        style={{ textAlign: "center" }}
-                      >
-                        <StatusPill
-                          product={p}
-                          isExplicitlyHidden={isHidden}
-                          onToggle={() => toggleProduct.mutate(p.productId)}
-                          loading={toggleProduct.isPending}
-                        />
-                      </td>
-                      <td className="s-adminbrands-7dcd2c">
-                        <div className="s-adminproduct-6209be">
-                          <button
-                            onClick={() =>
-                              navigate(`/admin/products/${p.productId}`)
-                            }
-                            className="s-adminproduct-bec64d"
-                          >
-                            <i className="bi bi-pencil" /> Edit
-                          </button>
-                          <HideShowButton
-                            isOwnActive={p.isActive !== false}
-                            isExplicitlyHidden={isHidden}
-                            onToggle={() => toggleProduct.mutate(p.productId)}
-                            loading={toggleProduct.isPending}
-                          />
-                          <button
-                            onClick={() => setConfirm(p)}
-                            className="s-adminproduct-d37b04"
-                          >
-                            <i className="bi bi-trash" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>,
-                  );
-                  if (isExp)
-                    rows.push(
-                      <tr key={`${p.productId}-v`}>
-                        <td
-                          colSpan={8}
-                          style={{
-                            padding: 0,
-                            borderBottom: `2px solid ${BORDER}`,
-                          }}
-                        >
-                          <VariantPanel productId={p.productId} />
-                        </td>
-                      </tr>,
-                    );
-                  return rows;
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        {pages > 1 && (
-          <div className="s-adminorders-0fe0c2">
-            <button
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="s-adminproduct-26d310"
-            >
-              ← Prev
-            </button>
-            <span className="s-adminorders-caf6f2">
-              Page {page} of {pages}
-            </span>
-            <button
-              disabled={page >= pages}
-              onClick={() => setPage((p) => p + 1)}
-              className="s-adminproduct-26d310"
-            >
-              Next →
-            </button>
-          </div>
+      {/* Summary bar */}
+      <div
+        style={{
+          fontSize: 13,
+          color: SUB,
+          marginBottom: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <span>
+          {isLoading
+            ? "Loading products…"
+            : `${total} product${total !== 1 ? "s" : ""} in `}
+          {!isLoading && <strong style={{ color: TXT }}>{totalLabel}</strong>}
+        </span>
+        {pages > 1 && !isLoading && (
+          <span style={{ fontSize: 12, color: SUB }}>
+            Page {page} of {pages}
+          </span>
         )}
       </div>
+
+      {/* Card grid */}
+      {isLoading ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {Array.from({ length: CARD_PAGE_SIZE }).map((_, i) => (
+            <AdminProductCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : products.length === 0 ? (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "60px 20px",
+            color: SUB,
+            fontSize: 14,
+          }}
+        >
+          <i
+            className="bi bi-box-seam"
+            style={{
+              fontSize: 40,
+              display: "block",
+              marginBottom: 12,
+              opacity: 0.4,
+            }}
+          />
+          No products found in {totalLabel}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {products.map((p: any) => (
+            <AdminProductCard
+              key={p.productId}
+              product={p}
+              onToggle={(id) => toggleProduct.mutate(id)}
+              onDelete={(prod) => setConfirm(prod)}
+              toggleLoading={toggleProduct.isPending}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pages > 1 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            marginTop: 28,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="s-adminproduct-26d310"
+          >
+            ← Prev
+          </button>
+
+          {/* Page number pills */}
+          {Array.from({ length: Math.min(pages, 10) }, (_, i) => i + 1).map(
+            (pg) => (
+              <button
+                key={pg}
+                onClick={() => setPage(pg)}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 8,
+                  border: `1.5px solid ${pg === page ? PRIMARY : BORDER}`,
+                  background: pg === page ? PRIMARY : "#fff",
+                  color: pg === page ? "#fff" : TXT,
+                  fontWeight: pg === page ? 700 : 500,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  transition: "background 0.12s",
+                }}
+              >
+                {pg}
+              </button>
+            ),
+          )}
+
+          <button
+            disabled={page >= pages}
+            onClick={() => setPage((p) => p + 1)}
+            className="s-adminproduct-26d310"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
       {confirmDelete && (
         <div className="s-adminproduct-d9e7c0" onClick={() => setConfirm(null)}>
           <div
