@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/shared/api/axiosInstance";
+import { resolveHex } from "@/shared/utils/colorHelpers";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — match AdminProducts.tsx exactly
@@ -12,7 +13,7 @@ const BORDER = "#E6DAD3";
 const GREY = "#F3EFEC";
 const SUB = "#8A7F7A";
 const TXT = "#2B2B2B";
-const MAX_SWATCHES = 7;
+const MAX_SWATCHES = 6;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -21,6 +22,22 @@ function resolveImg(src: string | null | undefined): string {
   if (!src) return "";
   if (src.startsWith("http") || src.startsWith("/")) return src;
   return encodeURI("http://127.0.0.1:8000/" + src.replace(/\\/g, "/"));
+}
+
+function getVariantImageSrc(variant: any): string {
+  if (!variant) return "";
+  if (Array.isArray(variant.images) && variant.images.length > 0) {
+    const first = variant.images.find(Boolean);
+    if (typeof first === "string") return resolveImg(first);
+    return resolveImg(first?.fileData || first?.filePath || first?.src);
+  }
+  return resolveImg(
+    variant.imageUrl ||
+      variant.imageURL ||
+      variant.image ||
+      variant.selectedImage ||
+      variant.thumbnail,
+  );
 }
 
 interface StatusInfo {
@@ -56,63 +73,61 @@ function getStatusInfo(p: any): StatusInfo {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ColorSwatch — circle showing a hex/named color from the variant's color field
-// ─────────────────────────────────────────────────────────────────────────────
-function ColorSwatch({
-  color,
-  imgSrc,
-  title,
-}: {
-  color?: string | null;
-  imgSrc?: string | null;
-  title?: string;
-}) {
-  const bg = color
-    ? color.startsWith("#") ||
-      color.startsWith("rgb") ||
-      color.startsWith("hsl")
-      ? color
-      : color.length === 6 && /^[0-9a-fA-F]+$/.test(color)
-      ? `#${color}`
-      : color
-    : "#d0c8c2";
-
-  return (
-    <span
-      title={title || color || "Variant"}
-      style={{
-        width: 20,
-        height: 20,
-        borderRadius: "50%",
-        flexShrink: 0,
-        display: "inline-block",
-        border: "1.5px solid rgba(0,0,0,0.18)",
-        overflow: "hidden",
-        position: "relative",
-        background: imgSrc ? undefined : bg,
-        backgroundImage: imgSrc ? `url(${imgSrc})` : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-      }}
-    />
-  );
+function resolveColorFields(obj: any) {
+  if (!obj) return { colorName: "", colorHex: "" };
+  const colorName =
+    obj.colorName ||
+    obj.color ||
+    obj.colourName ||
+    obj.colour ||
+    obj.colorCode ||
+    obj.colorLabel ||
+    obj.variantColor ||
+    obj.productColor ||
+    obj.productColour ||
+    "";
+  const colorHex =
+    obj.colorHex ||
+    obj.colourHex ||
+    obj.hexCode ||
+    obj.colorHexCode ||
+    obj.hex ||
+    obj.colorCode ||
+    obj.color ||
+    obj.colourName ||
+    obj.colorName ||
+    "";
+  return { colorName, colorHex: resolveHex(colorHex) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VariantSwatchRow — fetches variants for a product and renders color swatches
+// VariantSwatchRow — fetches variants, renders count badge + color swatches
+//                    ABOVE the product name (called from AdminProductCard)
 // ─────────────────────────────────────────────────────────────────────────────
-function VariantSwatchRow({ productId }: { productId: number }) {
+export function VariantSwatchRow({
+  productId,
+  variants: variantsFromProduct,
+  selectedVariantId,
+  onSelectVariant,
+}: {
+  productId: number;
+  variants?: any[];
+  selectedVariantId?: number | null;
+  onSelectVariant?: (variant: any) => void;
+}) {
+  const hasProductVariants =
+    Array.isArray(variantsFromProduct) && variantsFromProduct.length > 0;
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin-card-variants", productId],
     queryFn: () =>
       api
-        .get("/ProductVariants/", {
+        .get("/ProductVariants", {
           params: {
             Filters: JSON.stringify([
               {
-                property: "productId",
-                comparison: "eq",
+                property: "ProductId",
+                comparison: "==",
                 value: String(productId),
               },
             ]),
@@ -120,23 +135,49 @@ function VariantSwatchRow({ productId }: { productId: number }) {
           },
         })
         .then((r) => r.data),
+    enabled: !hasProductVariants,
     staleTime: 60_000,
   });
 
-  const variants: any[] = data?.list ?? [];
+  // Filter out deleted variants client-side too (handles NULL deletedInd from older rows)
+  const allVariants: any[] = hasProductVariants
+    ? variantsFromProduct ?? []
+    : Array.isArray(data)
+    ? data
+    : data?.list ?? [];
+  const variants: any[] = allVariants.filter((v) => v.deletedInd !== true);
   const count = variants.length;
 
   if (isLoading) {
     return (
       <div
-        style={{ display: "flex", gap: 5, alignItems: "center", minHeight: 24 }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "8px 14px 4px",
+          minHeight: 38,
+        }}
       >
+      {/* skeleton count pill */}
+        <div
+          style={{
+            width: 52,
+            height: 20,
+            borderRadius: 20,
+            background: "#ede7e3",
+            animation: "shimmer 1.4s infinite",
+            backgroundImage:
+              "linear-gradient(90deg,#ede7e3 25%,#e0d8d3 50%,#ede7e3 75%)",
+            backgroundSize: "200% 100%",
+          }}
+        />
         {[1, 2, 3].map((i) => (
           <span
             key={i}
             style={{
-              width: 20,
-              height: 20,
+              width: 22,
+              height: 22,
               borderRadius: "50%",
               background: "#e8e0da",
               display: "inline-block",
@@ -153,78 +194,93 @@ function VariantSwatchRow({ productId }: { productId: number }) {
     return (
       <div
         style={{
-          fontSize: 11,
-          color: "#c0b8b2",
-          fontStyle: "italic",
           display: "flex",
           alignItems: "center",
-          gap: 4,
+          gap: 5,
+          padding: "8px 14px 4px",
         }}
       >
-        <i className="bi bi-palette" style={{ fontSize: 12 }} />
-        No variants
+        <span
+          style={{
+            fontSize: 11,
+            color: "#c0b8b2",
+            fontStyle: "italic",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <i className="bi bi-palette" style={{ fontSize: 11 }} />
+          No variants
+        </span>
       </div>
     );
   }
 
-  const visible = variants.slice(0, MAX_SWATCHES);
+  const colorVariants = variants.map((v) => {
+    const color = resolveColorFields(v);
+    return {
+      id: v.productVariantId,
+      name: color.colorName || v.variantName || "Variant",
+      hex: color.colorHex || "#ccc",
+      variant: v,
+    };
+  });
+  const visible = colorVariants.slice(0, MAX_SWATCHES);
   const extra = count - MAX_SWATCHES;
 
   return (
-    <div>
-      {/* Label row */}
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          color: SUB,
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          marginBottom: 5,
-        }}
-      >
-        {count} Variant{count !== 1 ? "s" : ""}
-      </div>
-      {/* Swatches row */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          flexWrap: "wrap",
-        }}
-      >
-        {visible.map((v: any) => {
-          const firstImg = v.images?.[0]?.filePath
-            ? resolveImg(v.images[0].filePath)
-            : null;
-          return (
-            <ColorSwatch
-              key={v.productVariantId}
-              color={v.color}
-              imgSrc={firstImg}
-              title={
-                v.variantName || v.color || `Variant ${v.productVariantId}`
-              }
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "8px 14px 4px",
+        flexWrap: "wrap",
+      }}
+    >
+      <div className="pc-swatches-outer" style={{ flex: "0 1 auto" }}>
+        <div className="pc-swatches">
+          {visible.map((v) => (
+            <span
+              key={v.id}
+              className={`pc-swatch-dot${
+                selectedVariantId === v.id ? " selected" : ""
+              }`}
+              style={{ background: v.hex }}
+              title={v.name}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectVariant?.(v.variant);
+              }}
             />
-          );
-        })}
-        {extra > 0 && (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: SUB,
-              background: GREY,
-              borderRadius: 20,
-              padding: "2px 7px",
-              lineHeight: 1.5,
-            }}
-          >
-            +{extra}
+          ))}
+        </div>
+
+        {count > 1 && (
+          <span className="pc-color-count" title={`${count} colors`}>
+            {count}
           </span>
         )}
       </div>
+
+      {/* Overflow badge */}
+      {extra > 0 && (
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: SUB,
+            background: GREY,
+            borderRadius: 20,
+            padding: "2px 7px",
+            lineHeight: 1.5,
+            border: `1px solid ${BORDER}`,
+          }}
+        >
+          +{extra}
+        </span>
+      )}
     </div>
   );
 }
@@ -251,16 +307,14 @@ export function AdminProductCard({
   const navigate = useNavigate();
   const { fullyActive, reasons } = getStatusInfo(p);
   const [reasonsOpen, setReasonsOpen] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
 
-  // Backend now returns imageUrl directly (first product image).
-  // Fall back to checking legacy fields just in case.
-  const thumbSrc = resolveImg(
-    p.imageUrl || p.image || p.selectedImage || p.thumbnail,
-  );
+  const selectedVariantImage = getVariantImageSrc(selectedVariant);
+  const thumbSrc =
+    selectedVariantImage ||
+    resolveImg(p.imageUrl || p.image || p.selectedImage || p.thumbnail);
 
-  // Derive the "own" hidden state for the hide/show button label
   const isOwnHidden = p.isActive === false;
-  const showAsActive = fullyActive; // active means fully active (not hidden by anything)
 
   return (
     <div
@@ -290,7 +344,7 @@ export function AdminProductCard({
         (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
       }}
     >
-      {/* ── Status badge overlay ── */}
+      {/* ── Inactive badge overlay ── */}
       {!fullyActive && (
         <span
           style={{
@@ -360,27 +414,30 @@ export function AdminProductCard({
             <span style={{ fontSize: 11 }}>No image</span>
           </div>
         )}
-
-        {/* Hover overlay hint */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             background: "rgba(122,30,44,0)",
             transition: "background 0.18s",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             zIndex: 2,
           }}
           className="img-hover-overlay"
         />
       </div>
 
+      {/* ── Variant swatches — ABOVE the product name ── */}
+      <VariantSwatchRow
+        productId={p.productId}
+        variants={p.allVariants}
+        selectedVariantId={selectedVariant?.productVariantId}
+        onSelectVariant={setSelectedVariant}
+      />
+
       {/* ── Info area ── */}
       <div
         style={{
-          padding: "12px 14px 8px",
+          padding: "4px 14px 8px",
           flex: 1,
           display: "flex",
           flexDirection: "column",
@@ -570,11 +627,6 @@ export function AdminProductCard({
             )}
           </div>
         )}
-
-        {/* Variant swatches */}
-        <div style={{ marginTop: 4 }}>
-          <VariantSwatchRow productId={p.productId} />
-        </div>
       </div>
 
       {/* ── Action bar ── */}
@@ -588,7 +640,6 @@ export function AdminProductCard({
           background: "#fafaf9",
         }}
       >
-        {/* Edit — opens new full-detail page */}
         <button
           onClick={() => navigate(`/admin/products/${p.productId}/detail`)}
           title="Edit product"
@@ -621,11 +672,10 @@ export function AdminProductCard({
           <i className="bi bi-pencil" /> Edit
         </button>
 
-        {/* Hide / Show */}
         <button
           onClick={() => onToggle(p.productId)}
           disabled={toggleLoading}
-          title={showAsActive ? "Hide from public" : "Show to public"}
+          title={!isOwnHidden ? "Hide from public" : "Show to public"}
           style={{
             flex: 1,
             padding: "6px 0",
@@ -647,7 +697,6 @@ export function AdminProductCard({
           {!isOwnHidden ? "🙈 Hide" : "👁 Show"}
         </button>
 
-        {/* Delete */}
         <button
           onClick={() => onDelete(p)}
           title="Delete product"
@@ -704,10 +753,29 @@ export function AdminProductCardSkeleton() {
       >
         <div style={{ position: "absolute", inset: 0, ...shimmer }} />
       </div>
+      {/* Swatch row placeholder */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 14px 4px",
+        }}
+      >
+        <div style={{ height: 20, width: 68, borderRadius: 20, ...shimmer }} />
+        <div style={{ display: "flex", gap: 5 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              style={{ width: 22, height: 22, borderRadius: "50%", ...shimmer }}
+            />
+          ))}
+        </div>
+      </div>
       {/* Info placeholder */}
       <div
         style={{
-          padding: "12px 14px",
+          padding: "4px 14px 12px",
           display: "flex",
           flexDirection: "column",
           gap: 8,
@@ -722,14 +790,6 @@ export function AdminProductCardSkeleton() {
           <div
             style={{ height: 18, width: 70, borderRadius: 20, ...shimmer }}
           />
-        </div>
-        <div style={{ display: "flex", gap: 5, marginTop: 4 }}>
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              style={{ width: 20, height: 20, borderRadius: "50%", ...shimmer }}
-            />
-          ))}
         </div>
       </div>
       {/* Action bar placeholder */}
@@ -750,7 +810,6 @@ export function AdminProductCardSkeleton() {
         ))}
         <div style={{ width: 40, height: 32, borderRadius: 7, ...shimmer }} />
       </div>
-      {/* Shimmer keyframe injected once via a style tag */}
       <style>{`
         @keyframes shimmer {
           0%   { background-position: 200% 0; }
