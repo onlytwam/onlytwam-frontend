@@ -794,6 +794,7 @@ export default function ProductCard({
           },
         ]
       : [];
+  const hasScrollableColors = colorVariants.length > 5;
 
   return (
     <div className={`pc-wrap${isRemovableCard ? " pc-wrap--wishlist" : ""}`}>
@@ -945,7 +946,9 @@ export default function ProductCard({
             <div className="pc-row1">
               {showColors && colorVariants.length > 0 ? (
                 <div
-                  className="pc-swatches-outer"
+                  className={`pc-swatches-outer${
+                    hasScrollableColors ? " pc-swatches-outer--scrollable" : ""
+                  }`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="pc-swatches" ref={swatchesRef}>
@@ -966,7 +969,7 @@ export default function ProductCard({
                     ))}
                   </div>
 
-                  {isOverflowing && (
+                  {(hasScrollableColors || isOverflowing) && (
                     <button
                       className="pc-swatch-arrow"
                       onClick={handleScrollSwatches}

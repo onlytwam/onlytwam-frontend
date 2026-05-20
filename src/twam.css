@@ -4908,22 +4908,45 @@ button {
   justify-content: space-between;
   gap: 6px;
   min-height: 17px;
+  overflow: hidden;
 }
 
 .pc-swatches-outer {
+  --pc-visible-swatch-count: 5;
+  --pc-swatch-size: 14px;
+  --pc-swatch-gap: 8px;
   display: flex;
   align-items: center;
   gap: 4px;
   flex: 1;
   min-width: 0;
+  max-width: 100%;
 }
 
 .pc-swatches {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--pc-swatch-gap);
   flex: 1;
   min-width: 0;
+  max-width: calc(
+    (var(--pc-swatch-size) * var(--pc-visible-swatch-count)) +
+      (var(--pc-swatch-gap) * (var(--pc-visible-swatch-count) - 1)) + 6px
+  );
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 2px 1px;
+  overscroll-behavior-inline: contain;
+}
+
+.pc-swatches::-webkit-scrollbar {
+  display: none;
+}
+
+.pc-swatches-outer--scrollable {
+  flex: 0 1 auto;
 }
 
 /* The invisible track that allows horizontal scrolling */
@@ -4943,8 +4966,8 @@ button {
 }
 
 .pc-swatch-dot {
-  width: 14px;
-  height: 14px;
+  width: var(--pc-swatch-size);
+  height: var(--pc-swatch-size);
   border-radius: 50%;
   border: 1.5px solid rgba(0, 0, 0, 0.12);
   cursor: pointer;
@@ -4969,12 +4992,14 @@ button {
   background: none;
   border: none;
   color: var(--heirloom);
+  width: 18px;
+  height: 18px;
   font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 0 0 2px;
+  padding: 0;
   flex-shrink: 0;
   transition: color 0.2s ease;
 }
@@ -4997,7 +5022,8 @@ button {
   text-overflow: ellipsis;
   max-width: 55%;
   text-align: right;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 /* -- Row 2: name left | prices right -------------------------------------- */
