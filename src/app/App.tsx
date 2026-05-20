@@ -255,6 +255,9 @@ const AdminReports = lazy(() => import("@/features/admin/pages/AdminReports"));
 const AdminProductForm = lazy(
   () => import("@/features/admin/pages/AdminProductForm"),
 );
+const AdminProductDetail = lazy(
+  () => import("@/features/admin/pages/AdminProductDetail"),
+);
 const AdminCategories = lazy(
   () => import("@/features/admin/pages/AdminCategories"),
 );
@@ -1058,6 +1061,7 @@ export default function App() {
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id" element={<AdminProductForm />} />
+            <Route path="products/:id/detail" element={<AdminProductDetail />} />
             <Route path="inventory" element={<AdminInventory />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="categories" element={<AdminCategories />} />

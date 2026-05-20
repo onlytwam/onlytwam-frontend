@@ -22774,28 +22774,73 @@ section.s-home-bcf04f {
   overflow: hidden;
 }
 
-/* Left column: image gallery */
-.pd-left-col {
-  width: 100%;
-  max-width: 100%;
+.s-productdetai-3bf9d0 > :last-child {
+  overflow: visible;
 }
 
-/* Main image must not exceed its container */
-.s-productdetai-20b6f1 {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  object-fit: contain;
-  display: block;
-}
+/* Product detail gallery fills the screen below the sticky desktop header. */
+@media (min-width: 769px) {
+  body:has(.s-productdetai-312006) main.s-app-52dcac {
+    overflow-x: clip;
+  }
 
-/* Container padding */
-.s-productdetai-312006 {
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 24px 16px 0;
-  box-sizing: border-box;
+  .s-productdetai-312006 {
+    --pd-desktop-header-height: 64px;
+    --pd-gallery-height: calc(100vh - var(--pd-desktop-header-height));
+    width: 100%;
+    max-width: 1340px;
+    margin: 0 auto;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+
+  .s-productdetai-3bf9d0 {
+    align-items: start;
+    min-height: var(--pd-gallery-height);
+    margin-bottom: 48px;
+  }
+
+  .pd-left-col,
+  .s-productdetai-993ff1 {
+    width: 100%;
+    max-width: 100%;
+    height: var(--pd-gallery-height);
+    position: sticky;
+    top: var(--pd-desktop-header-height);
+    align-self: start;
+  }
+
+  .pd-gallery-row {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .pd-desktop-thumb-col {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .pd-desktop-thumb-col .pd-thumb-col {
+    max-height: calc(100% - 70px) !important;
+  }
+
+  .s-productdetai-c12f49 {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    background: #faf8f4;
+  }
+
+  .s-productdetai-20b6f1 {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-height: 0;
+    aspect-ratio: auto;
+    object-fit: cover;
+    object-position: center center;
+    display: block;
+  }
 }
 
 /* ── Mobile: stack columns ── */
