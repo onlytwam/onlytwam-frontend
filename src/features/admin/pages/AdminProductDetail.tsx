@@ -10,7 +10,12 @@
  * "Hide / Show Variant" sits where Buy-Now / Add-to-Cart would be on the user page.
  */
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useParams, useNavigate, useOutletContext } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  useOutletContext,
+  useLocation,
+} from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
@@ -144,23 +149,35 @@ function InlineField({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  // `committed` = locally edited value shown in view mode (may differ from server `value`)
+  const [committed, setCommitted] = useState(value);
 
   useEffect(() => {
     setDraft(value);
+    setCommitted(value);
   }, [value]);
 
+  const isDirty = committed !== value;
+
   function commit() {
+    const next = draft.trim();
     setEditing(false);
-    if (draft !== value) onSave(draft);
+    setCommitted(next);
+    if (next !== value) onSave(next);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setDraft(committed);
   }
 
   const viewStyle: React.CSSProperties = {
     fontSize: large ? 22 : 14,
     fontWeight: large ? 700 : 400,
-    color: value ? TXT : SUB,
+    color: committed ? TXT : SUB,
     cursor: "pointer",
     padding: "6px 0",
-    borderBottom: `1.5px dashed ${BDR}`,
+    borderBottom: isDirty ? `1.5px solid #f59e0b` : `1.5px dashed ${BDR}`,
     minHeight: 32,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
@@ -178,90 +195,71 @@ function InlineField({
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             marginBottom: 5,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
           {label}
+          {isDirty && (
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#f59e0b",
+                display: "inline-block",
+              }}
+              title="Unsaved change"
+            />
+          )}
         </div>
       )}
       {editing ? (
-        <>
-          {multiline ? (
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={4}
-              style={{
-                ...fieldStyle({
-                  resize: "vertical",
-                  lineHeight: 1.6,
-                  fontSize: large ? 20 : 14,
-                }),
-              }}
-              autoFocus
-            />
-          ) : (
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              style={fieldStyle({
+        multiline ? (
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={4}
+            style={{
+              ...fieldStyle({
+                resize: "vertical",
+                lineHeight: 1.6,
                 fontSize: large ? 20 : 14,
-                fontWeight: large ? 700 : 400,
-              })}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commit();
-                if (e.key === "Escape") {
-                  setEditing(false);
-                  setDraft(value);
-                }
-              }}
-            />
-          )}
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button
-              onClick={commit}
-              style={{
-                padding: "5px 14px",
-                background: P,
-                color: WHITE,
-                border: "none",
-                borderRadius: 7,
-                fontSize: 12,
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Save
-            </button>
-            <button
-              onClick={() => {
-                setEditing(false);
-                setDraft(value);
-              }}
-              style={{
-                padding: "5px 12px",
-                background: GRY,
-                color: TXT,
-                border: "none",
-                borderRadius: 7,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </>
+              }),
+            }}
+            autoFocus
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") cancel();
+            }}
+          />
+        ) : (
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            style={fieldStyle({
+              fontSize: large ? 20 : 14,
+              fontWeight: large ? 700 : 400,
+            })}
+            autoFocus
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") cancel();
+            }}
+          />
+        )
       ) : (
         <div
           onClick={() => {
             setEditing(true);
-            setDraft(value);
+            setDraft(committed);
           }}
           style={viewStyle}
           title="Click to edit"
         >
-          {value || (
+          {committed || (
             <span style={{ fontStyle: "italic", color: SUB }}>
               {placeholder}
             </span>
@@ -289,8 +287,22 @@ function InlineSelect({
   onSave: (v: number) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const current = options.find((o) => o.id === value);
+  // localValue tracks pending selection (may differ from server `value`)
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const isDirty = localValue !== value;
+  const current = options.find((o) => o.id === localValue);
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = Number(e.target.value);
+    setLocalValue(next);
+    setEditing(false);
+    if (next !== value) onSave(next);
+  }
 
   return (
     <div style={{ marginBottom: 18 }}>
@@ -302,60 +314,40 @@ function InlineSelect({
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           marginBottom: 5,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
         }}
       >
         {label}
+        {isDirty && (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#f59e0b",
+              display: "inline-block",
+            }}
+            title="Unsaved change"
+          />
+        )}
       </div>
       {editing ? (
-        <>
-          <select
-            value={draft ?? ""}
-            onChange={(e) => setDraft(Number(e.target.value))}
-            style={fieldStyle({ cursor: "pointer" })}
-            autoFocus
-          >
-            <option value="">— Select —</option>
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button
-              onClick={() => {
-                setEditing(false);
-                if (draft && draft !== value) onSave(draft);
-              }}
-              style={{
-                padding: "5px 14px",
-                background: P,
-                color: WHITE,
-                border: "none",
-                borderRadius: 7,
-                fontSize: 12,
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Save
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              style={{
-                padding: "5px 12px",
-                background: GRY,
-                color: TXT,
-                border: "none",
-                borderRadius: 7,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </>
+        <select
+          value={localValue ?? ""}
+          onChange={handleChange}
+          onBlur={() => setEditing(false)}
+          style={fieldStyle({ cursor: "pointer" })}
+          autoFocus
+        >
+          <option value="">— Select —</option>
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
       ) : (
         <div
           onClick={() => setEditing(true)}
@@ -364,7 +356,9 @@ function InlineSelect({
             color: current ? TXT : SUB,
             cursor: "pointer",
             padding: "6px 0",
-            borderBottom: `1.5px dashed ${BDR}`,
+            borderBottom: isDirty
+              ? `1.5px solid #f59e0b`
+              : `1.5px dashed ${BDR}`,
             minHeight: 32,
           }}
           title="Click to edit"
@@ -622,7 +616,9 @@ function ImagePane({
                   </button>
                   <button
                     onClick={() =>
-                      onSelect(resolved[(activeResolvedIdx + 1) % resolved.length].idx)
+                      onSelect(
+                        resolved[(activeResolvedIdx + 1) % resolved.length].idx,
+                      )
                     }
                     style={{
                       position: "absolute",
@@ -808,82 +804,183 @@ function StockBreakdown({ pvd }: { pvd: any }) {
   );
 }
 
-function SizeRow({ pvd, onRefresh }: { pvd: any; onRefresh: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDel] = useState(false);
-  const [form, setForm] = useState({
-    stockQuantity: pvd.stockQuantity ?? 0,
-    mrpPrice: pvd.mrpPrice ?? 0,
-    discountPercent: pvd.discountPercent ?? 0,
-    finalPrice: pvd.finalPrice ?? 0,
-    cgst: pvd.cgst ?? 0,
-    sgst: pvd.sgst ?? 0,
+// ─── Size Palette — shows all MDM sizes as tiles, add / expand inline ────────
+function SizePalette({
+  variantId,
+  productId,
+  isCupSize,
+  onRefresh,
+  registerSave,
+  onCupSizeToggle,
+  navigate,
+}: {
+  variantId: number;
+  productId: number;
+  isCupSize: boolean;
+  onRefresh: () => void;
+  registerSave: (id: number, fn: () => Promise<void>) => void;
+  onCupSizeToggle?: (val: boolean) => void;
+  navigate: (path: string) => void;
+}) {
+  // Single endpoint returns all MDM sizes + embedded PVD data
+  const {
+    data: paletteData,
+    isLoading: paletteLoading,
+    refetch: refetchPalette,
+  } = useQuery({
+    queryKey: ["admin-size-palette", variantId],
+    queryFn: () =>
+      api
+        .get(`/ProductVariantDetail/AdminSizePalette/${variantId}`)
+        .then((r) => r.data),
+    enabled: !!variantId,
   });
 
-  useEffect(() => {
-    setForm({
-      stockQuantity: pvd.stockQuantity ?? 0,
-      mrpPrice: pvd.mrpPrice ?? 0,
-      discountPercent: pvd.discountPercent ?? 0,
-      finalPrice: pvd.finalPrice ?? 0,
-      cgst: pvd.cgst ?? 0,
-      sgst: pvd.sgst ?? 0,
-    });
-  }, [pvd]);
+  const allSizes: any[] = paletteData?.bandSizes ?? [];
+  const bandSizesByType: Record<string, any[]> =
+    paletteData?.bandSizesByType ?? {};
+  const hasMultipleTypes = Object.keys(bandSizesByType).length > 1;
+  const allCupSizes: any[] = paletteData?.cupSizes ?? [];
+  const paletteIsCup: boolean = isCupSize || !!paletteData?.hasCupSize;
 
-  async function save() {
+  // Which tiles are expanded (either existing pvd open or add-form open)
+  const [openTile, setOpenTile] = useState<string | null>(null); // "band-{sizeId}" | "cup-{cupSizeId}" | "add-band-{sizeId}" | "add-cup-{cupSizeId}"
+  const [selectedBandSizeId, setSelectedBandSizeId] = useState<number | null>(
+    null,
+  );
+  const [addForm, setAddForm] = useState<Record<string, any>>({});
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  function initAddForm(sizeId: number | null, cupSizeId: number | null) {
+    setAddForm({
+      sizeId,
+      cupSizeId,
+      stockQuantity: 0,
+      mrpPrice: 0,
+      finalPrice: 0,
+      cgst: 0,
+      sgst: 0,
+    });
+  }
+
+  async function addSize() {
     setSaving(true);
     try {
-      // Only stockQuantity (total) is editable here.
-      // processedQuantity / returnedQuantity are managed automatically by the
-      // order and refund flows; availableQuantity is derived server-side.
-      await api.put(
-        `/ProductVariantDetail/${pvd.productVariantDetailId}`,
-        form,
-      );
-      toast.success("Saved");
-      setOpen(false);
+      const mrp = addForm.mrpPrice ?? 0;
+      const fp = addForm.finalPrice ?? 0;
+      const discountPercent =
+        mrp > 0 ? Math.round(((mrp - fp) / mrp) * 100) : 0;
+      await api.post("/ProductVariantDetail/", {
+        ...addForm,
+        discountPercent,
+        productId,
+        productVariantId: variantId,
+        availableQuantity: addForm.stockQuantity,
+      });
+      toast.success("Size added");
+      setOpenTile(null);
+      setAddForm({});
       onRefresh();
+      refetchPalette();
     } catch {
-      toast.error("Save failed");
+      toast.error("Failed to add size");
     } finally {
       setSaving(false);
     }
   }
 
-  async function remove() {
-    if (!window.confirm(`Remove size ${pvd.sizeLabel}?`)) return;
-    setDel(true);
+  async function deleteSize(pvd: any) {
+    if (
+      !window.confirm(
+        `Remove size ${pvd.sizeLabel}${
+          pvd.cupSizeLabel ? " / " + pvd.cupSizeLabel : ""
+        }?`,
+      )
+    )
+      return;
+    setDeleting(pvd.productVariantDetailId);
     try {
       await api.delete(`/ProductVariantDetail/${pvd.productVariantDetailId}`);
-      toast.success("Size removed");
+      toast.success("Removed");
+      setOpenTile(null);
       onRefresh();
+      refetchPalette();
     } catch {
       toast.error("Remove failed");
     } finally {
-      setDel(false);
+      setDeleting(null);
     }
   }
 
-  const available =
-    pvd.availableQuantity ??
-    Math.max(
-      0,
-      (pvd.stockQuantity ?? 0) -
-        (pvd.processedQuantity ?? 0) +
-        (pvd.returnedQuantity ?? 0),
-    );
-  const isOOS = available <= 0;
-  const isLow = available > 0 && available <= 3;
-  const stockColor = isOOS ? "#c62828" : isLow ? "#e65100" : "#2e7d32";
-  const stockLabel = isOOS
-    ? "Out of stock"
-    : isLow
-    ? `Only ${available} left`
-    : `${available} available`;
+  async function updateStock(pvd: any, qty: number) {
+    try {
+      await api.put(`/ProductVariantDetail/${pvd.productVariantDetailId}`, {
+        ...pvd,
+        stockQuantity: qty,
+      });
+      toast.success("Stock updated");
+      onRefresh();
+      refetchPalette();
+    } catch {
+      toast.error("Update failed");
+    }
+  }
 
-  const numField = (key: keyof typeof form, label: string) => (
+  async function updatePvd(
+    pvd: any,
+    fields: {
+      stockQuantity: number;
+      mrpPrice: number;
+      finalPrice: number;
+      stockId?: string;
+    },
+  ) {
+    const mrp = fields.mrpPrice ?? 0;
+    const fp = fields.finalPrice ?? 0;
+    const discountPercent = mrp > 0 ? Math.round(((mrp - fp) / mrp) * 100) : 0;
+    try {
+      await api.put(`/ProductVariantDetail/${pvd.productVariantDetailId}`, {
+        ...pvd,
+        ...fields,
+        discountPercent,
+      });
+      toast.success("Saved");
+      onRefresh();
+      refetchPalette();
+    } catch {
+      toast.error("Save failed");
+    }
+  }
+
+  // Register each existing pvd's save function (no-op — stock saved via tile)
+  useEffect(() => {
+    allSizes.forEach((s: any) => {
+      if (s.pvd) registerSave(s.pvd.productVariantDetailId, async () => {});
+    });
+    allCupSizes.forEach((cs: any) => {
+      cs.pvds?.forEach((p: any) =>
+        registerSave(p.productVariantDetailId, async () => {}),
+      );
+    });
+  }, [allSizes, allCupSizes]);
+
+  const tileBase: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 52,
+    height: 40,
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    padding: "0 14px",
+    transition: "all 0.15s",
+    position: "relative",
+  };
+
+  const addNumField = (key: string, label: string) => (
     <div key={key}>
       <div
         style={{ fontSize: 10, fontWeight: 700, color: SUB, marginBottom: 3 }}
@@ -894,388 +991,206 @@ function SizeRow({ pvd, onRefresh }: { pvd: any; onRefresh: () => void }) {
         type="number"
         min={0}
         step={key.includes("Price") ? 0.01 : 1}
-        value={form[key]}
+        value={addForm[key] ?? 0}
         onChange={(e) =>
-          setForm((f) => ({ ...f, [key]: Number(e.target.value) }))
+          setAddForm((f) => ({ ...f, [key]: Number(e.target.value) }))
         }
         style={fieldStyle({ fontSize: 13 })}
       />
     </div>
   );
 
-  return (
-    <div
-      style={{
-        border: `1px solid ${open ? P : BDR}`,
-        borderRadius: 10,
-        overflow: "hidden",
-        marginBottom: 8,
-        transition: "border-color 0.2s",
-      }}
-    >
-      {/* Header row */}
+  function StockPanel({ pvd }: { pvd: any }) {
+    const total = pvd.stockQuantity ?? 0;
+    const processed = pvd.processedQuantity ?? 0;
+    const refunded = pvd.returnedQuantity ?? 0;
+    const available =
+      pvd.availableQuantity ?? Math.max(0, total - processed + refunded);
+
+    const availColor =
+      available <= 0 ? "#c62828" : available <= 3 ? "#e65100" : "#2e7d32";
+    const availBg =
+      available <= 0 ? "#fdecea" : available <= 3 ? "#fff3e0" : "#e8f5e9";
+
+    const roLbl = (text: string) => (
       <div
-        onClick={() => setOpen((o) => !o)}
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "12px 16px",
-          cursor: "pointer",
-          background: open ? PLT : WHITE,
+          fontSize: 9,
+          fontWeight: 700,
+          color: SUB,
+          marginBottom: 2,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
         }}
       >
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            padding: "3px 12px",
-            borderRadius: 20,
-            background: open ? P : GRY,
-            color: open ? WHITE : TXT,
-            minWidth: 42,
-            textAlign: "center",
-          }}
-        >
-          {pvd.sizeLabel || "—"}
-        </span>
-        {pvd.cupSizeLabel && (
-          <span style={{ fontSize: 12, color: SUB }}>/ {pvd.cupSizeLabel}</span>
-        )}
-        <span
-          style={{
-            marginLeft: "auto",
-            fontSize: 12,
-            fontWeight: 600,
-            color: stockColor,
-          }}
-        >
-          {stockLabel}
-        </span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: TXT }}>
-          ₹{pvd.finalPrice?.toFixed(0) ?? "—"}
-        </span>
-        <i
-          className={`bi bi-chevron-${open ? "up" : "down"}`}
-          style={{ color: SUB, fontSize: 12 }}
-        />
+        {text}
       </div>
+    );
+    const roPill = (val: number, color: string, bg: string) => (
+      <div
+        style={{
+          fontSize: 17,
+          fontWeight: 800,
+          color,
+          background: bg,
+          borderRadius: 6,
+          padding: "3px 10px",
+          display: "inline-block",
+          minWidth: 36,
+          textAlign: "center",
+        }}
+      >
+        {val}
+      </div>
+    );
 
-      {/* Expanded edit form */}
-      {open && (
-        <div
-          style={{
-            padding: "14px 16px",
-            background: "#fffbf8",
-            borderTop: `1px solid ${BDR}`,
-          }}
-        >
-          {/* ── Stock breakdown (read-only) ─────────────────────────────── */}
-          <div style={{ marginBottom: 14 }}>
-            <div
+    return (
+      <div
+        style={{
+          marginTop: 10,
+          padding: "10px 12px",
+          background: GRY,
+          borderRadius: 10,
+        }}
+      >
+        {/* Stock ID — read-only reference */}
+        {pvd.stockId && (
+          <div
+            style={{
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span
               style={{
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: 700,
                 color: SUB,
                 textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 8,
+                letterSpacing: "0.05em",
               }}
             >
-              Stock Breakdown
-            </div>
-            <div
+              Stock ID
+            </span>
+            <span
               style={{
-                background: GRY,
-                borderRadius: 10,
-                padding: "10px 14px",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                flexWrap: "wrap",
-              }}
-            >
-              <StockBreakdown pvd={pvd} />
-              <div
-                style={{
-                  marginLeft: "auto",
-                  fontSize: 10,
-                  color: SUB,
-                  fontStyle: "italic",
-                }}
-              >
-                Available = Total − Processed + Refunded
-              </div>
-            </div>
-          </div>
-
-          {/* ── Editable fields ─────────────────────────────────────────── */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "10px 16px",
-              marginBottom: 14,
-            }}
-          >
-            {numField("stockQuantity", "Total Qty (Restock)")}
-            {numField("mrpPrice", "MRP (₹)")}
-            {numField("discountPercent", "Discount %")}
-            {numField("finalPrice", "Final Price (₹)")}
-            {numField("cgst", "CGST %")}
-            {numField("sgst", "SGST %")}
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: SUB,
-              marginBottom: 12,
-              fontStyle: "italic",
-            }}
-          >
-            Processed &amp; Refunded quantities are updated automatically by the
-            order and refund flows.
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={save}
-              disabled={saving}
-              style={{
-                padding: "7px 18px",
-                background: P,
-                color: WHITE,
-                border: "none",
-                borderRadius: 8,
-                fontSize: 13,
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button
-              onClick={() => setOpen(false)}
-              style={{
-                padding: "7px 14px",
+                fontFamily: "'Courier New',monospace",
+                fontSize: 11,
+                color: TXT,
                 background: WHITE,
                 border: `1px solid ${BDR}`,
-                borderRadius: 8,
-                fontSize: 13,
-                cursor: "pointer",
+                borderRadius: 5,
+                padding: "1px 7px",
               }}
             >
-              Cancel
-            </button>
-            <button
-              onClick={remove}
-              disabled={deleting}
-              style={{
-                marginLeft: "auto",
-                padding: "7px 14px",
-                background: "#fdecea",
-                color: "#c62828",
-                border: "1px solid #ef9a9a",
-                borderRadius: 8,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {deleting ? (
-                "Removing…"
-              ) : (
-                <>
-                  <i className="bi bi-trash" /> Remove Size
-                </>
-              )}
-            </button>
+              {pvd.stockId}
+            </span>
+          </div>
+        )}
+        {/* Stock summary — read-only pills */}
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "flex-start",
+            marginBottom: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            {roLbl("Total")}
+            {roPill(total, "#1565c0", "#e3f2fd")}
+          </div>
+          <div>
+            {roLbl("Available")}
+            {roPill(available, availColor, availBg)}
+          </div>
+          <div>
+            {roLbl("Processed")}
+            {roPill(processed, "#6a1b9a", "#f3e5f5")}
+          </div>
+          <div>
+            {roLbl("Returned")}
+            {roPill(refunded, "#795548", "#efebe9")}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Add-size inline form ─────────────────────────────────────────────────────
-function AddSizeForm({
-  variantId,
-  productId,
-  onAdded,
-}: {
-  variantId: number;
-  productId: number;
-  onAdded: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [saving, setSave] = useState(false);
-  const [form, setForm] = useState({
-    sizeId: 0,
-    cupSizeId: null as number | null,
-    stockQuantity: 0,
-    mrpPrice: 0,
-    discountPercent: 0,
-    finalPrice: 0,
-    cgst: 0,
-    sgst: 0,
-  });
-
-  const { data: sizesData } = useQuery({
-    queryKey: ["admin-sizes"],
-    queryFn: () =>
-      api.get("/Size/", { params: { "Page.Size": 200 } }).then((r) => r.data),
-    staleTime: 300_000,
-  });
-  const { data: cupSizesData } = useQuery({
-    queryKey: ["admin-cupsizes"],
-    queryFn: () =>
-      api
-        .get("/CupSize/", { params: { "Page.Size": 200 } })
-        .then((r) => r.data),
-    staleTime: 300_000,
-  });
-  const sizes: any[] = sizesData?.list ?? [];
-  const cupSizes: any[] = cupSizesData?.list ?? [];
-
-  async function save() {
-    if (!form.sizeId) return toast.error("Select a size");
-    setSave(true);
-    try {
-      await api.post("/ProductVariantDetail/", {
-        ...form,
-        productId,
-        productVariantId: variantId,
-        cupSizeId: form.cupSizeId || null,
-        availableQuantity: form.stockQuantity,
-      });
-      toast.success("Size added");
-      setOpen(false);
-      setForm({
-        sizeId: 0,
-        cupSizeId: null,
-        stockQuantity: 0,
-        mrpPrice: 0,
-        discountPercent: 0,
-        finalPrice: 0,
-        cgst: 0,
-        sgst: 0,
-      });
-      onAdded();
-    } catch {
-      toast.error("Failed to add size");
-    } finally {
-      setSave(false);
-    }
+        {/* Action row: Edit Stock + Delete */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() =>
+              navigate(
+                `/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`,
+              )
+            }
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 14px",
+              background: P,
+              color: WHITE,
+              border: "none",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            <i className="bi bi-pencil-square" />
+            Edit Stock
+          </button>
+          <button
+            onClick={() => deleteSize(pvd)}
+            disabled={deleting === pvd.productVariantDetailId}
+            style={{
+              padding: "7px 10px",
+              background: "#fdecea",
+              color: "#c62828",
+              border: "1px solid #ef9a9a",
+              borderRadius: 8,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            <i className="bi bi-trash" />
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  if (!open)
+  function AddPanel({
+    onSave,
+    onCancel,
+  }: {
+    onSave: () => void;
+    onCancel: () => void;
+  }) {
     return (
-      <button
-        onClick={() => setOpen(true)}
+      <div
         style={{
-          width: "100%",
-          padding: "8px 0",
-          border: `1.5px dashed ${P}`,
+          marginTop: 12,
+          padding: "12px 14px",
+          background: "#fffbf8",
+          border: `1px solid ${P}`,
           borderRadius: 10,
-          background: PLT,
-          color: P,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
         }}
       >
-        <i className="bi bi-plus" /> Add Size
-      </button>
-    );
-
-  return (
-    <div
-      style={{
-        border: `1.5px solid ${P}`,
-        borderRadius: 10,
-        padding: 16,
-        background: "#fffbf8",
-      }}
-    >
-      <div
-        style={{ fontSize: 13, fontWeight: 700, color: P, marginBottom: 12 }}
-      >
-        Add New Size
-      </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "10px 16px",
-          marginBottom: 14,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: SUB,
-              marginBottom: 3,
-            }}
-          >
-            Size *
-          </div>
-          <select
-            value={form.sizeId || ""}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, sizeId: Number(e.target.value) }))
-            }
-            style={fieldStyle({ fontSize: 13 })}
-          >
-            <option value="">— Select Size —</option>
-            {sizes.map((s: any) => (
-              <option key={s.sizeId} value={s.sizeId}>
-                {s.sizeLabel}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: SUB,
-              marginBottom: 3,
-            }}
-          >
-            Cup Size
-          </div>
-          <select
-            value={form.cupSizeId ?? ""}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                cupSizeId: e.target.value ? Number(e.target.value) : null,
-              }))
-            }
-            style={fieldStyle({ fontSize: 13 })}
-          >
-            <option value="">None</option>
-            {cupSizes.map((s: any) => (
-              <option key={s.cupSizeId} value={s.cupSizeId}>
-                {s.sizeLabel}
-              </option>
-            ))}
-          </select>
-        </div>
-        {[
-          ["stockQuantity", "Total Qty (Stock) *"],
-          ["mrpPrice", "MRP (₹) *"],
-          ["discountPercent", "Discount %"],
-          ["finalPrice", "Final Price (₹) *"],
-          ["cgst", "CGST %"],
-          ["sgst", "SGST %"],
-        ].map(([key, label]) => (
-          <div key={key}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: "8px 12px",
+            marginBottom: 10,
+          }}
+        >
+          {addNumField("stockQuantity", "Stock Qty *")}
+          {addNumField("mrpPrice", "MRP (₹) *")}
+          {addNumField("finalPrice", "Selling Price (₹) *")}
+          {/* Discount — auto-calculated, read-only */}
+          <div key="discountDisplay">
             <div
               style={{
                 fontSize: 10,
@@ -1284,52 +1199,897 @@ function AddSizeForm({
                 marginBottom: 3,
               }}
             >
-              {label}
+              Discount %
+            </div>
+            <div
+              style={{
+                ...fieldStyle({ fontSize: 13 }),
+                background: "#f5f5f5",
+                color: SUB,
+                cursor: "default",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              {(() => {
+                const mrp = addForm.mrpPrice ?? 0;
+                const fp = addForm.finalPrice ?? 0;
+                return mrp > 0
+                  ? `${Math.round(((mrp - fp) / mrp) * 100)}%`
+                  : "—";
+              })()}
+            </div>
+          </div>
+          {addNumField("cgst", "CGST %")}
+          {addNumField("sgst", "SGST %")}
+          {/* Stock ID */}
+          <div style={{ gridColumn: "1/-1" }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: SUB,
+                marginBottom: 3,
+              }}
+            >
+              Stock ID
             </div>
             <input
-              type="number"
-              min={0}
-              step={(key as string).includes("Price") ? 0.01 : 1}
-              value={(form as any)[key] || 0}
+              type="text"
+              placeholder="e.g. STK-001"
+              value={addForm.stockId ?? ""}
               onChange={(e) =>
-                setForm((f) => ({ ...f, [key]: Number(e.target.value) }))
+                setAddForm((f) => ({ ...f, stockId: e.target.value }))
               }
               style={fieldStyle({ fontSize: 13 })}
             />
           </div>
-        ))}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            style={{
+              flex: 1,
+              padding: "8px 0",
+              background: P,
+              color: WHITE,
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {saving ? "Adding…" : "Add Size"}
+          </button>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: "8px 14px",
+              background: GRY,
+              color: TXT,
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          onClick={save}
-          disabled={saving}
+    );
+  }
+
+  // ── Band sizes section ─────────────────────────────────────────────────────
+  // ── Band sizes section — shows ALL MDM band sizes grouped by type ──────────
+  const renderBandSizes = () => {
+    if (paletteLoading || allSizes.length === 0) return null;
+
+    // Render tile buttons for a list of sizes
+    const renderTiles = (sizes: any[]) =>
+      sizes.map((s) => {
+        const pvd = s.pvd ?? null;
+        const isSelected = selectedBandSizeId === s.sizeId;
+
+        if (paletteIsCup) {
+          // ── Cup-size mode: band tiles are SELECTORS — always clickable ──────
+          return (
+            <div key={s.sizeId} style={{ marginBottom: 4 }}>
+              <button
+                style={{
+                  ...tileBase,
+                  border: isSelected
+                    ? `2px solid ${P}`
+                    : pvd
+                    ? `2px solid #333`
+                    : `1.5px dashed #ccc`,
+                  background: isSelected ? PLT : pvd ? WHITE : "#fafafa",
+                  color: isSelected ? P : pvd ? "#222" : "#aaa",
+                  cursor: "pointer",
+                  boxShadow: isSelected ? `0 0 0 3px ${PLT}` : "none",
+                }}
+                onClick={() => {
+                  setSelectedBandSizeId(isSelected ? null : s.sizeId);
+                  setOpenTile(null); // close any open cup tile when band changes
+                }}
+                title={
+                  pvd
+                    ? `Select ${s.sizeLabel}`
+                    : `${s.sizeLabel} — no stock yet`
+                }
+              >
+                {!pvd && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -7,
+                      right: -7,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "#bbb",
+                      color: "#fff",
+                      fontSize: 11,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 800,
+                    }}
+                  >
+                    +
+                  </span>
+                )}
+                {s.sizeLabel}
+              </button>
+            </div>
+          );
+        }
+
+        // ── No-cup mode: show stock badge directly on band tile ───────────────
+        const available = pvd
+          ? pvd.availableQuantity ??
+            Math.max(
+              0,
+              (pvd.stockQuantity ?? 0) -
+                (pvd.processedQuantity ?? 0) +
+                (pvd.returnedQuantity ?? 0),
+            )
+          : null;
+        const oos = pvd && available !== null && available <= 0;
+        const key = pvd ? `band-${s.sizeId}` : `add-band-${s.sizeId}`;
+        const isOpen = openTile === key;
+
+        return (
+          <div key={s.sizeId}>
+            <button
+              style={{
+                ...tileBase,
+                border: pvd
+                  ? `2px solid ${isOpen ? P : oos ? "#ef9a9a" : "#333"}`
+                  : `1.5px dashed #ccc`,
+                background: isOpen ? PLT : pvd ? WHITE : "#fafafa",
+                color: pvd ? (isOpen ? P : "#222") : "#aaa",
+                cursor: "pointer",
+                boxShadow: pvd && isOpen ? `0 0 0 3px ${PLT}` : "none",
+                flexDirection: "column",
+                height: "auto",
+                minHeight: 40,
+                paddingTop: 4,
+                paddingBottom: 4,
+                gap: 2,
+              }}
+              onClick={() => {
+                if (!pvd) {
+                  setOpenTile(isOpen ? null : key);
+                  initAddForm(s.sizeId, null);
+                } else {
+                  setOpenTile(isOpen ? null : key);
+                }
+              }}
+              title={
+                pvd
+                  ? `${s.sizeLabel} — ${available} available`
+                  : `Add ${s.sizeLabel}`
+              }
+            >
+              {!pvd && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -7,
+                    right: -7,
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    background: "#888",
+                    color: "#fff",
+                    fontSize: 11,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 800,
+                  }}
+                >
+                  +
+                </span>
+              )}
+              {s.sizeLabel}
+              {pvd && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: oos ? "#e53935" : "#2e7d32",
+                    lineHeight: 1,
+                  }}
+                >
+                  {oos ? "OOS" : `${available} avail`}
+                </span>
+              )}
+            </button>
+          </div>
+        );
+      });
+
+    // If backend returned grouped data, render each type in its own labelled sub-section
+    if (hasMultipleTypes) {
+      const typeOrder = ["numerical", "alphabetical"];
+      const typeLabels: Record<string, string> = {
+        numerical: "Band Sizes — Numerical",
+        alphabetical: "Band Sizes — Alphabetical",
+        other: "Band Sizes",
+      };
+      const sortedTypes = [
+        ...typeOrder.filter((t) => bandSizesByType[t]),
+        ...Object.keys(bandSizesByType).filter((t) => !typeOrder.includes(t)),
+      ];
+      // Find the open pvd/addState across all types for panel rendering
+      const openBandNoCupPvd = (() => {
+        if (!openTile) return null;
+        if (openTile.startsWith("add-band-")) return null;
+        if (!openTile.startsWith("band-")) return null;
+        const sid = parseInt(openTile.replace("band-", ""));
+        return allSizes.find((x: any) => x.sizeId === sid)?.pvd ?? null;
+      })();
+      const openBandNoCupAddSizeId = (() => {
+        if (!openTile || !openTile.startsWith("add-band-")) return null;
+        return parseInt(openTile.replace("add-band-", ""));
+      })();
+
+      return (
+        <div style={{ marginBottom: 20 }}>
+          {sortedTypes.map((type) => (
+            <div key={type} style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: SUB,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginBottom: 10,
+                }}
+              >
+                {typeLabels[type] ?? `Band Sizes — ${type}`}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {renderTiles(bandSizesByType[type])}
+              </div>
+            </div>
+          ))}
+          {openBandNoCupPvd && (
+            <div style={{ marginTop: 8 }}>
+              <StockPanel pvd={openBandNoCupPvd} />
+            </div>
+          )}
+          {openBandNoCupAddSizeId !== null && (
+            <div style={{ marginTop: 8 }}>
+              <AddPanel onSave={addSize} onCancel={() => setOpenTile(null)} />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Single type — original flat layout
+    const openBandNoCupPvdSingle = (() => {
+      if (!openTile || !openTile.startsWith("band-")) return null;
+      const sid = parseInt(openTile.replace("band-", ""));
+      return allSizes.find((x: any) => x.sizeId === sid)?.pvd ?? null;
+    })();
+    const openBandNoCupAddSingle = openTile?.startsWith("add-band-") ?? false;
+
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div
           style={{
-            padding: "7px 18px",
-            background: P,
-            color: WHITE,
-            border: "none",
-            borderRadius: 8,
-            fontSize: 13,
-            cursor: "pointer",
-            fontWeight: 600,
+            fontSize: 11,
+            fontWeight: 700,
+            color: SUB,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 10,
           }}
         >
-          {saving ? "Adding…" : "Add Size"}
-        </button>
-        <button
-          onClick={() => setOpen(false)}
+          Band Sizes
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {renderTiles(allSizes)}
+        </div>
+        {openBandNoCupPvdSingle && (
+          <div style={{ marginTop: 8 }}>
+            <StockPanel pvd={openBandNoCupPvdSingle} />
+          </div>
+        )}
+        {openBandNoCupAddSingle && (
+          <div style={{ marginTop: 8 }}>
+            <AddPanel onSave={addSize} onCancel={() => setOpenTile(null)} />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Cup sizes section (only when isCupSize === true) ───────────────────────
+  const renderCupSizes = () => {
+    if (allCupSizes.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div
           style={{
-            padding: "7px 14px",
-            background: WHITE,
-            border: `1px solid ${BDR}`,
-            borderRadius: 8,
-            fontSize: 13,
-            cursor: "pointer",
+            fontSize: 11,
+            fontWeight: 700,
+            color: SUB,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 10,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          Cancel
-        </button>
+          Cup Sizes
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: 600,
+              color: paletteIsCup ? P : SUB,
+              textTransform: "none",
+              letterSpacing: 0,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={paletteIsCup}
+              style={{ accentColor: P, width: 13, height: 13 }}
+              onChange={(e) => onCupSizeToggle?.(e.target.checked)}
+            />
+            {paletteIsCup ? "enabled" : "enable"}
+          </label>
+        </div>
+
+        {/* Prompt user to select a band size first */}
+        {paletteIsCup && !selectedBandSizeId && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "#e65100",
+              background: "#fff8e1",
+              border: "1px solid #ffe082",
+              borderRadius: 8,
+              padding: "8px 14px",
+              marginBottom: 10,
+              display: "inline-block",
+            }}
+          >
+            ← Select a band size above to see cup size stock
+          </div>
+        )}
+
+        {paletteIsCup && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {allCupSizes.map((cs) => {
+              // Find the PVD that matches the selected band + this cup
+              const pvd = selectedBandSizeId
+                ? (cs.pvds ?? []).find(
+                    (p: any) => p.sizeId === selectedBandSizeId,
+                  ) ?? null
+                : null;
+
+              const hasPvd = !!pvd;
+              const key = selectedBandSizeId
+                ? hasPvd
+                  ? `cup-${selectedBandSizeId}-${cs.cupSizeId}`
+                  : `add-cup-${selectedBandSizeId}-${cs.cupSizeId}`
+                : `cup-${cs.cupSizeId}`;
+              const isOpen = openTile === key;
+
+              const available = pvd
+                ? pvd.availableQuantity ??
+                  Math.max(
+                    0,
+                    (pvd.stockQuantity ?? 0) -
+                      (pvd.processedQuantity ?? 0) +
+                      (pvd.returnedQuantity ?? 0),
+                  )
+                : null;
+              const oos = pvd && available !== null && available <= 0;
+
+              // When no band is selected, grey out all cup tiles
+              const isDisabled = !selectedBandSizeId;
+
+              return (
+                <div key={cs.cupSizeId}>
+                  <button
+                    disabled={isDisabled}
+                    style={{
+                      ...tileBase,
+                      border: isDisabled
+                        ? `1.5px dashed #ddd`
+                        : hasPvd
+                        ? `2px solid ${isOpen ? P : oos ? "#ef9a9a" : "#333"}`
+                        : `1.5px dashed #ccc`,
+                      background: isDisabled
+                        ? "#f5f5f5"
+                        : isOpen
+                        ? PLT
+                        : hasPvd
+                        ? WHITE
+                        : "#fafafa",
+                      color: isDisabled
+                        ? "#ccc"
+                        : hasPvd
+                        ? isOpen
+                          ? P
+                          : "#222"
+                        : "#aaa",
+                      boxShadow: hasPvd && isOpen ? `0 0 0 3px ${PLT}` : "none",
+                      cursor: isDisabled ? "not-allowed" : "pointer",
+                      flexDirection: "column",
+                      height: "auto",
+                      minHeight: 40,
+                      paddingTop: 4,
+                      paddingBottom: 4,
+                      gap: 2,
+                    }}
+                    onClick={() => {
+                      if (isDisabled) return;
+                      if (!hasPvd) {
+                        setOpenTile(isOpen ? null : key);
+                        initAddForm(selectedBandSizeId, cs.cupSizeId);
+                      } else {
+                        setOpenTile(isOpen ? null : key);
+                      }
+                    }}
+                    title={
+                      isDisabled
+                        ? "Select a band size first"
+                        : hasPvd
+                        ? `${cs.sizeLabel} — ${available} available`
+                        : `Add ${cs.sizeLabel}`
+                    }
+                  >
+                    {!isDisabled && !hasPvd && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: -7,
+                          right: -7,
+                          width: 16,
+                          height: 16,
+                          borderRadius: "50%",
+                          background: "#888",
+                          color: "#fff",
+                          fontSize: 11,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 800,
+                        }}
+                      >
+                        +
+                      </span>
+                    )}
+                    {cs.sizeLabel}
+                    {/* Show stock for selected band+cup combination */}
+                    {selectedBandSizeId && hasPvd && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: oos ? "#e53935" : "#2e7d32",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {oos ? "OOS" : `${available} avail`}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {/* Stock/Add panel for cup sizes — below all tiles, never between them */}
+        {paletteIsCup &&
+          (() => {
+            if (!openTile) return null;
+            if (openTile.startsWith("cup-") && !openTile.startsWith("add-")) {
+              const parts = openTile.replace("cup-", "").split("-");
+              if (parts.length === 2) {
+                const bandId = parseInt(parts[0]);
+                const cupId = parseInt(parts[1]);
+                const cs = allCupSizes.find((x: any) => x.cupSizeId === cupId);
+                const pvd =
+                  (cs?.pvds ?? []).find((p: any) => p.sizeId === bandId) ??
+                  null;
+                if (pvd)
+                  return (
+                    <div style={{ marginTop: 8 }}>
+                      <StockPanel pvd={pvd} />
+                    </div>
+                  );
+              }
+            }
+            if (openTile.startsWith("add-cup-")) {
+              return (
+                <div style={{ marginTop: 8 }}>
+                  <AddPanel
+                    onSave={addSize}
+                    onCancel={() => setOpenTile(null)}
+                  />
+                </div>
+              );
+            }
+            return null;
+          })()}
       </div>
+    );
+  };
+
+  // ── Derive activePvd from current open tile ─────────────────────────────────
+  let activePvd: any = null;
+  if (openTile && !openTile.startsWith("add-")) {
+    if (openTile.startsWith("band-")) {
+      const sizeId = parseInt(openTile.replace("band-", ""));
+      const s = allSizes.find((x: any) => x.sizeId === sizeId);
+      activePvd = s?.pvd ?? null;
+    } else if (openTile.startsWith("cup-")) {
+      const raw = openTile.replace("cup-", "");
+      const parts = raw.split("-");
+      if (parts.length === 2) {
+        const bandId = parseInt(parts[0]);
+        const cupId = parseInt(parts[1]);
+        const cs = allCupSizes.find((x: any) => x.cupSizeId === cupId);
+        activePvd =
+          (cs?.pvds ?? []).find((p: any) => p.sizeId === bandId) ?? null;
+      }
+    }
+  }
+
+  // ── Inline-editable price field (matches InlineField style) ─────────────────
+  function PriceInlineField({
+    label,
+    pvd: pv,
+    field,
+  }: {
+    label: string;
+    pvd: any;
+    field: "mrpPrice" | "finalPrice";
+  }) {
+    const [editing, setPriceEditing] = useState(false);
+    const [draft, setDraft] = useState<number>(pv[field] ?? 0);
+    const [committed, setCommitted] = useState<number>(pv[field] ?? 0);
+
+    useEffect(() => {
+      setDraft(pv[field] ?? 0);
+      setCommitted(pv[field] ?? 0);
+    }, [pv, field]);
+
+    const isDirty = committed !== (pv[field] ?? 0);
+
+    async function commit() {
+      setPriceEditing(false);
+      setCommitted(draft);
+      if (draft !== (pv[field] ?? 0)) {
+        await updatePvd(pv, {
+          stockQuantity: pv.stockQuantity ?? 0,
+          mrpPrice: field === "mrpPrice" ? draft : pv.mrpPrice ?? 0,
+          finalPrice: field === "finalPrice" ? draft : pv.finalPrice ?? 0,
+        });
+      }
+    }
+
+    return (
+      <div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: SUB,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 5,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          {label}
+          {isDirty && (
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#f59e0b",
+                display: "inline-block",
+              }}
+              title="Unsaved change"
+            />
+          )}
+        </div>
+        {editing ? (
+          <input
+            type="number"
+            min={0}
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(Number(e.target.value))}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") {
+                setPriceEditing(false);
+                setDraft(committed);
+              }
+            }}
+            style={fieldStyle({ fontSize: 16, fontWeight: 700 })}
+          />
+        ) : (
+          <div
+            onClick={() => {
+              setPriceEditing(true);
+              setDraft(committed);
+            }}
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: TXT,
+              cursor: "pointer",
+              padding: "6px 0",
+              borderBottom: isDirty
+                ? "1.5px solid #f59e0b"
+                : `1.5px dashed ${BDR}`,
+              minHeight: 32,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+            title="Click to edit"
+          >
+            ₹{committed.toLocaleString("en-IN")}
+            <i
+              className="bi bi-pencil"
+              style={{ fontSize: 11, color: SUB, opacity: 0.6 }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Inline-editable Stock ID field ─────────────────────────────────────────
+  function StockIdInlineField({ pvd: pv }: { pvd: any }) {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState<string>(pv.stockId ?? "");
+    const [committed, setCommitted] = useState<string>(pv.stockId ?? "");
+
+    useEffect(() => {
+      setDraft(pv.stockId ?? "");
+      setCommitted(pv.stockId ?? "");
+    }, [pv]);
+
+    const isDirty = committed !== (pv.stockId ?? "");
+
+    async function commit() {
+      setEditing(false);
+      setCommitted(draft);
+      if (draft !== (pv.stockId ?? "")) {
+        await updatePvd(pv, {
+          stockQuantity: pv.stockQuantity ?? 0,
+          mrpPrice: pv.mrpPrice ?? 0,
+          finalPrice: pv.finalPrice ?? 0,
+          stockId: draft,
+        });
+      }
+    }
+
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: SUB,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 5,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          Stock ID
+          {isDirty && (
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#f59e0b",
+                display: "inline-block",
+              }}
+              title="Unsaved change"
+            />
+          )}
+        </div>
+        {editing ? (
+          <input
+            type="text"
+            value={draft}
+            autoFocus
+            placeholder="e.g. STK-001"
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") {
+                setEditing(false);
+                setDraft(committed);
+              }
+            }}
+            style={fieldStyle({
+              fontSize: 13,
+              fontFamily: "'Courier New',monospace",
+            })}
+          />
+        ) : (
+          <div
+            onClick={() => {
+              setEditing(true);
+              setDraft(committed);
+            }}
+            style={{
+              fontSize: 13,
+              fontFamily: "'Courier New',monospace",
+              color: committed ? TXT : SUB,
+              cursor: "pointer",
+              padding: "6px 0",
+              borderBottom: isDirty
+                ? "1.5px solid #f59e0b"
+                : `1.5px dashed ${BDR}`,
+              minHeight: 32,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+            title="Click to edit"
+          >
+            {committed || (
+              <span style={{ fontStyle: "italic", color: SUB }}>Not set</span>
+            )}
+            <i
+              className="bi bi-pencil"
+              style={{ fontSize: 11, color: SUB, opacity: 0.6 }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {paletteLoading && (
+        <div style={{ fontSize: 12, color: SUB, padding: "10px 0" }}>
+          Loading sizes…
+        </div>
+      )}
+      {!paletteLoading && allSizes.length === 0 && (
+        <div style={{ fontSize: 12, color: SUB, padding: "10px 0" }}>
+          No band sizes found in MDM.
+        </div>
+      )}
+      {renderBandSizes()}
+      {renderCupSizes()}
+
+      {/* ── Pricing section — shown when a size with a pvd is selected ──────── */}
+      {activePvd && (
+        <div
+          style={{
+            marginTop: 16,
+            paddingTop: 16,
+            borderTop: `1.5px solid ${BDR}`,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: SUB,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 12,
+            }}
+          >
+            Pricing
+          </div>
+
+          {/* Stock ID — inline editable */}
+          <StockIdInlineField pvd={activePvd} />
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0 24px",
+              marginBottom: 12,
+            }}
+          >
+            <PriceInlineField
+              label="MRP (₹)"
+              pvd={activePvd}
+              field="mrpPrice"
+            />
+            <PriceInlineField
+              label="Selling Price (₹)"
+              pvd={activePvd}
+              field="finalPrice"
+            />
+          </div>
+          {/* Auto-calculated discount badge */}
+          {(() => {
+            const mrp = activePvd.mrpPrice ?? 0;
+            const fp = activePvd.finalPrice ?? 0;
+            const disc = mrp > 0 ? Math.round(((mrp - fp) / mrp) * 100) : 0;
+            if (disc <= 0) return null;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: SUB,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Discount
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#2e7d32",
+                    background: "#e8f5e9",
+                    borderRadius: 6,
+                    padding: "2px 10px",
+                  }}
+                >
+                  {disc}% off
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }
@@ -1512,6 +2272,7 @@ function AddVariantModal({
 export default function AdminProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const adminLayout = useOutletContext<AdminLayoutOutletContext | null>();
   const setSidebarCollapsed = adminLayout?.setSidebarCollapsed;
   const qc = useQueryClient();
@@ -1519,6 +2280,97 @@ export default function AdminProductDetail() {
   const isNew = !id || id === "new";
 
   const [selVariantId, setSelVariantId] = useState<number | null>(null);
+  // Map of productVariantDetailId → save fn, populated by SizeRow children
+  const sizeRowSavers = useRef<Map<number, () => Promise<void>>>(new Map());
+
+  // ── Pending (uncommitted to server) field changes ─────────────────────────
+  const [pendingProduct, setPendingProduct] = useState<Record<string, any>>({});
+  const [pendingVariant, setPendingVariant] = useState<Record<string, any>>({});
+
+  const isDirty =
+    Object.keys(pendingProduct).length > 0 ||
+    Object.keys(pendingVariant).length > 0;
+
+  function queueProduct(data: Record<string, any>) {
+    setPendingProduct((p) => ({ ...p, ...data }));
+  }
+  function queueVariant(data: Record<string, any>) {
+    setPendingVariant((p) => ({ ...p, ...data }));
+  }
+
+  // ── Navigation blocker ────────────────────────────────────────────────────
+  const [showNavModal, setShowNavModal] = useState(false);
+  const [pendingNavFn, setPendingNavFn] = useState<(() => void) | null>(null);
+
+  // Intercept browser back/forward when dirty
+  useEffect(() => {
+    if (!isDirty) return;
+    // Push a dummy history entry so the back button fires popstate first
+    window.history.pushState({ __navGuard: true }, "");
+    const handler = (e: PopStateEvent) => {
+      if (isDirty) {
+        // Push entry back so the URL doesn't change yet
+        window.history.pushState({ __navGuard: true }, "");
+        toast("⚠️ You have unsaved changes — save or discard before leaving.", {
+          duration: 4000,
+        });
+        setShowNavModal(true);
+        setPendingNavFn(() => () => {
+          window.history.go(-2); // go back past our dummy entry
+        });
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => {
+      window.removeEventListener("popstate", handler);
+    };
+  }, [isDirty]);
+
+  // Browser close / refresh
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  function requestNav(fn: () => void) {
+    if (isDirty) {
+      toast("⚠️ You have unsaved changes — save or discard before leaving.", {
+        duration: 4000,
+      });
+      setPendingNavFn(() => fn);
+      setShowNavModal(true);
+    } else fn();
+  }
+
+  async function confirmNavSave() {
+    await saveAll();
+    setShowNavModal(false);
+    if (pendingNavFn) {
+      pendingNavFn();
+      setPendingNavFn(null);
+    }
+  }
+
+  function confirmNavDiscard() {
+    setPendingProduct({});
+    setPendingVariant({});
+    setShowNavModal(false);
+    if (pendingNavFn) {
+      pendingNavFn();
+      setPendingNavFn(null);
+    }
+  }
+
+  function cancelNav() {
+    setShowNavModal(false);
+    setPendingNavFn(null);
+  }
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [addVariantOpen, setAddVariantOpen] = useState(false);
 
@@ -1553,9 +2405,27 @@ export default function AdminProductDetail() {
         .then((r) => r.data),
     staleTime: 120_000,
   });
+  const { data: taxHsnData } = useQuery({
+    queryKey: ["mdm-taxhsn-all"],
+    queryFn: () =>
+      api
+        .get("/MDM/TaxHSNCode", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+    staleTime: 300_000,
+  });
+  const { data: fabricsData } = useQuery({
+    queryKey: ["mdm-fabrics-all"],
+    queryFn: () =>
+      api
+        .get("/MDM/Fabrics", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+    staleTime: 300_000,
+  });
 
   const allCats: any[] = catsData?.list ?? [];
   const allBrands: any[] = brandsData?.list ?? [];
+  const allTaxHsn: any[] = taxHsnData?.list ?? [];
+  const allFabrics: any[] = fabricsData?.list ?? [];
   const parentCats = allCats.filter(
     (c) => !c.parentCategoryId || c.parentCategoryId === 0,
   );
@@ -1603,6 +2473,12 @@ export default function AdminProductDetail() {
     if (!selVariantId && variants.length > 0)
       setSelVariantId(variants[0].productVariantId);
   }, [variants, selVariantId]);
+
+  // Clear registered savers whenever the selected variant changes
+  useEffect(() => {
+    sizeRowSavers.current.clear();
+    setPendingVariant({});
+  }, [selVariantId]);
 
   const selVariant = variants.find((v) => v.productVariantId === selVariantId);
 
@@ -1700,6 +2576,36 @@ export default function AdminProductDetail() {
     }
   }
 
+  // ── Save everything ───────────────────────────────────────────────────────
+  const [savingAll, setSavingAll] = useState(false);
+  async function saveAll() {
+    setSavingAll(true);
+    try {
+      if (Object.keys(pendingProduct).length > 0) {
+        await patchProduct(pendingProduct);
+        setPendingProduct({});
+      }
+      if (Object.keys(pendingVariant).length > 0) {
+        await patchVariant(pendingVariant);
+        setPendingVariant({});
+      }
+      if (sizeRowSavers.current.size > 0) {
+        await Promise.all(
+          [...sizeRowSavers.current.values()].map((fn) => fn()),
+        );
+      }
+      if (
+        Object.keys(pendingProduct).length === 0 &&
+        Object.keys(pendingVariant).length === 0 &&
+        sizeRowSavers.current.size === 0
+      ) {
+        toast("Nothing to save");
+      }
+    } finally {
+      setSavingAll(false);
+    }
+  }
+
   // ── Toggle variant visibility ────────────────────────────────────────────────
   async function toggleVariantActive() {
     if (!selVariantId) return;
@@ -1709,12 +2615,18 @@ export default function AdminProductDetail() {
         selVariant?.isActive !== false ? "Variant hidden" : "Variant shown",
       );
       refetchVariants();
+      refetchProduct();
     } catch {
-      toast.error("Failed");
+      toast.error("Toggle failed — please try again");
     }
   }
 
-  const goBack = () => navigate(-1);
+  const goBack = () =>
+    requestNav(() =>
+      navigate("/admin/products", {
+        state: location.state, // restores the brand/category drill-down position
+      }),
+    );
 
   if (isNew) {
     navigate("/admin/products/new-form");
@@ -1845,7 +2757,84 @@ export default function AdminProductDetail() {
         >
           {product.isActive !== false ? "Active" : "Inactive"}
         </span>
+        <button
+          onClick={() =>
+            api
+              .patch(`/Products/${productId}/toggle-active`)
+              .then(() => {
+                toast.success(
+                  product.isActive !== false
+                    ? "Product hidden"
+                    : "Product shown",
+                );
+                refetchProduct();
+                // Invalidate the products list so the card updates immediately on back-navigate
+                qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
+                qc.invalidateQueries({
+                  queryKey: ["admin-product", productId],
+                });
+              })
+              .catch(() => toast.error("Failed"))
+          }
+          style={{
+            padding: "4px 12px",
+            background: product.isActive !== false ? "#fff8e1" : "#e8f5e9",
+            color: product.isActive !== false ? "#e65100" : "#2e7d32",
+            border: `1.5px solid ${
+              product.isActive !== false ? "#ffe082" : "#c8e6c9"
+            }`,
+            borderRadius: 20,
+            fontSize: 11,
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
+        >
+          {product.isActive !== false ? "Hide Product" : "Show Product"}
+        </button>
       </div>
+
+      {/* ── Unsaved-changes banner ─────────────────────────────────────────── */}
+      {isDirty && (
+        <div
+          style={{
+            background: "#fffbeb",
+            borderBottom: "1px solid #fde68a",
+            padding: "8px 32px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            fontSize: 13,
+            color: "#92400e",
+            position: "sticky",
+            top: 57,
+            zIndex: 99,
+          }}
+        >
+          <span style={{ fontSize: 15 }}>●</span>
+          <span style={{ fontWeight: 600 }}>You have unsaved changes.</span>
+          <span style={{ color: "#a16207" }}>
+            Click <strong>Save</strong> below to apply them.
+          </span>
+          <button
+            onClick={() => {
+              setPendingProduct({});
+              setPendingVariant({});
+            }}
+            style={{
+              marginLeft: "auto",
+              padding: "3px 12px",
+              border: "1px solid #fbbf24",
+              background: "transparent",
+              color: "#92400e",
+              borderRadius: 6,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            Discard
+          </button>
+        </div>
+      )}
 
       {/* ── Two-column layout (mirrors user ProductDetail) ──────────────────────── */}
       <div
@@ -1907,7 +2896,7 @@ export default function AdminProductDetail() {
               id: b.brandId,
               name: b.brandName,
             }))}
-            onSave={(v) => patchProduct({ brandId: v })}
+            onSave={(v) => queueProduct({ brandId: v })}
           />
 
           {/* Product Name */}
@@ -1915,7 +2904,7 @@ export default function AdminProductDetail() {
             <InlineField
               value={product.name || ""}
               placeholder="Product name…"
-              onSave={(v) => patchProduct({ name: v })}
+              onSave={(v) => queueProduct({ name: v })}
               large
             />
           </div>
@@ -1942,10 +2931,25 @@ export default function AdminProductDetail() {
               <InlineField
                 value={product.productCode || ""}
                 placeholder="SKU…"
-                onSave={(v) => patchProduct({ productCode: v })}
+                onSave={(v) => queueProduct({ productCode: v })}
               />
             </span>
           </div>
+
+          {/* Tax HSN Code — product level */}
+          <InlineSelect
+            label="Tax / HSN Code"
+            value={product.taxHSNCodeId}
+            options={allTaxHsn.map((t) => ({
+              id: t.taxHSNCodeId,
+              name: t.hsnCode
+                ? `${t.hsnCode}${
+                    t.hsnDescription ? " — " + t.hsnDescription : ""
+                  }${t.totalGST ? " (" + t.totalGST + "% GST)" : ""}`
+                : String(t.taxHSNCodeId),
+            }))}
+            onSave={(v) => queueProduct({ taxHSNCodeId: v })}
+          />
 
           {/* Price summary from selected variant's first PVD */}
           {pvds.length > 0 && (
@@ -1999,7 +3003,7 @@ export default function AdminProductDetail() {
             value={product.description || ""}
             multiline
             placeholder="Add a description…"
-            onSave={(v) => patchProduct({ description: v })}
+            onSave={(v) => queueProduct({ description: v })}
           />
 
           {/* Tags */}
@@ -2007,10 +3011,41 @@ export default function AdminProductDetail() {
             label="Tags"
             value={product.tag || ""}
             placeholder="Add tags…"
-            onSave={(v) => patchProduct({ tag: v })}
+            onSave={(v) => queueProduct({ tag: v })}
           />
 
           <div style={{ height: 1, background: BDR, margin: "20px 0" }} />
+
+          {/* ── Category selectors ───────────────────────────────────────── */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0 20px",
+              marginBottom: 4,
+            }}
+          >
+            <InlineSelect
+              label="Parent Category"
+              value={product.categoryId}
+              options={parentCats.map((c) => ({
+                id: c.categoryId,
+                name: c.name,
+              }))}
+              onSave={(v) =>
+                queueProduct({ categoryId: v, childCategoryId: null })
+              }
+            />
+            <InlineSelect
+              label="Child Category"
+              value={product.childCategoryId}
+              options={childCats(product.categoryId || 0).map((c) => ({
+                id: c.categoryId,
+                name: c.name,
+              }))}
+              onSave={(v) => queueProduct({ childCategoryId: v })}
+            />
+          </div>
 
           {/* ── Variant swatches (like user-side colour picker) ────────────── */}
           {variants.length > 0 && (
@@ -2073,7 +3108,9 @@ export default function AdminProductDetail() {
                   return (
                     <button
                       key={v.productVariantId}
-                      onClick={() => setSelVariantId(v.productVariantId)}
+                      onClick={() =>
+                        requestNav(() => setSelVariantId(v.productVariantId))
+                      }
                       title={v.variantName}
                       style={{
                         width: 64,
@@ -2144,100 +3181,77 @@ export default function AdminProductDetail() {
                   );
                 })}
               </div>
-              {selVariant && (
-                <div style={{ marginTop: 6, fontSize: 12, color: SUB }}>
-                  <span style={{ fontWeight: 700, color: TXT }}>
-                    {selVariant.variantName}
-                  </span>
-                  {selVariant.color && (
-                    <>
-                      {" "}
-                      ·{" "}
-                      <span style={{ fontFamily: "'Courier New',monospace" }}>
-                        {selVariant.color}
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
           )}
 
-          {/* ── Variant-specific editable fields ──────────────────────────── */}
+          {/* ── Colour + Fabric — variant-level, side by side ────────────── */}
           {selVariant && (
             <div
               style={{
-                background: GRY,
-                borderRadius: 12,
-                padding: "16px 18px",
-                marginBottom: 20,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "0 20px",
+                marginBottom: 4,
               }}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: P,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 14,
-                }}
-              >
-                Variant Info
-              </div>
               <InlineField
-                label="Variant Name"
-                value={selVariant.variantName || ""}
-                onSave={(v) => patchVariant({ variantName: v })}
-              />
-              <InlineField
-                label="Variant Product Code"
-                value={selVariant.productCode || ""}
-                onSave={(v) => patchVariant({ productCode: v })}
-              />
-              <InlineField
-                label="Color (hex/name)"
+                label="Color"
                 value={selVariant.color || ""}
-                onSave={(v) => patchVariant({ color: v })}
+                placeholder="Add colour name or hex…"
+                onSave={(v) => queueVariant({ color: v })}
               />
-              <InlineField
-                label="Variant Description"
-                value={selVariant.variantDescription || ""}
-                multiline
-                onSave={(v) => patchVariant({ variantDescription: v })}
+              <InlineSelect
+                label="Fabric"
+                value={selVariant.fabricId}
+                options={allFabrics.map((f) => ({
+                  id: f.fabricId,
+                  name: f.name || f.fabricCode || String(f.fabricId),
+                }))}
+                onSave={(v) => queueVariant({ fabricId: v })}
               />
-              <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
-                {[
-                  ["isBestSeller", "⭐ Best Seller"],
-                  ["isReturnAvailable", "↩ Returns"],
-                  ["isCupSize", "🍵 Cup Size"],
-                ].map(([k, l]) => (
+            </div>
+          )}
+
+          {/* ── Best Seller + Returns — variant-level, shown right below colour ── */}
+          {selVariant && (
+            <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
+              {(
+                [
+                  ["isBestSeller", "Best Seller"],
+                  ["isReturnAvailable", "Returns"],
+                ] as [string, string][]
+              ).map(([key, label]) => {
+                const currentVal =
+                  pendingVariant[key] !== undefined
+                    ? pendingVariant[key]
+                    : !!selVariant[key];
+                return (
                   <label
-                    key={k}
+                    key={key}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      fontSize: 12,
                       cursor: "pointer",
+                      fontSize: 13,
                       color: TXT,
+                      userSelect: "none" as const,
                     }}
                   >
                     <input
                       type="checkbox"
-                      checked={!!selVariant[k as string]}
+                      checked={currentVal}
+                      style={{ accentColor: P, width: 14, height: 14 }}
                       onChange={(e) =>
-                        patchVariant({ [k as string]: e.target.checked })
+                        queueVariant({ [key]: e.target.checked })
                       }
-                    />{" "}
-                    {l}
+                    />
+                    {label}
                   </label>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
-
-          <div style={{ height: 1, background: BDR, margin: "20px 0" }} />
 
           {/* ── Sizes section ────────────────────────────────────────────── */}
           {selVariant && (
@@ -2259,173 +3273,164 @@ export default function AdminProductDetail() {
                     letterSpacing: "0.06em",
                   }}
                 >
-                  Sizes & Stock ({pvds.length})
+                  Sizes & Stock
                 </div>
               </div>
-              {pvds.length === 0 ? (
-                <div
+              <SizePalette
+                variantId={selVariantId!}
+                productId={productId}
+                isCupSize={!!selVariant.isCupSize}
+                onRefresh={refetchPvd}
+                registerSave={(id, fn) => sizeRowSavers.current.set(id, fn)}
+                onCupSizeToggle={(val) => queueVariant({ isCupSize: val })}
+                navigate={navigate}
+              />
+
+              {/* ── Save + Hide/Show Variant ────────────────────────────── */}
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <button
+                  onClick={saveAll}
+                  disabled={savingAll}
                   style={{
-                    padding: "20px 0",
-                    textAlign: "center",
-                    color: SUB,
-                    fontSize: 13,
+                    flex: 1,
+                    padding: "13px 0",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    border: "none",
+                    background: P,
+                    color: WHITE,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
                   }}
                 >
-                  <i
-                    className="bi bi-box-seam"
-                    style={{
-                      fontSize: 28,
-                      display: "block",
-                      marginBottom: 8,
-                      opacity: 0.4,
-                    }}
-                  />
-                  No sizes yet
-                </div>
-              ) : (
-                pvds.map((pvd: any) => (
-                  <SizeRow
-                    key={pvd.productVariantDetailId}
-                    pvd={pvd}
-                    onRefresh={refetchPvd}
-                  />
-                ))
-              )}
-              <div style={{ marginTop: 10 }}>
-                <AddSizeForm
-                  variantId={selVariantId!}
-                  productId={productId}
-                  onAdded={refetchPvd}
-                />
+                  <i className="bi bi-floppy" />
+                  {savingAll ? "Saving…" : "Save"}
+                </button>
+                <button
+                  onClick={toggleVariantActive}
+                  style={{
+                    flex: 1,
+                    padding: "13px 0",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    border: "none",
+                    background: isHidden ? "#e8f5e9" : PLT,
+                    color: isHidden ? "#2e7d32" : P,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <i className={`bi ${isHidden ? "bi-eye" : "bi-eye-slash"}`} />
+                  {isHidden ? "Show Variant" : "Hide Variant"}
+                </button>
               </div>
             </div>
           )}
+        </div>
+      </div>
 
-          {/* ── Hide / Show Variant — where Buy Now / Add to Cart sit ────── */}
-          {selVariant && (
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-              <button
-                onClick={toggleVariantActive}
-                style={{
-                  flex: 1,
-                  padding: "14px 0",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  borderRadius: 12,
-                  cursor: "pointer",
-                  border: "none",
-                  background: isHidden ? "#e8f5e9" : PLT,
-                  color: isHidden ? "#2e7d32" : P,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-              >
-                <i className={`bi ${isHidden ? "bi-eye" : "bi-eye-slash"}`} />
-                {isHidden ? "Show Variant" : "Hide Variant"}
-              </button>
-            </div>
-          )}
-
-          <div style={{ height: 1, background: BDR, margin: "20px 0" }} />
-
-          {/* ── Product-level fields ────────────────────────────────────── */}
+      {/* ── Unsaved-changes warning modal ─────────────────────────────────── */}
+      {showNavModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <div
             style={{
               background: WHITE,
-              border: `1px solid ${BDR}`,
-              borderRadius: 12,
-              padding: "20px 20px",
+              borderRadius: 16,
+              padding: "28px 32px",
+              maxWidth: 400,
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
             }}
           >
+            <div style={{ fontSize: 22, marginBottom: 8 }}>⚠️</div>
             <div
               style={{
-                fontSize: 12,
+                fontSize: 16,
                 fontWeight: 700,
-                color: P,
-                marginBottom: 16,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
+                color: TXT,
+                marginBottom: 8,
               }}
             >
-              <i className="bi bi-info-circle" style={{ marginRight: 6 }} />
-              Product Fields
+              Unsaved changes
             </div>
-
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "0 28px",
+                fontSize: 13,
+                color: SUB,
+                marginBottom: 24,
+                lineHeight: 1.6,
               }}
             >
-              <InlineSelect
-                label="Parent Category"
-                value={product.categoryId}
-                options={parentCats.map((c) => ({
-                  id: c.categoryId,
-                  name: c.name,
-                }))}
-                onSave={(v) =>
-                  patchProduct({ categoryId: v, childCategoryId: null })
-                }
-              />
-              <InlineSelect
-                label="Child Category"
-                value={product.childCategoryId}
-                options={childCats(product.categoryId || 0).map((c) => ({
-                  id: c.categoryId,
-                  name: c.name,
-                }))}
-                onSave={(v) => patchProduct({ childCategoryId: v })}
-              />
-              <InlineSelect
-                label="Brand"
-                value={product.brandId}
-                options={allBrands.map((b) => ({
-                  id: b.brandId,
-                  name: b.brandName,
-                }))}
-                onSave={(v) => patchProduct({ brandId: v })}
-              />
+              You have edits that haven't been saved yet. Do you want to save
+              them before leaving?
             </div>
-
-            <div
-              style={{ height: 1, background: BDR, margin: "12px 0 16px" }}
-            />
-
-            {/* Toggle product active */}
-            <button
-              onClick={() =>
-                api
-                  .patch(`/Products/${productId}/toggle-active`)
-                  .then(() => {
-                    toast.success("Toggled");
-                    refetchProduct();
-                  })
-                  .catch(() => toast.error("Failed"))
-              }
-              style={{
-                padding: "7px 16px",
-                background: product.isActive !== false ? "#fff8e1" : "#e8f5e9",
-                color: product.isActive !== false ? "#e65100" : "#2e7d32",
-                border: `1.5px solid ${
-                  product.isActive !== false ? "#ffe082" : "#c8e6c9"
-                }`,
-                borderRadius: 8,
-                fontSize: 12,
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              {product.isActive !== false
-                ? "🙈 Hide Product"
-                : "👁 Show Product"}
-            </button>
+            <div style={{ display: "flex", gap: 10, flexDirection: "column" }}>
+              <button
+                onClick={confirmNavSave}
+                style={{
+                  padding: "10px 0",
+                  background: P,
+                  color: WHITE,
+                  border: "none",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Save & Continue
+              </button>
+              <button
+                onClick={confirmNavDiscard}
+                style={{
+                  padding: "10px 0",
+                  background: "#fdecea",
+                  color: "#c62828",
+                  border: "1px solid #ef9a9a",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Discard & Continue
+              </button>
+              <button
+                onClick={cancelNav}
+                style={{
+                  padding: "10px 0",
+                  background: GRY,
+                  color: TXT,
+                  border: "none",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Stay on page
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {addVariantOpen && (
         <AddVariantModal

@@ -159,7 +159,7 @@ export function VariantSwatchRow({
           minHeight: 38,
         }}
       >
-      {/* skeleton count pill */}
+        {/* skeleton count pill */}
         <div
           style={{
             width: 52,
@@ -299,6 +299,7 @@ export function VariantSwatchRow({
 // ─────────────────────────────────────────────────────────────────────────────
 export interface AdminProductCardProps {
   product: any;
+  navState?: any;
   onToggle: (id: number) => void;
   onDelete: (product: any) => void;
   toggleLoading?: boolean;
@@ -309,6 +310,7 @@ export interface AdminProductCardProps {
 // ─────────────────────────────────────────────────────────────────────────────
 export function AdminProductCard({
   product: p,
+  navState,
   onToggle,
   onDelete,
   toggleLoading,
@@ -378,7 +380,11 @@ export function AdminProductCard({
 
       {/* ── Image area ── */}
       <div
-        onClick={() => navigate(`/admin/products/${p.productId}/detail`)}
+        onClick={() =>
+          navigate(`/admin/products/${p.productId}/detail`, {
+            state: { navState },
+          })
+        }
         style={{
           width: "100%",
           paddingBottom: "75%",
@@ -455,7 +461,11 @@ export function AdminProductCard({
       >
         {/* Product name */}
         <div
-          onClick={() => navigate(`/admin/products/${p.productId}/detail`)}
+          onClick={() =>
+            navigate(`/admin/products/${p.productId}/detail`, {
+              state: { navState },
+            })
+          }
           style={{
             fontWeight: 700,
             fontSize: 14,
@@ -650,7 +660,11 @@ export function AdminProductCard({
         }}
       >
         <button
-          onClick={() => navigate(`/admin/products/${p.productId}/detail`)}
+          onClick={() =>
+            navigate(`/admin/products/${p.productId}/detail`, {
+              state: { navState },
+            })
+          }
           title="Edit product"
           style={{
             flex: 1,
