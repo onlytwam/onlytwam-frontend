@@ -289,6 +289,8 @@ const InventoryProductReports = lazy(
   () => import("@/features/admin/pages/StockLevelReport"),
 );
 
+const AdminStock = lazy(() => import("@/features/admin/pages/AdminStock"));
+
 const AdminBulkUpload = lazy(async () => {
   const mod = await import("@/features/admin/pages/AdminBulkUpload");
   return { default: (mod as any).default ?? (mod as any).AdminBulkUpload };
@@ -1061,8 +1063,12 @@ export default function App() {
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id" element={<AdminProductForm />} />
-            <Route path="products/:id/detail" element={<AdminProductDetail />} />
+            <Route
+              path="products/:id/detail"
+              element={<AdminProductDetail />}
+            />
             <Route path="inventory" element={<AdminInventory />} />
+            <Route path="stock" element={<AdminStock />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="categories" element={<AdminCategories />} />
             <Route path="brands" element={<AdminBrands />} />

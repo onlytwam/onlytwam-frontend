@@ -95,6 +95,12 @@ const ALL_NAV = [
     roles: [1, 3, 4], // v2 added 4 â€” kept in union
   },
   {
+    path: "/admin/stock",
+    icon: "bi-boxes",
+    label: "Stock",
+    roles: [1, 3, 4],
+  },
+  {
     path: "/admin/coupons",
     icon: "bi-ticket-perforated",
     label: "Coupons",

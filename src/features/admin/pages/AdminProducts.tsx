@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useEffect } from "react";
 import api from "@/shared/api/axiosInstance";
@@ -732,10 +732,12 @@ function ProductsTable({
   brandId,
   categoryId,
   totalLabel,
+  navState,
 }: {
   brandId?: number;
   categoryId?: number;
   totalLabel: string;
+  navState?: any;
 }) {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -774,12 +776,44 @@ function ProductsTable({
 
   const toggleProduct = useMutation({
     mutationFn: (id: number) => api.patch(`/Products/${id}/toggle-active`),
+    onMutate: async (id: number) => {
+      // Cancel in-flight refetches so they don't overwrite our optimistic update
+      await qc.cancelQueries({ queryKey: ["admin-products-filtered"] });
+      // Snapshot previous data for all matching queries
+      const previousData = qc.getQueriesData({
+        queryKey: ["admin-products-filtered"],
+      });
+      // Optimistically flip isActive on the matching product in every cached page
+      qc.setQueriesData(
+        { queryKey: ["admin-products-filtered"] },
+        (old: any) => {
+          if (!old?.list) return old;
+          return {
+            ...old,
+            list: old.list.map((p: any) =>
+              p.productId === id ? { ...p, isActive: !p.isActive } : p,
+            ),
+          };
+        },
+      );
+      return { previousData };
+    },
+    onError: (_err, _id, context: any) => {
+      // Roll back on failure
+      if (context?.previousData) {
+        context.previousData.forEach(([queryKey, data]: [any, any]) => {
+          qc.setQueryData(queryKey, data);
+        });
+      }
+      toast.error("Failed to update product visibility");
+    },
     onSuccess: () => {
       toast.success("Updated");
-      qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
-      qc.invalidateQueries({ queryKey: ["admin-card-variants"] });
     },
-    onError: () => toast.error("Failed"),
+    onSettled: () => {
+      // Always refetch to sync with server
+      qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
+    },
   });
 
   const deleteProduct = useMutation({
@@ -868,6 +902,7 @@ function ProductsTable({
             <AdminProductCard
               key={p.productId}
               product={p}
+              navState={navState}
               onToggle={(id) => toggleProduct.mutate(id)}
               onDelete={(prod) => setConfirm(prod)}
               toggleLoading={toggleProduct.isPending}
@@ -1020,7 +1055,12 @@ type BrandNav =
 
 function BrowseByBrand() {
   const navigate = useNavigate();
-  const [nav, setNav] = useState<BrandNav>({ view: "brands" });
+  const location = useLocation();
+  const [nav, setNav] = useState<BrandNav>(() => {
+    // Restore nav position when returning from product detail via back button
+    const restored = location.state?.navState;
+    return restored ?? { view: "brands" };
+  });
   const { data: brandsData, isLoading: brandsLoading } = useBrands();
   const { data: catsData, isLoading: catsLoading } = useCategories();
 
@@ -1182,7 +1222,11 @@ function BrowseByBrand() {
           <SkeletonGrid />
         ) : pCats.length === 0 ? (
           // No categories found for this brand — show products directly
-          <ProductsTable brandId={brand.brandId} totalLabel={brand.brandName} />
+          <ProductsTable
+            brandId={brand.brandId}
+            totalLabel={brand.brandName}
+            navState={nav}
+          />
         ) : (
           <BannerGrid>
             {pCats.map((cat: any) => (
@@ -1221,6 +1265,7 @@ function BrowseByBrand() {
             brandId={brand.brandId}
             categoryId={cat.categoryId}
             totalLabel={cat.name}
+            navState={nav}
           />
         ) : (
           <BannerGrid>
@@ -1258,6 +1303,7 @@ function BrowseByBrand() {
         brandId={brand.brandId}
         categoryId={sc?.categoryId ?? cat.categoryId}
         totalLabel={sc ? `${cat.name} › ${sc.name}` : cat.name}
+        navState={nav}
       />
     </div>
   );
@@ -1277,7 +1323,11 @@ type CatNav =
   | { view: "products"; category: any; subCategory?: any; brand: any };
 
 function BrowseByCategory() {
-  const [nav, setNav] = useState<CatNav>({ view: "categories" });
+  const location = useLocation();
+  const [nav, setNav] = useState<CatNav>(() => {
+    const restored = location.state?.navState;
+    return restored ?? { view: "categories" };
+  });
   const { data: catsData, isLoading: catsLoading } = useCategories();
   const { data: brandsData } = useBrands();
 
@@ -1483,6 +1533,7 @@ function BrowseByCategory() {
           <ProductsTable
             categoryId={activeCatId}
             totalLabel={scItem?.name ?? cat.name}
+            navState={nav}
           />
         ) : (
           <BannerGrid>
@@ -1527,6 +1578,7 @@ function BrowseByCategory() {
         brandId={brand.brandId}
         categoryId={activeCatId}
         totalLabel={`${scItem?.name ?? cat.name} › ${brand.brandName}`}
+        navState={nav}
       />
     </div>
   );
