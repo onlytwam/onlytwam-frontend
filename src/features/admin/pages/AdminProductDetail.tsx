@@ -24,6 +24,31 @@ import type { AdminLayoutOutletContext } from "@/features/admin/components/Admin
 
 // ─── Design tokens (same palette as the rest of the admin) ───────────────────
 const P = "#7A1E2C";
+
+// ─── Current user helper (reads from common auth storage) ────────────────────
+function getCurrentUser(): { name: string; role: string } {
+  try {
+    const raw =
+      localStorage.getItem("user") ||
+      localStorage.getItem("currentUser") ||
+      sessionStorage.getItem("user") ||
+      sessionStorage.getItem("currentUser") || "{}";
+    const u = JSON.parse(raw);
+    const name = u.name || u.userName || u.firstName ||
+                 u.fullName || u.email || "Admin";
+    const role = u.role || u.roleName || u.roleType ||
+                 u.userRole || "Admin";
+    return { name, role };
+  } catch { return { name: "Admin", role: "Admin" }; }
+}
+function savedToast(extra?: string) {
+  const { name, role } = getCurrentUser();
+  toast.success(`Saved by ${name} (${role})${extra ? " — " + extra : ""}`);
+}
+function updatedToast(field?: string) {
+  const { name, role } = getCurrentUser();
+  toast.success(`${field ? field + " updated" : "Updated"} by ${name} (${role})`);
+}
 const PLT = "#F5E9E6";
 const BDR = "#E6DAD3";
 const GRY = "#F3EFEC";
@@ -878,7 +903,7 @@ function SizePalette({
         productVariantId: variantId,
         availableQuantity: addForm.stockQuantity,
       });
-      toast.success("Size added");
+      savedToast("size added");
       setOpenTile(null);
       setAddForm({});
       onRefresh();
@@ -914,12 +939,15 @@ function SizePalette({
   }
 
   async function updateStock(pvd: any, qty: number) {
+    // Route stock changes through the StockLog endpoint so they are
+    // properly audited with changedBy="ProductDetail" source
     try {
-      await api.put(`/ProductVariantDetail/${pvd.productVariantDetailId}`, {
-        ...pvd,
+      await api.put(`/StockLog/update/${pvd.productVariantDetailId}`, {
         stockQuantity: qty,
+        note: "Updated from Product Detail page",
+        changedBy: "ProductDetail",
       });
-      toast.success("Stock updated");
+      toast.success("Total stock updated");
       onRefresh();
       refetchPalette();
     } catch {
@@ -945,7 +973,7 @@ function SizePalette({
         ...fields,
         discountPercent,
       });
-      toast.success("Saved");
+      updatedToast();
       onRefresh();
       refetchPalette();
     } catch {
@@ -1001,108 +1029,84 @@ function SizePalette({
   );
 
   function StockPanel({ pvd }: { pvd: any }) {
-    const total = pvd.stockQuantity ?? 0;
+    const total     = pvd.stockQuantity     ?? 0;
     const processed = pvd.processedQuantity ?? 0;
-    const refunded = pvd.returnedQuantity ?? 0;
-    const available =
-      pvd.availableQuantity ?? Math.max(0, total - processed + refunded);
+    const refunded  = pvd.returnedQuantity  ?? 0;
+    const available = pvd.availableQuantity ?? Math.max(0, total - processed + refunded);
 
-    const availColor =
-      available <= 0 ? "#c62828" : available <= 3 ? "#e65100" : "#2e7d32";
-    const availBg =
-      available <= 0 ? "#fdecea" : available <= 3 ? "#fff3e0" : "#e8f5e9";
+    const availColor = available <= 0 ? "#c62828" : available <= 3 ? "#e65100" : "#2e7d32";
+    const availBg    = available <= 0 ? "#fdecea" : available <= 3 ? "#fff3e0" : "#e8f5e9";
+
+    // Inline total-stock editor state
+    const [editingStock, setEditingStock] = useState(false);
+    const [stockDraft,   setStockDraft]   = useState(total);
+    const [savingStock,  setSavingStock]  = useState(false);
+
+    useEffect(() => { setStockDraft(total); }, [total]);
+
+    async function commitStock() {
+      if (stockDraft === total) { setEditingStock(false); return; }
+      setSavingStock(true);
+      try {
+        await updateStock(pvd, stockDraft);
+        setEditingStock(false);
+      } finally {
+        setSavingStock(false);
+      }
+    }
 
     const roLbl = (text: string) => (
-      <div
-        style={{
-          fontSize: 9,
-          fontWeight: 700,
-          color: SUB,
-          marginBottom: 2,
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-        }}
-      >
-        {text}
-      </div>
+      <div style={{ fontSize: 9, fontWeight: 700, color: SUB, marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>{text}</div>
     );
     const roPill = (val: number, color: string, bg: string) => (
-      <div
-        style={{
-          fontSize: 17,
-          fontWeight: 800,
-          color,
-          background: bg,
-          borderRadius: 6,
-          padding: "3px 10px",
-          display: "inline-block",
-          minWidth: 36,
-          textAlign: "center",
-        }}
-      >
-        {val}
-      </div>
+      <div style={{ fontSize: 17, fontWeight: 800, color, background: bg, borderRadius: 6, padding: "3px 10px", display: "inline-block", minWidth: 36, textAlign: "center" }}>{val}</div>
     );
 
     return (
-      <div
-        style={{
-          marginTop: 10,
-          padding: "10px 12px",
-          background: GRY,
-          borderRadius: 10,
-        }}
-      >
+      <div style={{ marginTop: 10, padding: "10px 12px", background: GRY, borderRadius: 10 }}>
         {/* Stock ID — read-only reference */}
         {pvd.stockId && (
-          <div
-            style={{
-              marginBottom: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: SUB,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              Stock ID
-            </span>
-            <span
-              style={{
-                fontFamily: "'Courier New',monospace",
-                fontSize: 11,
-                color: TXT,
-                background: WHITE,
-                border: `1px solid ${BDR}`,
-                borderRadius: 5,
-                padding: "1px 7px",
-              }}
-            >
-              {pvd.stockId}
-            </span>
+          <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: SUB, textTransform: "uppercase", letterSpacing: "0.05em" }}>Stock ID</span>
+            <span style={{ fontFamily: "'Courier New',monospace", fontSize: 11, color: TXT, background: WHITE, border: `1px solid ${BDR}`, borderRadius: 5, padding: "1px 7px" }}>{pvd.stockId}</span>
           </div>
         )}
-        {/* Stock summary — read-only pills */}
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "flex-start",
-            marginBottom: 10,
-            flexWrap: "wrap",
-          }}
-        >
+
+        {/* Stock summary row */}
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 10, flexWrap: "wrap" }}>
+          {/* ── TOTAL STOCK — editable inline ── */}
           <div>
-            {roLbl("Total")}
-            {roPill(total, "#1565c0", "#e3f2fd")}
+            {roLbl("Total Stock")}
+            {editingStock ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button onClick={() => setStockDraft(d => Math.max(0, d - 1))} style={{ width: 26, height: 26, borderRadius: 5, border: `1.5px solid ${BDR}`, background: WHITE, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: TXT }}>−</button>
+                <input
+                  type="number" min={0} value={stockDraft}
+                  onChange={e => setStockDraft(Math.max(0, Number(e.target.value)))}
+                  onKeyDown={e => { if (e.key === "Enter") commitStock(); if (e.key === "Escape") setEditingStock(false); }}
+                  style={{ width: 60, textAlign: "center", fontSize: 15, fontWeight: 800, border: `1.5px solid ${P}`, borderRadius: 6, padding: "3px 4px", outline: "none", color: "#1565c0" }}
+                  autoFocus
+                />
+                <button onClick={() => setStockDraft(d => d + 1)} style={{ width: 26, height: 26, borderRadius: 5, border: `1.5px solid ${BDR}`, background: WHITE, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: TXT }}>+</button>
+                <button onClick={commitStock} disabled={savingStock} style={{ padding: "3px 10px", background: P, color: WHITE, border: "none", borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {savingStock ? "…" : "✓"}
+                </button>
+                <button onClick={() => { setEditingStock(false); setStockDraft(total); }} style={{ padding: "3px 6px", background: "transparent", color: SUB, border: "none", borderRadius: 5, fontSize: 12, cursor: "pointer" }}>✕</button>
+              </div>
+            ) : (
+              <div
+                onClick={() => setEditingStock(true)}
+                title="Click to edit total stock"
+                style={{ fontSize: 17, fontWeight: 800, color: "#1565c0", background: "#e3f2fd", borderRadius: 6, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", border: "1.5px dashed #90caf9", minWidth: 36 }}
+              >
+                {total}
+                <i className="bi bi-pencil" style={{ fontSize: 10, opacity: 0.6 }} />
+              </div>
+            )}
+            <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>click to edit</div>
           </div>
+
+          {/* ── Read-only: Available, Processed, Returned ── */}
           <div>
             {roLbl("Available")}
             {roPill(available, availColor, availBg)}
@@ -1110,49 +1114,40 @@ function SizePalette({
           <div>
             {roLbl("Processed")}
             {roPill(processed, "#6a1b9a", "#f3e5f5")}
+            <div style={{ fontSize: 8, color: SUB, marginTop: 2 }}>auto (orders)</div>
           </div>
           <div>
             {roLbl("Returned")}
             {roPill(refunded, "#795548", "#efebe9")}
+            <div style={{ fontSize: 8, color: SUB, marginTop: 2 }}>auto (returns)</div>
           </div>
         </div>
-        {/* Action row: Edit Stock + Delete */}
+
+        {/* Info note */}
+        <div style={{ fontSize: 10, color: SUB, marginBottom: 8, background: WHITE, borderRadius: 6, padding: "4px 8px", border: `1px dashed ${BDR}` }}>
+          ℹ️ Only <strong>Total Stock</strong> can be changed here. Processed & Returned are auto-managed by orders.
+          For full stock control →{" "}
+          <span
+            onClick={() => navigate(`/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`)}
+            style={{ color: P, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
+          >
+            Stock Management Page
+          </span>
+        </div>
+
+        {/* Action row */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
-            onClick={() =>
-              navigate(
-                `/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`,
-              )
-            }
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "7px 14px",
-              background: P,
-              color: WHITE,
-              border: "none",
-              borderRadius: 8,
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+            onClick={() => navigate(`/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "transparent", color: P, border: `1.5px solid ${P}`, borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer" }}
           >
-            <i className="bi bi-pencil-square" />
-            Edit Stock
+            <i className="bi bi-box-seam" />
+            Full Stock Page
           </button>
           <button
             onClick={() => deleteSize(pvd)}
             disabled={deleting === pvd.productVariantDetailId}
-            style={{
-              padding: "7px 10px",
-              background: "#fdecea",
-              color: "#c62828",
-              border: "1px solid #ef9a9a",
-              borderRadius: 8,
-              fontSize: 12,
-              cursor: "pointer",
-            }}
+            style={{ padding: "7px 10px", background: "#fdecea", color: "#c62828", border: "1px solid #ef9a9a", borderRadius: 8, fontSize: 12, cursor: "pointer" }}
           >
             <i className="bi bi-trash" />
           </button>
@@ -1548,6 +1543,7 @@ function SizePalette({
             display: "flex",
             alignItems: "center",
             gap: 8,
+            flexWrap: "wrap",
           }}
         >
           Cup Sizes
@@ -1562,6 +1558,11 @@ function SizePalette({
               color: paletteIsCup ? P : SUB,
               textTransform: "none",
               letterSpacing: 0,
+              background: paletteIsCup ? PLT : GRY,
+              border: `1.5px solid ${paletteIsCup ? P : BDR}`,
+              borderRadius: 20,
+              padding: "2px 8px",
+              transition: "all 0.15s",
             }}
           >
             <input
@@ -1570,8 +1571,13 @@ function SizePalette({
               style={{ accentColor: P, width: 13, height: 13 }}
               onChange={(e) => onCupSizeToggle?.(e.target.checked)}
             />
-            {paletteIsCup ? "enabled" : "enable"}
+            {paletteIsCup ? "✓ Enabled" : "Enable Cup Sizes"}
           </label>
+          {paletteIsCup && (
+            <span style={{ fontSize: 11, color: P, fontWeight: 700 }}>
+              ↓ Select a band size to manage cup stock
+            </span>
+          )}
         </div>
 
         {/* Prompt user to select a band size first */}
@@ -2552,7 +2558,7 @@ export default function AdminProductDetail() {
   async function patchProduct(data: Record<string, any>) {
     try {
       await api.put(`/Products/${productId}`, { ...product, ...data });
-      toast.success("Saved");
+      updatedToast();
       refetchProduct();
       qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
     } catch {
@@ -2569,7 +2575,7 @@ export default function AdminProductDetail() {
         ...data,
         productId,
       });
-      toast.success("Saved");
+      updatedToast();
       refetchVariants();
     } catch {
       toast.error("Save failed");
@@ -3287,7 +3293,7 @@ export default function AdminProductDetail() {
               />
 
               {/* ── Save + Hide/Show Variant ────────────────────────────── */}
-              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
                 <button
                   onClick={saveAll}
                   disabled={savingAll}
@@ -3305,6 +3311,7 @@ export default function AdminProductDetail() {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 8,
+                    minWidth: 120,
                   }}
                 >
                   <i className="bi bi-floppy" />
@@ -3326,10 +3333,32 @@ export default function AdminProductDetail() {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 8,
+                    minWidth: 120,
                   }}
                 >
                   <i className={`bi ${isHidden ? "bi-eye" : "bi-eye-slash"}`} />
                   {isHidden ? "Show Variant" : "Hide Variant"}
+                </button>
+                <button
+                  onClick={() => navigate(`/admin/stock?productId=${productId}`)}
+                  style={{
+                    padding: "13px 16px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    border: `1.5px solid ${P}`,
+                    background: "transparent",
+                    color: P,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                  title="View full product history in Stock page"
+                >
+                  <i className="bi bi-clock-history" />
+                  History
                 </button>
               </div>
             </div>

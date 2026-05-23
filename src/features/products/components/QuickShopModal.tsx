@@ -238,7 +238,11 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const rawSizes: any[] = product?.sizes ?? [];
   const allCupSizes: any[] = product?.cupSizes ?? [];
   const pvdMatrix: any[] = product?.pvdMatrix ?? [];
-  const colors: any[] = product?.colors ?? [];
+  // Backend already filters isActive=false from color_rows, but guard here too
+  // so hidden variants never appear as swatches even if the API cache is stale.
+  const colors: any[] = (product?.colors ?? []).filter(
+    (c: any) => c.isActive !== false,
+  );
   const selectedColorSwatch = colors.find(
     (c: any) => c.productVariantId === variantId,
   );
@@ -581,7 +585,23 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
         )}
 
         {!isLoading && !product && (
-          <div className="qsm-notfound">Product not found.</div>
+          <div className="qsm-notfound">
+            <i
+              className="bi bi-bag-x"
+              style={{
+                fontSize: 36,
+                display: "block",
+                marginBottom: 10,
+                opacity: 0.4,
+              }}
+            />
+            <p style={{ margin: "0 0 6px", fontWeight: 700 }}>
+              Product unavailable
+            </p>
+            <p style={{ margin: 0, fontSize: 13, opacity: 0.65 }}>
+              This item may have been removed or is temporarily hidden.
+            </p>
+          </div>
         )}
 
         {!isLoading && product && (
