@@ -17,6 +17,8 @@ import ProductFilters, {
   getAppliedFilterCount,
   matchesVariantPriceFilters,
   matchesVariantSizeAndCupFilters,
+  matchesVariantCollectionColorFilters,
+  reorderVariantsForColorFilter,
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
@@ -177,30 +179,42 @@ export default function AllProducts() {
   // ── Client-side filtering ──────────────────────────────────────────────────
   const allProducts = useMemo(() => {
     const raw = rawData?.list ?? [];
-    let filtered = [...raw];
-    if (filters.colors.length > 0)
-      filtered = filtered.filter((p: any) =>
-        filters.colors.some((fc) =>
-          (p.color || "").toLowerCase().includes(fc.toLowerCase()),
-        ),
+
+    // Group by productId so allVariants is available for color reordering
+    const grouped = new Map<number, any>();
+    for (const variant of raw) {
+      const pid = variant.productId;
+      if (!grouped.has(pid)) grouped.set(pid, { ...variant, allVariants: [] });
+      grouped.get(pid).allVariants.push(variant);
+    }
+
+    let list = Array.from(grouped.values());
+
+    // Color filter: hide products with no matching variant; reorder matching first
+    if (filters.colorFamilies.length > 0 || filters.colors.length > 0) {
+      list = list.filter((p) =>
+        matchesVariantCollectionColorFilters(p.allVariants, filters),
       );
+      list = list.map((p) => {
+        const reordered = reorderVariantsForColorFilter(p.allVariants, filters);
+        return { ...reordered[0], allVariants: reordered };
+      });
+    }
+
     if (filters.sizeIds.length > 0 || filters.cupSizeIds.length > 0)
-      filtered = filtered.filter((p: any) =>
+      list = list.filter((p: any) =>
         matchesVariantSizeAndCupFilters(p, filters),
       );
     if (filters.brandIds.length > 0)
-      filtered = filtered.filter((p: any) =>
-        filters.brandIds.includes(p.brandId),
-      );
+      list = list.filter((p: any) => filters.brandIds.includes(p.brandId));
     if (filters.categoryIds.length > 0)
-      filtered = filtered.filter((p: any) =>
+      list = list.filter((p: any) =>
         filters.categoryIds.includes(p.categoryId),
       );
     if (filters.priceMin !== null || filters.priceMax !== null)
-      filtered = filtered.filter((p: any) =>
-        matchesVariantPriceFilters(p, filters),
-      );
-    return filtered;
+      list = list.filter((p: any) => matchesVariantPriceFilters(p, filters));
+
+    return list;
   }, [rawData, filters]);
 
   // ── Client-side sorting ────────────────────────────────────────────────────

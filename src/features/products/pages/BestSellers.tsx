@@ -15,6 +15,8 @@ import ProductFilters, {
   getAppliedFilterCount,
   matchesVariantCollectionSizeAndCupFilters,
   matchesVariantCollectionPriceFilters,
+  matchesVariantCollectionColorFilters,
+  reorderVariantsForColorFilter,
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
@@ -139,7 +141,6 @@ export default function BestSellers() {
   const groupedProducts = useMemo(() => {
     const raw = rawData?.list ?? [];
 
-    // Step 1 — group all variants by productId
     const grouped = new Map<number, any>();
     for (const variant of raw) {
       const pid = variant.productId;
@@ -149,24 +150,23 @@ export default function BestSellers() {
 
     let list = Array.from(grouped.values());
 
-    // Step 2 — filter by color (any variant of the product must match)
-    if (filters.colors.length > 0) {
+    // Colour filter: hide products with no matching variant;
+    // reorder allVariants so the matching colour is first → card opens on it.
+    if (filters.colorFamilies.length > 0 || filters.colors.length > 0) {
       list = list.filter((p) =>
-        p.allVariants.some((v: any) =>
-          filters.colors.some((fc: string) =>
-            (v.color || "").toLowerCase().includes(fc.toLowerCase()),
-          ),
-        ),
+        matchesVariantCollectionColorFilters(p.allVariants, filters),
       );
+      list = list.map((p) => {
+        const reordered = reorderVariantsForColorFilter(p.allVariants, filters);
+        return { ...reordered[0], allVariants: reordered };
+      });
     }
 
-    // Step 3 — filter by brand / category
     if (filters.brandIds.length > 0)
       list = list.filter((p) => filters.brandIds.includes(p.brandId));
     if (filters.categoryIds.length > 0)
       list = list.filter((p) => filters.categoryIds.includes(p.categoryId));
 
-    // Step 4 — size / price filters across the variant collection
     list = list.filter(
       (p) =>
         matchesVariantCollectionSizeAndCupFilters(p.allVariants, filters) &&

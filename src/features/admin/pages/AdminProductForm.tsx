@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import api from '@/shared/api/axiosInstance';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { getImageUrl } from '@/shared/utils/helpers';
-import { resolveColorSwatch } from '@/shared/utils/colorHelpers';
+import { resolveColorSwatch, nameToHex, hexToName, COLOR_NAME_TO_HEX } from '@/shared/utils/colorHelpers';
 import toast from 'react-hot-toast';
 
 
@@ -247,7 +247,22 @@ export default function AdminProductForm() {
   const [childCats, setChildCats] = useState<any[]>([]);
 
   // ── Color state ──────────────────────────────────────────────────────────────
-  const [colorHex, setColorHex] = useState('#888888');
+  // Color is stored as a name (e.g. "Dark Navy Blue").
+  // colorName  → what gets saved in pv.Color (human-readable name)
+  // previewHex → resolved hex shown in the swatch preview only
+  const [colorName, setColorName] = useState('');
+  const [colorSuggestOpen, setColorSuggestOpen] = useState(false);
+  const previewHex = colorName ? nameToHex(colorName) : '#888888';
+  // Keep colorHex alias for places that still read it (variant list display)
+  const colorHex = previewHex;
+  const setColorHex = (val: string) => {
+    // If a hex is set directly (legacy), convert to closest name
+    if (val.startsWith('#')) {
+      setColorName(hexToName(val) || val);
+    } else {
+      setColorName(val);
+    }
+  };
 
   // ── Image state ──────────────────────────────────────────────────────────────
   const [imgPreviews, setImgPreviews] = useState<string[]>([]);
@@ -396,14 +411,16 @@ export default function AdminProductForm() {
       sV('isBestSeller', !!editV.isBestSeller);
       sV('isReturnAvailable', !!editV.isReturnAvailable);
       sV('isCupSize', !!editV.isCupSize);
-      setColorHex(safeColorHex(editV.color, editV.colorHex));
+      // Load colour name from variant; if stored as hex, reverse-map to name
+      const rawColor = editV.color || '';
+      setColorName(rawColor.startsWith('#') ? (hexToName(rawColor) || rawColor) : rawColor);
     } else {
       resetV({
         variantName: '', variantProductCode: '', variantDescription: '',
         fabricId: null, taxHSNCodeId: null,
         isBestSeller: false, isReturnAvailable: false, isCupSize: false,
       });
-      setColorHex('#888888');
+      setColorName('');
       setExistingImgs([]);
     }
     // Always clear local state on form open
@@ -567,8 +584,9 @@ export default function AdminProductForm() {
         isBestSeller: !!data.isBestSeller,
         isReturnAvailable: !!data.isReturnAvailable,
         isCupSize: !!data.isCupSize,
-        color: colorHex || '#888888',
-        colorHex: colorHex || '#888888',
+        // Save the human colour name (e.g. "Dark Navy Blue") not a hex code
+        color: colorName || '',
+        colorHex: previewHex || '#888888',
         userProfileId: getUserId(),
         createdBy: getUserId(),
         // image fields — will be updated after image upload if new variant
@@ -862,7 +880,7 @@ export default function AdminProductForm() {
                             <p style={{ fontWeight: 600, fontSize: 14, margin: 0 }}>{v.variantName}</p>
                             <p style={{ fontSize: 12, color: sub, margin: '3px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
                               {v.color && <span style={{ width: 10, height: 10, borderRadius: '50%', background: vHex, display: 'inline-block' }} />}
-                              {v.color || v.productCode || ''}
+                              {v.color ? (v.color.startsWith('#') ? hexToName(v.color) : v.color) : (v.productCode || '')}
                             </p>
                             {v.isBestSeller && <span style={{ fontSize: 11, color: '#f57f17', fontWeight: 600 }}>⭐ Best Seller</span>}
                           </div>
@@ -952,24 +970,58 @@ export default function AdminProductForm() {
                   </Field>
 
                   <Field label="Color">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <input
-                        value={colorHex}
-                        onChange={e => setColorHex(e.target.value)}
-                        style={{ ...inp, flex: 1 }}
-                        placeholder="#292323"
-                      />
-                      <label style={{ position: 'relative', width: 32, height: 32, flexShrink: 0, cursor: 'pointer' }}>
+                    <div style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {/* Colour swatch preview (read-only, derived from name) */}
                         <div style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          background: /^#[0-9a-f]{3,6}$/i.test(colorHex) ? colorHex : '#888',
+                          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                          background: previewHex,
                           border: '2px solid #ddd',
-                        }} />
-                        <input type="color"
-                          value={/^#[0-9a-f]{6}$/i.test(colorHex) ? colorHex : '#888888'}
-                          onChange={e => setColorHex(e.target.value)}
-                          style={{ position: 'absolute', opacity: 0, inset: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
-                      </label>
+                        }} title={previewHex} />
+                        {/* Text input: colour name */}
+                        <input
+                          value={colorName}
+                          onChange={e => {
+                            setColorName(e.target.value);
+                            setColorSuggestOpen(e.target.value.trim().length > 0);
+                          }}
+                          onBlur={() => setTimeout(() => setColorSuggestOpen(false), 180)}
+                          onFocus={() => setColorSuggestOpen(colorName.trim().length > 0)}
+                          style={{ ...inp, flex: 1 }}
+                          placeholder="e.g. Dark Navy Blue, Wine, Nude..."
+                          autoComplete="off"
+                          list="color-suggestions"
+                        />
+                      </div>
+                      {/* Dropdown suggestions from known colour names */}
+                      {colorSuggestOpen && (() => {
+                        const lower = colorName.toLowerCase().trim();
+                        const matches = Object.keys(COLOR_NAME_TO_HEX)
+                          .filter(k => k.includes(lower) || lower.includes(k))
+                          .slice(0, 8);
+                        return matches.length > 0 ? (
+                          <div style={{
+                            position: 'absolute', top: '100%', left: 40, right: 0, zIndex: 999,
+                            background: '#fff', border: '1px solid #e0e0e0', borderRadius: 8,
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.10)', overflow: 'hidden',
+                          }}>
+                            {matches.map(name => (
+                              <div key={name}
+                                onMouseDown={() => { setColorName(name.charAt(0).toUpperCase() + name.slice(1)); setColorSuggestOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = '')}
+                              >
+                                <div style={{ width: 18, height: 18, borderRadius: '50%', background: COLOR_NAME_TO_HEX[name], border: '1px solid #ddd', flexShrink: 0 }} />
+                                {name.charAt(0).toUpperCase() + name.slice(1)}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
+                      <p style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
+                        Type a colour name (Black, Wine, Navy Blue…) — hex {previewHex}
+                      </p>
                     </div>
                   </Field>
 

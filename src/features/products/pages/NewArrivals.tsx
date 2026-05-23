@@ -15,6 +15,8 @@ import ProductFilters, {
   getAppliedFilterCount,
   matchesVariantCollectionSizeAndCupFilters,
   matchesVariantCollectionPriceFilters,
+  matchesVariantCollectionColorFilters,
+  reorderVariantsForColorFilter,
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
@@ -143,14 +145,16 @@ export default function NewArrivals() {
 
     let list = Array.from(grouped.values());
 
-    if (filters.colors.length > 0) {
+    // Colour filter: hide products with no matching variant;
+    // reorder allVariants so the matching colour is first → card opens on it.
+    if (filters.colorFamilies.length > 0 || filters.colors.length > 0) {
       list = list.filter((p) =>
-        p.allVariants.some((v: any) =>
-          filters.colors.some((fc: string) =>
-            (v.color || "").toLowerCase().includes(fc.toLowerCase()),
-          ),
-        ),
+        matchesVariantCollectionColorFilters(p.allVariants, filters),
       );
+      list = list.map((p) => {
+        const reordered = reorderVariantsForColorFilter(p.allVariants, filters);
+        return { ...reordered[0], allVariants: reordered };
+      });
     }
 
     if (filters.brandIds.length > 0)
