@@ -25,6 +25,8 @@ import ProductFilters, {
   getAppliedFilterCount,
   matchesVariantCollectionPriceFilters,
   matchesVariantCollectionSizeAndCupFilters,
+  matchesVariantCollectionColorFilters,
+  reorderVariantsForColorFilter,
   shouldDeferCupSizeFiltering,
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
@@ -260,7 +262,22 @@ export default function ProductList() {
       if (!grouped.has(pid)) grouped.set(pid, { ...variant, allVariants: [] });
       grouped.get(pid).allVariants.push(variant);
     }
-    return Array.from(grouped.values()).filter(
+
+    let list = Array.from(grouped.values());
+
+    // Color filter: hide products with no matching variant; reorder to show
+    // the matching colour first so the card opens on the right variant.
+    if (filters.colorFamilies.length > 0 || filters.colors.length > 0) {
+      list = list.filter((p) =>
+        matchesVariantCollectionColorFilters(p.allVariants, filters),
+      );
+      list = list.map((p) => {
+        const reordered = reorderVariantsForColorFilter(p.allVariants, filters);
+        return { ...reordered[0], allVariants: reordered };
+      });
+    }
+
+    return list.filter(
       (product) =>
         matchesVariantCollectionSizeAndCupFilters(
           product.allVariants,

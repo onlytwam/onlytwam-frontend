@@ -22,7 +22,7 @@ import {
 } from "@/features/products/api/products.api";
 import { addToCart, updateCart, listCart } from "@/features/cart/api/cart.api";
 import { formatPrice, slugify, getImageUrl } from "@/shared/utils/helpers";
-import { resolveHex } from "@/shared/utils/colorHelpers";
+import { resolveHex, hexToName } from "@/shared/utils/colorHelpers";
 import { setBuyNowSession } from "@/shared/utils/checkoutSession";
 
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
@@ -1723,11 +1723,11 @@ export default function ProductDetail() {
                 <p className="s-productdetai-06262c s-productdetai-ff85a0a9">
                   Color:{" "}
                   <span className="s-productdetai-6ed0de">
-                    {colors.find((c: any) => c.productVariantId === currentVId)
-                      ?.colorName ??
-                      colors.find((c: any) => c.productVariantId === currentVId)
-                        ?.color ??
-                      ""}
+                    {(() => {
+                      const c = colors.find((c: any) => c.productVariantId === currentVId);
+                      const raw = c?.colorName || c?.color || "";
+                      return raw.startsWith("#") ? hexToName(raw) : raw;
+                    })()}
                   </span>
                 </p>
                 <div className="s-adminproduct-47622e">
@@ -1744,7 +1744,7 @@ export default function ProductDetail() {
                           );
                         }
                       }}
-                      title={c.colorName ?? c.color ?? ""}
+                      title={(() => { const raw = c.colorName || c.color || ""; return raw.startsWith("#") ? hexToName(raw) : raw; })()}
                       className="s-productdetai-e37fda"
                       style={{
                         border: `2.5px solid ${
@@ -1756,7 +1756,7 @@ export default function ProductDetail() {
                     >
                       <img
                         src={getImageUrl(c.image)}
-                        alt={c.colorName ?? c.color ?? "color"}
+                        alt={(() => { const raw = c.colorName || c.color || "color"; return raw.startsWith("#") ? hexToName(raw) : raw; })()}
                         className="s-productdetai-f2b35e"
                         onError={(e) => {
                           const img = e.target as HTMLImageElement;

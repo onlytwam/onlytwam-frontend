@@ -434,6 +434,135 @@ export function matchesVariantCollectionPriceFilters(
   return list.some((variant) => matchesVariantPriceFilters(variant, filters));
 }
 
+// ── Color family matching ──────────────────────────────────────────────────────
+
+/**
+ * Given a raw color value (name or hex), return which COLOR_FAMILY label it
+ * belongs to (e.g. "navy blue" → "Blue"). Returns null if no family matches.
+ */
+export function variantColorToFamily(rawColor: string): string | null {
+  if (!rawColor) return null;
+  const lower = rawColor.toLowerCase().trim();
+  // Strip leading '#' so hex codes like "#1a1a1a" are checked by keyword too
+  const noHash = lower.startsWith("#") ? lower.slice(1) : lower;
+
+  for (const fam of COLOR_FAMILIES) {
+    if (
+      fam.keywords.some(
+        (k) =>
+          lower.includes(k) ||
+          k.includes(lower) ||
+          noHash.includes(k) ||
+          k.includes(noHash),
+      )
+    )
+      return fam.label;
+  }
+  return null;
+}
+
+/**
+ * Returns true if the variant's color belongs to one of the selected color families.
+ * Falls through to true when no color filter is active.
+ */
+export function matchesVariantColorFilters(
+  variant: any,
+  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
+): boolean {
+  const hasColorFamilyFilter = filters.colorFamilies.length > 0;
+  const hasColorFilter = filters.colors.length > 0;
+
+  if (!hasColorFamilyFilter && !hasColorFilter) return true;
+
+  const rawColor: string =
+    variant?.colorName ||
+    variant?.color ||
+    variant?.colourName ||
+    variant?.colour ||
+    "";
+
+  if (!rawColor) return false;
+
+  // Check exact color name match first (faster)
+  if (hasColorFilter) {
+    const lowerRaw = rawColor.toLowerCase().trim();
+    if (
+      filters.colors.some(
+        (fc) =>
+          lowerRaw === fc.toLowerCase().trim() ||
+          lowerRaw.includes(fc.toLowerCase().trim()) ||
+          fc.toLowerCase().trim().includes(lowerRaw),
+      )
+    )
+      return true;
+  }
+
+  // Check color family
+  if (hasColorFamilyFilter) {
+    const family = variantColorToFamily(rawColor);
+    if (family && filters.colorFamilies.includes(family)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * For a collection of variants, returns the IDs of variants that match the
+ * active color filter — in order of best match.
+ * Returns an empty array when no filter is active (all variants match).
+ */
+export function getColorMatchingVariantIds(
+  variants: any[],
+  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
+): number[] {
+  const list = Array.isArray(variants) ? variants : [];
+  const hasFilter =
+    filters.colorFamilies.length > 0 || filters.colors.length > 0;
+
+  if (!hasFilter) return list.map((v) => v.productVariantId);
+
+  return list
+    .filter((v) => matchesVariantColorFilters(v, filters))
+    .map((v) => v.productVariantId);
+}
+
+/**
+ * Given a product's allVariants list and the active filters, returns a new
+ * list reordered so that variants matching the color filter come first.
+ * If the color filter is not active, returns the original list unchanged.
+ */
+export function reorderVariantsForColorFilter(
+  variants: any[],
+  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
+): any[] {
+  const list = Array.isArray(variants) ? variants : [];
+  const hasFilter =
+    filters.colorFamilies.length > 0 || filters.colors.length > 0;
+  if (!hasFilter) return list;
+
+  const matching = list.filter((v) => matchesVariantColorFilters(v, filters));
+  const rest = list.filter((v) => !matchesVariantColorFilters(v, filters));
+  return [...matching, ...rest];
+}
+
+/**
+ * Returns true if at least one variant in the collection matches the color
+ * filter. Returns true when no filter is active.
+ */
+export function matchesVariantCollectionColorFilters(
+  variants: any[],
+  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
+): boolean {
+  const hasFilter =
+    filters.colorFamilies.length > 0 || filters.colors.length > 0;
+  if (!hasFilter) return true;
+
+  const list = Array.isArray(variants) ? variants : [];
+  if (list.length === 0) return false;
+
+  return list.some((v) => matchesVariantColorFilters(v, filters));
+}
+
 export function getAppliedFilterCount(filters: ProductFilterState): number {
   const colorCount =
     filters.colorFamilies.length > 0

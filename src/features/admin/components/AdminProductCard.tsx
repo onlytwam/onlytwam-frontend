@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/shared/api/axiosInstance";
-import { resolveHex } from "@/shared/utils/colorHelpers";
+import { resolveHex, hexToName } from "@/shared/utils/colorHelpers";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — match AdminProducts.tsx exactly
@@ -221,7 +221,7 @@ export function VariantSwatchRow({
     const color = resolveColorFields(v);
     return {
       id: v.productVariantId,
-      name: color.colorName || v.variantName || "Variant",
+      name: (() => { const raw = color.colorName || ''; return raw.startsWith('#') ? hexToName(raw) : (raw || v.variantName || 'Variant'); })(),
       hex: color.colorHex || "#ccc",
       variant: v,
     };
