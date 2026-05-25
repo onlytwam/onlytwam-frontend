@@ -13,7 +13,7 @@ import { useCartStore } from "@/features/cart/store/cartStore";
 import { getProductDetail } from "@/features/products/api/products.api";
 import { addToCart, listCart, updateCart } from "@/features/cart/api/cart.api";
 import { formatPrice, getImageUrl, slugify } from "@/shared/utils/helpers";
-import { resolveHex, hexToName } from "@/shared/utils/colorHelpers";
+
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { setBuyNowSession } from "@/shared/utils/checkoutSession";
 
@@ -248,9 +248,7 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   );
   const selectedColorRaw: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
-  const selectedColor: string = selectedColorRaw.startsWith("#")
-    ? hexToName(selectedColorRaw)
-    : selectedColorRaw;
+  const selectedColor: string = selectedColorRaw;
 
   // Sizes are pre-filtered server-side by detected SizeType from PVD data.
   // No client-side filtering needed.
@@ -816,14 +814,14 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                       <button
                         key={col.productVariantId}
                         onClick={() => setVariantId(col.productVariantId)}
-                        title={(() => { const raw = col.colorName || col.color || ""; return raw.startsWith("#") ? hexToName(raw) : raw; })()}
+                        title={col.colorName || col.color || ""}
                         className={`qsm-swatch${
                           col.productVariantId === variantId
                             ? " is-selected"
                             : ""
                         }`}
                         style={{
-                          background: resolveHex(col.colorHex ?? col.color),
+                          background: col.colorHex ?? col.color ?? "",
                         }}
                       />
                     ))}

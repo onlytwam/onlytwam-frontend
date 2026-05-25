@@ -1,6 +1,6 @@
 import type { GuestWishlistItem } from "@/shared/utils/guestWishlist";
 import api from "@/shared/api/axiosInstance";
-import { resolveColorSwatch } from "@/shared/utils/colorHelpers";
+import { getFamilySwatch } from "@/shared/utils/colorHelpers";
 import type { ColorListItem } from "@/features/products/types/product.types";
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -145,18 +145,18 @@ export const getProductColors = async (): Promise<ColorListItem[]> => {
   const response = await api.get("/ProductVariantDetail/GetProductColor");
   const raw: any[] = response.data || [];
 
-  return raw.map((c: any) => {
-    if (typeof c === "string") {
-      // Backend returned plain name strings — resolve hex automatically
-      const { colorName, colorHex } = resolveColorSwatch(c);
-      return { name: colorName, hex: colorHex };
-    }
-    // Backend returned objects — normalise field names
-    const name = c.colorName ?? c.name ?? c.Color ?? "";
-    const hex = c.colorHex ?? c.hex ?? c.HexValue ?? "";
-    const { colorName, colorHex } = resolveColorSwatch(name, hex);
-    return { name: colorName, hex: colorHex };
-  });
+  return raw
+    .map((c: any) => {
+      // Backend returns { color, colorFamily }
+      const name: string = (
+        typeof c === "string" ? c : c.color ?? c.colorName ?? c.name ?? ""
+      ).trim();
+      const colorFamily: string | null =
+        typeof c === "object" ? c.colorFamily ?? null : null;
+      const hex = getFamilySwatch(colorFamily);
+      return { name, colorFamily, hex };
+    })
+    .filter((c) => !!c.name);
 };
 
 // ── Category product counts ───────────────────────────────────────────────────

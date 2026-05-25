@@ -8,7 +8,6 @@ import {
   getImageUrl,
   getCanvasSafeImageUrl,
 } from "@/shared/utils/helpers";
-import { resolveHex } from "@/shared/utils/colorHelpers";
 
 const TEAR_LINE_SAMPLE_POINTS = [
   { x: 48.5, y: 0.8 },
@@ -393,13 +392,12 @@ export default function ProductCard({
     const containerWidth = imageEl.clientWidth || 0;
     const containerHeight = imageEl.clientHeight || 0;
 
-    const fallbackHex = resolveHex(
+    const fallbackHex =
       selectedColorFields.colorHex ||
-        selectedColorFields.colorName ||
-        productColorFields.colorHex ||
-        productColorFields.colorName ||
-        "#767676",
-    );
+      selectedColorFields.colorName ||
+      productColorFields.colorHex ||
+      productColorFields.colorName ||
+      "#767676";
     const fallbackBase = hexToRgb(fallbackHex) || { r: 118, g: 118, b: 118 };
     let base = fallbackBase;
     let renderWidth = containerWidth;
@@ -772,7 +770,7 @@ export default function ProductCard({
             {
               id: product.productVariantId,
               colorName: productColorFields.colorName,
-              colorHex: resolveHex(productColorFields.colorHex),
+              colorHex: productColorFields.colorHex || "",
             },
           ]
         : []
@@ -782,7 +780,7 @@ export default function ProductCard({
           return {
             id: v.productVariantId,
             colorName: f.colorName,
-            colorHex: resolveHex(f.colorHex),
+            colorHex: f.colorHex || "",
           };
         })
       : productColorFields.colorName || productColorFields.colorHex
@@ -790,7 +788,7 @@ export default function ProductCard({
           {
             id: product.productVariantId,
             colorName: productColorFields.colorName,
-            colorHex: resolveHex(productColorFields.colorHex),
+            colorHex: productColorFields.colorHex || "",
           },
         ]
       : [];

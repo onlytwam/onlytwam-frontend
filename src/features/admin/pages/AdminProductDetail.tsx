@@ -19,6 +19,11 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
+import {
+  COLOR_FAMILY_OPTIONS,
+  guessColorFamily,
+  getFamilySwatch,
+} from "@/shared/utils/colorHelpers";
 import { getImageUrl } from "@/shared/utils/helpers";
 import type { AdminLayoutOutletContext } from "@/features/admin/components/AdminLayout";
 
@@ -32,14 +37,16 @@ function getCurrentUser(): { name: string; role: string } {
       localStorage.getItem("user") ||
       localStorage.getItem("currentUser") ||
       sessionStorage.getItem("user") ||
-      sessionStorage.getItem("currentUser") || "{}";
+      sessionStorage.getItem("currentUser") ||
+      "{}";
     const u = JSON.parse(raw);
-    const name = u.name || u.userName || u.firstName ||
-                 u.fullName || u.email || "Admin";
-    const role = u.role || u.roleName || u.roleType ||
-                 u.userRole || "Admin";
+    const name =
+      u.name || u.userName || u.firstName || u.fullName || u.email || "Admin";
+    const role = u.role || u.roleName || u.roleType || u.userRole || "Admin";
     return { name, role };
-  } catch { return { name: "Admin", role: "Admin" }; }
+  } catch {
+    return { name: "Admin", role: "Admin" };
+  }
 }
 function savedToast(extra?: string) {
   const { name, role } = getCurrentUser();
@@ -47,7 +54,9 @@ function savedToast(extra?: string) {
 }
 function updatedToast(field?: string) {
   const { name, role } = getCurrentUser();
-  toast.success(`${field ? field + " updated" : "Updated"} by ${name} (${role})`);
+  toast.success(
+    `${field ? field + " updated" : "Updated"} by ${name} (${role})`,
+  );
 }
 const PLT = "#F5E9E6";
 const BDR = "#E6DAD3";
@@ -121,16 +130,8 @@ function resolveColor(c: string | null | undefined): string {
 }
 
 function getVariantColor(variant: any): string {
-  return resolveColor(
-    variant?.color ||
-      variant?.colorHex ||
-      variant?.colourHex ||
-      variant?.hexCode ||
-      variant?.colorCode ||
-      variant?.colorName ||
-      variant?.colourName ||
-      variant?.variantColor,
-  );
+  // Use family swatch color for display; no per-variant hex
+  return getFamilySwatch(variant?.colorFamily);
 }
 
 function imageIdFromAny(image: any): number | undefined {
@@ -394,6 +395,120 @@ function InlineSelect({
           <i
             className="bi bi-pencil"
             style={{ fontSize: 11, color: SUB, marginLeft: 8, opacity: 0.6 }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Inline string-select (Color Family) ─────────────────────────────────────
+function InlineStringSelect({
+  label,
+  value,
+  options,
+  onSave,
+}: {
+  label: string;
+  value: string | null | undefined;
+  options: readonly string[];
+  onSave: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [localValue, setLocalValue] = useState(value ?? "");
+
+  useEffect(() => {
+    setLocalValue(value ?? "");
+  }, [value]);
+
+  const isDirty = localValue !== (value ?? "");
+  const swatch = getFamilySwatch(localValue);
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value;
+    setLocalValue(next);
+    setEditing(false);
+    if (next !== (value ?? "")) onSave(next);
+  }
+
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: SUB,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          marginBottom: 5,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        {label}
+        {isDirty && (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#f59e0b",
+              display: "inline-block",
+            }}
+            title="Unsaved change"
+          />
+        )}
+      </div>
+      {editing ? (
+        <select
+          value={localValue}
+          onChange={handleChange}
+          onBlur={() => setEditing(false)}
+          style={fieldStyle({ cursor: "pointer" })}
+          autoFocus
+        >
+          <option value="">— Not set —</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          style={{
+            fontSize: 14,
+            color: localValue ? TXT : SUB,
+            cursor: "pointer",
+            padding: "6px 0",
+            borderBottom: isDirty
+              ? "1.5px solid #f59e0b"
+              : `1.5px dashed ${BDR}`,
+            minHeight: 32,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+          title="Click to edit"
+        >
+          {localValue && (
+            <span
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: swatch,
+                border: "1px solid #ddd",
+                flexShrink: 0,
+              }}
+            />
+          )}
+          {localValue || <span style={{ fontStyle: "italic" }}>Not set</span>}
+          <i
+            className="bi bi-pencil"
+            style={{ fontSize: 11, color: SUB, opacity: 0.6 }}
           />
         </div>
       )}
@@ -1029,23 +1144,31 @@ function SizePalette({
   );
 
   function StockPanel({ pvd }: { pvd: any }) {
-    const total     = pvd.stockQuantity     ?? 0;
+    const total = pvd.stockQuantity ?? 0;
     const processed = pvd.processedQuantity ?? 0;
-    const refunded  = pvd.returnedQuantity  ?? 0;
-    const available = pvd.availableQuantity ?? Math.max(0, total - processed + refunded);
+    const refunded = pvd.returnedQuantity ?? 0;
+    const available =
+      pvd.availableQuantity ?? Math.max(0, total - processed + refunded);
 
-    const availColor = available <= 0 ? "#c62828" : available <= 3 ? "#e65100" : "#2e7d32";
-    const availBg    = available <= 0 ? "#fdecea" : available <= 3 ? "#fff3e0" : "#e8f5e9";
+    const availColor =
+      available <= 0 ? "#c62828" : available <= 3 ? "#e65100" : "#2e7d32";
+    const availBg =
+      available <= 0 ? "#fdecea" : available <= 3 ? "#fff3e0" : "#e8f5e9";
 
     // Inline total-stock editor state
     const [editingStock, setEditingStock] = useState(false);
-    const [stockDraft,   setStockDraft]   = useState(total);
-    const [savingStock,  setSavingStock]  = useState(false);
+    const [stockDraft, setStockDraft] = useState(total);
+    const [savingStock, setSavingStock] = useState(false);
 
-    useEffect(() => { setStockDraft(total); }, [total]);
+    useEffect(() => {
+      setStockDraft(total);
+    }, [total]);
 
     async function commitStock() {
-      if (stockDraft === total) { setEditingStock(false); return; }
+      if (stockDraft === total) {
+        setEditingStock(false);
+        return;
+      }
       setSavingStock(true);
       try {
         await updateStock(pvd, stockDraft);
@@ -1056,54 +1179,221 @@ function SizePalette({
     }
 
     const roLbl = (text: string) => (
-      <div style={{ fontSize: 9, fontWeight: 700, color: SUB, marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>{text}</div>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: SUB,
+          marginBottom: 2,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+        }}
+      >
+        {text}
+      </div>
     );
     const roPill = (val: number, color: string, bg: string) => (
-      <div style={{ fontSize: 17, fontWeight: 800, color, background: bg, borderRadius: 6, padding: "3px 10px", display: "inline-block", minWidth: 36, textAlign: "center" }}>{val}</div>
+      <div
+        style={{
+          fontSize: 17,
+          fontWeight: 800,
+          color,
+          background: bg,
+          borderRadius: 6,
+          padding: "3px 10px",
+          display: "inline-block",
+          minWidth: 36,
+          textAlign: "center",
+        }}
+      >
+        {val}
+      </div>
     );
 
     return (
-      <div style={{ marginTop: 10, padding: "10px 12px", background: GRY, borderRadius: 10 }}>
+      <div
+        style={{
+          marginTop: 10,
+          padding: "10px 12px",
+          background: GRY,
+          borderRadius: 10,
+        }}
+      >
         {/* Stock ID — read-only reference */}
         {pvd.stockId && (
-          <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: SUB, textTransform: "uppercase", letterSpacing: "0.05em" }}>Stock ID</span>
-            <span style={{ fontFamily: "'Courier New',monospace", fontSize: 11, color: TXT, background: WHITE, border: `1px solid ${BDR}`, borderRadius: 5, padding: "1px 7px" }}>{pvd.stockId}</span>
+          <div
+            style={{
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: SUB,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              Stock ID
+            </span>
+            <span
+              style={{
+                fontFamily: "'Courier New',monospace",
+                fontSize: 11,
+                color: TXT,
+                background: WHITE,
+                border: `1px solid ${BDR}`,
+                borderRadius: 5,
+                padding: "1px 7px",
+              }}
+            >
+              {pvd.stockId}
+            </span>
           </div>
         )}
 
         {/* Stock summary row */}
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 10, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "flex-end",
+            marginBottom: 10,
+            flexWrap: "wrap",
+          }}
+        >
           {/* ── TOTAL STOCK — editable inline ── */}
           <div>
             {roLbl("Total Stock")}
             {editingStock ? (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <button onClick={() => setStockDraft(d => Math.max(0, d - 1))} style={{ width: 26, height: 26, borderRadius: 5, border: `1.5px solid ${BDR}`, background: WHITE, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: TXT }}>−</button>
+                <button
+                  onClick={() => setStockDraft((d) => Math.max(0, d - 1))}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 5,
+                    border: `1.5px solid ${BDR}`,
+                    background: WHITE,
+                    fontSize: 15,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: TXT,
+                  }}
+                >
+                  −
+                </button>
                 <input
-                  type="number" min={0} value={stockDraft}
-                  onChange={e => setStockDraft(Math.max(0, Number(e.target.value)))}
-                  onKeyDown={e => { if (e.key === "Enter") commitStock(); if (e.key === "Escape") setEditingStock(false); }}
-                  style={{ width: 60, textAlign: "center", fontSize: 15, fontWeight: 800, border: `1.5px solid ${P}`, borderRadius: 6, padding: "3px 4px", outline: "none", color: "#1565c0" }}
+                  type="number"
+                  min={0}
+                  value={stockDraft}
+                  onChange={(e) =>
+                    setStockDraft(Math.max(0, Number(e.target.value)))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitStock();
+                    if (e.key === "Escape") setEditingStock(false);
+                  }}
+                  style={{
+                    width: 60,
+                    textAlign: "center",
+                    fontSize: 15,
+                    fontWeight: 800,
+                    border: `1.5px solid ${P}`,
+                    borderRadius: 6,
+                    padding: "3px 4px",
+                    outline: "none",
+                    color: "#1565c0",
+                  }}
                   autoFocus
                 />
-                <button onClick={() => setStockDraft(d => d + 1)} style={{ width: 26, height: 26, borderRadius: 5, border: `1.5px solid ${BDR}`, background: WHITE, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: TXT }}>+</button>
-                <button onClick={commitStock} disabled={savingStock} style={{ padding: "3px 10px", background: P, color: WHITE, border: "none", borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                <button
+                  onClick={() => setStockDraft((d) => d + 1)}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 5,
+                    border: `1.5px solid ${BDR}`,
+                    background: WHITE,
+                    fontSize: 15,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: TXT,
+                  }}
+                >
+                  +
+                </button>
+                <button
+                  onClick={commitStock}
+                  disabled={savingStock}
+                  style={{
+                    padding: "3px 10px",
+                    background: P,
+                    color: WHITE,
+                    border: "none",
+                    borderRadius: 5,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
                   {savingStock ? "…" : "✓"}
                 </button>
-                <button onClick={() => { setEditingStock(false); setStockDraft(total); }} style={{ padding: "3px 6px", background: "transparent", color: SUB, border: "none", borderRadius: 5, fontSize: 12, cursor: "pointer" }}>✕</button>
+                <button
+                  onClick={() => {
+                    setEditingStock(false);
+                    setStockDraft(total);
+                  }}
+                  style={{
+                    padding: "3px 6px",
+                    background: "transparent",
+                    color: SUB,
+                    border: "none",
+                    borderRadius: 5,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
               </div>
             ) : (
               <div
                 onClick={() => setEditingStock(true)}
                 title="Click to edit total stock"
-                style={{ fontSize: 17, fontWeight: 800, color: "#1565c0", background: "#e3f2fd", borderRadius: 6, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", border: "1.5px dashed #90caf9", minWidth: 36 }}
+                style={{
+                  fontSize: 17,
+                  fontWeight: 800,
+                  color: "#1565c0",
+                  background: "#e3f2fd",
+                  borderRadius: 6,
+                  padding: "3px 10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  cursor: "pointer",
+                  border: "1.5px dashed #90caf9",
+                  minWidth: 36,
+                }}
               >
                 {total}
-                <i className="bi bi-pencil" style={{ fontSize: 10, opacity: 0.6 }} />
+                <i
+                  className="bi bi-pencil"
+                  style={{ fontSize: 10, opacity: 0.6 }}
+                />
               </div>
             )}
-            <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>click to edit</div>
+            <div style={{ fontSize: 9, color: SUB, marginTop: 2 }}>
+              click to edit
+            </div>
           </div>
 
           {/* ── Read-only: Available, Processed, Returned ── */}
@@ -1114,22 +1404,45 @@ function SizePalette({
           <div>
             {roLbl("Processed")}
             {roPill(processed, "#6a1b9a", "#f3e5f5")}
-            <div style={{ fontSize: 8, color: SUB, marginTop: 2 }}>auto (orders)</div>
+            <div style={{ fontSize: 8, color: SUB, marginTop: 2 }}>
+              auto (orders)
+            </div>
           </div>
           <div>
             {roLbl("Returned")}
             {roPill(refunded, "#795548", "#efebe9")}
-            <div style={{ fontSize: 8, color: SUB, marginTop: 2 }}>auto (returns)</div>
+            <div style={{ fontSize: 8, color: SUB, marginTop: 2 }}>
+              auto (returns)
+            </div>
           </div>
         </div>
 
         {/* Info note */}
-        <div style={{ fontSize: 10, color: SUB, marginBottom: 8, background: WHITE, borderRadius: 6, padding: "4px 8px", border: `1px dashed ${BDR}` }}>
-          ℹ️ Only <strong>Total Stock</strong> can be changed here. Processed & Returned are auto-managed by orders.
-          For full stock control →{" "}
+        <div
+          style={{
+            fontSize: 10,
+            color: SUB,
+            marginBottom: 8,
+            background: WHITE,
+            borderRadius: 6,
+            padding: "4px 8px",
+            border: `1px dashed ${BDR}`,
+          }}
+        >
+          ℹ️ Only <strong>Total Stock</strong> can be changed here. Processed &
+          Returned are auto-managed by orders. For full stock control →{" "}
           <span
-            onClick={() => navigate(`/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`)}
-            style={{ color: P, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
+            onClick={() =>
+              navigate(
+                `/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`,
+              )
+            }
+            style={{
+              color: P,
+              fontWeight: 700,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
           >
             Stock Management Page
           </span>
@@ -1138,8 +1451,24 @@ function SizePalette({
         {/* Action row */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
-            onClick={() => navigate(`/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "transparent", color: P, border: `1.5px solid ${P}`, borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+            onClick={() =>
+              navigate(
+                `/admin/stock?pvdId=${pvd.productVariantDetailId}&productId=${pvd.productId}&variantId=${pvd.productVariantId}`,
+              )
+            }
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              background: "transparent",
+              color: P,
+              border: `1.5px solid ${P}`,
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
           >
             <i className="bi bi-box-seam" />
             Full Stock Page
@@ -1147,7 +1476,15 @@ function SizePalette({
           <button
             onClick={() => deleteSize(pvd)}
             disabled={deleting === pvd.productVariantDetailId}
-            style={{ padding: "7px 10px", background: "#fdecea", color: "#c62828", border: "1px solid #ef9a9a", borderRadius: 8, fontSize: 12, cursor: "pointer" }}
+            style={{
+              padding: "7px 10px",
+              background: "#fdecea",
+              color: "#c62828",
+              border: "1px solid #ef9a9a",
+              borderRadius: 8,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
           >
             <i className="bi bi-trash" />
           </button>
@@ -2114,6 +2451,7 @@ function AddVariantModal({
     variantName: "",
     productCode: "",
     color: "",
+    colorFamily: "",
     variantDescription: "",
     isBestSeller: false,
     isReturnAvailable: false,
@@ -2208,6 +2546,37 @@ function AddVariantModal({
               />
             </div>
           ))}
+        </div>
+        {/* Color Family */}
+        <div style={{ marginBottom: 14 }}>
+          <div
+            style={{
+              fontSize: 11,
+              color: SUB,
+              fontWeight: 700,
+              marginBottom: 4,
+              textTransform: "uppercase" as const,
+            }}
+          >
+            Color Family
+          </div>
+          <select
+            value={form.colorFamily}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, colorFamily: e.target.value }))
+            }
+            style={{
+              ...fieldStyle({ cursor: "pointer" }),
+              appearance: "auto" as const,
+            }}
+          >
+            <option value="">— Select family —</option>
+            {COLOR_FAMILY_OPTIONS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
         </div>
         <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
           {[
@@ -3190,21 +3559,40 @@ export default function AdminProductDetail() {
             </div>
           )}
 
-          {/* ── Colour + Fabric — variant-level, side by side ────────────── */}
+          {/* ── Color / Color Family / Fabric — 3-col ───────────────────── */}
           {selVariant && (
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "0 20px",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                gap: "0 16px",
                 marginBottom: 4,
               }}
             >
               <InlineField
-                label="Color"
+                label="Color Name"
                 value={selVariant.color || ""}
-                placeholder="Add colour name or hex…"
-                onSave={(v) => queueVariant({ color: v })}
+                placeholder="e.g. Dark Navy Blue…"
+                onSave={(v) => {
+                  const suggested = !selVariant.colorFamily
+                    ? guessColorFamily(v)
+                    : null;
+                  queueVariant(
+                    suggested
+                      ? { color: v, colorFamily: suggested }
+                      : { color: v },
+                  );
+                }}
+              />
+              <InlineStringSelect
+                label="Color Family"
+                value={
+                  pendingVariant.colorFamily !== undefined
+                    ? pendingVariant.colorFamily
+                    : selVariant.colorFamily || null
+                }
+                options={COLOR_FAMILY_OPTIONS}
+                onSave={(v) => queueVariant({ colorFamily: v })}
               />
               <InlineSelect
                 label="Fabric"
@@ -3293,7 +3681,14 @@ export default function AdminProductDetail() {
               />
 
               {/* ── Save + Hide/Show Variant ────────────────────────────── */}
-              <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  marginTop: 16,
+                  flexWrap: "wrap",
+                }}
+              >
                 <button
                   onClick={saveAll}
                   disabled={savingAll}
@@ -3340,7 +3735,9 @@ export default function AdminProductDetail() {
                   {isHidden ? "Show Variant" : "Hide Variant"}
                 </button>
                 <button
-                  onClick={() => navigate(`/admin/stock?productId=${productId}`)}
+                  onClick={() =>
+                    navigate(`/admin/stock?productId=${productId}`)
+                  }
                   style={{
                     padding: "13px 16px",
                     fontSize: 13,
