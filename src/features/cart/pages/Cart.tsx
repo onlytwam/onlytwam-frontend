@@ -22,7 +22,7 @@ import {
   markPhysicalCouponUsed,
 } from "@/features/orders/api/orders.api";
 import { getImageUrl, slugify } from "@/shared/utils/helpers";
-import { resolveHex } from "@/shared/utils/colorHelpers";
+
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { createWishlist } from "@/features/products/api/products.api";
 import {
@@ -2776,9 +2776,7 @@ export default function Cart() {
                           <span
                             className="s-cart-552e26"
                             style={{
-                              background: resolveHex(
-                                item.colorHex ?? item.color,
-                              ),
+                              background: item.colorHex ?? item.color ?? "",
                             }}
                           />
                           {item.colorName ?? item.color}

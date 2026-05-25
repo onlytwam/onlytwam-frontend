@@ -40,6 +40,8 @@ function BannerCard({
   onClick,
   isActive = true,
   badge,
+  activeCount,
+  inactiveCount,
 }: {
   image?: string | null;
   name: string;
@@ -47,6 +49,8 @@ function BannerCard({
   onClick: () => void;
   isActive?: boolean;
   badge?: string;
+  activeCount?: number;
+  inactiveCount?: number;
 }) {
   const imgSrc = resolveImg(image);
   return (
@@ -133,6 +137,67 @@ function BannerCard({
       </span>
       {/* Name row */}
       <p className="s-twambrands-f87e81">{name}</p>
+      {/* Active / inactive counts */}
+      {(activeCount !== undefined || inactiveCount !== undefined) && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            fontSize: 11,
+            paddingBottom: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          {activeCount !== undefined && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                color: "#2e7d32",
+                fontWeight: 700,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#43a047",
+                  display: "inline-block",
+                  flexShrink: 0,
+                }}
+              />
+              {activeCount} active
+            </span>
+          )}
+          {inactiveCount !== undefined && inactiveCount > 0 && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                color: "#c62828",
+                fontWeight: 700,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#e53935",
+                  display: "inline-block",
+                  flexShrink: 0,
+                }}
+              />
+              {inactiveCount} inactive
+            </span>
+          )}
+        </div>
+      )}
     </button>
   );
 }
@@ -148,6 +213,128 @@ function BannerGrid({ children }: { children: React.ReactNode }) {
     >
       {children}
     </div>
+  );
+}
+
+// "Show All" card — placed first in each banner grid level
+function AllProductsCard({
+  label,
+  count,
+  activeCount,
+  inactiveCount,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  activeCount?: number;
+  inactiveCount?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        border: `2px dashed ${PRIMARY}`,
+        borderRadius: 14,
+        background: PRIMARY_LT,
+        cursor: "pointer",
+        padding: "22px 16px",
+        minHeight: 140,
+        transition: "box-shadow 0.15s",
+      }}
+      onMouseOver={(e) =>
+        ((e.currentTarget as HTMLButtonElement).style.boxShadow =
+          "0 4px 18px rgba(122,30,44,0.18)")
+      }
+      onMouseOut={(e) =>
+        ((e.currentTarget as HTMLButtonElement).style.boxShadow = "none")
+      }
+    >
+      <i
+        className="bi bi-grid-3x3-gap-fill"
+        style={{ fontSize: 32, color: PRIMARY }}
+      />
+      <span
+        style={{ fontSize: 14, fontWeight: 800, color: PRIMARY, marginTop: 4 }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: "#8A7F7A",
+          background: "rgba(122,30,44,0.08)",
+          borderRadius: 20,
+          padding: "2px 12px",
+        }}
+      >
+        {count} product{count !== 1 ? "s" : ""}
+      </span>
+      {(activeCount !== undefined || inactiveCount !== undefined) && (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            fontSize: 11,
+            marginTop: 2,
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
+          {activeCount !== undefined && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                color: "#2e7d32",
+                fontWeight: 700,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#43a047",
+                  display: "inline-block",
+                }}
+              />
+              {activeCount} active
+            </span>
+          )}
+          {inactiveCount !== undefined && inactiveCount > 0 && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                color: "#c62828",
+                fontWeight: 700,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#e53935",
+                  display: "inline-block",
+                }}
+              />
+              {inactiveCount} inactive
+            </span>
+          )}
+        </div>
+      )}
+    </button>
   );
 }
 
@@ -1051,7 +1238,7 @@ type BrandNav =
   | { view: "brands" }
   | { view: "categories"; brand: any }
   | { view: "subcategories"; brand: any; category: any }
-  | { view: "products"; brand: any; category: any; subCategory?: any };
+  | { view: "products"; brand: any; category?: any; subCategory?: any };
 
 function BrowseByBrand() {
   const navigate = useNavigate();
@@ -1112,6 +1299,20 @@ function BrowseByBrand() {
   function countInCat(catId: number) {
     return brandProducts.filter((p: any) => p.categoryId === catId).length;
   }
+  function countActiveInCat(catId: number) {
+    return brandProducts.filter(
+      (p: any) => p.categoryId === catId && p.isActive !== false,
+    ).length;
+  }
+  function countInactiveInCat(catId: number) {
+    return brandProducts.filter(
+      (p: any) => p.categoryId === catId && p.isActive === false,
+    ).length;
+  }
+  // Brand-level total / active / inactive
+  function countForBrandAll(bId: number) {
+    return allBrandProducts.filter((p: any) => p.brandId === bId);
+  }
 
   // Breadcrumbs
   function crumbs() {
@@ -1139,19 +1340,23 @@ function BrowseByBrand() {
     if (nav.view === "subcategories" || nav.view === "products") {
       const b = (nav as any).brand;
       const c = (nav as any).category;
-      const hasChildren = childCats(c.categoryId).length > 0;
-      out.push({
-        label: c.name,
-        onClick:
-          nav.view === "products" && (nav as any).subCategory
-            ? () =>
-                setNav(
-                  hasChildren
-                    ? { view: "subcategories", brand: b, category: c }
-                    : { view: "products", brand: b, category: c },
-                )
-            : undefined,
-      });
+      if (!c) {
+        // "All products in brand" shortcut — no category crumb needed
+      } else {
+        const hasChildren = childCats(c.categoryId).length > 0;
+        out.push({
+          label: c.name,
+          onClick:
+            nav.view === "products" && (nav as any).subCategory
+              ? () =>
+                  setNav(
+                    hasChildren
+                      ? { view: "subcategories", brand: b, category: c }
+                      : { view: "products", brand: b, category: c },
+                  )
+              : undefined,
+        });
+      }
     }
     if (nav.view === "products" && (nav as any).subCategory) {
       out.push({ label: (nav as any).subCategory.name });
@@ -1188,23 +1393,34 @@ function BrowseByBrand() {
       <p className="s-twambrands-1c5031">No brands found.</p>
     ) : (
       <BannerGrid>
-        {brands.map((b: any) => (
-          <BannerCard
-            key={b.brandId}
-            image={b.brandImage}
-            name={b.brandName}
-            isActive={b.isActive !== false}
-            count={countForBrand(b.brandId)}
-            badge={
-              b.deletedInd
-                ? "DELETED"
-                : b.isActive === false
-                ? "HIDDEN"
-                : undefined
-            }
-            onClick={() => setNav({ view: "categories", brand: b })}
-          />
-        ))}
+        {brands.map((b: any) => {
+          const bProds = countForBrandAll(b.brandId);
+          const bActive = bProds.filter(
+            (p: any) => p.isActive !== false,
+          ).length;
+          const bInactive = bProds.filter(
+            (p: any) => p.isActive === false,
+          ).length;
+          return (
+            <BannerCard
+              key={b.brandId}
+              image={b.brandImage}
+              name={b.brandName}
+              isActive={b.isActive !== false}
+              count={bProds.length}
+              activeCount={bActive}
+              inactiveCount={bInactive}
+              badge={
+                b.deletedInd
+                  ? "DELETED"
+                  : b.isActive === false
+                  ? "HIDDEN"
+                  : undefined
+              }
+              onClick={() => setNav({ view: "categories", brand: b })}
+            />
+          );
+        })}
       </BannerGrid>
     );
   }
@@ -1215,6 +1431,13 @@ function BrowseByBrand() {
   if (nav.view === "categories") {
     const loading = catsLoading || bpLoading;
     const pCats = parentCatsInBrand();
+    const brandTotal = brandProducts.length;
+    const brandActive = brandProducts.filter(
+      (p: any) => p.isActive !== false,
+    ).length;
+    const brandInactive = brandProducts.filter(
+      (p: any) => p.isActive === false,
+    ).length;
     return (
       <div>
         <Breadcrumbs crumbs={crumbs()} />
@@ -1229,12 +1452,24 @@ function BrowseByBrand() {
           />
         ) : (
           <BannerGrid>
+            {/* "All Products in Brand" shortcut card */}
+            <AllProductsCard
+              label={`All ${brand.brandName} Products`}
+              count={brandTotal}
+              activeCount={brandActive}
+              inactiveCount={brandInactive}
+              onClick={() =>
+                setNav({ view: "products", brand, category: undefined })
+              }
+            />
             {pCats.map((cat: any) => (
               <BannerCard
                 key={cat.categoryId}
                 image={cat.categoryImage}
                 name={cat.name}
                 count={countInCat(cat.categoryId)}
+                activeCount={countActiveInCat(cat.categoryId)}
+                inactiveCount={countInactiveInCat(cat.categoryId)}
                 isActive={cat.isActive !== false}
                 badge={cat.isActive === false ? "INACTIVE" : undefined}
                 onClick={() => {
@@ -1257,6 +1492,25 @@ function BrowseByBrand() {
   if (nav.view === "subcategories") {
     const cat = (nav as any).category;
     const children = childCats(cat.categoryId);
+    const catTotal = countInCat(cat.categoryId);
+    const catActive = countActiveInCat(cat.categoryId);
+    const catInactive = countInactiveInCat(cat.categoryId);
+    // Also tally products in ALL child categories for the "all" card
+    const childTotal = children.reduce(
+      (s: number, sc: any) => s + countInCat(sc.categoryId),
+      0,
+    );
+    const childActive = children.reduce(
+      (s: number, sc: any) => s + countActiveInCat(sc.categoryId),
+      0,
+    );
+    const childInactive = children.reduce(
+      (s: number, sc: any) => s + countInactiveInCat(sc.categoryId),
+      0,
+    );
+    const allTotal = catTotal + childTotal;
+    const allActive = catActive + childActive;
+    const allInactive = catInactive + childInactive;
     return (
       <div>
         <Breadcrumbs crumbs={crumbs()} />
@@ -1269,12 +1523,22 @@ function BrowseByBrand() {
           />
         ) : (
           <BannerGrid>
+            {/* "All Products in Category" shortcut card */}
+            <AllProductsCard
+              label={`All ${cat.name} Products`}
+              count={allTotal}
+              activeCount={allActive}
+              inactiveCount={allInactive}
+              onClick={() => setNav({ view: "products", brand, category: cat })}
+            />
             {children.map((sc: any) => (
               <BannerCard
                 key={sc.categoryId}
                 image={sc.categoryImage}
                 name={sc.name}
                 count={countInCat(sc.categoryId)}
+                activeCount={countActiveInCat(sc.categoryId)}
+                inactiveCount={countInactiveInCat(sc.categoryId)}
                 isActive={sc.isActive !== false}
                 badge={sc.isActive === false ? "INACTIVE" : undefined}
                 onClick={() =>
@@ -1296,13 +1560,18 @@ function BrowseByBrand() {
   // ── Level 3: products ──────────────────────────────────────────────────────
   const cat = (nav as any).category;
   const sc = (nav as any).subCategory;
+  const totalLabel = cat
+    ? sc
+      ? `${cat.name} › ${sc.name}`
+      : cat.name
+    : brand.brandName;
   return (
     <div>
       <Breadcrumbs crumbs={crumbs()} />
       <ProductsTable
         brandId={brand.brandId}
-        categoryId={sc?.categoryId ?? cat.categoryId}
-        totalLabel={sc ? `${cat.name} › ${sc.name}` : cat.name}
+        categoryId={sc?.categoryId ?? cat?.categoryId}
+        totalLabel={totalLabel}
         navState={nav}
       />
     </div>
@@ -1320,7 +1589,7 @@ type CatNav =
   | { view: "categories" }
   | { view: "subcategories"; category: any }
   | { view: "brands"; category: any; subCategory?: any }
-  | { view: "products"; category: any; subCategory?: any; brand: any };
+  | { view: "products"; category: any; subCategory?: any; brand?: any };
 
 function BrowseByCategory() {
   const location = useLocation();
@@ -1333,6 +1602,27 @@ function BrowseByCategory() {
 
   const allCats: any[] = catsData?.list ?? [];
   const allBrands: any[] = brandsData?.list ?? [];
+
+  // Fetch ALL products once for level-0 category counts (active/inactive)
+  const { data: allProdsData } = useQuery({
+    queryKey: ["all-products-cat-browse"],
+    queryFn: () =>
+      api
+        .get("/Products/", { params: { "Page.Size": 1000, adminView: true } })
+        .then((r) => r.data),
+    staleTime: 60_000,
+  });
+  const allProds: any[] = allProdsData?.list ?? [];
+  function countActiveForCatGlobal(catId: number) {
+    return allProds.filter(
+      (p: any) => p.categoryId === catId && p.isActive !== false,
+    ).length;
+  }
+  function countInactiveForCatGlobal(catId: number) {
+    return allProds.filter(
+      (p: any) => p.categoryId === catId && p.isActive === false,
+    ).length;
+  }
 
   const selCat = nav.view !== "categories" ? (nav as any).category : null;
   const selSub =
@@ -1364,6 +1654,28 @@ function BrowseByCategory() {
     staleTime: 30_000,
   });
   const catProducts: any[] = cpData?.list ?? [];
+
+  function countActiveInBrand(brandId: number) {
+    return catProducts.filter(
+      (p: any) => p.brandId === brandId && p.isActive !== false,
+    ).length;
+  }
+  function countInactiveInBrand(brandId: number) {
+    return catProducts.filter(
+      (p: any) => p.brandId === brandId && p.isActive === false,
+    ).length;
+  }
+  // Active/inactive for a subcategory inside the fetched catProducts
+  function countActiveByCat(catId: number) {
+    return catProducts.filter(
+      (p: any) => p.categoryId === catId && p.isActive !== false,
+    ).length;
+  }
+  function countInactiveByCat(catId: number) {
+    return catProducts.filter(
+      (p: any) => p.categoryId === catId && p.isActive === false,
+    ).length;
+  }
 
   const parentCats = allCats.filter(
     (c: any) => !c.parentCategoryId || c.parentCategoryId === 0,
@@ -1429,7 +1741,7 @@ function BrowseByCategory() {
             : undefined,
       });
     }
-    if (nav.view === "products")
+    if (nav.view === "products" && (nav as any).brand)
       out.push({ label: (nav as any).brand?.brandName });
     return out;
   }
@@ -1458,6 +1770,33 @@ function BrowseByCategory() {
     );
     return direct + childSum;
   }
+  function countActiveForCat(catId: number): number {
+    const direct = countActiveForCatGlobal(catId);
+    const children = allCats.filter(
+      (c: any) => Number(c.parentCategoryId) === Number(catId),
+    );
+    return (
+      direct +
+      children.reduce(
+        (acc: number, ch: any) => acc + countActiveForCatGlobal(ch.categoryId),
+        0,
+      )
+    );
+  }
+  function countInactiveForCat(catId: number): number {
+    const direct = countInactiveForCatGlobal(catId);
+    const children = allCats.filter(
+      (c: any) => Number(c.parentCategoryId) === Number(catId),
+    );
+    return (
+      direct +
+      children.reduce(
+        (acc: number, ch: any) =>
+          acc + countInactiveForCatGlobal(ch.categoryId),
+        0,
+      )
+    );
+  }
 
   // ── Level 0 ───────────────────────────────────────────────────────────────
   if (nav.view === "categories") {
@@ -1473,6 +1812,8 @@ function BrowseByCategory() {
             image={cat.categoryImage}
             name={cat.name}
             count={countForCat(cat.categoryId)}
+            activeCount={countActiveForCat(cat.categoryId)}
+            inactiveCount={countInactiveForCat(cat.categoryId)}
             isActive={cat.isActive !== false}
             badge={cat.isActive === false ? "INACTIVE" : undefined}
             onClick={() => {
@@ -1493,6 +1834,9 @@ function BrowseByCategory() {
   if (nav.view === "subcategories") {
     const cat = (nav as any).category;
     const children = childCats(cat.categoryId);
+    const catTotal = countForCat(cat.categoryId);
+    const catActive = countActiveForCat(cat.categoryId);
+    const catInactive = countInactiveForCat(cat.categoryId);
     return (
       <div>
         <Breadcrumbs crumbs={crumbs()} />
@@ -1500,12 +1844,24 @@ function BrowseByCategory() {
           <p className="s-twambrands-1c5031">No sub-categories.</p>
         ) : (
           <BannerGrid>
+            {/* "All Products in Category" shortcut card */}
+            <AllProductsCard
+              label={`All ${cat.name} Products`}
+              count={catTotal}
+              activeCount={catActive}
+              inactiveCount={catInactive}
+              onClick={() =>
+                setNav({ view: "products", category: cat, brand: undefined })
+              }
+            />
             {children.map((sc: any) => (
               <BannerCard
                 key={sc.categoryId}
                 image={sc.categoryImage}
                 name={sc.name}
                 count={catCountMap[sc.categoryId] ?? 0}
+                activeCount={countActiveForCatGlobal(sc.categoryId)}
+                inactiveCount={countInactiveForCatGlobal(sc.categoryId)}
                 isActive={sc.isActive !== false}
                 badge={sc.isActive === false ? "INACTIVE" : undefined}
                 onClick={() =>
@@ -1523,6 +1879,14 @@ function BrowseByCategory() {
   if (nav.view === "brands") {
     const cat = (nav as any).category;
     const scItem = (nav as any).subCategory;
+    const catTotal = catProducts.length;
+    const catActive = catProducts.filter(
+      (p: any) => p.isActive !== false,
+    ).length;
+    const catInactive = catProducts.filter(
+      (p: any) => p.isActive === false,
+    ).length;
+    const levelLabel = scItem?.name ?? cat.name;
     return (
       <div>
         <Breadcrumbs crumbs={crumbs()} />
@@ -1532,17 +1896,34 @@ function BrowseByCategory() {
           // No brands found — show products directly
           <ProductsTable
             categoryId={activeCatId}
-            totalLabel={scItem?.name ?? cat.name}
+            totalLabel={levelLabel}
             navState={nav}
           />
         ) : (
           <BannerGrid>
+            {/* "All Products in SubCat/Category" shortcut card */}
+            <AllProductsCard
+              label={`All ${levelLabel} Products`}
+              count={catTotal}
+              activeCount={catActive}
+              inactiveCount={catInactive}
+              onClick={() =>
+                setNav({
+                  view: "products",
+                  category: cat,
+                  subCategory: scItem,
+                  brand: undefined,
+                })
+              }
+            />
             {brandsInCat.map((b: any) => (
               <BannerCard
                 key={b.brandId}
                 image={b.brandImage}
                 name={b.brandName}
                 count={countInBrand(b.brandId)}
+                activeCount={countActiveInBrand(b.brandId)}
+                inactiveCount={countInactiveInBrand(b.brandId)}
                 isActive={b.isActive !== false}
                 badge={
                   b.deletedInd
@@ -1571,13 +1952,15 @@ function BrowseByCategory() {
   const cat = (nav as any).category;
   const scItem = (nav as any).subCategory;
   const brand = (nav as any).brand;
+  const levelLabel = scItem?.name ?? cat.name;
+  const totalLabel = brand ? `${levelLabel} › ${brand.brandName}` : levelLabel;
   return (
     <div>
       <Breadcrumbs crumbs={crumbs()} />
       <ProductsTable
-        brandId={brand.brandId}
+        brandId={brand?.brandId}
         categoryId={activeCatId}
-        totalLabel={`${scItem?.name ?? cat.name} › ${brand.brandName}`}
+        totalLabel={totalLabel}
         navState={nav}
       />
     </div>

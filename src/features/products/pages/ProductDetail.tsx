@@ -22,7 +22,7 @@ import {
 } from "@/features/products/api/products.api";
 import { addToCart, updateCart, listCart } from "@/features/cart/api/cart.api";
 import { formatPrice, slugify, getImageUrl } from "@/shared/utils/helpers";
-import { resolveHex, hexToName } from "@/shared/utils/colorHelpers";
+
 import { setBuyNowSession } from "@/shared/utils/checkoutSession";
 
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
@@ -1724,9 +1724,10 @@ export default function ProductDetail() {
                   Color:{" "}
                   <span className="s-productdetai-6ed0de">
                     {(() => {
-                      const c = colors.find((c: any) => c.productVariantId === currentVId);
-                      const raw = c?.colorName || c?.color || "";
-                      return raw.startsWith("#") ? hexToName(raw) : raw;
+                      const c = colors.find(
+                        (c: any) => c.productVariantId === currentVId,
+                      );
+                      return c?.colorName || c?.color || "";
                     })()}
                   </span>
                 </p>
@@ -1744,7 +1745,7 @@ export default function ProductDetail() {
                           );
                         }
                       }}
-                      title={(() => { const raw = c.colorName || c.color || ""; return raw.startsWith("#") ? hexToName(raw) : raw; })()}
+                      title={c.colorName || c.color || ""}
                       className="s-productdetai-e37fda"
                       style={{
                         border: `2.5px solid ${
@@ -1756,15 +1757,15 @@ export default function ProductDetail() {
                     >
                       <img
                         src={getImageUrl(c.image)}
-                        alt={(() => { const raw = c.colorName || c.color || "color"; return raw.startsWith("#") ? hexToName(raw) : raw; })()}
+                        alt={c.colorName || c.color || "color"}
                         className="s-productdetai-f2b35e"
                         onError={(e) => {
                           const img = e.target as HTMLImageElement;
                           img.style.display = "none";
                           const d = document.createElement("div");
-                          d.style.cssText = `width:64px;height:78px;border-radius:6px;background:${resolveHex(
-                            c.colorHex ?? c.color,
-                          )}`;
+                          d.style.cssText = `width:64px;height:78px;border-radius:6px;background:${
+                            c.colorHex ?? c.color ?? "#d0c8c2"
+                          }`;
                           img.parentElement?.appendChild(d);
                         }}
                       />

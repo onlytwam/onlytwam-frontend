@@ -1140,11 +1140,11 @@ function modMeta(et: string) {
 // Each product shows: image thumbnail, name, code.
 // Click to expand: creation (day/date/time, by who + role) + modification log.
 // "View on Stock Page" button navigates to that product's stock detail.
-function GlobalHistoryModal({
-  onClose,
+function GlobalHistoryPage({
+  onBack,
   onOpenProductHistory,
 }: {
-  onClose: () => void;
+  onBack: () => void;
   onOpenProductHistory: (p: {
     productId: number;
     name: string;
@@ -1186,354 +1186,357 @@ function GlobalHistoryModal({
   useEffect(() => {
     load(page, debSearch);
   }, [page, debSearch]);
-
   const totalPages = Math.ceil(total / SIZE);
+
+  function buildVariantTree(mods: any[]) {
+    const tree = new Map<string, { variantRow: any | null; sizeRows: any[] }>();
+    const productLevel: any[] = [];
+    for (const mod of mods) {
+      if (mod.eventType === "PRODUCT_UPDATED") {
+        productLevel.push(mod);
+        continue;
+      }
+      const parts = (mod.context || "").split(" / ");
+      const vname = parts[0].trim() || "(no variant)";
+      if (!tree.has(vname)) tree.set(vname, { variantRow: null, sizeRows: [] });
+      const entry = tree.get(vname)!;
+      if (
+        mod.eventType === "VARIANT_ADDED" ||
+        mod.eventType === "VARIANT_DELETED"
+      ) {
+        entry.variantRow = mod;
+      } else {
+        entry.sizeRows.push(mod);
+      }
+    }
+    return { tree, productLevel };
+  }
+
+  const EVENT_LABEL: Record<string, string> = {
+    VARIANT_ADDED: "Variant Added",
+    VARIANT_DELETED: "Variant Deleted",
+    SIZE_ADDED: "Size Added",
+    SIZE_DELETED: "Size Removed",
+    PRODUCT_UPDATED: "Product Updated",
+  };
+  const EVENT_COLOR: Record<string, string> = {
+    VARIANT_ADDED: "#6A1B9A",
+    VARIANT_DELETED: "#8B0000",
+    SIZE_ADDED: "#0A4F8A",
+    SIZE_DELETED: "#8B0000",
+    PRODUCT_UPDATED: "#1A5C1A",
+  };
 
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.48)",
-        zIndex: 200,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "flex-end",
+        minHeight: "100vh",
+        background: "#F5F0E6",
+        fontFamily: "inherit",
       }}
-      onClick={onClose}
     >
+      {/* ── Top bar ── */}
       <div
         style={{
-          width: 580,
-          maxWidth: "96vw",
-          height: "100vh",
           background: WHITE,
+          borderBottom: `1.5px solid ${BDR}`,
+          padding: "14px 28px",
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
           display: "flex",
-          flexDirection: "column",
-          boxShadow: "-6px 0 40px rgba(0,0,0,0.18)",
+          alignItems: "center",
+          gap: 14,
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Header ── */}
-        <div
+        <button
+          onClick={onBack}
           style={{
-            padding: "16px 18px 12px",
-            borderBottom: `1.5px solid ${BDR}`,
-            background: PLT,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "none",
+            border: `1.5px solid ${BDR}`,
+            borderRadius: 8,
+            padding: "6px 14px",
+            cursor: "pointer",
+            fontSize: 13,
+            fontWeight: 700,
+            color: TXT,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 10,
-            }}
-          >
-            <span style={{ fontSize: 22 }}>📋</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: P }}>
-                Product History
-              </div>
-              <div style={{ fontSize: 11, color: SUB }}>
-                {total} product{total !== 1 ? "s" : ""} · creation &amp;
-                modification log
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                border: `1.5px solid ${BDR}`,
-                background: WHITE,
-                cursor: "pointer",
-                fontSize: 16,
-                color: SUB,
-                flexShrink: 0,
-              }}
-            >
-              ✕
-            </button>
-          </div>
-          {/* Search */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              border: `1.5px solid ${BDR}`,
-              borderRadius: 8,
-              background: WHITE,
-              padding: "6px 10px",
-              gap: 7,
-            }}
-          >
-            <i className="bi bi-search" style={{ color: SUB, fontSize: 12 }} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by product name or code…"
-              style={{
-                border: "none",
-                outline: "none",
-                fontSize: 12,
-                color: TXT,
-                background: "transparent",
-                flex: 1,
-                fontFamily: "inherit",
-              }}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: SUB,
-                  fontSize: 14,
-                  padding: 0,
-                }}
-              >
-                <i className="bi bi-x" />
-              </button>
-            )}
+          <i className="bi bi-arrow-left" /> Back to Stock
+        </button>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: TXT }}>
+            Product History
+          </h1>
+          <div style={{ fontSize: 12, color: SUB }}>
+            {total} product{total !== 1 ? "s" : ""} · creation & modification
+            log
           </div>
         </div>
+        {/* Search */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            border: `1.5px solid ${BDR}`,
+            borderRadius: 8,
+            background: WHITE,
+            padding: "6px 12px",
+            gap: 8,
+            minWidth: 280,
+          }}
+        >
+          <i className="bi bi-search" style={{ color: SUB, fontSize: 12 }} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by product name or code…"
+            style={{
+              border: "none",
+              outline: "none",
+              fontSize: 13,
+              color: TXT,
+              background: "transparent",
+              flex: 1,
+              fontFamily: "inherit",
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: SUB,
+                fontSize: 14,
+                padding: 0,
+              }}
+            >
+              <i className="bi bi-x" />
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* ── Product list ── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
-          {loading ? (
-            <div style={{ textAlign: "center", padding: 48, color: SUB }}>
-              <i
-                className="bi bi-arrow-repeat"
-                style={{
-                  fontSize: 24,
-                  animation: "spin 1s linear infinite",
-                  display: "block",
-                  marginBottom: 8,
-                }}
-              />
-              Loading…
-            </div>
-          ) : items.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 48, color: SUB }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>📭</div>
-              {search
-                ? `No products found for "${search}".`
-                : "No products found."}
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {items.map((item) => {
-                const isOpen = expanded === item.productId;
-                const dt = fmtDateFull(item.createdDate);
-                const mods = item.modifications ?? [];
-                const thumb = imgUrl(item.image);
+      {/* ── Product list ── */}
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 24px" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 64, color: SUB }}>
+            <i
+              className="bi bi-arrow-repeat"
+              style={{
+                fontSize: 28,
+                animation: "spin 1s linear infinite",
+                display: "block",
+                marginBottom: 10,
+              }}
+            />
+            Loading…
+          </div>
+        ) : items.length === 0 ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: 64,
+              color: SUB,
+              background: WHITE,
+              borderRadius: 12,
+              border: `1.5px solid ${BDR}`,
+            }}
+          >
+            <div style={{ fontSize: 36, marginBottom: 10 }}>📭</div>
+            {search
+              ? `No products found for "${search}".`
+              : "No products found."}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {items.map((item) => {
+              const isOpen = expanded === item.productId;
+              const dt = fmtDateFull(item.createdDate);
+              const mods = item.modifications ?? [];
+              const thumb = imgUrl(item.image);
+              const { tree, productLevel } = buildVariantTree(mods);
 
-                return (
+              return (
+                <div
+                  key={item.productId}
+                  style={{
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    background: WHITE,
+                    border: `1.5px solid ${isOpen ? "#A0A0A0" : BDR}`,
+                    boxShadow: isOpen
+                      ? "0 2px 12px rgba(0,0,0,0.08)"
+                      : "0 1px 3px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  {/* ── Product row (White + ivory accent on hover) ── */}
                   <div
-                    key={item.productId}
+                    onClick={() => setExpanded(isOpen ? null : item.productId)}
                     style={{
-                      border: `1.5px solid ${isOpen ? P : BDR}`,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      background: WHITE,
-                      boxShadow: isOpen
-                        ? `0 2px 14px rgba(122,30,44,0.10)`
-                        : "none",
-                      transition: "border-color 0.15s, box-shadow 0.15s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 16px",
+                      cursor: "pointer",
+                      background: isOpen ? "#F5F0E6" : WHITE,
+                      borderBottom: isOpen ? `1.5px solid ${BDR}` : "none",
+                      transition: "background 0.12s",
                     }}
                   >
-                    {/* ── Product card header ── */}
+                    {/* Image */}
                     <div
-                      onClick={() =>
-                        setExpanded(isOpen ? null : item.productId)
-                      }
                       style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        border: `1.5px solid ${BDR}`,
+                        flexShrink: 0,
+                        background: GRY,
                         display: "flex",
                         alignItems: "center",
-                        gap: 12,
-                        padding: "11px 14px",
-                        cursor: "pointer",
-                        background: isOpen ? PLT : WHITE,
+                        justifyContent: "center",
                       }}
                     >
-                      {/* Thumbnail */}
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <i
+                          className="bi bi-image"
+                          style={{ fontSize: 18, color: "#ccc" }}
+                        />
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 8,
+                          fontSize: 14,
+                          fontWeight: 800,
+                          color: TXT,
                           overflow: "hidden",
-                          border: `1.5px solid ${BDR}`,
-                          flexShrink: 0,
-                          background: GRY,
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.productName || "Unnamed Product"}
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          marginTop: 3,
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontFamily: "monospace",
+                            color: SUB,
+                            background: GRY,
+                            borderRadius: 4,
+                            padding: "1px 6px",
+                            border: `1px solid ${BDR}`,
+                          }}
+                        >
+                          {item.productCode}
+                        </span>
+                        {mods.length > 0 && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: SUB,
+                              background: GRY,
+                              borderRadius: 20,
+                              padding: "1px 7px",
+                              border: `1px solid ${BDR}`,
+                            }}
+                          >
+                            {mods.length} change{mods.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Date */}
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 11, color: SUB }}>{dt.date}</div>
+                      <div
+                        style={{ fontSize: 11, fontWeight: 700, color: TXT }}
+                      >
+                        🕐 {dt.time}
+                      </div>
+                      {dt.relative && (
+                        <div
+                          style={{
+                            fontSize: 9,
+                            color: WHITE,
+                            background: SUB,
+                            borderRadius: 20,
+                            padding: "1px 6px",
+                            marginTop: 2,
+                            display: "inline-block",
+                          }}
+                        >
+                          {dt.relative}
+                        </div>
+                      )}
+                    </div>
+                    <i
+                      className={`bi bi-chevron-${isOpen ? "up" : "down"}`}
+                      style={{ fontSize: 12, color: SUB, flexShrink: 0 }}
+                    />
+                  </div>
+
+                  {/* ── Expanded body ── */}
+                  {isOpen && (
+                    <div>
+                      {/* 1. Product Created */}
+                      <div
+                        style={{
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
+                          gap: 12,
+                          padding: "10px 16px",
+                          borderBottom: `1px solid ${BDR}`,
+                          background: WHITE,
                         }}
                       >
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt=""
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          <i
-                            className="bi bi-image"
-                            style={{ fontSize: 18, color: "#ccc" }}
-                          />
-                        )}
-                      </div>
-
-                      {/* Name + code */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 800,
-                            color: isOpen ? P : TXT,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {item.productName || "Unnamed Product"}
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 5,
-                            marginTop: 3,
-                            flexWrap: "wrap",
-                            alignItems: "center",
-                          }}
-                        >
-                          {item.productCode && (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontFamily: "monospace",
-                                color: SUB,
-                                background: GRY,
-                                borderRadius: 4,
-                                padding: "1px 6px",
-                                border: `1px solid ${BDR}`,
-                              }}
-                            >
-                              {item.productCode}
-                            </span>
-                          )}
-                          {mods.length > 0 && (
-                            <span
-                              style={{
-                                fontSize: 9,
-                                fontWeight: 700,
-                                color: "#e65100",
-                                background: "#fff3e0",
-                                borderRadius: 20,
-                                padding: "1px 6px",
-                              }}
-                            >
-                              {mods.length} modification
-                              {mods.length > 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Created date (compact) */}
-                      <div
-                        style={{
-                          textAlign: "right",
-                          flexShrink: 0,
-                          minWidth: 72,
-                        }}
-                      >
-                        <div style={{ fontSize: 10, color: SUB }}>
-                          {dt.date}
-                        </div>
-                        <div
-                          style={{ fontSize: 10, color: P, fontWeight: 700 }}
-                        >
-                          {dt.time}
-                        </div>
-                        {dt.relative && (
+                        <span style={{ fontSize: 14 }}>🌱</span>
+                        <div style={{ flex: 1 }}>
                           <div
                             style={{
-                              fontSize: 9,
-                              color: WHITE,
-                              background: SUB,
-                              borderRadius: 20,
-                              padding: "1px 5px",
-                              marginTop: 2,
-                              display: "inline-block",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#1A5C1A",
+                              marginBottom: 3,
                             }}
                           >
-                            {dt.relative}
+                            Product Created
                           </div>
-                        )}
-                      </div>
-                      <i
-                        className={`bi bi-chevron-${isOpen ? "up" : "down"}`}
-                        style={{ fontSize: 11, color: SUB, flexShrink: 0 }}
-                      />
-                    </div>
-
-                    {/* ── Expanded detail ── */}
-                    {isOpen && (
-                      <div
-                        style={{
-                          borderTop: `1px solid ${BDR}`,
-                          background: "#fdfaf8",
-                        }}
-                      >
-                        {/* — Creation record — */}
-                        <div
-                          style={{
-                            padding: "12px 16px",
-                            borderBottom: `1px solid ${BDR}`,
-                            background: "#f0fff4",
-                          }}
-                        >
                           <div
                             style={{
                               display: "flex",
+                              gap: 8,
                               alignItems: "center",
-                              gap: 6,
-                              marginBottom: 7,
-                            }}
-                          >
-                            <span style={{ fontSize: 14 }}>🌱</span>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 800,
-                                color: "#2e7d32",
-                                background: "#e8f5e9",
-                                borderRadius: 20,
-                                padding: "2px 9px",
-                              }}
-                            >
-                              Product Created
-                            </span>
-                          </div>
-                          {/* Day · Date · Time */}
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 10,
                               flexWrap: "wrap",
-                              alignItems: "center",
-                              marginBottom: 6,
                             }}
                           >
                             <span
@@ -1550,9 +1553,9 @@ function GlobalHistoryModal({
                             </span>
                             <span
                               style={{
-                                fontSize: 12,
-                                color: P,
+                                fontSize: 11,
                                 fontWeight: 700,
+                                color: TXT,
                               }}
                             >
                               🕐 {dt.time}
@@ -1564,171 +1567,204 @@ function GlobalHistoryModal({
                                   color: WHITE,
                                   background: SUB,
                                   borderRadius: 20,
-                                  padding: "1px 6px",
+                                  padding: "1px 5px",
                                 }}
                               >
                                 {dt.relative}
                               </span>
                             )}
                           </div>
-                          {/* By who + role */}
-                          {item.createdBy && (
+                        </div>
+                        {item.createdBy && (
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: TXT,
+                              }}
+                            >
+                              {item.createdBy}
+                            </div>
+                            {item.createdByRole && (
+                              <span
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 700,
+                                  color: SUB,
+                                  background: GRY,
+                                  borderRadius: 20,
+                                  padding: "1px 6px",
+                                  border: `1px solid ${BDR}`,
+                                }}
+                              >
+                                {item.createdByRole}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. Variants */}
+                      {Array.from(tree.entries()).map(([vname, vdata], vi) => {
+                        const allRows = [
+                          ...(vdata.variantRow ? [vdata.variantRow] : []),
+                          ...vdata.sizeRows,
+                        ];
+                        return (
+                          <div key={vname}>
+                            {/* Variant sub-header */}
                             <div
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 6,
+                                gap: 8,
+                                padding: "7px 16px",
+                                background: "#F5F0E6",
+                                borderTop: `1px solid ${BDR}`,
+                                borderBottom: `1px solid ${BDR}`,
                               }}
                             >
-                              <i
-                                className="bi bi-person-circle"
-                                style={{ color: "#2e7d32", fontSize: 13 }}
-                              />
+                              <span style={{ fontSize: 12 }}>🎨</span>
                               <span
                                 style={{
                                   fontSize: 12,
                                   fontWeight: 700,
                                   color: TXT,
+                                  flex: 1,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
-                                {item.createdBy}
+                                {vname}
                               </span>
-                              {item.createdByRole && (
-                                <span
-                                  style={{
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    color: P,
-                                    background: PLT,
-                                    borderRadius: 20,
-                                    padding: "1px 7px",
-                                    border: `1px solid ${BDR}`,
-                                  }}
-                                >
-                                  {item.createdByRole}
-                                </span>
-                              )}
+                              <span style={{ fontSize: 10, color: SUB }}>
+                                {allRows.length} change
+                                {allRows.length !== 1 ? "s" : ""}
+                              </span>
                             </div>
-                          )}
-                        </div>
 
-                        {/* — Modification records — */}
-                        {mods.length > 0 && (
-                          <div>
-                            {mods.map((mod: any, i: number) => {
+                            {/* Event rows */}
+                            {allRows.map((mod: any, mi: number) => {
                               const mdt = fmtDateFull(mod.createdDate);
-                              const meta = modMeta(mod.eventType);
+                              const evtColor =
+                                EVENT_COLOR[mod.eventType] || SUB;
+                              const evtLabel =
+                                EVENT_LABEL[mod.eventType] ||
+                                mod.label ||
+                                mod.eventType;
+                              const isSizeRow =
+                                mod.eventType === "SIZE_ADDED" ||
+                                mod.eventType === "SIZE_DELETED";
+                              const sizeTag =
+                                isSizeRow && mod.context?.includes(" / ")
+                                  ? mod.context
+                                      .split(" / ")
+                                      .slice(1)
+                                      .join(" / ")
+                                  : null;
                               return (
                                 <div
-                                  key={i}
+                                  key={mi}
                                   style={{
-                                    padding: "10px 16px",
-                                    borderBottom:
-                                      i < mods.length - 1
-                                        ? `1px solid ${BDR}`
-                                        : "none",
-                                    borderLeft: `3px solid ${meta.color}`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    padding: "8px 16px 8px 32px",
+                                    background:
+                                      mi % 2 === 0 ? WHITE : "#FDFAF8",
+                                    borderBottom: `1px solid #F0EBE6`,
+                                    borderLeft: `3px solid ${evtColor}`,
                                   }}
                                 >
-                                  {/* Event type badge */}
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 6,
-                                      marginBottom: 5,
-                                      flexWrap: "wrap",
-                                    }}
-                                  >
-                                    <span style={{ fontSize: 12 }}>
-                                      {meta.icon}
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontSize: 10,
-                                        fontWeight: 800,
-                                        color: meta.color,
-                                        background: meta.bg,
-                                        borderRadius: 20,
-                                        padding: "2px 8px",
-                                      }}
-                                    >
-                                      {mod.label}
-                                    </span>
-                                    {mod.context && (
-                                      <span
-                                        style={{
-                                          fontSize: 10,
-                                          color: "#7b1fa2",
-                                          background: "#f3e5f5",
-                                          borderRadius: 4,
-                                          padding: "1px 6px",
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        {mod.context}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {/* Day · Date · Time */}
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      gap: 10,
-                                      flexWrap: "wrap",
-                                      alignItems: "center",
-                                      marginBottom: 4,
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontSize: 12,
-                                        fontWeight: 700,
-                                        color: TXT,
-                                      }}
-                                    >
-                                      {mdt.dayName}
-                                    </span>
-                                    <span style={{ fontSize: 11, color: SUB }}>
-                                      {mdt.date}
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontSize: 12,
-                                        color: P,
-                                        fontWeight: 700,
-                                      }}
-                                    >
-                                      🕐 {mdt.time}
-                                    </span>
-                                    {mdt.relative && (
-                                      <span
-                                        style={{
-                                          fontSize: 9,
-                                          color: WHITE,
-                                          background: SUB,
-                                          borderRadius: 20,
-                                          padding: "1px 6px",
-                                        }}
-                                      >
-                                        {mdt.relative}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {/* By who + role */}
-                                  {mod.changedBy && (
+                                  <div style={{ flex: 1, minWidth: 0 }}>
                                     <div
                                       style={{
                                         display: "flex",
-                                        alignItems: "center",
                                         gap: 6,
+                                        alignItems: "center",
+                                        flexWrap: "wrap",
+                                        marginBottom: 3,
                                       }}
                                     >
-                                      <i
-                                        className="bi bi-person-circle"
-                                        style={{ color: SUB, fontSize: 12 }}
-                                      />
                                       <span
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: 800,
+                                          color: evtColor,
+                                        }}
+                                      >
+                                        {evtLabel}
+                                      </span>
+                                      {sizeTag && (
+                                        <span
+                                          style={{
+                                            fontSize: 10,
+                                            color: "#0A4F8A",
+                                            background: "#E3F2FD",
+                                            borderRadius: 4,
+                                            padding: "1px 6px",
+                                          }}
+                                        >
+                                          📐 {sizeTag}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        gap: 8,
+                                        alignItems: "center",
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 600,
+                                          color: TXT,
+                                        }}
+                                      >
+                                        {mdt.dayName}
+                                      </span>
+                                      <span
+                                        style={{ fontSize: 11, color: SUB }}
+                                      >
+                                        {mdt.date}
+                                      </span>
+                                      <span
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 600,
+                                          color: TXT,
+                                        }}
+                                      >
+                                        🕐 {mdt.time}
+                                      </span>
+                                      {mdt.relative && (
+                                        <span
+                                          style={{
+                                            fontSize: 9,
+                                            color: WHITE,
+                                            background: SUB,
+                                            borderRadius: 20,
+                                            padding: "1px 5px",
+                                          }}
+                                        >
+                                          {mdt.relative}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {mod.changedBy && (
+                                    <div
+                                      style={{
+                                        textAlign: "right",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <div
                                         style={{
                                           fontSize: 11,
                                           fontWeight: 700,
@@ -1736,16 +1772,15 @@ function GlobalHistoryModal({
                                         }}
                                       >
                                         {mod.changedBy}
-                                      </span>
+                                      </div>
                                       {mod.role && (
                                         <span
                                           style={{
-                                            fontSize: 10,
-                                            fontWeight: 700,
-                                            color: P,
-                                            background: PLT,
+                                            fontSize: 9,
+                                            color: SUB,
+                                            background: GRY,
                                             borderRadius: 20,
-                                            padding: "1px 7px",
+                                            padding: "1px 6px",
                                             border: `1px solid ${BDR}`,
                                           }}
                                         >
@@ -1758,86 +1793,159 @@ function GlobalHistoryModal({
                               );
                             })}
                           </div>
-                        )}
+                        );
+                      })}
 
-                        {/* — Action buttons — */}
-                        <div
+                      {/* 3. Product-level changes */}
+                      {productLevel.map((mod: any, mi: number) => {
+                        const mdt = fmtDateFull(mod.createdDate);
+                        return (
+                          <div
+                            key={mi}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                              padding: "8px 16px",
+                              background: WHITE,
+                              borderTop: `1px solid ${BDR}`,
+                              borderLeft: `3px solid #1565c0`,
+                            }}
+                          >
+                            <span style={{ fontSize: 12 }}>✏️</span>
+                            <div style={{ flex: 1 }}>
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  color: "#1565c0",
+                                  marginBottom: 3,
+                                }}
+                              >
+                                Product Updated
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: 8,
+                                  alignItems: "center",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: TXT,
+                                  }}
+                                >
+                                  {mdt.dayName}
+                                </span>
+                                <span style={{ fontSize: 11, color: SUB }}>
+                                  {mdt.date}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: TXT,
+                                  }}
+                                >
+                                  🕐 {mdt.time}
+                                </span>
+                              </div>
+                            </div>
+                            {mod.changedBy && (
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: TXT,
+                                  textAlign: "right",
+                                }}
+                              >
+                                {mod.changedBy}
+                                {mod.role && (
+                                  <div style={{ fontSize: 9, color: SUB }}>
+                                    {mod.role}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Action buttons */}
+                      <div
+                        style={{
+                          padding: "10px 16px",
+                          borderTop: `1px solid ${BDR}`,
+                          background: "#F5F0E6",
+                          display: "flex",
+                          gap: 8,
+                        }}
+                      >
+                        <button
+                          onClick={() => {
+                            onBack();
+                            navigate(
+                              `/admin/stock?productId=${item.productId}`,
+                            );
+                          }}
                           style={{
-                            padding: "10px 14px",
-                            borderTop: `1px solid ${BDR}`,
-                            background: GRY,
+                            flex: 1,
+                            padding: "8px 0",
+                            background: TXT,
+                            color: WHITE,
+                            border: "none",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
                             display: "flex",
-                            gap: 8,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
                           }}
                         >
-                          {/* View on Stock Page */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onClose();
-                              navigate(
-                                `/admin/stock?productId=${item.productId}`,
-                              );
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: "8px 0",
-                              background: P,
-                              color: WHITE,
-                              border: "none",
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 6,
-                            }}
-                          >
-                            <i className="bi bi-box-seam" />
-                            View on Stock Page
-                          </button>
-                          {/* Full audit history */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onClose();
-                              onOpenProductHistory({
-                                productId: item.productId,
-                                name: item.productName,
-                                productCode: item.productCode,
-                              });
-                            }}
-                            style={{
-                              padding: "8px 12px",
-                              background: WHITE,
-                              color: P,
-                              border: `1.5px solid ${P}`,
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            <i className="bi bi-clock-history" />
-                            Full History
-                          </button>
-                        </div>
+                          <i className="bi bi-box-seam" /> View on Stock Page
+                        </button>
+                        <button
+                          onClick={() =>
+                            onOpenProductHistory({
+                              productId: item.productId,
+                              name: item.productName,
+                              productCode: item.productCode,
+                            })
+                          }
+                          style={{
+                            padding: "8px 14px",
+                            background: WHITE,
+                            color: TXT,
+                            border: `1.5px solid ${BDR}`,
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <i className="bi bi-clock-history" /> Full History
+                        </button>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        {/* ── Pagination ── */}
+        {/* Pagination */}
         {totalPages > 1 && (
           <div
             style={{
@@ -1845,22 +1953,20 @@ function GlobalHistoryModal({
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              padding: "10px 14px",
-              borderTop: `1px solid ${BDR}`,
-              background: GRY,
+              padding: "20px 0 32px",
             }}
           >
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
               style={{
-                padding: "5px 12px",
-                border: `1px solid ${BDR}`,
-                borderRadius: 7,
+                padding: "7px 16px",
+                border: `1.5px solid ${BDR}`,
+                borderRadius: 8,
                 background: WHITE,
                 color: page <= 1 ? "#ccc" : TXT,
                 cursor: page <= 1 ? "not-allowed" : "pointer",
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 600,
               }}
             >
@@ -1873,13 +1979,13 @@ function GlobalHistoryModal({
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
               style={{
-                padding: "5px 12px",
-                border: `1px solid ${BDR}`,
-                borderRadius: 7,
+                padding: "7px 16px",
+                border: `1.5px solid ${BDR}`,
+                borderRadius: 8,
                 background: WHITE,
                 color: page >= totalPages ? "#ccc" : TXT,
                 cursor: page >= totalPages ? "not-allowed" : "pointer",
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 600,
               }}
             >
@@ -1892,7 +1998,6 @@ function GlobalHistoryModal({
   );
 }
 
-// ─── Per-product History Modal ────────────────────────────────────────────────
 function ProductHistoryModal({
   product,
   onClose,
@@ -3288,6 +3393,24 @@ function ProductRow({
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Authenticated Excel download helper — uses axios (handles CORS + auth) ──
+async function downloadExcel(path: string, filename: string) {
+  try {
+    const res = await api.get(`/${path}`, { responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Download failed:", err);
+    alert("Download failed — check the console for details.");
+  }
+}
+
 export default function AdminStock() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -3338,18 +3461,22 @@ export default function AdminStock() {
   }, [page, debouncedSearch]);
   const totalPages = Math.ceil(total / SIZE);
 
+  // Show full-page history view when active
+  if (showGlobalHistory) {
+    return (
+      <GlobalHistoryPage
+        onBack={() => setShowGlobalHistory(false)}
+        onOpenProductHistory={(p) => {
+          setShowGlobalHistory(false);
+          setHistoryProduct(p);
+        }}
+      />
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: BG, fontFamily: "inherit" }}>
       {/* Modals */}
-      {showGlobalHistory && (
-        <GlobalHistoryModal
-          onClose={() => setShowGlobalHistory(false)}
-          onOpenProductHistory={(p) => {
-            setShowGlobalHistory(false);
-            setHistoryProduct(p);
-          }}
-        />
-      )}
       {historyProduct && (
         <ProductHistoryModal
           product={historyProduct}
@@ -3429,6 +3556,56 @@ export default function AdminStock() {
             >
               <i className="bi bi-clock-history" />
               📋 History
+            </button>
+
+            {/* Download Changes Excel */}
+            <button
+              onClick={() =>
+                downloadExcel("StockLog/export/changes", "product_changes.xlsx")
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 14px",
+                borderRadius: 8,
+                border: "1.5px solid #2e7d32",
+                background: "#f0fff4",
+                color: "#2e7d32",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title="Download all product & variant changes as Excel"
+            >
+              <i className="bi bi-download" />
+              ✏️ Changes
+            </button>
+
+            {/* Download Stock Excel */}
+            <button
+              onClick={() =>
+                downloadExcel("StockLog/export/stock", "stock_changes.xlsx")
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 14px",
+                borderRadius: 8,
+                border: "1.5px solid #1565c0",
+                background: "#e3f2fd",
+                color: "#1565c0",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title="Download all stock quantity changes as Excel"
+            >
+              <i className="bi bi-download" />
+              📦 Stock
             </button>
 
             {/* Search — works for Name, Product Code, AND Stock ID */}

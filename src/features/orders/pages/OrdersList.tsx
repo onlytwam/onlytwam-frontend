@@ -16,7 +16,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import { listOrders } from "@/features/orders/api/orders.api";
 import { formatPrice, getImageUrl, slugify } from "@/shared/utils/helpers";
 import api from "@/shared/api/axiosInstance";
-import { resolveHex } from "@/shared/utils/colorHelpers";
+
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 
 const ORDER_PAGE_SIZE = 10;
@@ -774,9 +774,8 @@ export function LegacyOrdersListExpanded() {
                                 <span
                                   className="s-orderslist-f987b1"
                                   style={{
-                                    background: resolveHex(
-                                      item.colorHex ?? item.color,
-                                    ),
+                                    background:
+                                      item.colorHex ?? item.color ?? "",
                                   }}
                                 />
                                 {item.colorName ?? item.color}

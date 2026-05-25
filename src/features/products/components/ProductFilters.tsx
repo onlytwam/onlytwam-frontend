@@ -177,21 +177,24 @@ export const COLOR_FAMILIES: {
   },
 ];
 
-export function colorToFamily(rawColor: string): string | null {
-  const lower = rawColor.toLowerCase().trim();
-  for (const fam of COLOR_FAMILIES) {
-    if (fam.keywords.some((k) => lower.includes(k) || k.includes(lower)))
-      return fam.label;
-  }
-  return null;
-}
-
+/**
+ * Group colors by their colorFamily field (admin-set, from DB).
+ * Falls back to keyword scan only for legacy data without colorFamily.
+ */
 export function groupColors(
-  rawColors: { name: string; hex: string }[],
+  rawColors: { name: string; colorFamily?: string | null }[],
 ): Map<string, string[]> {
   const map = new Map<string, string[]>();
   for (const c of rawColors) {
-    const fam = colorToFamily(c.name);
+    const fam =
+      c.colorFamily ??
+      COLOR_FAMILIES.find((f) =>
+        f.keywords.some(
+          (k) =>
+            c.name.toLowerCase().includes(k) ||
+            k.includes(c.name.toLowerCase()),
+        ),
+      )?.label;
     if (fam) {
       const existing = map.get(fam) ?? [];
       existing.push(c.name);
@@ -437,33 +440,8 @@ export function matchesVariantCollectionPriceFilters(
 // ── Color family matching ──────────────────────────────────────────────────────
 
 /**
- * Given a raw color value (name or hex), return which COLOR_FAMILY label it
- * belongs to (e.g. "navy blue" → "Blue"). Returns null if no family matches.
- */
-export function variantColorToFamily(rawColor: string): string | null {
-  if (!rawColor) return null;
-  const lower = rawColor.toLowerCase().trim();
-  // Strip leading '#' so hex codes like "#1a1a1a" are checked by keyword too
-  const noHash = lower.startsWith("#") ? lower.slice(1) : lower;
-
-  for (const fam of COLOR_FAMILIES) {
-    if (
-      fam.keywords.some(
-        (k) =>
-          lower.includes(k) ||
-          k.includes(lower) ||
-          noHash.includes(k) ||
-          k.includes(noHash),
-      )
-    )
-      return fam.label;
-  }
-  return null;
-}
-
-/**
- * Returns true if the variant's color belongs to one of the selected color families.
- * Falls through to true when no color filter is active.
+ * Returns true if the variant's color matches the active color/family filters.
+ * colorFamily: reads variant.colorFamily directly — no keyword guessing.
  */
 export function matchesVariantColorFilters(
   variant: any,
@@ -474,32 +452,23 @@ export function matchesVariantColorFilters(
 
   if (!hasColorFamilyFilter && !hasColorFilter) return true;
 
-  const rawColor: string =
-    variant?.colorName ||
-    variant?.color ||
-    variant?.colourName ||
-    variant?.colour ||
-    "";
-
-  if (!rawColor) return false;
-
-  // Check exact color name match first (faster)
+  // Exact color name match
   if (hasColorFilter) {
+    const rawColor: string =
+      variant?.colorName ||
+      variant?.color ||
+      variant?.colourName ||
+      variant?.colour ||
+      "";
+    if (!rawColor) return false;
     const lowerRaw = rawColor.toLowerCase().trim();
-    if (
-      filters.colors.some(
-        (fc) =>
-          lowerRaw === fc.toLowerCase().trim() ||
-          lowerRaw.includes(fc.toLowerCase().trim()) ||
-          fc.toLowerCase().trim().includes(lowerRaw),
-      )
-    )
+    if (filters.colors.some((fc) => lowerRaw === fc.toLowerCase().trim()))
       return true;
   }
 
-  // Check color family
+  // Family match — read the DB field directly
   if (hasColorFamilyFilter) {
-    const family = variantColorToFamily(rawColor);
+    const family: string = variant?.colorFamily || "";
     if (family && filters.colorFamilies.includes(family)) return true;
   }
 

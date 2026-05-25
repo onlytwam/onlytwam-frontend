@@ -8,7 +8,7 @@ import {
   updateCart,
 } from "@/features/cart/api/cart.api";
 import { getImageUrl } from "@/shared/utils/helpers";
-import { resolveHex } from "@/shared/utils/colorHelpers";
+
 import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 import toast from "react-hot-toast";
 
@@ -338,9 +338,7 @@ export default function QuickCart({ onClose }: Props) {
                 item.imageURL || item.image || item.selectedImage || "";
               const img = getImageUrl(rawImg);
               const name = item.productName || item.name || "";
-              const colorHex = resolveHex(
-                item.colorHex ?? item.color ?? item.Color,
-              );
+              const colorHex = item.colorHex ?? item.color ?? item.Color ?? "";
               const colorLabel =
                 item.colorName ?? item.color ?? item.Color ?? "";
               const bandSize = item.size || item.bandSize || "";

@@ -57,8 +57,10 @@ export interface ProductColorSwatch {
 export interface ColorListItem {
   /** e.g. "Bark" */
   name: string;
-  /** e.g. "#C8A882" */
+  /** Family swatch CSS hex — e.g. "#795548" for Brown */
   hex: string;
+  /** Admin-set family: "Brown", "Blue", etc. Used for filter grouping. */
+  colorFamily?: string | null;
 }
 
 export interface CategoryMenu {
