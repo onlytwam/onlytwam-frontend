@@ -177,24 +177,21 @@ export const COLOR_FAMILIES: {
   },
 ];
 
-/**
- * Group colors by their colorFamily field (admin-set, from DB).
- * Falls back to keyword scan only for legacy data without colorFamily.
- */
+export function colorToFamily(rawColor: string): string | null {
+  const lower = rawColor.toLowerCase().trim();
+  for (const fam of COLOR_FAMILIES) {
+    if (fam.keywords.some((k) => lower.includes(k) || k.includes(lower)))
+      return fam.label;
+  }
+  return null;
+}
+
 export function groupColors(
-  rawColors: { name: string; colorFamily?: string | null }[],
+  rawColors: { name: string; hex: string }[],
 ): Map<string, string[]> {
   const map = new Map<string, string[]>();
   for (const c of rawColors) {
-    const fam =
-      c.colorFamily ??
-      COLOR_FAMILIES.find((f) =>
-        f.keywords.some(
-          (k) =>
-            c.name.toLowerCase().includes(k) ||
-            k.includes(c.name.toLowerCase()),
-        ),
-      )?.label;
+    const fam = colorToFamily(c.name);
     if (fam) {
       const existing = map.get(fam) ?? [];
       existing.push(c.name);
@@ -440,8 +437,33 @@ export function matchesVariantCollectionPriceFilters(
 // ── Color family matching ──────────────────────────────────────────────────────
 
 /**
- * Returns true if the variant's color matches the active color/family filters.
- * colorFamily: reads variant.colorFamily directly — no keyword guessing.
+ * Given a raw color value (name or hex), return which COLOR_FAMILY label it
+ * belongs to (e.g. "navy blue" → "Blue"). Returns null if no family matches.
+ */
+export function variantColorToFamily(rawColor: string): string | null {
+  if (!rawColor) return null;
+  const lower = rawColor.toLowerCase().trim();
+  // Strip leading '#' so hex codes like "#1a1a1a" are checked by keyword too
+  const noHash = lower.startsWith("#") ? lower.slice(1) : lower;
+
+  for (const fam of COLOR_FAMILIES) {
+    if (
+      fam.keywords.some(
+        (k) =>
+          lower.includes(k) ||
+          k.includes(lower) ||
+          noHash.includes(k) ||
+          k.includes(noHash),
+      )
+    )
+      return fam.label;
+  }
+  return null;
+}
+
+/**
+ * Returns true if the variant's color belongs to one of the selected color families.
+ * Falls through to true when no color filter is active.
  */
 export function matchesVariantColorFilters(
   variant: any,
@@ -452,23 +474,32 @@ export function matchesVariantColorFilters(
 
   if (!hasColorFamilyFilter && !hasColorFilter) return true;
 
-  // Exact color name match
+  const rawColor: string =
+    variant?.colorName ||
+    variant?.color ||
+    variant?.colourName ||
+    variant?.colour ||
+    "";
+
+  if (!rawColor) return false;
+
+  // Check exact color name match first (faster)
   if (hasColorFilter) {
-    const rawColor: string =
-      variant?.colorName ||
-      variant?.color ||
-      variant?.colourName ||
-      variant?.colour ||
-      "";
-    if (!rawColor) return false;
     const lowerRaw = rawColor.toLowerCase().trim();
-    if (filters.colors.some((fc) => lowerRaw === fc.toLowerCase().trim()))
+    if (
+      filters.colors.some(
+        (fc) =>
+          lowerRaw === fc.toLowerCase().trim() ||
+          lowerRaw.includes(fc.toLowerCase().trim()) ||
+          fc.toLowerCase().trim().includes(lowerRaw),
+      )
+    )
       return true;
   }
 
-  // Family match — read the DB field directly
+  // Check color family
   if (hasColorFamilyFilter) {
-    const family: string = variant?.colorFamily || "";
+    const family = variantColorToFamily(rawColor);
     if (family && filters.colorFamilies.includes(family)) return true;
   }
 
@@ -854,7 +885,9 @@ export default function ProductFilters({
 
   const toggleColorFamily = (family: string) => {
     const colors = colorGroups.get(family) || [];
-    const allSelected = colors.every((c) => filters.colors.includes(c));
+    // Fix: [].every() is vacuously true in JS — without this guard, clicking a family
+    // with no mapped colors always runs the deselect branch, so nothing ever gets selected.
+    const allSelected = colors.length > 0 && colors.every((c) => filters.colors.includes(c));
     if (allSelected) {
       updateFilters({
         colors: filters.colors.filter((c) => !colors.includes(c)),

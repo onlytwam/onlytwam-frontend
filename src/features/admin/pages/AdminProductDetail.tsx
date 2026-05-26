@@ -953,6 +953,9 @@ function SizePalette({
   registerSave,
   onCupSizeToggle,
   navigate,
+  highlightSizeId,
+  highlightCupSizeId,
+  highlightStockId,
 }: {
   variantId: number;
   productId: number;
@@ -961,6 +964,9 @@ function SizePalette({
   registerSave: (id: number, fn: () => Promise<void>) => void;
   onCupSizeToggle?: (val: boolean) => void;
   navigate: (path: string) => void;
+  highlightSizeId?: number | null;
+  highlightCupSizeId?: number | null;
+  highlightStockId?: string | null;
 }) {
   // Single endpoint returns all MDM sizes + embedded PVD data
   const {
@@ -991,6 +997,42 @@ function SizePalette({
   const [addForm, setAddForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+
+  // ── Highlight / deep-link auto-open ────────────────────────────────────────
+  const highlightTileRef = useRef<HTMLDivElement | null>(null);
+  const [highlightPulse, setHighlightPulse] = useState(false);
+
+  // When palette data loads, auto-select the band size and open the right tile
+  useEffect(() => {
+    if (!paletteData || !highlightSizeId) return;
+
+    if (paletteIsCup) {
+      // Cup-size product: select the band, then open the cup tile
+      setSelectedBandSizeId(highlightSizeId);
+      if (highlightCupSizeId) {
+        const key = `cup-${highlightSizeId}-${highlightCupSizeId}`;
+        setOpenTile(key);
+      }
+    } else {
+      // Regular product: open the band tile
+      const key = `band-${highlightSizeId}`;
+      setOpenTile(key);
+    }
+
+    // Pulse after a short delay to let the tile render
+    const t = setTimeout(() => {
+      setHighlightPulse(true);
+      highlightTileRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      // Remove pulse class after animation completes
+      setTimeout(() => setHighlightPulse(false), 3000);
+    }, 400);
+    return () => clearTimeout(t);
+    // Only run once when paletteData first arrives
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paletteData]);
 
   function initAddForm(sizeId: number | null, cupSizeId: number | null) {
     setAddForm({
@@ -1624,11 +1666,20 @@ function SizePalette({
       sizes.map((s) => {
         const pvd = s.pvd ?? null;
         const isSelected = selectedBandSizeId === s.sizeId;
+        const isHighlightBand =
+          !!highlightSizeId &&
+          s.sizeId === highlightSizeId &&
+          paletteIsCup &&
+          !highlightCupSizeId;
 
         if (paletteIsCup) {
           // ── Cup-size mode: band tiles are SELECTORS — always clickable ──────
           return (
-            <div key={s.sizeId} style={{ marginBottom: 4 }}>
+            <div
+              key={s.sizeId}
+              style={{ marginBottom: 4 }}
+              ref={isHighlightBand ? highlightTileRef : undefined}
+            >
               <button
                 style={{
                   ...tileBase,
@@ -1692,9 +1743,19 @@ function SizePalette({
         const oos = pvd && available !== null && available <= 0;
         const key = pvd ? `band-${s.sizeId}` : `add-band-${s.sizeId}`;
         const isOpen = openTile === key;
+        const isHighlightTile =
+          !!highlightSizeId && s.sizeId === highlightSizeId && !paletteIsCup;
 
         return (
-          <div key={s.sizeId}>
+          <div
+            key={s.sizeId}
+            ref={isHighlightTile ? highlightTileRef : undefined}
+            style={
+              isHighlightTile && highlightPulse
+                ? { animation: "pvd-highlight-pulse 1.4s ease 2" }
+                : undefined
+            }
+          >
             <button
               style={{
                 ...tileBase,
@@ -1966,9 +2027,21 @@ function SizePalette({
 
               // When no band is selected, grey out all cup tiles
               const isDisabled = !selectedBandSizeId;
+              const isHighlightCup =
+                !!highlightCupSizeId &&
+                cs.cupSizeId === highlightCupSizeId &&
+                selectedBandSizeId === highlightSizeId;
 
               return (
-                <div key={cs.cupSizeId}>
+                <div
+                  key={cs.cupSizeId}
+                  ref={isHighlightCup ? highlightTileRef : undefined}
+                  style={
+                    isHighlightCup && highlightPulse
+                      ? { animation: "pvd-highlight-pulse 1.4s ease 2" }
+                      : undefined
+                  }
+                >
                   <button
                     disabled={isDisabled}
                     style={{
@@ -2340,6 +2413,72 @@ function SizePalette({
 
   return (
     <div>
+      {/* ── Stock-ID highlight banner ─────────────────────────────────────── */}
+      {highlightStockId && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 14,
+            padding: "9px 14px",
+            background: "#fff8e1",
+            border: "1.5px solid #ffe082",
+            borderRadius: 10,
+            fontSize: 13,
+          }}
+        >
+          <i
+            className="bi bi-box-seam"
+            style={{ color: "#e65100", fontSize: 16 }}
+          />
+          <span>
+            Showing match for Stock ID{" "}
+            <strong style={{ color: "#e65100", fontFamily: "monospace" }}>
+              {highlightStockId}
+            </strong>
+          </span>
+          {highlightPulse && (
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: 11,
+                color: "#e65100",
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: "#e65100",
+                  animation: "pvd-dot-blink 0.8s ease infinite",
+                  display: "inline-block",
+                }}
+              />
+              Highlighted below
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* keyframes */}
+      <style>{`
+        @keyframes pvd-highlight-pulse {
+          0%   { box-shadow: 0 0 0 0 rgba(230,81,0,0.55); border-radius: 12px; }
+          40%  { box-shadow: 0 0 0 10px rgba(230,81,0,0); border-radius: 12px; }
+          100% { box-shadow: 0 0 0 0 rgba(230,81,0,0);   border-radius: 12px; }
+        }
+        @keyframes pvd-dot-blink {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.2; }
+        }
+      `}</style>
+
       {paletteLoading && (
         <div style={{ fontSize: 12, color: SUB, padding: "10px 0" }}>
           Loading sizes…
@@ -2643,6 +2782,543 @@ function AddVariantModal({
   );
 }
 
+// ─── New Product Page ─────────────────────────────────────────────────────────
+// Full-detail-page-style layout for creating a new product.
+// All fields are filled here before hitting Create — mirrors the edit experience.
+function NewProductPage({
+  form,
+  setForm,
+  creating,
+  onCreate,
+  onCancel,
+}: {
+  form: Record<string, any>;
+  setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  creating: boolean;
+  onCreate: () => void;
+  onCancel: () => void;
+}) {
+  const qc = useQueryClient();
+
+  function set(k: string, v: any) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  const { data: catsData } = useQuery({
+    queryKey: ["admin-cats-all"],
+    queryFn: () =>
+      api
+        .get("/Category", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+    staleTime: 120_000,
+  });
+  const { data: brandsData } = useQuery({
+    queryKey: ["admin-brands-all"],
+    queryFn: () =>
+      api
+        .get("/Brand/", { params: { showAll: true, "Page.Size": 200 } })
+        .then((r) => r.data),
+    staleTime: 120_000,
+  });
+  const { data: taxHsnData } = useQuery({
+    queryKey: ["mdm-taxhsn-all"],
+    queryFn: () =>
+      api
+        .get("/MDM/TaxHSNCode", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+    staleTime: 300_000,
+  });
+  const { data: fabricsData } = useQuery({
+    queryKey: ["mdm-fabrics-all"],
+    queryFn: () =>
+      api
+        .get("/MDM/Fabrics", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+    staleTime: 300_000,
+  });
+
+  const allCats = (catsData?.list ?? []) as any[];
+  const allBrands = (brandsData?.list ?? []) as any[];
+  const allTaxHsn = (taxHsnData?.list ?? []) as any[];
+  const allFabrics = (fabricsData?.list ?? []) as any[];
+  const parentCats = allCats.filter(
+    (c) => !c.parentCategoryId || c.parentCategoryId === 0,
+  );
+  const childCats = (pid: number) =>
+    allCats.filter((c) => Number(c.parentCategoryId) === Number(pid));
+
+  // ── shared styles ──────────────────────────────────────────────────────────
+  const fieldLabel: React.CSSProperties = {
+    fontSize: 11,
+    fontWeight: 700,
+    color: SUB,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    marginBottom: 5,
+    display: "block",
+  };
+  const fieldInput: React.CSSProperties = {
+    width: "100%",
+    padding: "9px 12px",
+    fontSize: 14,
+    border: `1.5px solid ${BDR}`,
+    borderRadius: 8,
+    outline: "none",
+    color: TXT,
+    background: WHITE,
+    boxSizing: "border-box",
+    fontFamily: "inherit",
+  };
+  const fieldSelect: React.CSSProperties = {
+    ...fieldInput,
+    cursor: "pointer",
+    appearance: "none",
+    background: `${WHITE} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%238A7F7A' d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 12px center`,
+  };
+  const section: React.CSSProperties = {
+    background: WHITE,
+    border: `1.5px solid ${BDR}`,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 20,
+  };
+  const sectionHead: React.CSSProperties = {
+    padding: "14px 22px",
+    background: GRY,
+    borderBottom: `1px solid ${BDR}`,
+    fontSize: 12,
+    fontWeight: 700,
+    color: SUB,
+    textTransform: "uppercase",
+    letterSpacing: "0.07em",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  };
+  const grid2: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 18,
+  };
+  const grid3: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    gap: 18,
+  };
+
+  const canCreate = !!form.name?.trim();
+
+  return (
+    <div style={{ background: BG, minHeight: "100vh", paddingBottom: 80 }}>
+      {/* ── Sticky header ──────────────────────────────────────────────────── */}
+      <div
+        style={{
+          background: WHITE,
+          borderBottom: `1px solid ${BDR}`,
+          padding: "14px 32px",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          onClick={onCancel}
+          style={{
+            width: 34,
+            height: 34,
+            background: WHITE,
+            border: `1px solid ${BDR}`,
+            borderRadius: 999,
+            cursor: "pointer",
+            fontSize: 14,
+            color: P,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <i className="bi bi-arrow-left" />
+        </button>
+        <div>
+          <div
+            style={{ fontSize: 18, fontWeight: 800, color: TXT, lineHeight: 1 }}
+          >
+            {form.name?.trim() || (
+              <span
+                style={{ color: SUB, fontWeight: 400, fontStyle: "italic" }}
+              >
+                New Product
+              </span>
+            )}
+          </div>
+          {form.productCode && (
+            <div style={{ fontSize: 12, color: SUB, marginTop: 3 }}>
+              {form.productCode}
+            </div>
+          )}
+        </div>
+        <span
+          style={{
+            marginLeft: 8,
+            padding: "3px 12px",
+            fontSize: 11,
+            fontWeight: 700,
+            borderRadius: 20,
+            background: "#fff8e1",
+            color: "#b45309",
+            border: "1px solid #fde68a",
+            letterSpacing: "0.05em",
+          }}
+        >
+          DRAFT
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: "9px 20px",
+              fontSize: 13,
+              fontWeight: 600,
+              border: `1.5px solid ${BDR}`,
+              borderRadius: 10,
+              background: WHITE,
+              color: SUB,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onCreate}
+            disabled={!canCreate || creating}
+            style={{
+              padding: "9px 24px",
+              fontSize: 13,
+              fontWeight: 700,
+              border: "none",
+              borderRadius: 10,
+              background: canCreate && !creating ? P : "#c4a4aa",
+              color: WHITE,
+              cursor: canCreate && !creating ? "pointer" : "default",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              transition: "background 0.15s",
+            }}
+          >
+            {creating ? (
+              <>
+                <span
+                  style={{
+                    width: 13,
+                    height: 13,
+                    border: "2px solid rgba(255,255,255,0.35)",
+                    borderTopColor: WHITE,
+                    borderRadius: "50%",
+                    display: "inline-block",
+                    animation: "spin 0.7s linear infinite",
+                  }}
+                />
+                Creating…
+              </>
+            ) : (
+              <>
+                <i className="bi bi-check2-circle" /> Create Product
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Body ───────────────────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 820, margin: "32px auto", padding: "0 24px" }}>
+        {/* Hint */}
+        <div
+          style={{
+            marginBottom: 22,
+            padding: "12px 16px",
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: 10,
+            fontSize: 13,
+            color: "#1d4ed8",
+            display: "flex",
+            gap: 10,
+          }}
+        >
+          <i
+            className="bi bi-info-circle-fill"
+            style={{ flexShrink: 0, marginTop: 1 }}
+          />
+          <span>
+            Fill in the product details below and click{" "}
+            <strong>Create Product</strong>. Variants, sizes, images and pricing
+            are added after creation on this same page.
+          </span>
+        </div>
+
+        {/* ── Product Info ──────────────────────────────────────────────── */}
+        <div style={section}>
+          <div style={sectionHead}>
+            <i className="bi bi-box-seam" style={{ color: P }} />
+            Product Info
+          </div>
+          <div style={{ padding: "22px 22px 8px" }}>
+            {/* Name + Code */}
+            <div style={{ ...grid2, marginBottom: 18 }}>
+              <div>
+                <label style={fieldLabel}>
+                  Product Name <span style={{ color: "#c62828" }}>*</span>
+                </label>
+                <input
+                  style={{
+                    ...fieldInput,
+                    borderColor: form.name ? BDR : "#fca5a5",
+                  }}
+                  placeholder="e.g. Everyday Non-Wired Bra"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  autoFocus
+                />
+                {!form.name && (
+                  <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>
+                    Required
+                  </div>
+                )}
+              </div>
+              <div>
+                <label style={fieldLabel}>Product Code</label>
+                <input
+                  style={fieldInput}
+                  placeholder="e.g. BNB-01"
+                  value={form.productCode}
+                  onChange={(e) => set("productCode", e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={fieldLabel}>Description</label>
+              <textarea
+                style={{ ...fieldInput, height: 90, resize: "vertical" }}
+                placeholder="Describe the product…"
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+              />
+            </div>
+
+            {/* Parent Cat + Child Cat + Brand */}
+            <div style={{ ...grid3, marginBottom: 18 }}>
+              <div>
+                <label style={fieldLabel}>Parent Category</label>
+                <select
+                  style={fieldSelect}
+                  value={form.categoryId ?? ""}
+                  onChange={(e) => {
+                    set(
+                      "categoryId",
+                      e.target.value ? Number(e.target.value) : null,
+                    );
+                    set("childCategoryId", null);
+                  }}
+                >
+                  <option value="">Select…</option>
+                  {parentCats.map((c) => (
+                    <option key={c.categoryId} value={c.categoryId}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={fieldLabel}>Child Category</label>
+                <select
+                  style={{ ...fieldSelect, opacity: form.categoryId ? 1 : 0.5 }}
+                  disabled={!form.categoryId}
+                  value={form.childCategoryId ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "childCategoryId",
+                      e.target.value ? Number(e.target.value) : null,
+                    )
+                  }
+                >
+                  <option value="">Select…</option>
+                  {form.categoryId &&
+                    childCats(form.categoryId).map((c) => (
+                      <option key={c.categoryId} value={c.categoryId}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label style={fieldLabel}>Brand</label>
+                <select
+                  style={fieldSelect}
+                  value={form.brandId ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "brandId",
+                      e.target.value ? Number(e.target.value) : null,
+                    )
+                  }
+                >
+                  <option value="">Select…</option>
+                  {allBrands.map((b) => (
+                    <option key={b.brandId} value={b.brandId}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Tax HSN + Tags */}
+            <div style={{ ...grid2, marginBottom: 18 }}>
+              <div>
+                <label style={fieldLabel}>Tax / HSN Code</label>
+                <select
+                  style={fieldSelect}
+                  value={form.taxHSNCodeId ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "taxHSNCodeId",
+                      e.target.value ? Number(e.target.value) : null,
+                    )
+                  }
+                >
+                  <option value="">Select…</option>
+                  {allTaxHsn.map((t) => (
+                    <option
+                      key={t.taxHSNCodeId ?? t.id}
+                      value={t.taxHSNCodeId ?? t.id}
+                    >
+                      {t.hsnCode
+                        ? `${t.hsnCode}${
+                            t.hsnDescription ? " — " + t.hsnDescription : ""
+                          }${t.totalGST ? " (" + t.totalGST + "% GST)" : ""}`
+                        : String(t.taxHSNCodeId ?? t.id)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={fieldLabel}>Tags</label>
+                <input
+                  style={fieldInput}
+                  placeholder="comma-separated, e.g. non-wired, breathable"
+                  value={form.tag}
+                  onChange={(e) => set("tag", e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Variants placeholder ──────────────────────────────────────────── */}
+        <div style={{ ...section, opacity: 0.5 }}>
+          <div style={sectionHead}>
+            <i className="bi bi-palette" style={{ color: P }} />
+            Variants &amp; Sizes
+          </div>
+          <div
+            style={{
+              padding: "28px 22px",
+              textAlign: "center",
+              color: SUB,
+              fontSize: 13,
+            }}
+          >
+            <i
+              className="bi bi-lock"
+              style={{
+                fontSize: 28,
+                display: "block",
+                marginBottom: 10,
+                opacity: 0.4,
+              }}
+            />
+            Create the product first — then add colour variants, sizes, images
+            and pricing here.
+          </div>
+        </div>
+
+        {/* Bottom Create button */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 12,
+            marginTop: 8,
+          }}
+        >
+          <button
+            onClick={onCancel}
+            style={{
+              padding: "10px 22px",
+              fontSize: 13,
+              fontWeight: 600,
+              border: `1.5px solid ${BDR}`,
+              borderRadius: 10,
+              background: WHITE,
+              color: SUB,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onCreate}
+            disabled={!canCreate || creating}
+            style={{
+              padding: "10px 28px",
+              fontSize: 13,
+              fontWeight: 700,
+              border: "none",
+              borderRadius: 10,
+              background: canCreate && !creating ? P : "#c4a4aa",
+              color: WHITE,
+              cursor: canCreate && !creating ? "pointer" : "default",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            {creating ? (
+              <>
+                <span
+                  style={{
+                    width: 13,
+                    height: 13,
+                    border: "2px solid rgba(255,255,255,0.35)",
+                    borderTopColor: WHITE,
+                    borderRadius: "50%",
+                    display: "inline-block",
+                    animation: "spin 0.7s linear infinite",
+                  }}
+                />
+                Creating…
+              </>
+            ) : (
+              <>
+                <i className="bi bi-check2-circle" />
+                Create Product &amp; Add Variants →
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -2654,7 +3330,15 @@ export default function AdminProductDetail() {
   const productId = Number(id);
   const isNew = !id || id === "new";
 
-  const [selVariantId, setSelVariantId] = useState<number | null>(null);
+  // ── Stock-ID deep-link highlight state (from AdminProducts stockId search) ──
+  const hlVariantId: number | null = location.state?.highlightVariantId ?? null;
+  const hlSizeId: number | null = location.state?.highlightSizeId ?? null;
+  const hlCupSizeId: number | null = location.state?.highlightCupSizeId ?? null;
+  const hlStockId: string | null = location.state?.highlightStockId ?? null;
+
+  const [selVariantId, setSelVariantId] = useState<number | null>(
+    hlVariantId ?? null, // pre-seed from deep-link if present
+  );
   // Map of productVariantDetailId → save fn, populated by SizeRow children
   const sizeRowSavers = useRef<Map<number, () => Promise<void>>>(new Map());
 
@@ -2843,11 +3527,18 @@ export default function AdminProductDetail() {
     return Array.from(byId.values());
   }, [productVariants, fetchedVariants]);
 
-  // Auto-select first variant
+  // Auto-select first variant — but preserve a deep-link pre-seeded value
   useEffect(() => {
-    if (!selVariantId && variants.length > 0)
-      setSelVariantId(variants[0].productVariantId);
-  }, [variants, selVariantId]);
+    if (!selVariantId && variants.length > 0) {
+      // prefer the highlight variant if it exists in the list, else first
+      const target = hlVariantId
+        ? variants.find((v) => v.productVariantId === hlVariantId)
+        : null;
+      setSelVariantId(
+        target ? target.productVariantId : variants[0].productVariantId,
+      );
+    }
+  }, [variants, selVariantId, hlVariantId]);
 
   // Clear registered savers whenever the selected variant changes
   useEffect(() => {
@@ -3003,9 +3694,55 @@ export default function AdminProductDetail() {
       }),
     );
 
+  // ── New product mode ─────────────────────────────────────────────────────
+  // Render the full detail page with an empty product stub so the user can
+  // fill everything inline exactly like editing — then "Create" POSTs it.
+  const [newProductForm, setNewProductForm] = useState<Record<string, any>>({
+    name: "",
+    productCode: "",
+    description: "",
+    categoryId: null,
+    childCategoryId: null,
+    brandId: null,
+    taxHSNCodeId: null,
+    tag: "",
+  });
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreateProduct() {
+    if (!newProductForm.name?.trim()) {
+      toast.error("Product name is required");
+      return;
+    }
+    setCreating(true);
+    try {
+      const { name: adminName } = getCurrentUser();
+      const res = await api.post("/Products/", {
+        ...newProductForm,
+        state: "Draft",
+        createdBy: adminName,
+      });
+      const newId: number = res.data?.productId;
+      toast.success("Product created — add variants and sizes below");
+      qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
+      navigate(`/admin/products/${newId}`, { replace: true });
+    } catch {
+      toast.error("Failed to create product — check required fields");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   if (isNew) {
-    navigate("/admin/products/new-form");
-    return null;
+    return (
+      <NewProductPage
+        form={newProductForm}
+        setForm={setNewProductForm}
+        creating={creating}
+        onCreate={handleCreateProduct}
+        onCancel={goBack}
+      />
+    );
   }
   if (pLoading)
     return (
@@ -3445,6 +4182,25 @@ export default function AdminProductDetail() {
                 >
                   Variants ({variants.length})
                 </div>
+                {hlStockId && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#e65100",
+                      background: "#fff8e1",
+                      border: "1px solid #ffe082",
+                      borderRadius: 10,
+                      padding: "2px 9px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <i className="bi bi-box-seam" />
+                    Stock ID match
+                  </span>
+                )}
                 <button
                   onClick={() => setAddVariantOpen(true)}
                   style={{
@@ -3468,6 +4224,8 @@ export default function AdminProductDetail() {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {variants.map((v) => {
                   const isSel = v.productVariantId === selVariantId;
+                  const isHlVariant =
+                    !!hlVariantId && v.productVariantId === hlVariantId;
                   const hex = getVariantColor(v);
                   const firstImg = mergeImageSources(
                     v.images,
@@ -3491,13 +4249,21 @@ export default function AdminProductDetail() {
                         width: 64,
                         height: 78,
                         padding: 0,
-                        border: `2.5px solid ${isSel ? P : "transparent"}`,
+                        border: isSel
+                          ? `2.5px solid ${P}`
+                          : isHlVariant
+                          ? `2.5px solid #e65100`
+                          : `2.5px solid transparent`,
                         borderRadius: 8,
                         overflow: "hidden",
                         cursor: "pointer",
                         background: GRY,
                         position: "relative",
                         opacity: v.isActive === false ? 0.45 : 1,
+                        boxShadow:
+                          isHlVariant && !isSel
+                            ? "0 0 0 3px #fff3e0"
+                            : undefined,
                       }}
                     >
                       {imgSrc ? (
@@ -3678,6 +4444,13 @@ export default function AdminProductDetail() {
                 registerSave={(id, fn) => sizeRowSavers.current.set(id, fn)}
                 onCupSizeToggle={(val) => queueVariant({ isCupSize: val })}
                 navigate={navigate}
+                highlightSizeId={selVariantId === hlVariantId ? hlSizeId : null}
+                highlightCupSizeId={
+                  selVariantId === hlVariantId ? hlCupSizeId : null
+                }
+                highlightStockId={
+                  selVariantId === hlVariantId ? hlStockId : null
+                }
               />
 
               {/* ── Save + Hide/Show Variant ────────────────────────────── */}
