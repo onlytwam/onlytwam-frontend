@@ -1,8 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useEffect } from "react";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
 import {
@@ -1968,17 +1967,259 @@ function BrowseByCategory() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SearchBar + SearchResults (name/code only — stockId navigates directly)
+// ─────────────────────────────────────────────────────────────────────────────
+type SearchMode = "nameCode" | "stockId";
+
+// Name/Code results — renders product cards
+function NameCodeResults({
+  term,
+  onClear,
+}: {
+  term: string;
+  onClear: () => void;
+}) {
+  const qc = useQueryClient();
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["product-search-name", term],
+    queryFn: () =>
+      api
+        .get("/Products/Search", { params: { q: term, "Page.Size": 60 } })
+        .then((r) => r.data),
+    enabled: !!term,
+    staleTime: 10_000,
+  });
+
+  const toggleProduct = useMutation({
+    mutationFn: (id: number) => api.patch(`/Products/${id}/toggle-active`),
+    onSuccess: () => {
+      toast.success("Updated");
+      qc.invalidateQueries({ queryKey: ["product-search-name", term] });
+    },
+    onError: () => toast.error("Failed to update"),
+  });
+
+  const products: any[] = data?.list ?? [];
+  const total: number = data?.count ?? 0;
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 20,
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span
+            style={{
+              background: PRIMARY_LT,
+              border: `1.5px solid ${PRIMARY}`,
+              borderRadius: 20,
+              padding: "4px 14px",
+              fontSize: 12,
+              fontWeight: 700,
+              color: PRIMARY,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <i className="bi bi-search" />"{term}"
+          </span>
+          {!isLoading && (
+            <span style={{ fontSize: 13, color: SUB }}>
+              {total === 0
+                ? "No products found"
+                : `${total} product${total !== 1 ? "s" : ""} matched`}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={onClear}
+          style={{
+            background: "none",
+            border: `1.5px solid ${BORDER}`,
+            borderRadius: 8,
+            padding: "6px 14px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: SUB,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <i className="bi bi-x-lg" /> Clear search
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <AdminProductCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : isError ? (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "48px 20px",
+            color: "#c62828",
+            fontSize: 14,
+          }}
+        >
+          <i
+            className="bi bi-exclamation-circle"
+            style={{ fontSize: 32, display: "block", marginBottom: 10 }}
+          />
+          Search failed — please try again.
+        </div>
+      ) : products.length === 0 ? (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "60px 20px",
+            color: SUB,
+            fontSize: 14,
+          }}
+        >
+          <i
+            className="bi bi-search"
+            style={{
+              fontSize: 38,
+              display: "block",
+              marginBottom: 14,
+              opacity: 0.35,
+            }}
+          />
+          <div style={{ fontWeight: 700, marginBottom: 6, color: TXT }}>
+            No results for "{term}"
+          </div>
+          <div style={{ fontSize: 13 }}>
+            Try a different product name or code.
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {products.map((p: any) => (
+            <AdminProductCard
+              key={p.productId}
+              product={p}
+              onToggle={(id) => toggleProduct.mutate(id)}
+              onDelete={() => {}}
+              toggleLoading={toggleProduct.isPending}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AdminProducts (main)
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminProducts() {
   const navigate = useNavigate();
   const [browseBy, setBrowseBy] = useState<"brands" | "categories">("brands");
   const [browseKey, setBrowseKey] = useState(0);
+  const [searchMode, setSearchMode] = useState<SearchMode>("nameCode");
+  const [inputVal, setInputVal] = useState("");
+  const [activeSearch, setActiveSearch] = useState<{
+    mode: SearchMode;
+    term: string;
+  } | null>(null);
+  const [stockIdSearching, setStockIdSearching] = useState(false);
+  const [stockIdError, setStockIdError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function handleBrowseChange(val: "brands" | "categories") {
     setBrowseBy(val);
     setBrowseKey((k) => k + 1);
   }
+
+  async function triggerSearch() {
+    const term = inputVal.trim();
+    if (!term) return;
+
+    if (searchMode === "stockId") {
+      // Stock ID → look up PVD and navigate directly to product detail
+      setStockIdSearching(true);
+      setStockIdError(null);
+      try {
+        const res = await api.get("/ProductVariantDetail/FindByStockId", {
+          params: { stockId: term },
+        });
+        const hit = res.data;
+        // Navigate to the product detail page, passing highlight state
+        navigate(`/admin/products/${hit.productId}`, {
+          state: {
+            highlightVariantId: hit.productVariantId,
+            highlightSizeId: hit.sizeId,
+            highlightCupSizeId: hit.cupSizeId,
+            highlightStockId: hit.stockId,
+            highlightPvdId: hit.productVariantDetailId,
+          },
+        });
+      } catch (err: any) {
+        const msg =
+          err?.response?.status === 404
+            ? `No variant found with Stock ID "${term}"`
+            : "Search failed — please try again.";
+        setStockIdError(msg);
+      } finally {
+        setStockIdSearching(false);
+      }
+      return;
+    }
+
+    // Name/code mode — show results inline
+    setActiveSearch({ mode: searchMode, term });
+  }
+
+  function clearSearch() {
+    setActiveSearch(null);
+    setStockIdError(null);
+    setInputVal("");
+    inputRef.current?.focus();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") triggerSearch();
+    if (e.key === "Escape") clearSearch();
+  }
+
+  function handleModeChange(m: SearchMode) {
+    setSearchMode(m);
+    setActiveSearch(null);
+    setStockIdError(null);
+    setInputVal("");
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
+  const placeholder =
+    searchMode === "nameCode"
+      ? "Search by product name or code…"
+      : "Enter Stock ID to open that variant directly…";
 
   return (
     <div>
@@ -2032,9 +2273,223 @@ export default function AdminProducts() {
         </div>
       </div>
 
-      {/* Browse panel */}
+      {/* ── Search bar ─────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          padding: "16px 28px",
+          borderBottom: `1px solid ${BORDER}`,
+          background: "#fdfaf8",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Mode toggle pills */}
+          <div
+            style={{
+              display: "inline-flex",
+              borderRadius: 10,
+              border: `1.5px solid ${BORDER}`,
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            {(
+              [
+                { value: "nameCode", icon: "bi-tag", label: "Name / Code" },
+                { value: "stockId", icon: "bi-box-seam", label: "Stock ID" },
+              ] as { value: SearchMode; icon: string; label: string }[]
+            ).map(({ value, icon, label }) => (
+              <button
+                key={value}
+                onClick={() => handleModeChange(value)}
+                style={{
+                  padding: "7px 14px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  background: searchMode === value ? PRIMARY : "#fff",
+                  color: searchMode === value ? "#fff" : SUB,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  transition: "background 0.12s, color 0.12s",
+                }}
+              >
+                <i className={`bi ${icon}`} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Input */}
+          <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
+            <i
+              className="bi bi-search"
+              style={{
+                position: "absolute",
+                left: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: SUB,
+                fontSize: 13,
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputVal}
+              onChange={(e) => {
+                setInputVal(e.target.value);
+                setStockIdError(null);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={stockIdSearching}
+              style={{
+                width: "100%",
+                padding: "9px 40px 9px 36px",
+                fontSize: 13,
+                border: `1.5px solid ${
+                  stockIdError ? "#ef9a9a" : activeSearch ? PRIMARY : BORDER
+                }`,
+                borderRadius: 9,
+                outline: "none",
+                boxSizing: "border-box",
+                background: stockIdSearching ? "#f5f5f5" : "#fff",
+                color: TXT,
+                transition: "border-color 0.15s",
+              }}
+            />
+            {inputVal && !stockIdSearching && (
+              <button
+                onClick={clearSearch}
+                style={{
+                  position: "absolute",
+                  right: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: SUB,
+                  fontSize: 14,
+                  padding: 2,
+                }}
+              >
+                <i className="bi bi-x-circle-fill" />
+              </button>
+            )}
+          </div>
+
+          {/* Search button */}
+          <button
+            onClick={triggerSearch}
+            disabled={!inputVal.trim() || stockIdSearching}
+            style={{
+              background:
+                inputVal.trim() && !stockIdSearching ? PRIMARY : "#e0d6d0",
+              color: inputVal.trim() && !stockIdSearching ? "#fff" : "#b0a8a3",
+              border: "none",
+              borderRadius: 9,
+              padding: "9px 20px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor:
+                inputVal.trim() && !stockIdSearching ? "pointer" : "default",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              transition: "background 0.15s",
+              flexShrink: 0,
+              minWidth: 100,
+              justifyContent: "center",
+            }}
+          >
+            {stockIdSearching ? (
+              <>
+                <span
+                  style={{
+                    width: 13,
+                    height: 13,
+                    border: "2px solid rgba(255,255,255,0.4)",
+                    borderTopColor: "#fff",
+                    borderRadius: "50%",
+                    display: "inline-block",
+                    animation: "spin 0.7s linear infinite",
+                  }}
+                />
+                Searching…
+              </>
+            ) : (
+              <>
+                <i
+                  className={`bi ${
+                    searchMode === "stockId"
+                      ? "bi-box-arrow-in-right"
+                      : "bi-search"
+                  }`}
+                />
+                {searchMode === "stockId" ? "Open" : "Search"}
+              </>
+            )}
+          </button>
+
+          {/* Inline hint / error for stockId mode */}
+          {searchMode === "stockId" &&
+            !stockIdError &&
+            !stockIdSearching &&
+            !activeSearch && (
+              <span
+                style={{ fontSize: 11, color: "#c0b8b2", whiteSpace: "nowrap" }}
+              >
+                Finds the exact variant &amp; size — opens the product page
+                directly
+              </span>
+            )}
+        </div>
+
+        {/* Stock ID error message */}
+        {stockIdError && (
+          <div
+            style={{
+              marginTop: 10,
+              padding: "10px 14px",
+              background: "#fdecea",
+              border: "1px solid #ef9a9a",
+              borderRadius: 9,
+              fontSize: 13,
+              color: "#c62828",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <i className="bi bi-exclamation-circle-fill" />
+            {stockIdError}
+          </div>
+        )}
+
+        {/* CSS for spinner */}
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+
+      {/* ── Content ─────────────────────────────────────────────────────────── */}
       <div className="s-adminbrands-a637bc" style={{ padding: "24px 28px" }}>
-        {browseBy === "brands" ? (
+        {activeSearch && activeSearch.mode === "nameCode" ? (
+          <NameCodeResults
+            key={activeSearch.term}
+            term={activeSearch.term}
+            onClear={clearSearch}
+          />
+        ) : browseBy === "brands" ? (
           <BrowseByBrand key={`brands-${browseKey}`} />
         ) : (
           <BrowseByCategory key={`cats-${browseKey}`} />

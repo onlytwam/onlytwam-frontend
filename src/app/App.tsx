@@ -1061,8 +1061,8 @@ export default function App() {
               element={<AdminProductBulkUpload />}
             />
             <Route path="products" element={<AdminProducts />} />
-            <Route path="products/new" element={<AdminProductForm />} />
-            <Route path="products/:id" element={<AdminProductForm />} />
+            <Route path="products/new" element={<AdminProductDetail />} />
+            <Route path="products/:id" element={<AdminProductDetail />} />
             <Route
               path="products/:id/detail"
               element={<AdminProductDetail />}
