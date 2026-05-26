@@ -24,6 +24,7 @@ import ProductFilters, {
   COLOR_FAMILIES,
   ProductActiveFilters,
   getAppliedFilterCount,
+  matchesVariantCollectionColorFilters,
   matchesVariantCollectionPriceFilters,
   matchesVariantCollectionSizeAndCupFilters,
   shouldDeferCupSizeFiltering,
@@ -652,9 +653,7 @@ export default function GlobalSearch() {
   const hasColorSearch = searchIntent.colors.length > 0;
   const displayQuery =
     [...searchIntent.colors, smartQuery].filter(Boolean).join(" ") || q;
-  const anchorHex = hasColorSearch
-    ? resolveHex(searchIntent.colors[0])
-    : null;
+  const anchorHex = hasColorSearch ? resolveHex(searchIntent.colors[0]) : null;
 
   // Brands query — for chip label display in toolbar
 
@@ -709,21 +708,22 @@ export default function GlobalSearch() {
   });
 
   const raw: any[] = productData?.list ?? [];
-  const fuzzyFiltered = hasColorSearch && !smartQuery
-    ? raw
-    : (() => {
-        const matchQuery = smartQuery || colorQueryText || q;
-        const f = raw.filter(
-          (p: any) =>
-            fuzzyMatch(matchQuery, p.name ?? "") ||
-            fuzzyMatch(matchQuery, p.description ?? "") ||
-            fuzzyMatch(
-              matchQuery,
-              p.color ?? p.colorName ?? p.colorHex ?? "",
-            ),
-        );
-        return f.length > 0 ? f : raw;
-      })();
+  const fuzzyFiltered =
+    hasColorSearch && !smartQuery
+      ? raw
+      : (() => {
+          const matchQuery = smartQuery || colorQueryText || q;
+          const f = raw.filter(
+            (p: any) =>
+              fuzzyMatch(matchQuery, p.name ?? "") ||
+              fuzzyMatch(matchQuery, p.description ?? "") ||
+              fuzzyMatch(
+                matchQuery,
+                p.color ?? p.colorName ?? p.colorHex ?? "",
+              ),
+          );
+          return f.length > 0 ? f : raw;
+        })();
 
   const allGrouped = useMemo(() => {
     const groups = new Map<number, any[]>();
@@ -739,6 +739,7 @@ export default function GlobalSearch() {
       }))
       .filter(
         (product) =>
+          matchesVariantCollectionColorFilters(product.allVariants, filters) &&
           matchesVariantCollectionSizeAndCupFilters(
             product.allVariants,
             filters,
@@ -816,7 +817,9 @@ export default function GlobalSearch() {
             {displayQuery ? (
               <>
                 Results for{" "}
-                <span className="gs-mobile-header__query">"{displayQuery}"</span>
+                <span className="gs-mobile-header__query">
+                  "{displayQuery}"
+                </span>
               </>
             ) : (
               "Search"
@@ -835,7 +838,9 @@ export default function GlobalSearch() {
               aria-label={isListening ? "Stop voice search" : "Voice search"}
             >
               <i
-                className={`bi ${isListening ? "bi-stop-circle-fill" : "bi-mic-fill"}`}
+                className={`bi ${
+                  isListening ? "bi-stop-circle-fill" : "bi-mic-fill"
+                }`}
               />
             </button>
 

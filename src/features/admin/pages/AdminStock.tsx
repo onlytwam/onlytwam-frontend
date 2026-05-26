@@ -31,6 +31,17 @@ const SUB = "#8A7F7A";
 const BG = "#FAF7F4";
 const WHITE = "#ffffff";
 
+// ─── Size display helper ─────────────────────────────────────────────────────
+function fmtSize(
+  band: string | null | undefined,
+  cup: string | null | undefined,
+): string {
+  const b = (band || "").trim();
+  const c = (cup || "").trim();
+  if (b && c) return `${b}${c}`; // "32B"
+  return b || c || "";
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function imgUrl(src: string | null | undefined): string {
   if (!src) return "";
@@ -1324,7 +1335,7 @@ function GlobalHistoryPage({
       </div>
 
       {/* ── Product list ── */}
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 24px" }}>
+      <div style={{ padding: "20px 32px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: 64, color: SUB }}>
             <i
@@ -1355,7 +1366,14 @@ function GlobalHistoryPage({
               : "No products found."}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(540px, 1fr))",
+              gap: 12,
+              alignItems: "start",
+            }}
+          >
             {items.map((item) => {
               const isOpen = expanded === item.productId;
               const dt = fmtDateFull(item.createdDate);
@@ -1374,6 +1392,7 @@ function GlobalHistoryPage({
                     boxShadow: isOpen
                       ? "0 2px 12px rgba(0,0,0,0.08)"
                       : "0 1px 3px rgba(0,0,0,0.04)",
+                    gridColumn: isOpen ? "1 / -1" : "auto",
                   }}
                 >
                   {/* ── Product row (White + ivory accent on hover) ── */}
@@ -1657,13 +1676,12 @@ function GlobalHistoryPage({
                               const isSizeRow =
                                 mod.eventType === "SIZE_ADDED" ||
                                 mod.eventType === "SIZE_DELETED";
-                              const sizeTag =
-                                isSizeRow && mod.context?.includes(" / ")
-                                  ? mod.context
-                                      .split(" / ")
-                                      .slice(1)
-                                      .join(" / ")
-                                  : null;
+                              const sizeTag = isSizeRow
+                                ? mod.sizeDisplay ||
+                                  (mod.context?.includes(" / ")
+                                    ? mod.context.split(" / ").slice(1).join("")
+                                    : null)
+                                : null;
                               return (
                                 <div
                                   key={mi}
@@ -1685,7 +1703,7 @@ function GlobalHistoryPage({
                                         gap: 6,
                                         alignItems: "center",
                                         flexWrap: "wrap",
-                                        marginBottom: 3,
+                                        marginBottom: 4,
                                       }}
                                     >
                                       <span
@@ -1704,12 +1722,29 @@ function GlobalHistoryPage({
                                             color: "#0A4F8A",
                                             background: "#E3F2FD",
                                             borderRadius: 4,
-                                            padding: "1px 6px",
+                                            padding: "2px 7px",
+                                            fontWeight: 700,
                                           }}
                                         >
                                           📐 {sizeTag}
                                         </span>
                                       )}
+                                      {isSizeRow &&
+                                        mod.stockAfter !== null &&
+                                        mod.stockAfter !== undefined && (
+                                          <span
+                                            style={{
+                                              fontSize: 10,
+                                              fontWeight: 800,
+                                              color: "#1A5C1A",
+                                              background: "#E8F5E9",
+                                              borderRadius: 4,
+                                              padding: "2px 7px",
+                                            }}
+                                          >
+                                            📦 Stock: {mod.stockAfter}
+                                          </span>
+                                        )}
                                     </div>
                                     <div
                                       style={{
@@ -2358,7 +2393,6 @@ function StockDetailPanel({
     }
   }
 
-  const sizeParts = [pvd.sizeLabel, pvd.cupSizeLabel].filter(Boolean);
   const visibleLogCount = logs.filter(
     (l) => l.changeType !== "INITIAL_STOCK",
   ).length;
@@ -2386,7 +2420,7 @@ function StockDetailPanel({
       >
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, color: P }}>
-            {sizeParts.join(" / ") || "—"}
+            {fmtSize(pvd.sizeLabel, pvd.cupSizeLabel) || "—"}
           </div>
           {pvd.stockId && (
             <div
@@ -2920,8 +2954,7 @@ function PvdRow({
   const returned = pvd.returnedQuantity ?? 0;
   const available =
     pvd.availableQuantity ?? Math.max(0, total - processed + returned);
-  const sizeLabel =
-    [pvd.sizeLabel, pvd.cupSizeLabel].filter(Boolean).join(" / ") || "—";
+  const sizeLabel = fmtSize(pvd.sizeLabel, pvd.cupSizeLabel) || "—";
   const hasAlert = pvd.dbChangeAlert;
   return (
     <div style={{ borderBottom: `1px solid ${BDR}` }}>
