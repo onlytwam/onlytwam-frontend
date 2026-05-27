@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getOrderDetail } from "@/features/orders/api/orders.api";
@@ -14,336 +13,375 @@ const C = {
   muted: "#9B7080",
 };
 
-/* ─── Types ──────────────────────────────────────────────────── */
 interface TotalRow {
   label: string;
   value: string;
   green?: boolean;
 }
 
-/* ─── Inline styles ──────────────────────────────────────────── */
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    background: C.ivory,
-    minHeight: "auto",
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    padding: "48px 16px 64px",
-    fontFamily: "'EB Garamond', 'Georgia', serif",
-  },
-  card: {
-    background: "#fff",
-    maxWidth: 720,
-    width: "100%",
-    borderRadius: 2,
-    overflow: "hidden",
-    boxShadow: `0 2px 0 ${C.burgundy}, 0 12px 48px rgba(106,1,42,0.10)`,
-  },
-  accentBar: {
-    height: 5,
-    background: C.burgundy,
-  },
-  headerBand: {
-    background: C.burgundy,
-    padding: "10px 24px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    minHeight: 52,
-  },
-  brandBlock: {
-    display: "flex",
-    alignItems: "center",
-  },
-  brandName: {
-    /* unused — logo img is used directly */
-  },
-  brandTagline: {
-    /* removed from slim header */
-  },
-  invoiceMeta: {
-    textAlign: "right",
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-  },
-  invoiceLabel: {
-    /* unused in slim header */
-  },
-  invoiceNumber: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: C.ivory,
-    letterSpacing: "0.08em",
-    fontFamily: "'EB Garamond', Georgia, serif",
-    lineHeight: 1.3,
-  },
-  invoiceDate: {
-    fontSize: 11,
-    color: "rgba(246,238,225,0.70)",
-    letterSpacing: "0.10em",
-    fontFamily: "'EB Garamond', Georgia, serif",
-    lineHeight: 1.3,
-  },
-  body: {
-    padding: "36px 40px 0",
-  },
-  addressSection: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 36,
-    paddingBottom: 28,
-    borderBottom: `1.5px solid ${C.ivoryDark}`,
-    gap: 24,
-  },
-  addressBox: {
-    flex: 1,
-  },
-  addressLabel: {
-    fontSize: 9,
-    letterSpacing: "0.28em",
-    textTransform: "uppercase",
-    color: C.muted,
-    marginBottom: 10,
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  addressName: {
-    fontSize: 17,
-    fontWeight: 700,
-    color: C.text,
-    letterSpacing: "0.03em",
-    marginBottom: 5,
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  addressLine: {
-    fontSize: 13,
-    color: "#6B5060",
-    lineHeight: 1.65,
-    maxWidth: 340,
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  addressPhone: {
-    fontSize: 13,
-    color: C.muted,
-    marginTop: 6,
-    letterSpacing: "0.06em",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  statusBadge: {
-    background: C.ivoryMid,
-    border: `1px solid ${C.ivoryDark}`,
-    borderRadius: 2,
-    padding: "8px 18px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 4,
-    flexShrink: 0,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-    background: "#2E8B57",
-    marginBottom: 2,
-  },
-  statusLabel: {
-    fontSize: 9,
-    letterSpacing: "0.22em",
-    textTransform: "uppercase",
-    color: C.muted,
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  statusValue: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: "#2E8B57",
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  tableWrap: {
-    marginBottom: 0,
-  },
-  tableHeadRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr 80px 60px 100px 100px",
-    padding: "10px 16px",
-    background: C.burgundy,
-    borderRadius: 2,
-    marginBottom: 2,
-  },
-  thCell: {
-    fontSize: 9,
-    letterSpacing: "0.24em",
-    textTransform: "uppercase",
-    color: "rgba(246,238,225,0.7)",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  thCellRight: {
-    textAlign: "right",
-    fontSize: 9,
-    letterSpacing: "0.24em",
-    textTransform: "uppercase",
-    color: "rgba(246,238,225,0.7)",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  itemRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr 80px 60px 100px 100px",
-    padding: "16px 16px",
-    borderBottom: `1px solid ${C.ivoryMid}`,
-    alignItems: "center",
-  },
-  itemName: {
-    fontSize: 14,
-    color: C.text,
-    fontWeight: 500,
-    fontFamily: "'EB Garamond', Georgia, serif",
-    letterSpacing: "0.02em",
-  },
-  itemCell: {
-    fontSize: 13,
-    color: "#6B5060",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  itemCellRight: {
-    fontSize: 13,
-    color: "#6B5060",
-    textAlign: "right",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  itemTotal: {
-    fontSize: 14,
-    color: C.text,
-    fontWeight: 600,
-    textAlign: "right",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  totalsSection: {
-    display: "flex",
-    justifyContent: "flex-end",
-    padding: "24px 0 0",
-  },
-  totalsBox: {
-    minWidth: 260,
-  },
-  totalRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "7px 0",
-    borderBottom: `1px solid ${C.ivoryMid}`,
-    gap: 40,
-  },
-  totalLabel: {
-    fontSize: 12,
-    color: C.muted,
-    letterSpacing: "0.10em",
-    textTransform: "uppercase",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  totalValue: {
-    fontSize: 13,
-    color: C.text,
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  grandTotalRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "14px 16px",
-    background: `linear-gradient(135deg, ${C.ivory} 0%, #fff 100%)`,
-    border: `1.5px solid ${C.ivoryDark}`,
-    borderLeft: `5px solid ${C.burgundy}`,
-    borderRadius: 2,
-    marginTop: 8,
-    gap: 40,
-    boxShadow: "0 10px 20px rgba(106,1,42,0.08)",
-  },
-  grandTotalLabel: {
-    fontSize: 11,
-    letterSpacing: "0.26em",
-    textTransform: "uppercase",
-    color: C.muted,
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  grandTotalValue: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: C.burgundy,
-    letterSpacing: "0.04em",
-    fontFamily: "'EB Garamond', Georgia, serif",
-  },
-  footerNote: {
-    margin: "32px 0 0",
-    padding: "20px 40px",
-    background: C.ivoryMid,
-    borderTop: `1.5px solid ${C.ivoryDark}`,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 24,
-    flexWrap: "wrap",
-  },
-  footerText: {
-    fontSize: 11,
-    color: C.muted,
-    letterSpacing: "0.08em",
-    fontFamily: "'EB Garamond', Georgia, serif",
-    maxWidth: 360,
-    lineHeight: 1.6,
-  },
-  footerContact: {
-    fontSize: 10,
-    color: C.muted,
-    letterSpacing: "0.1em",
-    fontFamily: "'EB Garamond', Georgia, serif",
-    textAlign: "right",
-    lineHeight: 1.8,
-  },
-  actions: {
-    padding: "28px 40px 36px",
-    display: "flex",
-    gap: 12,
-    background: "#fff",
-  },
-  btnPrint: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "11px 26px",
-    background: C.burgundy,
-    color: C.ivory,
-    border: "none",
-    borderRadius: 2,
-    cursor: "pointer",
-    fontSize: 12,
-    letterSpacing: "0.18em",
-    textTransform: "uppercase",
-    fontFamily: "'EB Garamond', Georgia, serif",
-    fontWeight: 600,
-  },
-  btnBack: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "11px 26px",
-    background: "transparent",
-    color: C.burgundy,
-    border: `1.5px solid ${C.burgundy}`,
-    borderRadius: 2,
-    cursor: "pointer",
-    fontSize: 12,
-    letterSpacing: "0.18em",
-    textTransform: "uppercase",
-    fontFamily: "'EB Garamond', Georgia, serif",
-    fontWeight: 600,
-    textDecoration: "none",
-  },
-};
+/* ─────────────────────────────────────────────────────────────
+   Build a self-contained HTML string for the invoice.
+   This is printed in an isolated popup window — completely
+   outside the React app, so Navbar / Footer / layout CSS
+   cannot interfere and generate extra blank pages.
+───────────────────────────────────────────────────────────── */
+function buildInvoiceHTML(order: any, id: string | undefined): string {
+  const items: any[] = (
+    Array.isArray(order.orderItems) ? order.orderItems : []
+  ).filter((item: any) => !item.isReturn);
+
+  const subtotal = (order.subTotal || 0).toLocaleString("en-IN");
+  const shipping =
+    (order.deliveryCharge || 0) === 0
+      ? "FREE"
+      : `₹${(order.deliveryCharge || 0).toLocaleString("en-IN")}`;
+  const total = (order.totalAmount || 0).toLocaleString("en-IN");
+  const coupon =
+    order.couponAmount > 0 ? order.couponAmount.toLocaleString("en-IN") : null;
+  const addr = order.shippingAddress;
+  const orderNum = order.orderNumber || id;
+  const orderDate = formatDate(order.orderDate || order.createdAt);
+  const status = order.state || order.status || "Confirmed";
+
+  const addrLine = addr
+    ? [addr.addressLine, addr.locality, addr.city, addr.state, addr.pinCode]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+
+  const itemRows = items
+    .map(
+      (item) => `
+      <tr>
+        <td class="td-product">
+          ${item.productName || item.name}
+          ${
+            item.color
+              ? `<span class="item-meta">Color: ${item.color}${
+                  item.cupSize ? ` · Cup: ${item.cupSize}` : ""
+                }</span>`
+              : ""
+          }
+        </td>
+        <td>${item.size || "—"}</td>
+        <td>${item.quantity}</td>
+        <td class="tar">₹${(item.price || 0).toLocaleString("en-IN")}</td>
+        <td class="tar">₹${((item.price || 0) * item.quantity).toLocaleString(
+          "en-IN",
+        )}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const couponRow = coupon
+    ? `<tr class="row-sub"><td colspan="2" class="tal muted upper spaced">Coupon Discount</td><td colspan="3" class="tar green">−₹${coupon}</td></tr>`
+    : "";
+
+  // Absolute URL for the logo so it works in the popup
+  const logoUrl = `${window.location.origin}/assets/Twam-Logo-White.png`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invoice — Order #${orderNum}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" />
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Page: exact A4, zero margin (we control all spacing inside) ── */
+    @page { size: A4; margin: 0; }
+
+    html, body {
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;           /* nothing spills outside one page */
+      background: #fff;
+      font-family: 'EB Garamond', Georgia, serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color-adjust: exact;
+    }
+
+    /* ── Outer sheet: exactly one A4 page, flex column ── */
+    .sheet {
+      width: 210mm;
+      height: 297mm;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    /* ── Header  2 cm ── */
+    .hdr {
+      height: 20mm;
+      min-height: 20mm;
+      max-height: 20mm;
+      background: ${C.burgundy};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 0 10mm;
+      flex-shrink: 0;
+    }
+    .hdr img { height: 11mm; display: block; }
+    .hdr-meta {
+      position: absolute;
+      right: 10mm;
+      text-align: right;
+    }
+    .hdr-meta .num {
+      font-size: 10pt;
+      font-weight: 700;
+      color: ${C.ivory};
+      letter-spacing: 0.08em;
+      line-height: 1.4;
+    }
+    .hdr-meta .dt {
+      font-size: 8pt;
+      color: rgba(246,238,225,0.70);
+      letter-spacing: 0.10em;
+      line-height: 1.4;
+    }
+
+    /* Thin accent line */
+    .accent { height: 2px; background: ${C.ivoryDark}; flex-shrink: 0; }
+
+    /* ── Body — flex:1 fills remaining space ── */
+    .body {
+      flex: 1;
+      padding: 7mm 10mm 5mm;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Invoice title + status row */
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding-bottom: 5mm;
+      border-bottom: 1.5px solid ${C.ivoryDark};
+      margin-bottom: 5mm;
+    }
+    .inv-label { font-size: 7pt; letter-spacing: 0.28em; text-transform: uppercase; color: ${
+      C.muted
+    }; margin-bottom: 2mm; }
+    .inv-title { font-size: 18pt; font-weight: 700; color: ${
+      C.text
+    }; letter-spacing: 0.04em; }
+    .badge {
+      background: ${C.ivoryMid};
+      border: 1px solid ${C.ivoryDark};
+      border-radius: 2px;
+      padding: 3mm 5mm;
+      text-align: center;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #2E8B57; margin: 0 auto 2mm; }
+    .badge-label { font-size: 6pt; letter-spacing: 0.22em; text-transform: uppercase; color: ${
+      C.muted
+    }; }
+    .badge-val { font-size: 8pt; font-weight: 600; color: #2E8B57; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 1mm; }
+
+    /* Address */
+    .addr-label { font-size: 6pt; letter-spacing: 0.28em; text-transform: uppercase; color: ${
+      C.muted
+    }; margin-bottom: 2mm; }
+    .addr-name { font-size: 13pt; font-weight: 700; color: ${
+      C.text
+    }; letter-spacing: 0.03em; margin-bottom: 1.5mm; }
+    .addr-line { font-size: 9pt; color: #6B5060; line-height: 1.55; }
+    .addr-phone { font-size: 9pt; color: ${
+      C.muted
+    }; margin-top: 1.5mm; letter-spacing: 0.06em; }
+    .addr-section { margin-bottom: 5mm; }
+
+    /* Items table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 4mm;
+      font-size: 9pt;
+    }
+    thead tr {
+      background: ${C.burgundy};
+    }
+    thead th {
+      font-size: 6pt;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(246,238,225,0.75);
+      padding: 2.5mm 3mm;
+      font-weight: 400;
+    }
+    thead th.tar { text-align: right; }
+    thead th.tal { text-align: left; }
+    tbody tr { border-bottom: 1px solid ${C.ivoryMid}; }
+    tbody td { padding: 2.5mm 3mm; color: #6B5060; vertical-align: top; }
+    .td-product { color: ${C.text}; font-weight: 500; }
+    .item-meta { display: block; font-size: 7pt; color: ${
+      C.muted
+    }; font-weight: 400; margin-top: 0.5mm; }
+    .tar { text-align: right; }
+    .tal { text-align: left; }
+    .muted { color: ${C.muted}; }
+    .upper { text-transform: uppercase; letter-spacing: 0.10em; }
+    .spaced { letter-spacing: 0.10em; }
+    .green { color: #2E8B57; font-weight: 600; }
+    .row-sub td { padding: 2mm 3mm; font-size: 9pt; border-bottom: 1px solid ${
+      C.ivoryMid
+    }; }
+
+    /* Totals */
+    .totals { display: flex; justify-content: flex-end; margin-top: auto; }
+    .totals-box { min-width: 58mm; }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 1.5mm 0;
+      border-bottom: 1px solid ${C.ivoryMid};
+      gap: 10mm;
+    }
+    .total-lbl { font-size: 8pt; color: ${
+      C.muted
+    }; letter-spacing: 0.10em; text-transform: uppercase; }
+    .total-val { font-size: 9pt; color: ${C.text}; }
+    .grand-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3mm 4mm;
+      background: linear-gradient(135deg, ${C.ivory} 0%, #fff 100%);
+      border: 1.5px solid ${C.ivoryDark};
+      border-left: 4px solid ${C.burgundy};
+      border-radius: 2px;
+      margin-top: 2mm;
+      gap: 10mm;
+    }
+    .grand-lbl { font-size: 8pt; letter-spacing: 0.26em; text-transform: uppercase; color: ${
+      C.muted
+    }; }
+    .grand-val { font-size: 16pt; font-weight: 700; color: ${
+      C.burgundy
+    }; letter-spacing: 0.04em; }
+
+    /* ── Footer  0.5 cm ── */
+    .ftr {
+      height: 10mm;
+      min-height: 10mm;
+      max-height: 10mm;
+      background: ${C.burgundy};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6mm;
+      padding: 0 10mm;
+      flex-shrink: 0;
+    }
+    .ftr span {
+      font-size: 6.5pt;
+      color: rgba(246,238,225,0.85);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .ftr-div { color: rgba(246,238,225,0.30); font-size: 9pt; }
+  </style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- HEADER 2cm -->
+  <div class="hdr">
+    <img src="${logoUrl}" alt="TWAM" />
+    <div class="hdr-meta">
+      <div class="num">Order #${orderNum}</div>
+      <div class="dt">${orderDate}</div>
+    </div>
+  </div>
+  <div class="accent"></div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- Title + Status -->
+    <div class="title-row">
+      <div>
+        <div class="inv-label">Tax Invoice</div>
+        <div class="inv-title">Invoice</div>
+      </div>
+      <div class="badge">
+        <div class="badge-dot"></div>
+        <div class="badge-label">Status</div>
+        <div class="badge-val">${status}</div>
+      </div>
+    </div>
+
+    <!-- Address -->
+    ${
+      addr
+        ? `<div class="addr-section">
+      <div class="addr-label">Bill / Ship To</div>
+      <div class="addr-name">${addr.name || ""}</div>
+      <div class="addr-line">${addrLine}</div>
+      ${addr.phone ? `<div class="addr-phone">${addr.phone}</div>` : ""}
+    </div>`
+        : ""
+    }
+
+    <!-- Items table -->
+    <table>
+      <thead>
+        <tr>
+          <th class="tal" style="width:45%">Product</th>
+          <th class="tal" style="width:12%">Size</th>
+          <th class="tal" style="width:8%">Qty</th>
+          <th class="tar" style="width:16%">Price</th>
+          <th class="tar" style="width:19%">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+        <tr class="row-sub">
+          <td colspan="2" class="tal muted upper">Subtotal</td>
+          <td colspan="3" class="tar">₹${subtotal}</td>
+        </tr>
+        <tr class="row-sub">
+          <td colspan="2" class="tal muted upper">Shipping</td>
+          <td colspan="3" class="tar">${shipping}</td>
+        </tr>
+        ${couponRow}
+      </tbody>
+    </table>
+
+    <!-- Grand total -->
+    <div class="totals">
+      <div class="totals-box">
+        <div class="grand-row">
+          <span class="grand-lbl">Total</span>
+          <span class="grand-val">₹${total}</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <div class="accent"></div>
+
+  <!-- FOOTER 0.5cm -->
+  <div class="ftr">
+    <span>www.onlytwam.com</span>
+    <span class="ftr-div">|</span>
+    <span>Customer Support: onlytwam.com/contact-us</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+}
 
 /* ─── Component ─────────────────────────────────────────────── */
 export default function Invoice() {
@@ -355,115 +393,37 @@ export default function Invoice() {
     enabled: !!id,
   });
 
-  useEffect(() => {
-    // Inject Google Font
-    if (!document.getElementById("twam-invoice-font")) {
-      const link = document.createElement("link");
-      link.id = "twam-invoice-font";
-      link.rel = "stylesheet";
-      link.href =
-        "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap";
-      document.head.appendChild(link);
-    }
-
-    // Inject print styles
-    if (!document.getElementById("twam-invoice-print")) {
-      const style = document.createElement("style");
-      style.id = "twam-invoice-print";
-      style.textContent = `
-        @page {
-          size: A4;
-          margin: 10mm;
-        }
-
-        @media print {
-          /*
-           * FIX 1 — Full-colour printing
-           * Browsers strip background-colors and images by default to save ink.
-           * print-color-adjust:exact forces every background-color, gradient,
-           * and <img> to render exactly as on screen — burgundy header, accent
-           * bar, and logo all appear correctly in the PDF / printout.
-           */
-          *,
-          *::before,
-          *::after {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-
-          html, body {
-            background: #fff !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            height: auto !important;
-            overflow: visible !important;
-          }
-
-          /* Step 1: hide everything outside the invoice */
-          body * {
-            visibility: hidden !important;
-          }
-
-          /* Step 2: reveal only the invoice card and its children */
-          .invoice-print-root,
-          .invoice-print-root * {
-            visibility: visible !important;
-          }
-
-          /*
-           * FIX 2 — Prevent the blank second page
-           * The old code used position:absolute which pulled the card out of
-           * normal flow. The outer .invoice-page-wrapper still occupied its
-           * full padded height (48px top + 64px bottom), pushing past one A4
-           * boundary and generating an empty second page.
-           *
-           * Fix: keep the card in normal flow (position:static) and zero out
-           * the wrapper padding so there is no dead space around the invoice.
-           */
-          .invoice-page-wrapper {
-            padding: 0 !important;
-            margin: 0 !important;
-            min-height: 0 !important;
-            background: none !important;
-            display: block !important;
-            visibility: visible !important;
-          }
-
-          .invoice-print-root {
-            position: static !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 0 !important;
-            margin: 0 auto !important;
-            box-shadow: none !important;
-            break-inside: avoid;
-          }
-
-          /* Step 4: hide action buttons */
-          .no-print,
-          .no-print * {
-            display: none !important;
-            visibility: hidden !important;
-          }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    // Cleanup on unmount — remove styles so they don't bleed into other pages
-    return () => {
-      document.getElementById("twam-invoice-print")?.remove();
+  function handlePrint() {
+    if (!order) return;
+    const html = buildInvoiceHTML(order, id);
+    const popup = window.open("", "_blank", "width=900,height=700");
+    if (!popup) return;
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+    // Wait for fonts/images to load then print
+    popup.onload = () => {
+      setTimeout(() => {
+        popup.focus();
+        popup.print();
+      }, 600);
     };
-  }, []);
+    // Fallback if onload already fired
+    setTimeout(() => {
+      popup.focus();
+      popup.print();
+    }, 1200);
+  }
 
   if (isLoading) {
     return (
       <div
         style={{
-          ...styles.page,
-          justifyContent: "center",
+          minHeight: "60vh",
+          display: "flex",
           alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "'EB Garamond', Georgia, serif",
         }}
       >
         <span
@@ -479,9 +439,11 @@ export default function Invoice() {
     return (
       <div
         style={{
-          ...styles.page,
-          justifyContent: "center",
+          minHeight: "60vh",
+          display: "flex",
           alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "'EB Garamond', Georgia, serif",
         }}
       >
         <span style={{ color: C.muted, letterSpacing: "0.12em", fontSize: 13 }}>
@@ -491,7 +453,6 @@ export default function Invoice() {
     );
   }
 
-  // Exclude return/refund items — only show items actually placed
   const items: any[] = (
     Array.isArray(order.orderItems) ? order.orderItems : []
   ).filter((item: any) => !item.isReturn);
@@ -519,90 +480,349 @@ export default function Invoice() {
       : []),
   ];
 
-  return (
-    <div style={styles.page} className="invoice-page-wrapper">
-      {/* invoice-page-wrapper: collapsed in @media print to prevent blank second page */}
-      <div style={styles.card} className="invoice-print-root">
-        {/* Accent bar */}
-        <div style={styles.accentBar} />
+  const addr = order.shippingAddress;
 
-        {/* ── Header ── */}
-        <div style={styles.headerBand}>
-          <div style={styles.brandBlock}>
-            <img
-              src="/assets/Twam-Logo-White.png"
-              height="32"
-              alt="TWAM"
-              style={{ display: "block" }}
-            />
-          </div>
-          <div style={styles.invoiceMeta}>
-            <div style={styles.invoiceNumber}>
+  /* ── Screen preview ─────────────────────────────────────── */
+  return (
+    <div
+      style={{
+        background: C.ivory,
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "32px 16px 56px",
+        fontFamily: "'EB Garamond', Georgia, serif",
+      }}
+    >
+      {/* Action buttons */}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          marginBottom: 24,
+          width: "100%",
+          maxWidth: 794,
+        }}
+      >
+        <button
+          onClick={handlePrint}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 24px",
+            background: C.burgundy,
+            color: C.ivory,
+            border: "none",
+            borderRadius: 3,
+            cursor: "pointer",
+            fontSize: 12,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontFamily: "'EB Garamond', Georgia, serif",
+            fontWeight: 600,
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.opacity = "0.85")}
+          onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+          Download / Print
+        </button>
+        <Link
+          to="/account/orders-list"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 24px",
+            background: "transparent",
+            color: C.burgundy,
+            border: `1.5px solid ${C.burgundy}`,
+            borderRadius: 3,
+            fontSize: 12,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontFamily: "'EB Garamond', Georgia, serif",
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          ← Back to Orders
+        </Link>
+      </div>
+
+      {/* Screen preview card */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 794,
+          background: "#fff",
+          boxShadow: `0 2px 0 ${C.burgundy}, 0 12px 48px rgba(106,1,42,0.12)`,
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            height: 76,
+            background: C.burgundy,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+            padding: "0 32px",
+          }}
+        >
+          <img
+            src="/assets/Twam-Logo-White.png"
+            alt="TWAM"
+            style={{ height: 38 }}
+          />
+          <div style={{ position: "absolute", right: 32, textAlign: "right" }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: C.ivory,
+                letterSpacing: "0.08em",
+                lineHeight: 1.4,
+              }}
+            >
               Order #{order.orderNumber || id}
             </div>
-            <div style={styles.invoiceDate}>
+            <div
+              style={{
+                fontSize: 10,
+                color: "rgba(246,238,225,0.70)",
+                letterSpacing: "0.10em",
+                lineHeight: 1.4,
+              }}
+            >
               {formatDate(order.orderDate || order.createdAt)}
             </div>
           </div>
         </div>
 
-        {/* ── Body ── */}
-        <div id="invoice-print" style={styles.body}>
-          {/* Address + Status */}
-          {order.shippingAddress && (
-            <div style={styles.addressSection}>
-              <div style={styles.addressBox}>
-                <div style={styles.addressLabel}>Bill / Ship To</div>
-                <div style={styles.addressName}>
-                  {order.shippingAddress.name}
-                </div>
-                <div style={styles.addressLine}>
-                  {[
-                    order.shippingAddress.addressLine,
-                    order.shippingAddress.locality,
-                    order.shippingAddress.city,
-                    order.shippingAddress.state,
-                    order.shippingAddress.pinCode,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                </div>
-                <div style={styles.addressPhone}>
-                  {order.shippingAddress.phone}
-                </div>
-              </div>
+        <div style={{ height: 3, background: C.ivoryDark }} />
 
-              <div style={styles.statusBadge}>
-                <div style={styles.statusDot} />
-                <div style={styles.statusLabel}>Status</div>
-                <div style={styles.statusValue}>
-                  {order.status || "Confirmed"}
-                </div>
+        {/* Body */}
+        <div style={{ padding: "28px 40px 24px" }}>
+          {/* Title + Status */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              paddingBottom: 16,
+              borderBottom: `1.5px solid ${C.ivoryDark}`,
+              marginBottom: 20,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 9,
+                  letterSpacing: "0.30em",
+                  textTransform: "uppercase",
+                  color: C.muted,
+                  marginBottom: 4,
+                }}
+              >
+                Tax Invoice
               </div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: C.text,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Invoice
+              </div>
+            </div>
+            <div
+              style={{
+                background: C.ivoryMid,
+                border: `1px solid ${C.ivoryDark}`,
+                borderRadius: 2,
+                padding: "6px 16px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#2E8B57",
+                  margin: "0 auto 3px",
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 8,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: C.muted,
+                }}
+              >
+                Status
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "#2E8B57",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  marginTop: 2,
+                }}
+              >
+                {order.state || order.status || "Confirmed"}
+              </div>
+            </div>
+          </div>
+
+          {/* Address */}
+          {addr && (
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  fontSize: 8,
+                  letterSpacing: "0.28em",
+                  textTransform: "uppercase",
+                  color: C.muted,
+                  marginBottom: 6,
+                }}
+              >
+                Bill / Ship To
+              </div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: C.text,
+                  marginBottom: 4,
+                }}
+              >
+                {addr.name}
+              </div>
+              <div style={{ fontSize: 12, color: "#6B5060", lineHeight: 1.65 }}>
+                {[
+                  addr.addressLine,
+                  addr.locality,
+                  addr.city,
+                  addr.state,
+                  addr.pinCode,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+              {addr.phone && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: C.muted,
+                    marginTop: 4,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {addr.phone}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Items table */}
-          <div style={styles.tableWrap}>
-            <div style={styles.tableHeadRow}>
-              <span style={styles.thCell}>Product</span>
-              <span style={styles.thCell}>Size</span>
-              <span style={styles.thCell}>Qty</span>
-              <span style={styles.thCellRight}>Price</span>
-              <span style={styles.thCellRight}>Total</span>
-            </div>
-
-            {items.map((item, i) => (
-              <div key={i} style={styles.itemRow}>
-                <span style={styles.itemName}>
-                  {item.productName || item.name}
+          {/* Table */}
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 72px 52px 90px 90px",
+                padding: "8px 14px",
+                background: C.burgundy,
+                borderRadius: 2,
+                marginBottom: 2,
+              }}
+            >
+              {["Product", "Size", "Qty", "Price", "Total"].map((h, i) => (
+                <span
+                  key={h}
+                  style={{
+                    fontSize: 8,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "rgba(246,238,225,0.75)",
+                    textAlign: i >= 3 ? "right" : "left",
+                  }}
+                >
+                  {h}
                 </span>
-                <span style={styles.itemCell}>{item.size || "—"}</span>
-                <span style={styles.itemCell}>{item.quantity}</span>
-                <span style={styles.itemCellRight}>
+              ))}
+            </div>
+            {items.map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 72px 52px 90px 90px",
+                  padding: "12px 14px",
+                  borderBottom: `1px solid ${C.ivoryMid}`,
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>
+                  {item.productName || item.name}
+                  {item.color && (
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: 10,
+                        color: C.muted,
+                        fontWeight: 400,
+                        marginTop: 2,
+                      }}
+                    >
+                      Color: {item.color}
+                      {item.cupSize ? ` · Cup: ${item.cupSize}` : ""}
+                    </span>
+                  )}
+                </span>
+                <span style={{ fontSize: 12, color: "#6B5060" }}>
+                  {item.size || "—"}
+                </span>
+                <span style={{ fontSize: 12, color: "#6B5060" }}>
+                  {item.quantity}
+                </span>
+                <span
+                  style={{ fontSize: 12, color: "#6B5060", textAlign: "right" }}
+                >
                   ₹{(item.price || 0).toLocaleString("en-IN")}
                 </span>
-                <span style={styles.itemTotal}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: C.text,
+                    fontWeight: 600,
+                    textAlign: "right",
+                  }}
+                >
                   ₹{((item.price || 0) * item.quantity).toLocaleString("en-IN")}
                 </span>
               </div>
@@ -610,24 +830,72 @@ export default function Invoice() {
           </div>
 
           {/* Totals */}
-          <div style={styles.totalsSection}>
-            <div style={styles.totalsBox}>
-              {totals.map(({ label, value, green }: TotalRow) => (
-                <div key={label} style={styles.totalRow}>
-                  <span style={styles.totalLabel}>{label}</span>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ minWidth: 260 }}>
+              {totals.map(({ label, value, green }) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "6px 0",
+                    borderBottom: `1px solid ${C.ivoryMid}`,
+                    gap: 40,
+                  }}
+                >
                   <span
                     style={{
-                      ...styles.totalValue,
-                      ...(green ? { color: "#2E8B57", fontWeight: 600 } : {}),
+                      fontSize: 11,
+                      color: C.muted,
+                      letterSpacing: "0.10em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: green ? "#2E8B57" : C.text,
+                      fontWeight: green ? 600 : 400,
                     }}
                   >
                     {value}
                   </span>
                 </div>
               ))}
-              <div style={styles.grandTotalRow}>
-                <span style={styles.grandTotalLabel}>Total</span>
-                <span style={styles.grandTotalValue}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "12px 14px",
+                  background: `linear-gradient(135deg, ${C.ivory} 0%, #fff 100%)`,
+                  border: `1.5px solid ${C.ivoryDark}`,
+                  borderLeft: `5px solid ${C.burgundy}`,
+                  borderRadius: 2,
+                  marginTop: 8,
+                  gap: 40,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.26em",
+                    textTransform: "uppercase",
+                    color: C.muted,
+                  }}
+                >
+                  Total
+                </span>
+                <span
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: C.burgundy,
+                    letterSpacing: "0.04em",
+                  }}
+                >
                   ₹{(order.totalAmount || 0).toLocaleString("en-IN")}
                 </span>
               </div>
@@ -635,45 +903,43 @@ export default function Invoice() {
           </div>
         </div>
 
-        {/* ── Footer note ── */}
-        <div style={styles.footerNote}>
-          <p style={styles.footerText}>
-            We are Only TWAM, a multibrand platform where women have a wide
-            variety of lingerie brands, that can help them pick their most
-            comfortable fit based on their daily needs.
-          </p>
-          <div style={styles.footerContact}>
-            <div>onlytwam.com/contact-us</div>
-          </div>
-        </div>
+        <div style={{ height: 2, background: C.ivoryDark }} />
 
-        {/* ── Actions (hidden on print) ── */}
-        <div style={styles.actions} className="no-print">
-          <button
-            onClick={() => window.print()}
-            style={styles.btnPrint}
-            onMouseOver={(e) => (e.currentTarget.style.opacity = "0.85")}
-            onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+        {/* Footer */}
+        <div
+          style={{
+            height: 38,
+            background: C.burgundy,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 24,
+            padding: "0 32px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 9,
+              color: "rgba(246,238,225,0.85)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+            }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 6 2 18 2 18 9" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-            Print / Download
-          </button>
-          <Link to="/account/orders-list" style={styles.btnBack}>
-            ← Back to Orders
-          </Link>
+            www.onlytwam.com
+          </span>
+          <span style={{ color: "rgba(246,238,225,0.30)", fontSize: 10 }}>
+            |
+          </span>
+          <span
+            style={{
+              fontSize: 9,
+              color: "rgba(246,238,225,0.85)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+            }}
+          >
+            Customer Support: onlytwam.com/contact-us
+          </span>
         </div>
       </div>
     </div>
