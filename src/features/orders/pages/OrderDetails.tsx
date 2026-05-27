@@ -336,20 +336,16 @@ export default function OrderDetails() {
             >
               ← Back to Orders
             </button>
-            {!["Delivered", "Cancelled", "Refunded"].includes(state) && (
-              <button
-                onClick={() => {
-                  sessionStorage.setItem(
-                    "returnOrderId",
-                    String(order.orderId),
-                  );
-                  navigate("/user-products/return-order");
-                }}
-                className="btn btn-outline-secondary btn-sm"
-              >
-                Cancel / Return
-              </button>
-            )}
+            <button
+              onClick={() =>
+                navigate(`/user-products/invoice-details/${order.orderId}`)
+              }
+              className="btn btn-outline-secondary btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <i className="bi bi-file-earmark-text" />
+              Invoice
+            </button>
           </div>
         </div>
       </div>
