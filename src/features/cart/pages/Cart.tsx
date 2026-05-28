@@ -1228,6 +1228,8 @@ export default function Cart() {
                 shipping: sess.shipping,
                 surpriseGift: null,
                 giftCheckoutKey: null,
+                cgstTotal: (sess as any).cgstTotal ?? 0,
+                sgstTotal: (sess as any).sgstTotal ?? 0,
               });
             } else {
               saveCheckoutSession({
@@ -1425,6 +1427,24 @@ export default function Cart() {
     (s, i) => s + (i.finalPrice || 0) * (i.processedQuantity || 1),
     0,
   );
+
+  // Tax totals — read directly from stored PVD fields, never recalculated.
+  // • cgst/sgst on each item = the % rate stored in ProductVariantDetail at create time.
+  // • Same product, qty > 1 → multiply by qty.
+  // • Multiple products → sum across all items.
+  // • If cgst/sgst rates are 0 but taxAmount exists → split taxAmount 50/50 per unit.
+  const computedCgstTotal = selectedItems.reduce((s: number, i: any) => {
+    const qty = Number(i.processedQuantity ?? i.quantity ?? 1) || 1;
+    if (Number(i.cgst) > 0)
+      return s + ((Number(i.finalPrice || 0) * Number(i.cgst)) / 100) * qty;
+    return s + (Number(i.taxAmount || 0) / 2) * qty;
+  }, 0);
+  const computedSgstTotal = selectedItems.reduce((s: number, i: any) => {
+    const qty = Number(i.processedQuantity ?? i.quantity ?? 1) || 1;
+    if (Number(i.sgst) > 0)
+      return s + ((Number(i.finalPrice || 0) * Number(i.sgst)) / 100) * qty;
+    return s + (Number(i.taxAmount || 0) / 2) * qty;
+  }, 0);
   const totalPayable = Math.max(0, subTotal - (couponDiscount ?? 0));
   const currentCartSignature = useMemo(
     () => buildSurpriseGiftSignature(selectedItems as any),
@@ -1915,7 +1935,20 @@ export default function Cart() {
     setBuyNowItems((prev) => {
       const next = normalizeBuyNowItems(updater(prev));
       if (next.length > 0) {
-        setBuyNowSession(next as any);
+        // Recompute tax totals from PVD stored rates whenever items/qty change
+        const cgstTotal = next.reduce((s: number, i: any) => {
+          const qty = Number(i.processedQuantity ?? i.quantity ?? 1) || 1;
+          const price = Number(i.finalPrice || 0);
+          if (i.cgst > 0) return s + ((price * Number(i.cgst)) / 100) * qty;
+          return s + (Number(i.taxAmount || 0) * qty) / 2;
+        }, 0);
+        const sgstTotal = next.reduce((s: number, i: any) => {
+          const qty = Number(i.processedQuantity ?? i.quantity ?? 1) || 1;
+          const price = Number(i.finalPrice || 0);
+          if (i.sgst > 0) return s + ((price * Number(i.sgst)) / 100) * qty;
+          return s + (Number(i.taxAmount || 0) * qty) / 2;
+        }, 0);
+        setBuyNowSession(next as any, { cgstTotal, sgstTotal });
       } else {
         clearBuyNowSession();
       }
@@ -2154,6 +2187,8 @@ export default function Cart() {
         surpriseGift,
         cartSignature: currentCartSignature,
         giftCheckoutKey,
+        cgstTotal: computedCgstTotal,
+        sgstTotal: computedSgstTotal,
       });
       return;
     }
@@ -2163,6 +2198,8 @@ export default function Cart() {
       mode: "cart",
       items: selectedItems,
       subTotal,
+      cgstTotal: computedCgstTotal,
+      sgstTotal: computedSgstTotal,
       shipping: selectedShipping ?? currentCheckoutSession?.shipping ?? null,
       surpriseGift,
       cartSignature: currentCartSignature,
@@ -3153,7 +3190,66 @@ export default function Cart() {
                   <span className="s-cart-1c5a85">₹0</span>
                 </div>
               )}
-              <p className="s-cart-a8f4aa">Shipping calculated at checkout</p>
+
+              {/* Tax breakdown — included in MRP, shown for transparency */}
+              {(computedCgstTotal > 0 || computedSgstTotal > 0) && (
+                <div
+                  style={{
+                    borderTop: "1px dashed #e5e7eb",
+                    marginTop: 8,
+                    paddingTop: 8,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: "#6b7280",
+                      margin: "0 0 4px",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Taxes included in MRP
+                  </p>
+                  {computedCgstTotal > 0 && (
+                    <div
+                      className="s-userdashboar-474527"
+                      style={{ opacity: 0.75 }}
+                    >
+                      <span
+                        className="s-cart-83be37"
+                        style={{ fontSize: 12, color: "#6b7280" }}
+                      >
+                        CGST (incl. in MRP)
+                      </span>
+                      <span
+                        className="s-cart-1c5a85"
+                        style={{ fontSize: 12, color: "#6b7280" }}
+                      >
+                        ₹{computedCgstTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {computedSgstTotal > 0 && (
+                    <div
+                      className="s-userdashboar-474527"
+                      style={{ opacity: 0.75 }}
+                    >
+                      <span
+                        className="s-cart-83be37"
+                        style={{ fontSize: 12, color: "#6b7280" }}
+                      >
+                        SGST (incl. in MRP)
+                      </span>
+                      <span
+                        className="s-cart-1c5a85"
+                        style={{ fontSize: 12, color: "#6b7280" }}
+                      >
+                        ₹{computedSgstTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {couponDiscount > 0 && (
                 <div className="s-userdashboar-474527">

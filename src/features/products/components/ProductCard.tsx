@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
@@ -8,6 +8,10 @@ import {
   getImageUrl,
   getCanvasSafeImageUrl,
 } from "@/shared/utils/helpers";
+import {
+  getDefaultProductVariant,
+  normalizeVariantPriceFields,
+} from "@/features/products/utils/productPricing";
 
 const TEAR_LINE_SAMPLE_POINTS = [
   { x: 48.5, y: 0.8 },
@@ -59,7 +63,11 @@ export default function ProductCard({
   const prefersReducedMotion = useMediaQuery(
     "(prefers-reduced-motion: reduce)",
   );
-  const [selectedVariant, setSelectedVariant] = useState(product);
+  const defaultVariant = useMemo(
+    () => getDefaultProductVariant(product),
+    [product],
+  );
+  const [selectedVariant, setSelectedVariant] = useState(defaultVariant);
   const isRemovableCard = typeof onRemove === "function";
   // When a product's category is inactive, it should only be accessible from
   // wishlist/cart (where it was saved before the category was hidden).
@@ -86,8 +94,14 @@ export default function ProductCard({
     delayedDiscountReveal && !isRemovableCard && !prefersReducedMotion;
 
   useEffect(() => {
-    setSelectedVariant(product);
-  }, [product.productId]);
+    setSelectedVariant(defaultVariant);
+  }, [
+    defaultVariant.productId,
+    defaultVariant.productVariantId,
+    defaultVariant.productVariantDetailId,
+    defaultVariant.price,
+    defaultVariant.oldPrice,
+  ]);
 
   useEffect(() => {
     const checkOverflow = () => {
@@ -113,11 +127,7 @@ export default function ProductCard({
       (v: any) => v.productVariantId === variantId,
     );
     if (!variant) return;
-    setSelectedVariant({
-      ...variant,
-      price: variant.price ?? variant.finalPrice,
-      oldPrice: variant.oldPrice ?? variant.mrpPrice,
-    });
+    setSelectedVariant(normalizeVariantPriceFields(variant));
   };
 
   const handleScrollSwatches = (e: React.MouseEvent) => {
@@ -775,7 +785,7 @@ export default function ProductCard({
           ]
         : []
       : product.allVariants?.length > 1
-      ? product.allVariants.map((v: any) => {
+      ? defaultVariant.allVariants.map((v: any) => {
           const f = resolveColorFields(v);
           return {
             id: v.productVariantId,

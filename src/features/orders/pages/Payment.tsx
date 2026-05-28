@@ -346,6 +346,9 @@ export default function Payment() {
     ? sessionSelectedItems
     : []; // ← empty → handleProceedToPayment guard will catch this and show error
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
+  // Tax totals from session — stored from PVD, never recalculated
+  const cgstTotal = (checkoutSession as any)?.cgstTotal ?? 0;
+  const sgstTotal = (checkoutSession as any)?.sgstTotal ?? 0;
   const shippingCost = Number(
     (selectedShipping as any)?.cost ??
       checkoutSession?.shipping?.cost ??
@@ -623,6 +626,8 @@ export default function Payment() {
       billingAddress: selectedAddressSnapshot,
       couponId: appliedCoupon?.couponId ?? null,
       couponAmount: couponDiscount ?? 0,
+      cgstTotal,
+      sgstTotal,
       cartId: cartIds,
       orderNumber: null,
       paymentMethod: "Online Payment",
@@ -928,6 +933,59 @@ export default function Payment() {
                 </span>
               </div>
             ))}
+            {/* CGST / SGST — from PVD stored rates, included in MRP */}
+            {(cgstTotal > 0 || sgstTotal > 0) && (
+              <div
+                style={{
+                  borderTop: "1px dashed #e5e7eb",
+                  margin: "6px 0",
+                  paddingTop: 6,
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "#6b7280",
+                    margin: "0 0 4px",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Taxes included in MRP
+                </p>
+                {cgstTotal > 0 && (
+                  <div className="d-flex justify-content-between mb-1">
+                    <span
+                      className="text-muted s-addresslist-9eec06"
+                      style={{ fontSize: 12 }}
+                    >
+                      CGST (incl. in MRP)
+                    </span>
+                    <span
+                      className="s-payment-05b8b4"
+                      style={{ fontSize: 12, color: "#6b7280" }}
+                    >
+                      Rs.{cgstTotal.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {sgstTotal > 0 && (
+                  <div className="d-flex justify-content-between mb-1">
+                    <span
+                      className="text-muted s-addresslist-9eec06"
+                      style={{ fontSize: 12 }}
+                    >
+                      SGST (incl. in MRP)
+                    </span>
+                    <span
+                      className="s-payment-05b8b4"
+                      style={{ fontSize: 12, color: "#6b7280" }}
+                    >
+                      Rs.{sgstTotal.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
             <hr />
             <div className="checkout-summary-total">
               <span>Total Payable</span>

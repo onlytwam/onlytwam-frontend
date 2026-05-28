@@ -26,6 +26,8 @@ export interface CheckoutSessionState {
   mode: CheckoutMode;
   items: CartModel[];
   subTotal: number;
+  cgstTotal?: number;
+  sgstTotal?: number;
   shipping?: ShippingOption | null;
   surpriseGift?: SurpriseGiftSelection | null;
   cartSignature?: string;
@@ -133,6 +135,8 @@ export const readCheckoutSession = (): CheckoutSessionState | null => {
       mode: parsed.mode === "buyNow" ? "buyNow" : "cart",
       items,
       subTotal,
+      cgstTotal: toNumber(parsed.cgstTotal, 0),
+      sgstTotal: toNumber(parsed.sgstTotal, 0),
       shipping: parsed.shipping ?? null,
       surpriseGift,
       cartSignature,
@@ -158,6 +162,8 @@ export const saveCheckoutSession = (session: {
   mode?: CheckoutMode;
   items: CartModel[];
   subTotal?: number;
+  cgstTotal?: number;
+  sgstTotal?: number;
   shipping?: ShippingOption | null;
   surpriseGift?: SurpriseGiftSelection | null;
   cartSignature?: string;
@@ -199,6 +205,8 @@ export const saveCheckoutSession = (session: {
     mode: session.mode === "buyNow" ? "buyNow" : "cart",
     items,
     subTotal,
+    cgstTotal: session.cgstTotal ?? 0,
+    sgstTotal: session.sgstTotal ?? 0,
     shipping: session.shipping ?? null,
     surpriseGift,
     cartSignature,

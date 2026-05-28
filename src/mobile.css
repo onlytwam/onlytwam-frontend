@@ -4914,7 +4914,7 @@
   /* Rating row */
   .s-productdetai-121533 {
     align-items: flex-end !important;
-    gap: 3px !important;
+    gap: 8px !important;
     flex-shrink: 0 !important;
   }
 
@@ -5047,12 +5047,14 @@
     padding: 0 16px !important;
     gap: 12px !important;
     margin-bottom: 14px !important;
+    flex-wrap: wrap !important;
   }
   .s-updateprofil-1d5e50 {
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
     flex-wrap: wrap !important;
+    flex: 1 1 100% !important;
   }
   .s-productdetai-dbae90 {
     border: 1.5px solid rgba(107, 15, 42, 0.15) !important;
@@ -5098,6 +5100,13 @@
     font-weight: 800 !important;
     line-height: 1.1 !important;
     color: #111 !important;
+  }
+
+  .s-productdetai-c9ee63 .s-productdetai-eeb06b {
+    margin-left: auto !important;
+    margin-bottom: 0 !important;
+    text-align: right !important;
+    white-space: nowrap !important;
   }
 
   /* ── ADD TO CART BUTTON ── */
