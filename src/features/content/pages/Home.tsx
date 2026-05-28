@@ -1327,6 +1327,7 @@ function DesktopFeaturedSection({
   const slidingRef = useRef(false);
   const wheelCooldownRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoScrollPausedRef = useRef(false);
 
   const advance = useCallback(
     (dir: 1 | -1 = 1) => {
@@ -1350,17 +1351,42 @@ function DesktopFeaturedSection({
     [total, setCurrentIdx],
   );
 
-  const restartTimer = useCallback(() => {
+  const stopTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  const restartTimer = useCallback(() => {
+    stopTimer();
+    if (autoScrollPausedRef.current || total <= 1) return;
     timerRef.current = setInterval(() => advance(1), 4500);
-  }, [advance]);
+  }, [advance, stopTimer, total]);
+
+  const pauseAutoScroll = useCallback(() => {
+    autoScrollPausedRef.current = true;
+    stopTimer();
+  }, [stopTimer]);
+
+  const resumeAutoScroll = useCallback(() => {
+    autoScrollPausedRef.current = false;
+    restartTimer();
+  }, [restartTimer]);
+
+  const handleCardPanelBlur = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+        resumeAutoScroll();
+      }
+    },
+    [resumeAutoScroll],
+  );
 
   useEffect(() => {
     restartTimer();
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      stopTimer();
     };
-  }, [restartTimer]);
+  }, [restartTimer, stopTimer]);
 
   const onWheel = (e: React.WheelEvent) => {
     if (wheelCooldownRef.current || slidingRef.current) return;
@@ -1476,6 +1502,10 @@ function DesktopFeaturedSection({
         }}
         onWheel={onWheel}
         onClick={(e) => e.stopPropagation()}
+        onMouseEnter={pauseAutoScroll}
+        onMouseLeave={resumeAutoScroll}
+        onFocus={pauseAutoScroll}
+        onBlur={handleCardPanelBlur}
       >
         {/* Prev arrow */}
         <button

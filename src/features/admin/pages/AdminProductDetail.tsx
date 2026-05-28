@@ -189,7 +189,9 @@ function InlineField({
     const next = draft.trim();
     setEditing(false);
     setCommitted(next);
-    if (next !== value) onSave(next);
+    // Always call onSave so that if the user typed → changed → reverted,
+    // pendingProduct is updated to the correct value rather than holding a stale change.
+    onSave(next);
   }
 
   function cancel() {
@@ -3826,9 +3828,14 @@ export default function AdminProductDetail() {
   const pvds: any[] = pvdData?.list ?? [];
 
   // ── Patch product ────────────────────────────────────────────────────────────
+  // NOTE: Send ONLY the changed delta — do NOT spread the full `product` object.
+  // The product from the API includes allVariants (with base64 image data), brandName,
+  // categoryName, etc. Spreading it creates a massive payload that can exceed request
+  // size limits and causes all saves to fail. The backend's `if val is not None` logic
+  // is designed for partial updates, so sending only changed fields is correct.
   async function patchProduct(data: Record<string, any>) {
     try {
-      await api.put(`/Products/${productId}`, { ...product, ...data });
+      await api.put(`/Products/${productId}`, data);
       updatedToast();
       refetchProduct();
       refetchPvd();
@@ -4385,6 +4392,10 @@ export default function AdminProductDetail() {
           <div style={{ height: 1, background: BDR, margin: "20px 0" }} />
 
           {/* ── Category selectors ───────────────────────────────────────── */}
+          {/* BUG FIX: Use the effective (pending OR server) categoryId so that
+              when the user changes the parent category the child dropdown
+              immediately re-filters to show only that parent's children,
+              even before the save round-trip. */}
           <div
             style={{
               display: "grid",
@@ -4404,15 +4415,28 @@ export default function AdminProductDetail() {
                 queueProduct({ categoryId: v, childCategoryId: null })
               }
             />
-            <InlineSelect
-              label="Child Category"
-              value={product.childCategoryId}
-              options={childCats(product.categoryId || 0).map((c) => ({
-                id: c.categoryId,
-                name: c.name,
-              }))}
-              onSave={(v) => queueProduct({ childCategoryId: v })}
-            />
+            {(() => {
+              // Effective parent: prefer the locally-queued value so child options
+              // update instantly when parent changes (before save+refetch).
+              const effectiveCatId =
+                (pendingProduct.categoryId ?? product.categoryId) || 0;
+              // Effective child: prefer locally-queued value; null means cleared.
+              const effectiveChildId =
+                "childCategoryId" in pendingProduct
+                  ? pendingProduct.childCategoryId
+                  : product.childCategoryId;
+              return (
+                <InlineSelect
+                  label="Child Category"
+                  value={effectiveChildId}
+                  options={childCats(effectiveCatId).map((c) => ({
+                    id: c.categoryId,
+                    name: c.name,
+                  }))}
+                  onSave={(v) => queueProduct({ childCategoryId: v })}
+                />
+              );
+            })()}
           </div>
 
           {/* ── Variant swatches (like user-side colour picker) ────────────── */}

@@ -975,16 +975,18 @@ export default function ProductCard({
                         }
                       />
                     ))}
-                  </div>
 
-                  {colorVariants.length > 1 && (
-                    <span
-                      className="pc-color-count"
-                      title={`${colorVariants.length} colors`}
-                    >
-                      {colorVariants.length}
-                    </span>
-                  )}
+                    {colorVariants.length > 1 &&
+                      !hasScrollableColors &&
+                      !isOverflowing && (
+                        <span
+                          className="pc-color-count"
+                          title={`${colorVariants.length} colors`}
+                        >
+                          ({colorVariants.length})
+                        </span>
+                      )}
+                  </div>
 
                   {(hasScrollableColors || isOverflowing) && (
                     <button
@@ -995,6 +997,16 @@ export default function ProductCard({
                       <i className="bi bi-chevron-right" />
                     </button>
                   )}
+
+                  {colorVariants.length > 1 &&
+                    (hasScrollableColors || isOverflowing) && (
+                      <span
+                        className="pc-color-count pc-color-count--after-arrow"
+                        title={`${colorVariants.length} colors`}
+                      >
+                        ({colorVariants.length})
+                      </span>
+                    )}
                 </div>
               ) : (
                 <div style={{ flex: 1 }} />
