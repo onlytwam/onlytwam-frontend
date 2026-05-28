@@ -31,6 +31,10 @@ import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
+import {
+  getCheapestPvdRow,
+  getCheapestVariant,
+} from "@/features/products/utils/productPricing";
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
@@ -395,6 +399,8 @@ export default function ProductDetail() {
     x: number;
     y: number;
   } | null>(null);
+  const defaultPvdAppliedForRef = useRef<number | null>(null);
+  const defaultColorAppliedForProductRef = useRef<number | null>(null);
 
   /* ── Thumbnail Pagination & Scrolling Logic ── */
   const thumbScrollRef = useRef<HTMLDivElement>(null);
@@ -572,6 +578,7 @@ export default function ProductDetail() {
       setSelBandId(null);
       setSelCupId(null);
       setSelectedPVDId(null);
+      defaultPvdAppliedForRef.current = null;
       setActiveImg(0);
       if (activeTabRef.current !== "reviews") {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -692,6 +699,32 @@ export default function ProductDetail() {
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
 
   useEffect(() => {
+    if (!product?.productId || !colors.length) return;
+    if (defaultColorAppliedForProductRef.current === product.productId) return;
+
+    const cheapestColor = getCheapestVariant(colors);
+    const cheapestVariantId = Number(cheapestColor?.productVariantId || 0);
+    defaultColorAppliedForProductRef.current = product.productId;
+
+    if (cheapestVariantId > 0 && cheapestVariantId !== currentVId) {
+      setCurrentVId(cheapestVariantId);
+      navigate(
+        `/user-products/product-detail/${cheapestVariantId}/${slugify(
+          product?.name || "product",
+        )}`,
+        { replace: true, state: location.state },
+      );
+    }
+  }, [
+    colors,
+    currentVId,
+    location.state,
+    navigate,
+    product?.name,
+    product?.productId,
+  ]);
+
+  useEffect(() => {
     if (!isMobileViewport) {
       setShowStickyActions(false);
       return;
@@ -810,14 +843,6 @@ export default function ProductDetail() {
     star: n,
     count: reviews.filter((r: any) => r.rating === n).length,
   }));
-  const discount =
-    (product?.originalPrice || 0) > (product?.price || 0)
-      ? Math.round(
-          ((product.originalPrice - product.price) / product.originalPrice) *
-            100,
-        )
-      : 0;
-
   // hasCupSize is computed server-side from the product's own PVD rows
   // (true when any PVD row has a CupSizeId). allSizes are pre-filtered by
   // the detected SizeType (alpha or numerical) from the product's PVD data.
@@ -826,6 +851,22 @@ export default function ProductDetail() {
   const rawSizes: any[] = product?.sizes ?? [];
   const allCupSizes: any[] = product?.cupSizes ?? [];
   const pvdMatrix: any[] = product?.pvdMatrix ?? [];
+  const defaultPvdRow = useMemo(
+    () => getCheapestPvdRow(pvdMatrix),
+    [pvdMatrix],
+  );
+
+  useEffect(() => {
+    if (!defaultPvdRow || defaultPvdAppliedForRef.current === currentVId) {
+      return;
+    }
+
+    defaultPvdAppliedForRef.current = currentVId;
+    setSelBandId(defaultPvdRow.sizeId ?? null);
+    setSelCupId(defaultPvdRow.cupSizeId ?? null);
+    setSelectedPVDId(defaultPvdRow.productVariantDetailId ?? null);
+    setQuantity(1);
+  }, [currentVId, defaultPvdRow]);
 
   // Sizes and cup sizes are pre-filtered server-side by the category's bandSizeType
   // and hasCupSize — use them as-is.
@@ -856,6 +897,12 @@ export default function ProductDetail() {
   );
   const dispPrice = selPvdRow?.finalPrice ?? product?.price ?? 0;
   const dispMrp = selPvdRow?.mrpPrice ?? product?.originalPrice ?? 0;
+  const displayPrice = Number(dispPrice ?? product?.price ?? 0);
+  const displayMrp = Number(dispMrp ?? product?.originalPrice ?? 0);
+  const displayDiscount =
+    displayMrp > displayPrice
+      ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100)
+      : 0;
   const selStock =
     selPvdRow?.stock ??
     (selBandId && !hasCupSize
@@ -1193,7 +1240,7 @@ export default function ProductDetail() {
       stockQuantity: selStock ?? null,
       processedQuantity: quantity,
       returnedQuantity: null,
-      discountPercent: discount || null,
+      discountPercent: displayDiscount || null,
       mrpPrice: dispMrp || null,
       finalPrice: dispPrice || null,
       personalId: null,
@@ -1606,7 +1653,7 @@ export default function ProductDetail() {
           </div>
 
           {/* RIGHT: scrollable info */}
-          <div>
+          <div className="pd-right-col">
             <div className="s-productdetai-a5163d">
               <div className="s-userdashboar-7aa8c4">
                 {product.brandName && (
@@ -1664,20 +1711,26 @@ export default function ProductDetail() {
                   </button>
                 </div>
                 <div
-                  className="s-productdetai-088cf9"
+                  className={`s-productdetai-088cf9${
+                    totalReviews > 0 ? "" : " is-empty"
+                  }`}
                   onClick={() => {
                     document
                       .getElementById("pd-reviews-section")
                       ?.scrollIntoView({ behavior: "smooth" });
                   }}
                 >
-                  <Stars rating={avgRating} size={13} />
-                  {avgRating > 0 && (
-                    <span className="s-productdetai-cf3f7f s-productdetai-ffe77190">
-                      {avgRating.toFixed(1)}
-                    </span>
+                  {totalReviews > 0 && (
+                    <>
+                      <Stars rating={avgRating} size={13} />
+                      {avgRating > 0 && (
+                        <span className="s-productdetai-cf3f7f s-productdetai-ffe77190">
+                          {avgRating.toFixed(1)}
+                        </span>
+                      )}
+                      <span className="s-productdetai-465cd0" />
+                    </>
                   )}
-                  <span className="s-productdetai-465cd0" />
                   <span className="s-productdetai-4ed7ad s-productdetai-ffe77190">
                     {totalReviews > 0
                       ? `${totalReviews} Review${totalReviews !== 1 ? "s" : ""}`
@@ -1695,15 +1748,15 @@ export default function ProductDetail() {
 
             <div className="s-productdetai-404819">
               <span className="s-productdetai-4a68f9 s-productdetai-ff85a0a9">
-                {formatPrice(product.price || 0)}
+                {formatPrice(displayPrice)}
               </span>
-              {(product.originalPrice || 0) > (product.price || 0) && (
+              {displayMrp > displayPrice && (
                 <>
                   <span className="s-productdetai-b1cd3b s-productdetai-ffe77190">
-                    {formatPrice(product.originalPrice)}
+                    {formatPrice(displayMrp)}
                   </span>
                   <span className="s-productdetai-d3ead5 s-productdetai-ffe77190">
-                    {discount}% OFF
+                    {displayDiscount}% OFF
                   </span>
                 </>
               )}
@@ -2003,18 +2056,19 @@ export default function ProductDetail() {
                         +
                       </button>
                     </div>
-                    {isMobileViewport && (
-                      <div className="pd-mobile-qty-price" aria-live="polite">
-                        <span className="pd-mobile-qty-price__label">
-                          Price
-                        </span>
-                        <span className="pd-mobile-qty-price__value">
-                          {formatPrice(
-                            (dispPrice || product?.price || 0) * quantity,
-                          )}
-                        </span>
-                      </div>
-                    )}
+                    <div
+                      className="pd-qty-price pd-mobile-qty-price"
+                      aria-live="polite"
+                    >
+                      <span className="pd-qty-price__label pd-mobile-qty-price__label">
+                        Selling Price
+                      </span>
+                      <span className="pd-qty-price__value pd-mobile-qty-price__value">
+                        {formatPrice(
+                          (dispPrice || product?.price || 0) * quantity,
+                        )}
+                      </span>
+                    </div>
                     {showStockTip && selStock !== null && (
                       <div className="s-productdetai-0f3955">
                         {selStock} available

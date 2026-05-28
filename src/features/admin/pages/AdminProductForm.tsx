@@ -57,8 +57,8 @@ const vdSchema = z.object({
   mrpPrice: z.coerce.number().min(1, "MRP is required"),
   discountPercent: z.coerce.number().min(0).max(100).optional().nullable(),
   finalPrice: z.coerce.number().min(1, "Final price is required"),
-  cgst: z.coerce.number().min(0, "CGST is required"),
-  sgst: z.coerce.number().min(0, "SGST is required"),
+  cgst: z.coerce.number().min(0).optional().default(0), // auto-computed from TaxHSNCode
+  sgst: z.coerce.number().min(0).optional().default(0), // auto-computed from TaxHSNCode
   availableStockQuantity: z.coerce.number().optional().nullable(),
   processedStockQuantity: z.coerce.number().optional().nullable(),
   amendmentStockQuantity: z.coerce.number().optional().nullable(),
@@ -2257,35 +2257,46 @@ export default function AdminProductForm() {
                   </Field>
                 </div>
 
-                <div style={grid3}>
-                  <Field
-                    label="CGST"
-                    required
-                    error={eVD.cgst?.message as string}
-                  >
+                {/* CGST / SGST — auto-computed server-side from product's TaxHSNCode */}
+                <div style={{ ...grid3, opacity: 0.7 }}>
+                  <Field label="CGST % (auto)">
                     <input
                       type="number"
                       {...rVD("cgst", { valueAsNumber: true })}
-                      style={inp}
-                      placeholder="e.g. 6"
-                      min="0"
-                      step="0.01"
+                      style={{
+                        ...inp,
+                        background: "#f9fafb",
+                        cursor: "not-allowed",
+                      }}
+                      readOnly
+                      tabIndex={-1}
+                      title="Auto-computed from product's TaxHSNCode — not editable"
                     />
                   </Field>
-                  <Field
-                    label="SGST"
-                    required
-                    error={eVD.sgst?.message as string}
-                  >
+                  <Field label="SGST % (auto)">
                     <input
                       type="number"
                       {...rVD("sgst", { valueAsNumber: true })}
-                      style={inp}
-                      placeholder="e.g. 6"
-                      min="0"
-                      step="0.01"
+                      style={{
+                        ...inp,
+                        background: "#f9fafb",
+                        cursor: "not-allowed",
+                      }}
+                      readOnly
+                      tabIndex={-1}
+                      title="Auto-computed from product's TaxHSNCode — not editable"
                     />
                   </Field>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#6b7280",
+                      alignSelf: "end",
+                      paddingBottom: 4,
+                    }}
+                  >
+                    Set via product's HSN Code
+                  </div>
                 </div>
 
                 <div style={grid3}>

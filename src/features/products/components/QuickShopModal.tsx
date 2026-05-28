@@ -16,6 +16,10 @@ import { formatPrice, getImageUrl, slugify } from "@/shared/utils/helpers";
 
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { setBuyNowSession } from "@/shared/utils/checkoutSession";
+import {
+  getCheapestPvdRow,
+  getCheapestVariant,
+} from "@/features/products/utils/productPricing";
 
 interface Props {
   productVariantId: number;
@@ -120,6 +124,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const [canScrollRight, setCanScrollRight] = useState(false);
   const imgPaused = useRef(false);
   const thumbsRef = useRef<HTMLDivElement | null>(null);
+  const defaultPvdAppliedForRef = useRef<number | null>(null);
+  const defaultColorAppliedForProductRef = useRef<number | null>(null);
 
   // ── useWishlistToggle handles both guest and auth correctly ──
   const { inWishlist, toggle: toggleWishlist } = useWishlistToggle(variantId);
@@ -131,9 +137,16 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   });
 
   useEffect(() => {
+    setVariantId(productVariantId);
+    defaultColorAppliedForProductRef.current = null;
+    defaultPvdAppliedForRef.current = null;
+  }, [productVariantId]);
+
+  useEffect(() => {
     setSelBandId(null);
     setSelCupId(null);
     setSelPVDId(null);
+    defaultPvdAppliedForRef.current = null;
     setQty(1);
     setImgIdx(0);
   }, [variantId]);
@@ -243,6 +256,20 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const colors: any[] = (product?.colors ?? []).filter(
     (c: any) => c.isActive !== false,
   );
+
+  useEffect(() => {
+    if (!product?.productId || !colors.length) return;
+    if (defaultColorAppliedForProductRef.current === product.productId) return;
+
+    const cheapestColor = getCheapestVariant(colors);
+    const cheapestVariantId = Number(cheapestColor?.productVariantId || 0);
+    defaultColorAppliedForProductRef.current = product.productId;
+
+    if (cheapestVariantId > 0 && cheapestVariantId !== variantId) {
+      setVariantId(cheapestVariantId);
+    }
+  }, [colors, product?.productId, variantId]);
+
   const selectedColorSwatch = colors.find(
     (c: any) => c.productVariantId === variantId,
   );
@@ -253,6 +280,19 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   // Sizes are pre-filtered server-side by detected SizeType from PVD data.
   // No client-side filtering needed.
   const allSizes: any[] = rawSizes;
+  const defaultPvdRow = getCheapestPvdRow(pvdMatrix);
+
+  useEffect(() => {
+    if (!defaultPvdRow || defaultPvdAppliedForRef.current === variantId) {
+      return;
+    }
+
+    defaultPvdAppliedForRef.current = variantId;
+    setSelBandId(defaultPvdRow.sizeId ?? null);
+    setSelCupId(defaultPvdRow.cupSizeId ?? null);
+    setSelPVDId(defaultPvdRow.productVariantDetailId ?? null);
+    setQty(1);
+  }, [defaultPvdRow, variantId]);
 
   const cupAvail = (cupId: number) => {
     if (!selBandId) {

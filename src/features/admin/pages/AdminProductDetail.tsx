@@ -1041,8 +1041,7 @@ function SizePalette({
       stockQuantity: 0,
       mrpPrice: 0,
       finalPrice: 0,
-      cgst: 0,
-      sgst: 0,
+      // cgst/sgst auto-computed server-side from TaxHSNCode — not set here
     });
   }
 
@@ -1594,8 +1593,110 @@ function SizePalette({
               })()}
             </div>
           </div>
-          {addNumField("cgst", "CGST %")}
-          {addNumField("sgst", "SGST %")}
+          {/* CGST / SGST are auto-computed from TaxHSNCode — read-only */}
+          {(() => {
+            const price = addForm.finalPrice || 0;
+            // Show computed values when they exist on the form state (set by TaxHSNCode)
+            const cgstVal = addForm.cgst ?? 0;
+            const sgstVal = addForm.sgst ?? 0;
+            const cgstAmt =
+              price > 0 && cgstVal > 0
+                ? ((price * cgstVal) / 100).toFixed(2)
+                : null;
+            const sgstAmt =
+              price > 0 && sgstVal > 0
+                ? ((price * sgstVal) / 100).toFixed(2)
+                : null;
+            return (
+              <div
+                style={{
+                  gridColumn: "1/-1",
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: SUB,
+                      marginBottom: 3,
+                    }}
+                  >
+                    CGST %
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#374151",
+                      background: "#f9fafb",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 4,
+                      padding: "4px 8px",
+                    }}
+                  >
+                    {cgstVal ? `${cgstVal}%` : "—"}
+                    {cgstAmt && (
+                      <span
+                        style={{
+                          color: "#6b7280",
+                          marginLeft: 6,
+                          fontWeight: 400,
+                        }}
+                      >
+                        (₹{cgstAmt})
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
+                    Auto from HSN Code
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: SUB,
+                      marginBottom: 3,
+                    }}
+                  >
+                    SGST %
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#374151",
+                      background: "#f9fafb",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 4,
+                      padding: "4px 8px",
+                    }}
+                  >
+                    {sgstVal ? `${sgstVal}%` : "—"}
+                    {sgstAmt && (
+                      <span
+                        style={{
+                          color: "#6b7280",
+                          marginLeft: 6,
+                          fontWeight: 400,
+                        }}
+                      >
+                        (₹{sgstAmt})
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
+                    Auto from HSN Code
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           {/* Stock ID */}
           <div style={{ gridColumn: "1/-1" }}>
             <div
@@ -2570,6 +2671,116 @@ function SizePalette({
               </div>
             );
           })()}
+
+          {/* FIX (Req 3): Show CGST / SGST computed values for the selected size.
+              These are stored in ProductVariantDetail.CGST/SGST at create/update time
+              via _auto_compute_tax(). Previously they were only shown in the Add form. */}
+          {(activePvd.cgst > 0 || activePvd.sgst > 0) && (
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 10,
+                borderTop: `1px dashed ${BDR}`,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: SUB,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginBottom: 8,
+                }}
+              >
+                Tax (Auto from HSN Code)
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "6px 24px",
+                }}
+              >
+                {activePvd.cgst > 0 && (
+                  <div>
+                    <div style={{ fontSize: 10, color: SUB, marginBottom: 2 }}>
+                      CGST %
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#1a1a2e",
+                        background: "#f0f4ff",
+                        borderRadius: 6,
+                        padding: "3px 10px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {activePvd.cgst}%
+                      {activePvd.finalPrice > 0 && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "#6b7280",
+                            fontWeight: 400,
+                          }}
+                        >
+                          (₹
+                          {(
+                            (activePvd.finalPrice * activePvd.cgst) /
+                            100
+                          ).toFixed(2)}
+                          )
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {activePvd.sgst > 0 && (
+                  <div>
+                    <div style={{ fontSize: 10, color: SUB, marginBottom: 2 }}>
+                      SGST %
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#1a1a2e",
+                        background: "#f0f4ff",
+                        borderRadius: 6,
+                        padding: "3px 10px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {activePvd.sgst}%
+                      {activePvd.finalPrice > 0 && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "#6b7280",
+                            fontWeight: 400,
+                          }}
+                        >
+                          (₹
+                          {(
+                            (activePvd.finalPrice * activePvd.sgst) /
+                            100
+                          ).toFixed(2)}
+                          )
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -3620,6 +3831,11 @@ export default function AdminProductDetail() {
       await api.put(`/Products/${productId}`, { ...product, ...data });
       updatedToast();
       refetchProduct();
+      refetchPvd();
+      // Invalidate the size palette cache for ALL variants of this product so
+      // CGST/SGST values (recalculated server-side after HSN change) are shown
+      // immediately without a manual page refresh.
+      qc.invalidateQueries({ queryKey: ["admin-size-palette"] });
       qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
     } catch {
       toast.error("Save failed");
@@ -4062,6 +4278,46 @@ export default function AdminProductDetail() {
             }))}
             onSave={(v) => queueProduct({ taxHSNCodeId: v })}
           />
+
+          {/* Recalculate Taxes button — fixes existing PVDs with missing CGST/SGST */}
+          {product.taxHSNCodeId && (
+            <div style={{ marginBottom: 8 }}>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.post(
+                      `/Products/${productId}/recalculate-taxes`,
+                    );
+                    const { updated = 0, skipped = 0 } = res.data ?? {};
+                    toast.success(
+                      `Taxes recalculated — ${updated} size(s) updated${
+                        skipped ? `, ${skipped} skipped (no price)` : ""
+                      }`,
+                    );
+                    refetchPvd();
+                    qc.invalidateQueries({ queryKey: ["admin-size-palette"] });
+                  } catch {
+                    toast.error("Recalculate failed — check HSN code setup");
+                  }
+                }}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#1d4ed8",
+                  background: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: 6,
+                  padding: "4px 12px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                ⟳ Recalculate CGST / SGST for all sizes
+              </button>
+            </div>
+          )}
 
           {/* Price summary from selected variant's first PVD */}
           {pvds.length > 0 && (

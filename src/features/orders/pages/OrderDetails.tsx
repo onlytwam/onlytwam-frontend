@@ -251,6 +251,75 @@ export default function OrderDetails() {
                   </span>
                 </div>
               ))}
+
+            {/* CGST / SGST — computed from order items, shown as informational */}
+            {(() => {
+              const items: any[] = order.orderItems || [];
+              const cgst =
+                (order as any).cgstTotal ??
+                items.reduce(
+                  (s: number, i: any) =>
+                    s +
+                    (i.cgstAmount ||
+                      ((i.cgst || 0) * (i.finalPrice || 0)) / 100 ||
+                      0) *
+                      (i.quantity || 1),
+                  0,
+                );
+              const sgst =
+                (order as any).sgstTotal ??
+                items.reduce(
+                  (s: number, i: any) =>
+                    s +
+                    (i.sgstAmount ||
+                      ((i.sgst || 0) * (i.finalPrice || 0)) / 100 ||
+                      0) *
+                      (i.quantity || 1),
+                  0,
+                );
+              if (cgst <= 0 && sgst <= 0) return null;
+              return (
+                <div
+                  style={{
+                    borderTop: "1px dashed #e5e7eb",
+                    marginTop: 6,
+                    paddingTop: 6,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: "#6b7280",
+                      margin: "0 0 4px",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Taxes included in MRP
+                  </p>
+                  {cgst > 0 && (
+                    <div className="d-flex justify-content-between py-1">
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>
+                        CGST (incl. in MRP)
+                      </span>
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>
+                        {formatPrice(cgst)}
+                      </span>
+                    </div>
+                  )}
+                  {sgst > 0 && (
+                    <div className="d-flex justify-content-between py-1">
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>
+                        SGST (incl. in MRP)
+                      </span>
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>
+                        {formatPrice(sgst)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="d-flex justify-content-between pt-2 mt-1 border-top s-orderdetails-7b45f4">
               <span>Total</span>
               <span>{formatPrice(order.totalAmount || 0)}</span>

@@ -77,6 +77,8 @@ export default function ShippingOption() {
   });
 
   const subTotal = checkoutSession?.subTotal ?? getSubTotal();
+  const cgstTotal = checkoutSession?.cgstTotal ?? 0;
+  const sgstTotal = checkoutSession?.sgstTotal ?? 0;
   const cartValue = Number(subTotal || 0);
 
   // FIX: NEVER fall back to getSelectedItems() here.
@@ -212,6 +214,8 @@ export default function ShippingOption() {
       items: checkoutItems,
       subTotal,
       shipping: option,
+      cgstTotal,
+      sgstTotal,
     });
 
     navigate("/user-products/payment" + (isBuyNow ? "?buyNow=1" : ""));
@@ -397,6 +401,24 @@ export default function ShippingOption() {
                     },
                   ]
                 : []),
+              ...(cgstTotal > 0
+                ? [
+                    {
+                      label: "CGST (incl. in MRP)",
+                      value: `Rs.${cgstTotal.toFixed(2)}`,
+                      muted: true,
+                    },
+                  ]
+                : []),
+              ...(sgstTotal > 0
+                ? [
+                    {
+                      label: "SGST (incl. in MRP)",
+                      value: `Rs.${sgstTotal.toFixed(2)}`,
+                      muted: true,
+                    },
+                  ]
+                : []),
               {
                 label: "Shipping",
                 value: activeSelectedOpt
@@ -413,12 +435,27 @@ export default function ShippingOption() {
                     },
                   ]
                 : []),
-            ].map(({ label, value }) => (
-              <div key={label} className="s-shippingopti-7d9011">
-                <span className="s-adminbrands-95b451">{label}</span>
+            ].map(({ label, value, muted }: any) => (
+              <div
+                key={label}
+                className="s-shippingopti-7d9011"
+                style={muted ? { opacity: 0.65, fontSize: 12 } : undefined}
+              >
+                <span
+                  className="s-adminbrands-95b451"
+                  style={muted ? { color: "#6b7280" } : undefined}
+                >
+                  {label}
+                </span>
                 <span
                   style={{
-                    color: label === "Discount" ? "var(--heirloom)" : "#000000",
+                    color:
+                      label === "Discount"
+                        ? "var(--heirloom)"
+                        : muted
+                        ? "#6b7280"
+                        : "#000000",
+                    fontSize: muted ? 12 : undefined,
                   }}
                 >
                   {value}

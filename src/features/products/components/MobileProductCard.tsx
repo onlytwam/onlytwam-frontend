@@ -13,11 +13,12 @@
  *   └────────────────────────┘
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { slugify, getImageUrl } from "@/shared/utils/helpers";
+import { getDefaultProductVariant } from "@/features/products/utils/productPricing";
 
 interface Props {
   product: any;
@@ -27,63 +28,76 @@ interface Props {
 export default function MobileProductCard({ product }: Props) {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
+  const displayProduct = useMemo(
+    () => getDefaultProductVariant(product),
+    [product],
+  );
 
   const rawSrc =
-    product.image ||
-    product.imageUrl ||
-    product.imageURL ||
-    product.productImage ||
-    product.selectedImage ||
-    product.thumbnail ||
-    (Array.isArray(product.images) ? product.images[0] : "") ||
+    displayProduct.image ||
+    displayProduct.imageUrl ||
+    displayProduct.imageURL ||
+    displayProduct.productImage ||
+    displayProduct.selectedImage ||
+    displayProduct.thumbnail ||
+    (Array.isArray(displayProduct.images) ? displayProduct.images[0] : "") ||
     "";
   const imgSrc = imgError ? "/assets/category-bg.png" : getImageUrl(rawSrc);
 
   const displayName =
-    product.name || product.productName || product.variantName || "";
+    displayProduct.name ||
+    displayProduct.productName ||
+    displayProduct.variantName ||
+    "";
   const brandLabel =
-    product.brandName || product.brand || product.brandTitle || "";
+    displayProduct.brandName ||
+    displayProduct.brand ||
+    displayProduct.brandTitle ||
+    "";
 
-  const price = Number(product.price ?? product.finalPrice ?? 0);
-  const oldPrice = Number(product.oldPrice ?? product.mrpPrice ?? 0);
+  const price = Number(displayProduct.price ?? displayProduct.finalPrice ?? 0);
+  const oldPrice = Number(displayProduct.oldPrice ?? displayProduct.mrpPrice ?? 0);
   const hasDiscount = oldPrice > 0 && oldPrice > price;
   const discountPct = hasDiscount
     ? Math.round(((oldPrice - price) / oldPrice) * 100)
     : 0;
 
   const rating = Number(
-    product.rating || product.avgRating || product.averageRating || 0,
+    displayProduct.rating ||
+      displayProduct.avgRating ||
+      displayProduct.averageRating ||
+      0,
   );
   const reviewCount =
-    product.reviewCount ||
-    product.totalReviews ||
-    product.ratingCount ||
-    product.reviewsCount ||
-    product.numReviews ||
+    displayProduct.reviewCount ||
+    displayProduct.totalReviews ||
+    displayProduct.ratingCount ||
+    displayProduct.reviewsCount ||
+    displayProduct.numReviews ||
     0;
 
   const {
     inWishlist,
     toggle: toggleWishlist,
     isPending,
-  } = useWishlistToggle(product.productVariantId);
+  } = useWishlistToggle(displayProduct.productVariantId);
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     toggleWishlist({
-      productId: product.productId,
-      productVariantId: product.productVariantId,
-      productVariantDetailId: product.productVariantDetailId,
+      productId: displayProduct.productId,
+      productVariantId: displayProduct.productVariantId,
+      productVariantDetailId: displayProduct.productVariantDetailId,
       name: displayName,
       price,
       oldPrice,
       image: rawSrc,
-      hoverImage: product.hoverImage || product.secondaryImage || "",
+      hoverImage: displayProduct.hoverImage || displayProduct.secondaryImage || "",
       images: [],
-      color: product.colorName || "",
-      colorName: product.colorName || "",
-      colorHex: product.colorHex || "",
+      color: displayProduct.colorName || displayProduct.color || "",
+      colorName: displayProduct.colorName || displayProduct.color || "",
+      colorHex: displayProduct.colorHex || "",
       brandName: brandLabel,
       rating,
       reviewCount,
@@ -94,7 +108,7 @@ export default function MobileProductCard({ product }: Props) {
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}/user-products/product-detail/${
-      product.productVariantId
+      displayProduct.productVariantId
     }/${slugify(displayName)}`;
     try {
       if (navigator.share) await navigator.share({ title: displayName, url });
@@ -107,9 +121,9 @@ export default function MobileProductCard({ product }: Props) {
 
   const goToDetail = () =>
     navigate(
-      `/user-products/product-detail/${product.productVariantId}/${slugify(
-        displayName,
-      )}`,
+      `/user-products/product-detail/${
+        displayProduct.productVariantId
+      }/${slugify(displayName)}`,
     );
 
   // Rating: ★ 4.1 | 15

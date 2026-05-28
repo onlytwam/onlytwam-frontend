@@ -755,19 +755,228 @@ function AdminFabric() {
 }
 
 // ─── Tax HSN Code Section ─────────────────────────────────────────────────────
+const slabSchema = z.object({
+  minPrice: z.coerce.number().min(0, "Min ≥ 0"),
+  maxPrice: z.coerce.number().min(0).nullable().optional(),
+  cgst: z.coerce.number().min(0, "Min 0").max(100, "Max 100"),
+  sgst: z.coerce.number().min(0, "Min 0").max(100, "Max 100"),
+  description: z.string().optional().nullable(),
+});
+
 const hsnSchema = z.object({
   hsnCode: z.string().min(1, "HSN Code is required"),
   hsnDescription: z.string().min(1, "HSN Description is required"),
-  cgst: z.coerce.number().min(0, "Minimum 0").max(100, "Maximum 100"),
-  sgst: z.coerce.number().min(0, "Minimum 0").max(100, "Maximum 100"),
+  slab1: slabSchema,
+  slab2: slabSchema.nullable().optional(),
+  slab3: slabSchema.nullable().optional(),
 });
 type HSNForm = z.infer<typeof hsnSchema>;
+
+const DEFAULT_SLAB1 = {
+  minPrice: 0,
+  maxPrice: 1000,
+  cgst: 2.5,
+  sgst: 2.5,
+  description: "Sale value ≤ ₹1,000 — 5% GST",
+};
+const DEFAULT_SLAB2 = {
+  minPrice: 1000.01,
+  maxPrice: null,
+  cgst: 6,
+  sgst: 6,
+  description: "Sale value > ₹1,000 — 12% GST",
+};
+
+function SlabFields({
+  prefix,
+  label,
+  register,
+  errors,
+  watch,
+  optional = false,
+  enabled,
+  onToggle,
+}: {
+  prefix: "slab1" | "slab2" | "slab3";
+  label: string;
+  register: any;
+  errors: any;
+  watch: any;
+  optional?: boolean;
+  enabled?: boolean;
+  onToggle?: () => void;
+}) {
+  const cgst = watch(`${prefix}.cgst`) || 0;
+  const sgst = watch(`${prefix}.sgst`) || 0;
+  const total = (Number(cgst) + Number(sgst)).toFixed(2);
+
+  if (optional && !enabled) {
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{
+            background: "none",
+            border: "1px dashed #ccc",
+            borderRadius: 8,
+            padding: "10px 18px",
+            cursor: "pointer",
+            color: "#888",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <i className="bi bi-plus" /> Add {label}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        border: "1px solid #eee",
+        borderRadius: 10,
+        padding: "14px 16px",
+        marginBottom: 16,
+        background: optional ? "#fafafa" : "#fff",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 12,
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: 13, color: "#333" }}>
+          {label}
+        </span>
+        {optional && (
+          <button
+            type="button"
+            onClick={onToggle}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#aaa",
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        )}
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+          gap: "0 16px",
+        }}
+      >
+        <Field
+          label="Min Price (₹)"
+          error={errors?.[prefix]?.minPrice?.message}
+        >
+          <input
+            {...register(`${prefix}.minPrice`, { valueAsNumber: true })}
+            type="number"
+            step="0.01"
+            min={0}
+            style={inp}
+            placeholder="0"
+          />
+        </Field>
+        <Field
+          label="Max Price (₹) — blank = no limit"
+          error={errors?.[prefix]?.maxPrice?.message}
+        >
+          <input
+            {...register(`${prefix}.maxPrice`, {
+              setValueAs: (v: any) =>
+                v === "" || v == null ? null : Number(v),
+            })}
+            type="number"
+            step="0.01"
+            min={0}
+            style={inp}
+            placeholder="e.g. 1000"
+          />
+        </Field>
+        <Field label="CGST (%)" error={errors?.[prefix]?.cgst?.message}>
+          <input
+            {...register(`${prefix}.cgst`, { valueAsNumber: true })}
+            type="number"
+            step="0.01"
+            min={0}
+            max={100}
+            style={inp}
+            placeholder="e.g. 2.5"
+          />
+        </Field>
+        <Field label="SGST (%)" error={errors?.[prefix]?.sgst?.message}>
+          <input
+            {...register(`${prefix}.sgst`, { valueAsNumber: true })}
+            type="number"
+            step="0.01"
+            min={0}
+            max={100}
+            style={inp}
+            placeholder="e.g. 2.5"
+          />
+        </Field>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 4,
+          marginBottom: 10,
+          background: "#f0f7ff",
+          borderRadius: 6,
+          padding: "8px 12px",
+        }}
+      >
+        <i
+          className="bi bi-calculator"
+          style={{ color: "#1565c0", fontSize: 13 }}
+        />
+        <span style={{ fontSize: 12, color: "#555" }}>Total GST:</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#1565c0" }}>
+          {total}%
+        </span>
+        <span style={{ fontSize: 11, color: "#aaa", marginLeft: 2 }}>
+          (CGST {Number(cgst).toFixed(2)}% + SGST {Number(sgst).toFixed(2)}%)
+        </span>
+      </div>
+      <Field
+        label="Slab Description (optional)"
+        error={errors?.[prefix]?.description?.message}
+      >
+        <input
+          {...register(`${prefix}.description`)}
+          style={inp}
+          placeholder="e.g. Sale value ≤ ₹1,000 — 5% GST"
+        />
+      </Field>
+    </div>
+  );
+}
 
 function AdminTaxHSNCode() {
   const qc = useQueryClient();
   const [editItem, setEditItem] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showSlab2, setShowSlab2] = useState(false);
+  const [showSlab3, setShowSlab3] = useState(false);
 
   const editItemRef = useRef<any>(null);
   useEffect(() => {
@@ -793,23 +1002,54 @@ function AdminTaxHSNCode() {
     resolver: zodResolver(hsnSchema) as Resolver<HSNForm>,
   });
 
-  const cgst = watch("cgst") || 0;
-  const sgst = watch("sgst") || 0;
-  const totalGST = (Number(cgst) + Number(sgst)).toFixed(2);
-
   const openCreate = () => {
     setEditItem(null);
-    reset({ hsnCode: "", hsnDescription: "", cgst: 0, sgst: 0 });
+    setShowSlab2(false);
+    setShowSlab3(false);
+    reset({
+      hsnCode: "",
+      hsnDescription: "",
+      slab1: DEFAULT_SLAB1,
+      slab2: null,
+      slab3: null,
+    });
     setShowForm(true);
   };
 
   const openEdit = (item: any) => {
     setEditItem(item);
+    const hasSlab2 = !!item.slab2?.cgst;
+    const hasSlab3 = !!item.slab3?.cgst;
+    setShowSlab2(hasSlab2);
+    setShowSlab3(hasSlab3);
     reset({
       hsnCode: item.hsnCode ?? "",
       hsnDescription: item.hsnDescription ?? "",
-      cgst: Number(item.cgst) || 0,
-      sgst: Number(item.sgst) || 0,
+      slab1: {
+        minPrice: item.slab1?.minPrice ?? 0,
+        maxPrice: item.slab1?.maxPrice ?? null,
+        cgst: item.slab1?.cgst ?? 0,
+        sgst: item.slab1?.sgst ?? 0,
+        description: item.slab1?.description ?? "",
+      },
+      slab2: hasSlab2
+        ? {
+            minPrice: item.slab2.minPrice,
+            maxPrice: item.slab2.maxPrice ?? null,
+            cgst: item.slab2.cgst,
+            sgst: item.slab2.sgst,
+            description: item.slab2.description ?? "",
+          }
+        : null,
+      slab3: hasSlab3
+        ? {
+            minPrice: item.slab3.minPrice,
+            maxPrice: item.slab3.maxPrice ?? null,
+            cgst: item.slab3.cgst,
+            sgst: item.slab3.sgst,
+            description: item.slab3.description ?? "",
+          }
+        : null,
     });
     setShowForm(true);
     setTimeout(
@@ -834,18 +1074,13 @@ function AdminTaxHSNCode() {
         taxHSNCodeId: current?.taxHSNCodeId,
         hsnCode: formData.hsnCode,
         hsnDescription: formData.hsnDescription,
-        cgst: Number(formData.cgst),
-        sgst: Number(formData.sgst),
+        slab1: formData.slab1,
+        slab2: showSlab2 ? formData.slab2 : null,
+        slab3: showSlab3 ? formData.slab3 : null,
       };
-      console.log(
-        "Saving HSN — editItem:",
-        current,
-        "id:",
-        current?.taxHSNCodeId,
-      );
       return current
         ? api
-            .put(`/TaxHSNCode${current.taxHSNCodeId}/`, payload)
+            .put(`/TaxHSNCode/${current.taxHSNCodeId}`, payload)
             .then((r) => r.data)
         : api.post("/TaxHSNCode", payload).then((r) => r.data);
     },
@@ -856,14 +1091,8 @@ function AdminTaxHSNCode() {
       qc.invalidateQueries({ queryKey: ["taxHSNCodes"] });
       cancelForm();
     },
-    onError: (e: any) => {
-      console.error("Save error:", e?.response?.data);
-      toast.error(
-        e?.response?.data?.detail ||
-          JSON.stringify(e?.response?.data) ||
-          "Failed to save",
-      );
-    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.detail || "Failed to save HSN Code"),
   });
 
   const deleteHSN = useMutation({
@@ -873,10 +1102,8 @@ function AdminTaxHSNCode() {
       qc.invalidateQueries({ queryKey: ["taxHSNCodes"] });
       setDeleteId(null);
     },
-    onError: (e: any) => {
-      console.error("Delete error:", e?.response?.data);
-      toast.error(e?.response?.data?.detail || "Failed to delete HSN Code");
-    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.detail || "Failed to delete HSN Code"),
   });
 
   return (
@@ -886,16 +1113,18 @@ function AdminTaxHSNCode() {
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: "flex-start",
           marginBottom: 24,
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+          <h2
+            style={{ fontSize: 20, fontWeight: 700, color: "#111", margin: 0 }}
+          >
             Tax HSN Codes
           </h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#888" }}>
-            Manage HSN codes with CGST, SGST and Total GST rates
+          <p style={{ color: "#888", fontSize: 13, margin: "4px 0 0" }}>
+            Manage HSN codes with price-based GST slab rates
           </p>
         </div>
         {!showForm && (
@@ -905,15 +1134,15 @@ function AdminTaxHSNCode() {
               background: "#111",
               color: "#fff",
               border: "none",
-              padding: "10px 20px",
-              borderRadius: 6,
+              padding: "9px 18px",
+              borderRadius: 8,
               cursor: "pointer",
               fontSize: 13,
               fontFamily: "inherit",
-              fontWeight: 500,
               display: "flex",
               alignItems: "center",
               gap: 6,
+              fontWeight: 600,
             }}
           >
             <i className="bi bi-plus-lg" /> Add HSN Code
@@ -921,137 +1150,55 @@ function AdminTaxHSNCode() {
         )}
       </div>
 
-      {/* Inline Form */}
+      {/* Form */}
       {showForm && (
         <div
           id="hsn-form"
           style={{
             background: "#fff",
+            border: "1px solid #e8e8e8",
             borderRadius: 12,
-            border: "1px solid #e0e0e0",
-            padding: 28,
-            marginBottom: 24,
-            animation: "fadeIn .2s ease",
-            boxShadow: "0 2px 12px rgba(0,0,0,.06)",
+            padding: "24px 28px",
+            marginBottom: 28,
+            boxShadow: "0 2px 12px #0000000a",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 22,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  background: "#111",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <i
-                  className="bi bi-receipt"
-                  style={{ color: "#fff", fontSize: 16 }}
-                />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-                  {editItem ? "Edit HSN Code" : "Create New HSN Code"}
-                </h3>
-                <p style={{ margin: 0, fontSize: 12, color: "#999" }}>
-                  {editItem
-                    ? `Editing: ${editItem.hsnCode}`
-                    : "Fill in the tax details below"}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={cancelForm}
+          <div style={{ marginBottom: 20 }}>
+            <h3
               style={{
-                background: "none",
-                border: "none",
-                fontSize: 22,
-                cursor: "pointer",
-                color: "#999",
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#111",
+                margin: 0,
               }}
             >
-              ×
-            </button>
+              {editItem ? "Edit HSN Code" : "Create New HSN Code"}
+            </h3>
+            {editItem && (
+              <span style={{ fontSize: 12, color: "#aaa" }}>
+                Editing: {editItem.hsnCode}
+              </span>
+            )}
           </div>
 
-          <form
-            onSubmit={handleSubmit((data: HSNForm) => saveHSN.mutate(data))}
-          >
+          <form onSubmit={handleSubmit((d: HSNForm) => saveHSN.mutate(d))}>
+            {/* Basic info */}
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
                 gap: "0 24px",
+                marginBottom: 16,
               }}
             >
               <Field label="HSN Code *" error={errors.hsnCode?.message}>
                 <input
                   {...register("hsnCode")}
                   style={inp}
-                  placeholder="e.g. 5208, 6101"
+                  placeholder="e.g. 62121000"
                   autoFocus
                 />
               </Field>
-              <Field label="CGST (%) *" error={errors.cgst?.message}>
-                <input
-                  {...register("cgst", { valueAsNumber: true })}
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  max={100}
-                  style={inp}
-                  placeholder="e.g. 9"
-                />
-              </Field>
-              <Field label="SGST (%) *" error={errors.sgst?.message}>
-                <input
-                  {...register("sgst", { valueAsNumber: true })}
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  max={100}
-                  style={inp}
-                  placeholder="e.g. 9"
-                />
-              </Field>
-            </div>
-
-            {/* Live GST preview */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 16,
-                padding: "12px 16px",
-                background: "#f8f9fa",
-                borderRadius: 8,
-                border: "1px solid #e8e8e8",
-              }}
-            >
-              <i
-                className="bi bi-calculator"
-                style={{ color: "#888", fontSize: 15 }}
-              />
-              <span style={{ fontSize: 13, color: "#555" }}>Total GST:</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
-                {totalGST}%
-              </span>
-              <span style={{ fontSize: 12, color: "#aaa", marginLeft: 4 }}>
-                (CGST {Number(cgst).toFixed(2)}% + SGST{" "}
-                {Number(sgst).toFixed(2)}%)
-              </span>
             </div>
 
             <Field
@@ -1060,32 +1207,73 @@ function AdminTaxHSNCode() {
             >
               <textarea
                 {...register("hsnDescription")}
-                style={{ ...inp, minHeight: 80, resize: "vertical" }}
-                placeholder="e.g. Woven fabrics of cotton — plain weave, bleached"
+                style={{ ...inp, minHeight: 60, resize: "vertical" }}
+                placeholder="e.g. Bra / Brassiere"
               />
             </Field>
-            <div
-              style={{ borderTop: "1px solid #f0f0f0", margin: "4px 0 20px" }}
+
+            {/* Slab 1 */}
+            <SlabFields
+              prefix="slab1"
+              label="Slab 1 (required)"
+              register={register}
+              errors={errors}
+              watch={watch}
             />
-            <div
-              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
-            >
-              <button
-                type="button"
-                onClick={cancelForm}
-                style={{
-                  background: "#f5f5f5",
-                  color: "#444",
-                  border: "none",
-                  padding: "10px 20px",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  fontSize: 14,
+
+            {/* Slab 2 */}
+            <SlabFields
+              prefix="slab2"
+              label="Slab 2"
+              optional
+              register={register}
+              errors={errors}
+              watch={watch}
+              enabled={showSlab2}
+              onToggle={() => {
+                setShowSlab2(!showSlab2);
+                if (!showSlab2) {
+                  // pre-fill defaults
+                  reset((prev) => ({ ...prev, slab2: DEFAULT_SLAB2 }));
+                } else {
+                  reset((prev) => ({ ...prev, slab2: null }));
+                  setShowSlab3(false);
+                }
+              }}
+            />
+
+            {/* Slab 3 — only if slab 2 is present */}
+            {showSlab2 && (
+              <SlabFields
+                prefix="slab3"
+                label="Slab 3"
+                optional
+                register={register}
+                errors={errors}
+                watch={watch}
+                enabled={showSlab3}
+                onToggle={() => {
+                  setShowSlab3(!showSlab3);
+                  if (!showSlab3) {
+                    reset((prev) => ({
+                      ...prev,
+                      slab3: {
+                        minPrice: 0,
+                        maxPrice: null,
+                        cgst: 0,
+                        sgst: 0,
+                        description: "",
+                      },
+                    }));
+                  } else {
+                    reset((prev) => ({ ...prev, slab3: null }));
+                  }
                 }}
-              >
-                Cancel
-              </button>
+              />
+            )}
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
               <button
                 type="submit"
                 disabled={saveHSN.isPending}
@@ -1093,29 +1281,19 @@ function AdminTaxHSNCode() {
                   background: saveHSN.isPending ? "#555" : "#111",
                   color: "#fff",
                   border: "none",
-                  padding: "10px 24px",
-                  borderRadius: 6,
+                  padding: "10px 22px",
+                  borderRadius: 8,
                   cursor: saveHSN.isPending ? "not-allowed" : "pointer",
+                  fontSize: 13,
                   fontFamily: "inherit",
-                  fontWeight: 500,
-                  fontSize: 14,
+                  fontWeight: 600,
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: 6,
                 }}
               >
                 {saveHSN.isPending && (
-                  <span
-                    style={{
-                      width: 14,
-                      height: 14,
-                      border: "2px solid rgba(255,255,255,.3)",
-                      borderTopColor: "#fff",
-                      borderRadius: "50%",
-                      display: "inline-block",
-                      animation: "spin .7s linear infinite",
-                    }}
-                  />
+                  <span className="spinner-border spinner-border-sm" />
                 )}
                 {saveHSN.isPending
                   ? "Saving…"
@@ -1123,108 +1301,96 @@ function AdminTaxHSNCode() {
                   ? "Update HSN Code"
                   : "Create HSN Code"}
               </button>
+              <button
+                type="button"
+                onClick={cancelForm}
+                style={{
+                  background: "#f0f0f0",
+                  color: "#333",
+                  border: "none",
+                  padding: "10px 22px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* List */}
+      {/* Table */}
       <div
         style={{
           background: "#fff",
+          border: "1px solid #f0f0f0",
           borderRadius: 12,
-          border: "1px solid #eee",
           overflow: "hidden",
         }}
       >
         <div
           style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid #f0f0f0",
+            padding: "16px 20px",
+            borderBottom: "1px solid #f5f5f5",
             display: "flex",
-            alignItems: "center",
             justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <i className="bi bi-list-ul" style={{ color: "#888" }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#333" }}>
-              All HSN Codes
-            </span>
-            {!isLoading && (
-              <span
-                style={{
-                  background: "#f0f0f0",
-                  color: "#666",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: "2px 8px",
-                  borderRadius: 10,
-                }}
-              >
-                {hsnCodes.length}
-              </span>
-            )}
-          </div>
-          {showForm && (
-            <button
-              onClick={openCreate}
-              style={{
-                background: "none",
-                color: "#6A012A",
-                border: "1px solid #6A012A",
-                padding: "6px 14px",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: 12,
-                fontFamily: "inherit",
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              <i className="bi bi-plus" /> New
-            </button>
-          )}
+          <span style={{ fontWeight: 600, fontSize: 14, color: "#333" }}>
+            All HSN Codes
+          </span>
+          <span
+            style={{
+              background: "#f5f5f5",
+              color: "#555",
+              borderRadius: 20,
+              padding: "3px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {hsnCodes.length}
+          </span>
         </div>
 
         {isLoading ? (
-          <div style={{ padding: "60px 24px", textAlign: "center" }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                border: "3px solid #f0f0f0",
-                borderTopColor: "#111",
-                borderRadius: "50%",
-                animation: "spin .8s linear infinite",
-                margin: "0 auto 12px",
-              }}
-            />
-            <p style={{ margin: 0, color: "#aaa", fontSize: 13 }}>
-              Loading HSN Codes…
-            </p>
+          <div
+            style={{
+              padding: 40,
+              textAlign: "center",
+              color: "#999",
+              fontSize: 13,
+            }}
+          >
+            Loading HSN Codes…
           </div>
         ) : hsnCodes.length === 0 ? (
-          <div
-            style={{ padding: "60px 24px", textAlign: "center", color: "#bbb" }}
-          >
+          <div style={{ padding: 60, textAlign: "center" }}>
             <i
               className="bi bi-receipt"
-              style={{ fontSize: 40, display: "block", marginBottom: 12 }}
+              style={{
+                fontSize: 32,
+                color: "#ddd",
+                display: "block",
+                marginBottom: 12,
+              }}
             />
-            <p style={{ margin: "0 0 16px", fontSize: 14 }}>
+            <p style={{ color: "#bbb", fontSize: 14, margin: 0 }}>
               No HSN Codes added yet.
             </p>
             <button
               onClick={openCreate}
               style={{
+                marginTop: 16,
                 background: "#111",
                 color: "#fff",
                 border: "none",
-                padding: "9px 20px",
-                borderRadius: 6,
+                padding: "8px 18px",
+                borderRadius: 8,
                 cursor: "pointer",
                 fontSize: 13,
                 fontFamily: "inherit",
@@ -1234,308 +1400,278 @@ function AdminTaxHSNCode() {
             </button>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 13,
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    background: "#fafafa",
-                    borderBottom: "2px solid #f0f0f0",
-                  }}
-                >
-                  {[
-                    "#",
-                    "HSN Code",
-                    "Description",
-                    "CGST",
-                    "SGST",
-                    "Total GST",
-                    "Actions",
-                  ].map((h) => (
-                    <th
-                      key={h}
+          <table
+            style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
+          >
+            <thead>
+              <tr
+                style={{
+                  background: "#fafafa",
+                  borderBottom: "2px solid #f0f0f0",
+                }}
+              >
+                {[
+                  "#",
+                  "HSN Code",
+                  "Description",
+                  "Slab 1",
+                  "Slab 2",
+                  "Slab 3",
+                  "Actions",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "12px 16px",
+                      textAlign: "left",
+                      color: "#888",
+                      fontWeight: 600,
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      whiteSpace: "nowrap",
+                      letterSpacing: ".04em",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {hsnCodes.map((h: any, idx: number) => {
+                const renderSlab = (s: any, color: string, bg: string) => {
+                  if (!s?.cgst) return <span style={{ color: "#ccc" }}>—</span>;
+                  const total = (
+                    Number(s.cgst || 0) + Number(s.sgst || 0)
+                  ).toFixed(1);
+                  const range = s.maxPrice
+                    ? `≤ ₹${Number(s.maxPrice).toLocaleString()}`
+                    : `> ₹${Number(s.minPrice).toLocaleString()}`;
+                  return (
+                    <div>
+                      <span
+                        style={{
+                          background: bg,
+                          color,
+                          padding: "2px 8px",
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          display: "inline-block",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {total}% GST
+                      </span>
+                      <div style={{ fontSize: 11, color: "#aaa" }}>{range}</div>
+                    </div>
+                  );
+                };
+
+                return (
+                  <tr
+                    key={h.taxHSNCodeId ?? idx}
+                    className="tbl-row"
+                    style={{ borderBottom: "1px solid #f5f5f5" }}
+                  >
+                    <td
                       style={{
-                        padding: "12px 16px",
-                        textAlign: "left",
-                        color: "#888",
-                        fontWeight: 600,
-                        fontSize: 11,
-                        textTransform: "uppercase",
-                        whiteSpace: "nowrap",
-                        letterSpacing: ".04em",
+                        padding: "13px 16px",
+                        color: "#bbb",
+                        fontWeight: 500,
+                        fontSize: 12,
                       }}
                     >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {hsnCodes.map((h: any, idx: number) => {
-                  const total = (
-                    Number(h.cgst || 0) + Number(h.sgst || 0)
-                  ).toFixed(2);
-                  return (
-                    <tr
-                      key={h.taxHSNCodeId ?? idx}
-                      className="tbl-row"
-                      style={{ borderBottom: "1px solid #f5f5f5" }}
-                    >
-                      <td
+                      {idx + 1}
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      <div
                         style={{
-                          padding: "13px 16px",
-                          color: "#bbb",
-                          fontWeight: 500,
-                          fontSize: 12,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
                         }}
                       >
-                        {idx + 1}
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
                         <div
                           style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 6,
+                            background: "#f5f5f5",
                             display: "flex",
                             alignItems: "center",
-                            gap: 10,
+                            justifyContent: "center",
+                            flexShrink: 0,
                           }}
                         >
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 6,
-                              background: "#f5f5f5",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <i
-                              className="bi bi-receipt"
-                              style={{ color: "#999", fontSize: 14 }}
-                            />
-                          </div>
-                          <code
-                            style={{
-                              background: "#f5f5f5",
-                              padding: "3px 8px",
-                              borderRadius: 4,
-                              fontSize: 12,
-                              color: "#555",
-                              fontFamily: "monospace",
-                              fontWeight: 700,
-                            }}
-                          >
-                            {h.hsnCode || "—"}
-                          </code>
+                          <i
+                            className="bi bi-receipt"
+                            style={{ color: "#999", fontSize: 14 }}
+                          />
                         </div>
-                      </td>
-                      <td
-                        style={{
-                          padding: "13px 16px",
-                          color: "#777",
-                          maxWidth: 260,
-                        }}
-                      >
-                        {h.hsnDescription ? (
-                          <span
-                            style={{
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {h.hsnDescription}
-                          </span>
-                        ) : (
-                          <span style={{ color: "#ccc" }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
-                        <span
+                        <code
                           style={{
-                            background: "#1565c018",
-                            color: "#1565c0",
-                            padding: "3px 10px",
-                            borderRadius: 20,
+                            background: "#f5f5f5",
+                            padding: "3px 8px",
+                            borderRadius: 4,
                             fontSize: 12,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {Number(h.cgst || 0)}%
-                        </span>
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
-                        <span
-                          style={{
-                            background: "#6a1f7a18",
-                            color: "#6a1f7a",
-                            padding: "3px 10px",
-                            borderRadius: 20,
-                            fontSize: 12,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {Number(h.sgst || 0)}%
-                        </span>
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
-                        <span
-                          style={{
-                            background: "#e8f5e9",
-                            color: "#2e7d32",
-                            padding: "3px 10px",
-                            borderRadius: 20,
-                            fontSize: 12,
+                            color: "#555",
+                            fontFamily: "monospace",
                             fontWeight: 700,
                           }}
                         >
-                          {total}%
+                          {h.hsnCode || "—"}
+                        </code>
+                      </div>
+                    </td>
+                    <td
+                      style={{
+                        padding: "13px 16px",
+                        color: "#777",
+                        maxWidth: 220,
+                      }}
+                    >
+                      {h.hsnDescription ? (
+                        <span
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {h.hsnDescription}
                         </span>
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button
-                            className="action-btn"
-                            onClick={() => openEdit(h)}
-                            style={{
-                              background: "#f0f0f0",
-                              border: "none",
-                              padding: "7px 12px",
-                              borderRadius: 6,
-                              cursor: "pointer",
-                              fontSize: 12,
-                              fontFamily: "inherit",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              color: "#333",
-                            }}
-                          >
-                            <i className="bi bi-pencil" /> Edit
-                          </button>
-                          <button
-                            className="action-btn"
-                            onClick={() => setDeleteId(h.taxHSNCodeId)} // ← fixed field name
-                            style={{
-                              background: "#ffebee",
-                              color: "#c62828",
-                              border: "none",
-                              padding: "7px 10px",
-                              borderRadius: 6,
-                              cursor: "pointer",
-                              fontSize: 12,
-                            }}
-                          >
-                            <i className="bi bi-trash" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      ) : (
+                        <span style={{ color: "#ccc" }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      {renderSlab(h.slab1, "#1565c0", "#1565c018")}
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      {renderSlab(h.slab2, "#2e7d32", "#e8f5e9")}
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      {renderSlab(h.slab3, "#6a1f7a", "#6a1f7a18")}
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          className="action-btn"
+                          onClick={() => openEdit(h)}
+                          style={{
+                            background: "#f0f0f0",
+                            border: "none",
+                            padding: "7px 12px",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontFamily: "inherit",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                            color: "#333",
+                          }}
+                        >
+                          <i
+                            className="bi bi-pencil"
+                            style={{ fontSize: 11 }}
+                          />{" "}
+                          Edit
+                        </button>
+                        <button
+                          className="action-btn"
+                          onClick={() => setDeleteId(h.taxHSNCodeId)}
+                          style={{
+                            background: "#fff0f0",
+                            border: "none",
+                            padding: "7px 12px",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontFamily: "inherit",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                            color: "#c62828",
+                          }}
+                        >
+                          <i className="bi bi-trash" style={{ fontSize: 11 }} />{" "}
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
-      {/* Delete Modal */}
+      {/* Delete confirm modal */}
       {deleteId !== null && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,.45)",
+            background: "#0008",
             zIndex: 9999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 16,
           }}
-          onClick={() => setDeleteId(null)}
         >
           <div
             style={{
               background: "#fff",
               borderRadius: 14,
-              padding: 28,
-              width: "100%",
-              maxWidth: 380,
-              animation: "fadeIn .15s ease",
-              boxShadow: "0 8px 32px rgba(0,0,0,.15)",
+              padding: "32px 36px",
+              maxWidth: 400,
+              width: "90%",
+              boxShadow: "0 8px 40px #0002",
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div
-                style={{
-                  width: 52,
-                  height: 52,
-                  background: "#ffebee",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 14px",
-                }}
-              >
-                <i
-                  className="bi bi-trash"
-                  style={{ fontSize: 22, color: "#c62828" }}
-                />
-              </div>
-              <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700 }}>
-                Delete HSN Code?
-              </h3>
-              <p style={{ margin: 0, color: "#777", fontSize: 13 }}>
-                This action cannot be undone. The HSN Code will be permanently
-                removed.
-              </p>
-            </div>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🗑️</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 700 }}>
+              Delete HSN Code?
+            </h3>
+            <p style={{ color: "#666", fontSize: 14, marginBottom: 24 }}>
+              This cannot be undone. Products using this code will have no tax
+              applied until reassigned.
+            </p>
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => setDeleteId(null)}
                 style={{
                   flex: 1,
-                  background: "#f5f5f5",
+                  background: "#f0f0f0",
                   color: "#333",
                   border: "none",
-                  padding: "11px",
+                  padding: "10px",
                   borderRadius: 8,
                   cursor: "pointer",
+                  fontSize: 13,
                   fontFamily: "inherit",
-                  fontSize: 14,
                 }}
               >
                 Cancel
               </button>
               <button
-                onClick={() => deleteHSN.mutate(deleteId)}
+                onClick={() => deleteHSN.mutate(deleteId!)}
                 disabled={deleteHSN.isPending}
                 style={{
                   flex: 1,
                   background: "#c62828",
                   color: "#fff",
                   border: "none",
-                  padding: "11px",
+                  padding: "10px",
                   borderRadius: 8,
-                  cursor: "pointer",
+                  cursor: deleteHSN.isPending ? "not-allowed" : "pointer",
+                  fontSize: 13,
                   fontFamily: "inherit",
                   fontWeight: 600,
-                  fontSize: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
                 }}
               >
                 {deleteHSN.isPending ? "Deleting…" : "Yes, Delete"}
@@ -3592,9 +3728,7 @@ function AdminCountry() {
     mutationFn: (formData: countryInfoForm) => {
       const current = editItemRef.current;
       return current
-        ? api
-            .put(`/Country/${current.countryId}`, formData)
-            .then((r) => r.data)
+        ? api.put(`/Country/${current.countryId}`, formData).then((r) => r.data)
         : api.post("/Country", formData).then((r) => r.data);
     },
     onSuccess: () => {
@@ -4833,16 +4967,16 @@ function AdminMessageTemplate() {
   }, [editItem]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
-const { data, isLoading, error } = useQuery({
-  queryKey: ["messageTemplateInfo"],
-  queryFn: async () => {
-    const r = await api.get("/MessageTemplate");
-    console.log("STATUS:", r.status);
-    console.log("RAW r.data:", r.data);        // see the full shape
-    console.log("r.data.list:", r.data?.list); // is list present?
-    return r.data?.list ?? r.data ?? [];
-  },
-});
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["messageTemplateInfo"],
+    queryFn: async () => {
+      const r = await api.get("/MessageTemplate");
+      console.log("STATUS:", r.status);
+      console.log("RAW r.data:", r.data); // see the full shape
+      console.log("r.data.list:", r.data?.list); // is list present?
+      return r.data?.list ?? r.data ?? [];
+    },
+  });
 
   const messageTemplates: any[] = data || [];
 
