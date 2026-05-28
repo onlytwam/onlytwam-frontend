@@ -4915,6 +4915,7 @@ button {
   --pc-visible-swatch-count: 5;
   --pc-swatch-size: 14px;
   --pc-swatch-gap: 8px;
+  --pc-color-count-width: 24px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -4931,7 +4932,8 @@ button {
   min-width: 0;
   max-width: calc(
     (var(--pc-swatch-size) * var(--pc-visible-swatch-count)) +
-      (var(--pc-swatch-gap) * (var(--pc-visible-swatch-count) - 1)) + 6px
+      (var(--pc-swatch-gap) * (var(--pc-visible-swatch-count) - 1)) +
+      var(--pc-color-count-width)
   );
   overflow-x: auto;
   overflow-y: hidden;
@@ -4949,22 +4951,29 @@ button {
   flex: 0 1 auto;
 }
 
+.pc-swatches-outer--scrollable .pc-swatches {
+  max-width: calc(
+    (var(--pc-swatch-size) * var(--pc-visible-swatch-count)) +
+      (var(--pc-swatch-gap) * (var(--pc-visible-swatch-count) - 1)) + 2px
+  );
+}
+
 .pc-color-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
+  margin-left: -4px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: var(--ivory);
-  border: 1px solid rgba(107, 15, 42, 0.18);
   color: var(--brand);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+.pc-color-count--after-arrow {
+  margin-left: -2px;
 }
 
 /* The invisible track that allows horizontal scrolling */
@@ -11570,8 +11579,8 @@ button {
 
 .s-productdetai-c9ee63 {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: nowrap;
@@ -11580,16 +11589,30 @@ button {
 
 .s-productdetai-c9ee63 .s-updateprofil-1d5e50 {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 10px;
+  flex-wrap: nowrap;
   flex: 0 1 auto;
+}
+
+.pd-qty-stock-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pd-qty-control-wrap {
+  display: inline-flex;
+  position: relative;
 }
 
 .pd-qty-price {
   display: flex;
   min-width: 132px;
   min-height: 44px;
+  margin-top: 2px;
   padding: 7px 12px;
   border: 1.5px solid rgba(107, 15, 42, 0.12);
   border-radius: 8px;
@@ -11617,7 +11640,8 @@ button {
 }
 
 .s-productdetai-c9ee63 .s-productdetai-eeb06b {
-  margin-left: auto;
+  margin: 0;
+  padding-top: 0;
   margin-bottom: 0;
   align-self: center;
   white-space: nowrap;

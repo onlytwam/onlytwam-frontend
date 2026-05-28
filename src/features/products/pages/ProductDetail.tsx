@@ -1993,68 +1993,99 @@ export default function ProductDetail() {
               const qtyLocked = hasSizes && selectedPVDId === null;
               return (
                 <div className="s-productdetai-c9ee63">
-                  <div className="s-updateprofil-1d5e50">
-                    <div
-                      className="s-productdetai-dbae90"
-                      style={{
-                        border: `1.5px solid ${
-                          qtyLocked ? "var(--ivory)" : "var(--ivory)"
-                        }`,
-                        background: qtyLocked ? "var(--ivory)" : "#fff",
-                      }}
-                    >
-                      <button
-                        disabled={qtyLocked || quantity <= 1}
-                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                        className="s-productdetai-631941"
-                        style={{
-                          cursor:
-                            qtyLocked || quantity <= 1
-                              ? "not-allowed"
-                              : "pointer",
-                          color:
-                            qtyLocked || quantity <= 1
-                              ? "var(--ivory)"
-                              : "#000000",
-                        }}
-                      >
-                        −
-                      </button>
-                      <span
-                        className="s-productdetai-3e73a5"
-                        style={{
-                          fontFamily: FONTS,
-                          color: qtyLocked ? "var(--heirloom)" : "#000000",
-                        }}
-                      >
-                        {quantity}
-                      </span>
-                      <button
-                        disabled={qtyLocked}
-                        onClick={() => {
-                          if (selStock !== null && quantity >= selStock) {
-                            setShowStockTip(true);
-                            setTimeout(() => setShowStockTip(false), 2200);
-                            return;
-                          }
-                          setQuantity((q) => q + 1);
-                        }}
-                        className="s-productdetai-5c049f"
-                        style={{
-                          cursor:
-                            qtyLocked ||
-                            (selStock !== null && quantity >= selStock)
-                              ? "not-allowed"
-                              : "pointer",
-                          color:
-                            qtyLocked ||
-                            (selStock !== null && quantity >= selStock)
-                              ? "var(--ivory)"
+                  <div className="s-updateprofil-1d5e50 pd-qty-stack">
+                    <div className="pd-qty-stock-row">
+                      <div className="pd-qty-control-wrap">
+                        <div
+                          className="s-productdetai-dbae90"
+                          style={{
+                            border: `1.5px solid ${
+                              qtyLocked ? "var(--ivory)" : "var(--ivory)"
+                            }`,
+                            background: qtyLocked ? "var(--ivory)" : "#fff",
+                          }}
+                        >
+                          <button
+                            disabled={qtyLocked || quantity <= 1}
+                            onClick={() =>
+                              setQuantity((q) => Math.max(1, q - 1))
+                            }
+                            className="s-productdetai-631941"
+                            style={{
+                              cursor:
+                                qtyLocked || quantity <= 1
+                                  ? "not-allowed"
+                                  : "pointer",
+                              color:
+                                qtyLocked || quantity <= 1
+                                  ? "var(--ivory)"
+                                  : "#000000",
+                            }}
+                          >
+                            −
+                          </button>
+                          <span
+                            className="s-productdetai-3e73a5"
+                            style={{
+                              fontFamily: FONTS,
+                              color: qtyLocked ? "var(--heirloom)" : "#000000",
+                            }}
+                          >
+                            {quantity}
+                          </span>
+                          <button
+                            disabled={qtyLocked}
+                            onClick={() => {
+                              if (selStock !== null && quantity >= selStock) {
+                                setShowStockTip(true);
+                                setTimeout(() => setShowStockTip(false), 2200);
+                                return;
+                              }
+                              setQuantity((q) => q + 1);
+                            }}
+                            className="s-productdetai-5c049f"
+                            style={{
+                              cursor:
+                                qtyLocked ||
+                                (selStock !== null && quantity >= selStock)
+                                  ? "not-allowed"
+                                  : "pointer",
+                              color:
+                                qtyLocked ||
+                                (selStock !== null && quantity >= selStock)
+                                  ? "var(--ivory)"
+                                  : "var(--brand)",
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        {showStockTip && selStock !== null && (
+                          <div className="s-productdetai-0f3955">
+                            {selStock} available
+                          </div>
+                        )}
+                      </div>
+
+                      {!qtyLocked && selStock !== null && (
+                        <p
+                          className="s-productdetai-eeb06b"
+                          style={{
+                            fontFamily: FONT_UI,
+                            color: isOOS
+                              ? "var(--brand)"
+                              : selStock <= 3
+                              ? "var(--brand)"
                               : "var(--brand)",
-                        }}
-                      >
-                        +
-                      </button>
+                          }}
+                        >
+                          {isOOS
+                            ? "🚫 Out of stock"
+                            : selStock <= 3
+                            ? `⚠️ Only ${selStock} left!`
+                            : "✓ In stock"}
+                        </p>
+                      )}
                     </div>
                     <div
                       className="pd-qty-price pd-mobile-qty-price"
@@ -2069,37 +2100,12 @@ export default function ProductDetail() {
                         )}
                       </span>
                     </div>
-                    {showStockTip && selStock !== null && (
-                      <div className="s-productdetai-0f3955">
-                        {selStock} available
-                      </div>
-                    )}
                     {qtyLocked && (
                       <p className="s-productdetai-41432e">
                         ↑ Select a size first
                       </p>
                     )}
                   </div>
-
-                  {!qtyLocked && selStock !== null && (
-                    <p
-                      className="s-productdetai-eeb06b"
-                      style={{
-                        fontFamily: FONT_UI,
-                        color: isOOS
-                          ? "var(--brand)"
-                          : selStock <= 3
-                          ? "var(--brand)"
-                          : "var(--brand)",
-                      }}
-                    >
-                      {isOOS
-                        ? "🚫 Out of stock"
-                        : selStock <= 3
-                        ? `⚠️ Only ${selStock} left!`
-                        : "✓ In stock"}
-                    </p>
-                  )}
                 </div>
               );
             })()}

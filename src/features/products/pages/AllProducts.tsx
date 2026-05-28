@@ -15,8 +15,8 @@ import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import ProductFilters, {
   ProductActiveFilters,
   getAppliedFilterCount,
-  matchesVariantPriceFilters,
-  matchesVariantSizeAndCupFilters,
+  matchesVariantCollectionPriceFilters,
+  matchesVariantCollectionSizeAndCupFilters,
   matchesVariantCollectionColorFilters,
   reorderVariantsForColorFilter,
   type ProductFilterState,
@@ -201,20 +201,18 @@ export default function AllProducts() {
       });
     }
 
-    if (filters.sizeIds.length > 0 || filters.cupSizeIds.length > 0)
-      list = list.filter((p: any) =>
-        matchesVariantSizeAndCupFilters(p, filters),
-      );
     if (filters.brandIds.length > 0)
       list = list.filter((p: any) => filters.brandIds.includes(p.brandId));
     if (filters.categoryIds.length > 0)
       list = list.filter((p: any) =>
         filters.categoryIds.includes(p.categoryId),
       );
-    if (filters.priceMin !== null || filters.priceMax !== null)
-      list = list.filter((p: any) => matchesVariantPriceFilters(p, filters));
 
-    return list;
+    return list.filter(
+      (p) =>
+        matchesVariantCollectionSizeAndCupFilters(p.allVariants, filters) &&
+        matchesVariantCollectionPriceFilters(p.allVariants, filters),
+    );
   }, [rawData, filters]);
 
   // ── Client-side sorting ────────────────────────────────────────────────────
@@ -251,16 +249,8 @@ export default function AllProducts() {
     return arr;
   }, [allProducts, sortOption]);
 
-  // ── Product grouping ───────────────────────────────────────────────────────
-  const displayProducts = useMemo(() => {
-    const grouped = new Map<number, any>();
-    for (const variant of sortedProducts) {
-      const pid = variant.productId;
-      if (!grouped.has(pid)) grouped.set(pid, { ...variant, allVariants: [] });
-      grouped.get(pid).allVariants.push(variant);
-    }
-    return Array.from(grouped.values());
-  }, [sortedProducts]);
+  // ── Products to display ────────────────────────────────────────────────────
+  const displayProducts = sortedProducts;
 
   // ── Pagination ─────────────────────────────────────────────────────────────
   const PAGE_SIZE = 20;
@@ -437,7 +427,7 @@ export default function AllProducts() {
               {displayProducts
                 .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
                 .map((product: any) => (
-                  <div key={product.productVariantId} className="pl-card-anim">
+                  <div key={product.productId} className="pl-card-anim">
                     {isMobile ? (
                       <MobileProductCard
                         product={product}
@@ -448,7 +438,6 @@ export default function AllProducts() {
                         product={product}
                         onQuickShop={setQuickShopId}
                         showColors={true}
-                        singleColorOnly={true}
                         delayedDiscountReveal={true}
                       />
                     )}

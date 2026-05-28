@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,10 +23,16 @@ const TXT = "#2B2B2B";
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+const _API_ORIGIN = (
+  (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+)
+  .replace(/\/api\/?$/, "")
+  .replace(/\/$/, "");
+
 function resolveImg(src: string | null | undefined): string {
   if (!src) return "";
   if (src.startsWith("http") || src.startsWith("/")) return src;
-  return encodeURI("http://127.0.0.1:8000/" + src.replace(/\\/g, "/"));
+  return encodeURI(`${_API_ORIGIN}/${src.replace(/\\/g, "/")}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -910,6 +916,7 @@ function VariantPanel({ productId }: { productId: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // ProductsTable  (now renders as an admin product card grid)
 // ─────────────────────────────────────────────────────────────────────────────
 const CARD_PAGE_SIZE = 12; // cards per page — 4 per row × 3 rows
@@ -917,11 +924,13 @@ const CARD_PAGE_SIZE = 12; // cards per page — 4 per row × 3 rows
 function ProductsTable({
   brandId,
   categoryId,
+  isChildCategory,
   totalLabel,
   navState,
 }: {
   brandId?: number;
   categoryId?: number;
+  isChildCategory?: boolean; // true → filter by childCategoryId, false/undefined → categoryId
   totalLabel: string;
   navState?: any;
 }) {
@@ -939,7 +948,8 @@ function ProductsTable({
       });
     if (categoryId !== undefined)
       filters.push({
-        property: "categoryId",
+        // If this is a subcategory (child), filter by childCategoryId field
+        property: isChildCategory ? "childCategoryId" : "categoryId",
         comparison: "eq",
         value: String(categoryId),
       });
@@ -950,10 +960,16 @@ function ProductsTable({
       "Order.Property": "ModifiedDate",
       "Order.Ascending": "false",
     };
-  }, [brandId, categoryId, page]);
+  }, [brandId, categoryId, isChildCategory, page]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-products-filtered", brandId, categoryId, page],
+    queryKey: [
+      "admin-products-filtered",
+      brandId,
+      categoryId,
+      isChildCategory,
+      page,
+    ],
     queryFn: () =>
       api
         .get("/Products/", { params: { ...buildParams(), adminView: true } })
@@ -1277,33 +1293,76 @@ function BrowseByBrand() {
     staleTime: 30_000,
   });
   const brandProducts: any[] = bpData?.list ?? [];
+
+  // Products store parent category in categoryId and subcategory in childCategoryId.
+  // We need both sets to correctly detect which categories/subcategories exist for this brand.
   const catIdsInBrand = new Set(
     brandProducts.map((p: any) => p.categoryId).filter(Boolean),
   );
+  const childCatIdsInBrand = new Set(
+    brandProducts.map((p: any) => p.childCategoryId).filter(Boolean),
+  );
 
   function parentCatsInBrand() {
-    return allCats.filter(
-      (c: any) =>
-        (!c.parentCategoryId || c.parentCategoryId === 0) &&
-        catIdsInBrand.has(c.categoryId),
-    );
+    return allCats.filter((c: any) => {
+      if (c.parentCategoryId && c.parentCategoryId !== 0) return false; // skip child cats
+      // Show parent cat if any product has it as categoryId (parent)
+      if (catIdsInBrand.has(c.categoryId)) return true;
+      // Also show if any child category of this parent has products (via childCategoryId)
+      return allCats.some(
+        (child: any) =>
+          Number(child.parentCategoryId) === Number(c.categoryId) &&
+          childCatIdsInBrand.has(child.categoryId),
+      );
+    });
   }
   function childCats(catId: number) {
+    // A subcategory belongs here if its parentCategoryId matches AND
+    // some product has it as childCategoryId
     return allCats.filter(
       (c: any) =>
         Number(c.parentCategoryId) === Number(catId) &&
-        catIdsInBrand.has(c.categoryId),
+        childCatIdsInBrand.has(c.categoryId),
     );
   }
+  // Count products whose parent category matches (used for parent-level counts)
+  function countInParentCat(catId: number) {
+    return brandProducts.filter((p: any) => p.categoryId === catId).length;
+  }
+  // Count products in a subcategory via childCategoryId
   function countInCat(catId: number) {
+    // If this is a child cat, count by childCategoryId; otherwise count by categoryId
+    const isChildCat = allCats.some(
+      (c: any) => c.categoryId === catId && c.parentCategoryId,
+    );
+    if (isChildCat) {
+      return brandProducts.filter((p: any) => p.childCategoryId === catId)
+        .length;
+    }
     return brandProducts.filter((p: any) => p.categoryId === catId).length;
   }
   function countActiveInCat(catId: number) {
+    const isChildCat = allCats.some(
+      (c: any) => c.categoryId === catId && c.parentCategoryId,
+    );
+    if (isChildCat) {
+      return brandProducts.filter(
+        (p: any) => p.childCategoryId === catId && p.isActive !== false,
+      ).length;
+    }
     return brandProducts.filter(
       (p: any) => p.categoryId === catId && p.isActive !== false,
     ).length;
   }
   function countInactiveInCat(catId: number) {
+    const isChildCat = allCats.some(
+      (c: any) => c.categoryId === catId && c.parentCategoryId,
+    );
+    if (isChildCat) {
+      return brandProducts.filter(
+        (p: any) => p.childCategoryId === catId && p.isActive === false,
+      ).length;
+    }
     return brandProducts.filter(
       (p: any) => p.categoryId === catId && p.isActive === false,
     ).length;
@@ -1487,29 +1546,10 @@ function BrowseByBrand() {
     );
   }
 
-  // ── Level 2: sub-categories ────────────────────────────────────────────────
+  // ── Level 2: sub-categories (icon grid, same style as brand/category levels) ──
   if (nav.view === "subcategories") {
     const cat = (nav as any).category;
     const children = childCats(cat.categoryId);
-    const catTotal = countInCat(cat.categoryId);
-    const catActive = countActiveInCat(cat.categoryId);
-    const catInactive = countInactiveInCat(cat.categoryId);
-    // Also tally products in ALL child categories for the "all" card
-    const childTotal = children.reduce(
-      (s: number, sc: any) => s + countInCat(sc.categoryId),
-      0,
-    );
-    const childActive = children.reduce(
-      (s: number, sc: any) => s + countActiveInCat(sc.categoryId),
-      0,
-    );
-    const childInactive = children.reduce(
-      (s: number, sc: any) => s + countInactiveInCat(sc.categoryId),
-      0,
-    );
-    const allTotal = catTotal + childTotal;
-    const allActive = catActive + childActive;
-    const allInactive = catInactive + childInactive;
     return (
       <div>
         <Breadcrumbs crumbs={crumbs()} />
@@ -1522,14 +1562,7 @@ function BrowseByBrand() {
           />
         ) : (
           <BannerGrid>
-            {/* "All Products in Category" shortcut card */}
-            <AllProductsCard
-              label={`All ${cat.name} Products`}
-              count={allTotal}
-              activeCount={allActive}
-              inactiveCount={allInactive}
-              onClick={() => setNav({ view: "products", brand, category: cat })}
-            />
+            {/* Sub-category icon cards — same style as brand/category icons */}
             {children.map((sc: any) => (
               <BannerCard
                 key={sc.categoryId}
@@ -1570,6 +1603,7 @@ function BrowseByBrand() {
       <ProductsTable
         brandId={brand.brandId}
         categoryId={sc?.categoryId ?? cat?.categoryId}
+        isChildCategory={!!sc}
         totalLabel={totalLabel}
         navState={nav}
       />
@@ -1630,21 +1664,38 @@ function BrowseByCategory() {
       : null;
   const activeCatId = selSub?.categoryId ?? selCat?.categoryId;
 
-  // Fetch products for the active category to know which brands have products there
+  // When showing brands inside a category that has no subCategory selected,
+  // we need product counts across the parent AND all its child categories,
+  // because products are stored under child-category IDs.
+  const activeCatChildIds = useMemo(() => {
+    if (!activeCatId || selSub) return []; // subcat already selected — exact match is fine
+    return allCats
+      .filter((c: any) => Number(c.parentCategoryId) === Number(activeCatId))
+      .map((c: any) => c.categoryId);
+  }, [activeCatId, selSub, allCats]);
+
+  const catIdsToFetch = activeCatChildIds.length
+    ? [activeCatId, ...activeCatChildIds]
+    : activeCatId
+    ? [activeCatId]
+    : [];
+
+  // Fetch products for the active category (+ all children if no subcat selected)
+  // so brandsInCat is populated even when products live under subcategory IDs.
   const { data: cpData, isLoading: cpLoading } = useQuery({
-    queryKey: ["cat-products-meta", activeCatId],
-    enabled: !!activeCatId,
+    queryKey: ["cat-products-meta", activeCatId, activeCatChildIds],
+    enabled: catIdsToFetch.length > 0,
     queryFn: () =>
       api
         .get("/Products/", {
           params: {
-            Filters: JSON.stringify([
-              {
+            Filters: JSON.stringify(
+              catIdsToFetch.map((cid: number) => ({
                 property: "categoryId",
                 comparison: "eq",
-                value: String(activeCatId),
-              },
-            ]),
+                value: String(cid),
+              })),
+            ),
             "Page.Size": 1000,
             adminView: true,
           },
@@ -2140,7 +2191,6 @@ function NameCodeResults({
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminProducts() {
   const navigate = useNavigate();
-  const [browseBy, setBrowseBy] = useState<"brands" | "categories">("brands");
   const [browseKey, setBrowseKey] = useState(0);
   const [searchMode, setSearchMode] = useState<SearchMode>("nameCode");
   const [inputVal, setInputVal] = useState("");
@@ -2152,8 +2202,7 @@ export default function AdminProducts() {
   const [stockIdError, setStockIdError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleBrowseChange(val: "brands" | "categories") {
-    setBrowseBy(val);
+  function handleBrowseChange() {
     setBrowseKey((k) => k + 1);
   }
 
@@ -2228,49 +2277,15 @@ export default function AdminProducts() {
         <div>
           <h2 className="s-adminblog-91c675">Products</h2>
           <p className="s-adminblog-1c2c10">
-            Browse and manage products by brand or category
+            Browse and manage products by brand
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <label
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: SUB,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Browse by
-          </label>
-          <select
-            value={browseBy}
-            onChange={(e) =>
-              handleBrowseChange(e.target.value as "brands" | "categories")
-            }
-            style={{
-              border: `1.5px solid ${BORDER}`,
-              borderRadius: 8,
-              padding: "7px 32px 7px 12px",
-              fontSize: 13,
-              fontWeight: 600,
-              color: TXT,
-              appearance: "none",
-              cursor: "pointer",
-              outline: "none",
-              minWidth: 130,
-              background: `#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%238A7F7A' d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 10px center`,
-            }}
-          >
-            <option value="brands">Brands</option>
-            <option value="categories">Categories</option>
-          </select>
-          <button
-            onClick={() => navigate("/admin/products/new")}
-            className="s-adminproduct-1f0204"
-          >
-            <i className="bi bi-plus-lg" /> Create New Product
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("/admin/products/new")}
+          className="s-adminproduct-1f0204"
+        >
+          <i className="bi bi-plus-lg" /> Create New Product
+        </button>
       </div>
 
       {/* ── Search bar ─────────────────────────────────────────────────────── */}
@@ -2489,10 +2504,8 @@ export default function AdminProducts() {
             term={activeSearch.term}
             onClear={clearSearch}
           />
-        ) : browseBy === "brands" ? (
-          <BrowseByBrand key={`brands-${browseKey}`} />
         ) : (
-          <BrowseByCategory key={`cats-${browseKey}`} />
+          <BrowseByBrand key={`brands-${browseKey}`} />
         )}
       </div>
     </div>
