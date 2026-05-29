@@ -5667,6 +5667,419 @@ function AdminMessageTemplate() {
 
 //---------------------------end-Message Templates----------------------------
 
+// ─── AdminProductColors — MDM colour-family manager ──────────────────────────
+function AdminProductColors() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [editRow, setEditRow] = useState<any | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", hexCode: "", orderNo: "" });
+  const [formErr, setFormErr] = useState<Partial<typeof form>>({});
+
+  const { data: colorsData, isLoading } = useQuery({
+    queryKey: ["mdm-product-colors"],
+    queryFn: () =>
+      api
+        .get("/MDM/ProductColor", { params: { "Page.Size": 500 } })
+        .then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  const rawList: any[] = colorsData?.list ?? colorsData ?? [];
+  const colorList = rawList
+    .map((c: any) => ({
+      id: c.productColorId ?? c.id ?? c.Id,
+      name: c.colorFamilyName ?? c.colorFamily ?? c.name ?? c.Name ?? "",
+      hex: c.hexCode ?? c.hex ?? c.HexCode ?? "#d0c8c2",
+      orderNo: c.orderNo ?? c.OrderNo ?? null,
+      isActive:
+        typeof c.isActive === "boolean"
+          ? c.isActive
+          : typeof c.IsActive === "boolean"
+          ? c.IsActive
+          : true,
+    }))
+    .filter((c) => c.id != null)
+    .filter(
+      (c) =>
+        !search ||
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.hex.toLowerCase().includes(search.toLowerCase()),
+    )
+    .sort((a, b) => (a.orderNo ?? 999) - (b.orderNo ?? 999) || a.id - b.id);
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: any) =>
+      payload.id
+        ? api.put(`/MDM/ProductColor/${payload.id}`, payload.body)
+        : api.post("/MDM/ProductColor", payload.body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mdm-product-colors"] });
+      queryClient.invalidateQueries({ queryKey: ["product-colors"] });
+      toast.success("Colour saved");
+      resetForm();
+    },
+    onError: () => toast.error("Failed to save colour"),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      api.patch(`/MDM/ProductColor/${id}`, { isActive }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["mdm-product-colors"] }),
+    onError: () => toast.error("Failed to update"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/MDM/ProductColor/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mdm-product-colors"] });
+      queryClient.invalidateQueries({ queryKey: ["product-colors"] });
+      toast.success("Colour deleted");
+    },
+    onError: () => toast.error("Failed to delete"),
+  });
+
+  function resetForm() {
+    setForm({ name: "", hexCode: "", orderNo: "" });
+    setFormErr({});
+    setEditRow(null);
+    setShowForm(false);
+  }
+
+  function openEdit(c: any) {
+    setForm({ name: c.name, hexCode: c.hex, orderNo: String(c.orderNo ?? "") });
+    setEditRow(c);
+    setShowForm(true);
+  }
+
+  function validate() {
+    const errs: Partial<typeof form> = {};
+    if (!form.name.trim()) errs.name = "Name is required";
+    if (!form.hexCode.trim()) errs.hexCode = "Hex code is required";
+    else if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(form.hexCode.trim()))
+      errs.hexCode = "Enter a valid hex e.g. #7a1e2c";
+    return errs;
+  }
+
+  function handleSubmit() {
+    const errs = validate();
+    if (Object.keys(errs).length) {
+      setFormErr(errs);
+      return;
+    }
+    const body = {
+      colorFamilyName: form.name.trim(),
+      hexCode: form.hexCode.trim(),
+      orderNo: form.orderNo ? Number(form.orderNo) : null,
+      isActive: editRow?.isActive ?? true,
+    };
+    saveMutation.mutate({ id: editRow?.id, body });
+  }
+
+  const btnBase: React.CSSProperties = {
+    padding: "7px 14px",
+    borderRadius: 6,
+    border: "none",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 600,
+  };
+
+  return (
+    <div style={{ padding: "0 0 40px" }}>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 20,
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h2
+            style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111" }}
+          >
+            Colour Families
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#888" }}>
+            These colours appear as swatches in product cards and the filter
+            sidebar. Each variant is linked to a family by ID.
+          </p>
+        </div>
+        <button
+          style={{ ...btnBase, background: "#7A1E2C", color: "#fff" }}
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+        >
+          <i className="bi bi-plus-lg" style={{ marginRight: 6 }} />
+          Add Colour
+        </button>
+      </div>
+
+      {/* Search */}
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by name or hex…"
+        style={{
+          ...inp,
+          maxWidth: 320,
+          marginBottom: 20,
+          padding: "9px 12px",
+        }}
+      />
+
+      {/* Inline Add/Edit Form */}
+      {showForm && (
+        <div
+          style={{
+            background: "#fdf9f7",
+            border: "1px solid #e6dad3",
+            borderRadius: 10,
+            padding: "20px 24px",
+            marginBottom: 24,
+            maxWidth: 480,
+          }}
+        >
+          <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700 }}>
+            {editRow ? "Edit Colour" : "New Colour Family"}
+          </h3>
+
+          {/* Hex preview */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: /^#[0-9a-fA-F]{3,6}$/.test(form.hexCode.trim())
+                  ? form.hexCode.trim()
+                  : "#d0c8c2",
+                border: "2px solid #e6dad3",
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 13, color: "#888" }}>
+              Live preview of swatch
+            </span>
+          </div>
+
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+          >
+            <div>
+              <label style={lbl}>Colour Name *</label>
+              <input
+                value={form.name}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, name: e.target.value }))
+                }
+                placeholder="e.g. Brown"
+                style={inp}
+              />
+              {formErr.name && <p style={errSt}>{formErr.name}</p>}
+            </div>
+            <div>
+              <label style={lbl}>Hex Code *</label>
+              <input
+                value={form.hexCode}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, hexCode: e.target.value }))
+                }
+                placeholder="#7a1e2c"
+                style={inp}
+              />
+              {formErr.hexCode && <p style={errSt}>{formErr.hexCode}</p>}
+            </div>
+            <div>
+              <label style={lbl}>Order No.</label>
+              <input
+                type="number"
+                value={form.orderNo}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, orderNo: e.target.value }))
+                }
+                placeholder="1"
+                style={inp}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+            <button
+              style={{ ...btnBase, background: "#7A1E2C", color: "#fff" }}
+              onClick={handleSubmit}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending ? "Saving…" : "Save"}
+            </button>
+            <button
+              style={{ ...btnBase, background: "#f0ebe7", color: "#444" }}
+              onClick={resetForm}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Color grid */}
+      {isLoading ? (
+        <p style={{ color: "#888", fontSize: 14 }}>Loading colours…</p>
+      ) : colorList.length === 0 ? (
+        <p
+          style={{
+            color: "#bbb",
+            fontSize: 14,
+            textAlign: "center",
+            padding: "40px 0",
+          }}
+        >
+          No colours found.
+        </p>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {colorList.map((c) => (
+            <div
+              key={c.id}
+              style={{
+                background: "#fff",
+                border: "1px solid #e6dad3",
+                borderRadius: 10,
+                padding: "14px 16px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                opacity: c.isActive ? 1 : 0.5,
+              }}
+            >
+              {/* Swatch */}
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: c.hex,
+                  border: "2px solid #e6dad3",
+                  flexShrink: 0,
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                }}
+                title={c.hex}
+              />
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 14,
+                    color: "#111",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {c.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#888",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {c.hex}
+                </div>
+                {c.orderNo != null && (
+                  <div style={{ fontSize: 11, color: "#bbb" }}>
+                    #{c.orderNo}
+                  </div>
+                )}
+              </div>
+              {/* Actions */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <button
+                  onClick={() => openEdit(c)}
+                  title="Edit"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "3px 6px",
+                    color: "#1565c0",
+                    fontSize: 14,
+                  }}
+                >
+                  <i className="bi bi-pencil" />
+                </button>
+                <button
+                  onClick={() =>
+                    toggleMutation.mutate({ id: c.id, isActive: !c.isActive })
+                  }
+                  title={c.isActive ? "Hide" : "Show"}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "3px 6px",
+                    color: c.isActive ? "#555" : "#2e7d32",
+                    fontSize: 14,
+                  }}
+                >
+                  <i
+                    className={`bi ${c.isActive ? "bi-eye-slash" : "bi-eye"}`}
+                  />
+                </button>
+                <button
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Delete colour "${c.name}"? This will unlink any variants using it.`,
+                      )
+                    )
+                      deleteMutation.mutate(c.id);
+                  }}
+                  title="Delete"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "3px 6px",
+                    color: "#c62828",
+                    fontSize: 14,
+                  }}
+                >
+                  <i className="bi bi-trash3" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+//---------------------------end-Product Colors----------------------------
+
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
   {
@@ -5680,6 +6093,12 @@ const TABS = [
     label: "Sizes",
     icon: "bi bi-rulers",
     component: <AdminSizes />,
+  },
+  {
+    key: "colors",
+    label: "Colours",
+    icon: "bi bi-palette",
+    component: <AdminProductColors />,
   },
   {
     key: "fabric",

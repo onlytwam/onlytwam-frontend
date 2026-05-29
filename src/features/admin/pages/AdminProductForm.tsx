@@ -8,9 +8,9 @@ import api from "@/shared/api/axiosInstance";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { getImageUrl } from "@/shared/utils/helpers";
 import {
-  guessColorFamily,
-  COLOR_FAMILY_OPTIONS,
-  getFamilySwatch,
+  colorFamilyHexOf,
+  FALLBACK_COLOR_FAMILY_HEX,
+  type ColorFamilyOption,
 } from "@/shared/utils/colorHelpers";
 import toast from "react-hot-toast";
 
@@ -330,7 +330,7 @@ export default function AdminProductForm() {
 
   // ── Color state ──────────────────────────────────────────────────────────────
   const [colorName, setColorName] = useState("");
-  const [colorFamily, setColorFamily] = useState("");
+  const [colorFamilyId, setColorFamilyId] = useState<number | "">("");
 
   // ── Image state ──────────────────────────────────────────────────────────────
   const [imgPreviews, setImgPreviews] = useState<string[]>([]);
@@ -389,6 +389,13 @@ export default function AdminProductForm() {
         .get("/TaxHSNCode", { params: { "Page.Size": 500 } })
         .then((r) => r.data?.list || []),
   });
+  const { data: colorFamiliesD } = useQuery({
+    queryKey: ["admin-product-colors"],
+    queryFn: () =>
+      api
+        .get("/MDM/ProductColor", { params: { "Page.Size": 200 } })
+        .then((r) => r.data?.list || r.data || []),
+  });
 
   const cats = useMemo(() => (cD as any[]) ?? [], [cD]);
   const brands = useMemo(() => (bD as any[]) ?? [], [bD]);
@@ -397,6 +404,10 @@ export default function AdminProductForm() {
   const fabrics = useMemo(() => (fbD as any[]) ?? [], [fbD]);
   // FIX-V2: HSN codes list
   const hsnCodes = useMemo(() => (hsnD as any[]) ?? [], [hsnD]);
+  const colorFamilies = useMemo(
+    () => (colorFamiliesD as ColorFamilyOption[]) ?? [],
+    [colorFamiliesD],
+  );
 
   // ── Data queries ──────────────────────────────────────────────────────────────
   const { data: pData } = useQuery({
@@ -552,9 +563,8 @@ export default function AdminProductForm() {
       sV("isBestSeller", !!editV.isBestSeller);
       sV("isReturnAvailable", !!editV.isReturnAvailable);
       sV("isCupSize", !!editV.isCupSize);
-      // Load colour name from variant; if stored as hex, reverse-map to name
       setColorName(editV.color || "");
-      setColorFamily(editV.colorFamily || "");
+      setColorFamilyId(editV.colorFamilyId || "");
     } else {
       resetV({
         variantName: "",
@@ -567,7 +577,7 @@ export default function AdminProductForm() {
         isCupSize: false,
       });
       setColorName("");
-      setColorFamily("");
+      setColorFamilyId("");
       setExistingImgs([]);
     }
     // Always clear local state on form open
@@ -757,7 +767,7 @@ export default function AdminProductForm() {
         isReturnAvailable: !!data.isReturnAvailable,
         isCupSize: !!data.isCupSize,
         color: colorName || "",
-        colorFamily: colorFamily || "",
+        colorFamilyId: colorFamilyId ? Number(colorFamilyId) : null,
         userProfileId: getUserId(),
         createdBy: getUserId(),
         // image fields — will be updated after image upload if new variant
@@ -1203,7 +1213,7 @@ export default function AdminProductForm() {
                   style={{ display: "flex", flexDirection: "column", gap: 12 }}
                 >
                   {variants.map((v: any) => {
-                    const swatchColor = getFamilySwatch(v.colorFamily);
+                    const swatchColor = colorFamilyHexOf(v);
                     const imgSrc = safeImageUrl(
                       v.image || (Array.isArray(v.images) ? v.images[0] : null),
                     );
@@ -1503,13 +1513,7 @@ export default function AdminProductForm() {
                     <input
                       value={colorName}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        setColorName(val);
-                        // Auto-suggest family when name is typed
-                        if (!colorFamily && val.trim().length > 2) {
-                          const suggested = guessColorFamily(val);
-                          if (suggested) setColorFamily(suggested);
-                        }
+                        setColorName(e.target.value);
                       }}
                       style={inp}
                       placeholder="e.g. Dark Navy Blue, Wine, Nude…"
@@ -1524,27 +1528,34 @@ export default function AdminProductForm() {
                     <div
                       style={{ display: "flex", alignItems: "center", gap: 10 }}
                     >
-                      {colorFamily && (
+                      {colorFamilyId && (
                         <div
                           style={{
                             width: 20,
                             height: 20,
                             borderRadius: "50%",
                             flexShrink: 0,
-                            background: getFamilySwatch(colorFamily),
+                            background:
+                              colorFamilies.find(
+                                (f) => f.id === Number(colorFamilyId),
+                              )?.hex || FALLBACK_COLOR_FAMILY_HEX,
                             border: "2px solid #ddd",
                           }}
                         />
                       )}
                       <select
-                        value={colorFamily}
-                        onChange={(e) => setColorFamily(e.target.value)}
+                        value={colorFamilyId}
+                        onChange={(e) =>
+                          setColorFamilyId(
+                            e.target.value ? Number(e.target.value) : "",
+                          )
+                        }
                         style={{ ...sel, flex: 1 }}
                       >
                         <option value="">— Select family —</option>
-                        {COLOR_FAMILY_OPTIONS.map((f) => (
-                          <option key={f} value={f}>
-                            {f}
+                        {colorFamilies.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name}
                           </option>
                         ))}
                       </select>
@@ -1847,7 +1858,7 @@ export default function AdminProductForm() {
               }}
             >
               {variants.map((v: any) => {
-                const swatchColor = getFamilySwatch(v.colorFamily);
+                const swatchColor = colorFamilyHexOf(v);
                 const active = selVid === v.productVariantId;
                 return (
                   <button

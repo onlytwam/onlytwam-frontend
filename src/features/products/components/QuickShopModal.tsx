@@ -415,9 +415,9 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
       color: selectedColor,
       colorName: selectedColor,
       colorHex:
+        selectedColorSwatch?.colorFamilyHex ??
         selectedColorSwatch?.colorHex ??
         selectedColorSwatch?.colourHex ??
-        selectedColorSwatch?.color ??
         "",
       brandName:
         product?.brandName ||
@@ -861,7 +861,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
                             : ""
                         }`}
                         style={{
-                          background: col.colorHex ?? col.color ?? "",
+                          background:
+                            col.colorFamilyHex ?? col.colorHex ?? "#d0c8c2",
                         }}
                       />
                     ))}

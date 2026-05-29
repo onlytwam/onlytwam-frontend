@@ -26,7 +26,7 @@ import ProductFilters, {
   matchesVariantCollectionPriceFilters,
   matchesVariantCollectionSizeAndCupFilters,
   matchesVariantCollectionColorFilters,
-  reorderVariantsForColorFilter,
+  filterVariantsByColorName,
   shouldDeferCupSizeFiltering,
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
@@ -48,7 +48,6 @@ function getBrandImageUrl(path?: string | null) {
 // NOTE: Order matters — more specific patterns must come BEFORE general ones.
 // e.g. "Bridal Bras" must match /bridal/ before it can fall through to /\bbra/.
 const DEFAULT_FILTERS: ProductFilterState = {
-  colors: [],
   colorFamilies: [],
   sizeIds: [],
   cupSizeIds: [],
@@ -100,6 +99,7 @@ export default function ProductList() {
   const [isBestSeller, setIsBestSeller] = useState(urlBestSeller);
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [colorNameSearch, setColorNameSearch] = useState("");
 
   // Listen for sort button closing the filter
   useEffect(() => {
@@ -210,7 +210,9 @@ export default function ProductList() {
     if (filters.cupSizeIds.length && !deferCupSizeFiltering) {
       p.cupSizeIds = filters.cupSizeIds.join(",");
     }
-    if (filters.colors.length) p.colors = filters.colors.join(",");
+    if (filters.colorFamilies.length) {
+      p.colorFamilyIds = filters.colorFamilies.join(",");
+    }
     if (searchQuery) p.quickSearch = searchQuery;
     if (isBestSeller) p.isBestSeller = true;
 
@@ -265,16 +267,42 @@ export default function ProductList() {
 
     let list = Array.from(grouped.values());
 
-    // Color filter: hide products with no matching variant; reorder to show
-    // the matching colour first so the card opens on the right variant.
-    if (filters.colorFamilies.length > 0 || filters.colors.length > 0) {
+    // Color filter: hide products with no matching variant; keep ONLY the
+    // matching-colour variants in allVariants so the card shows just those
+    // swatches (requirement: don't show other non-matching variants on card).
+    if (filters.colorFamilies.length > 0) {
       list = list.filter((p) =>
         matchesVariantCollectionColorFilters(p.allVariants, filters),
       );
       list = list.map((p) => {
-        const reordered = reorderVariantsForColorFilter(p.allVariants, filters);
-        return { ...reordered[0], allVariants: reordered };
+        // Filter to only the variants that match the selected colour family
+        const matchingOnly = p.allVariants.filter((v: any) =>
+          matchesVariantCollectionColorFilters([v], filters),
+        );
+        const variants = matchingOnly.length > 0 ? matchingOnly : p.allVariants;
+        return { ...variants[0], allVariants: variants };
       });
+    }
+
+    // Color-name fuzzy search: trim allVariants further + filter products
+    if (colorNameSearch.trim()) {
+      list = list
+        .map((p) => {
+          const matched = filterVariantsByColorName(
+            p.allVariants,
+            colorNameSearch,
+          );
+          if (matched.length === 0) return null;
+          return { ...matched[0], allVariants: matched };
+        })
+        .filter(Boolean) as any[];
+    }
+
+    // Brand filter — cross-section AND: product must belong to a selected brand.
+    // brandIds are also sent to the API, but we re-check here so the
+    // client-side grouping step never leaks products from other brands.
+    if (filters.brandIds.length > 0) {
+      list = list.filter((p: any) => filters.brandIds.includes(p.brandId));
     }
 
     return list.filter(
@@ -284,7 +312,7 @@ export default function ProductList() {
           filters,
         ) && matchesVariantCollectionPriceFilters(product.allVariants, filters),
     );
-  }, [productsData, filters]);
+  }, [productsData, filters, colorNameSearch]);
 
   // ── Pagination ─────────────────────────────────────────────────────────────
   const pageSize = 20;
@@ -430,6 +458,8 @@ export default function ProductList() {
         productCount={groupedProducts.length}
         currentCategoryId={catId || null}
         currentSubcategoryId={currentSubcategoryId}
+        colorNameSearch={colorNameSearch}
+        onColorNameSearchChange={setColorNameSearch}
       />
 
       {/* Product grid */}

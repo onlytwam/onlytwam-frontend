@@ -1,6 +1,6 @@
 import type { GuestWishlistItem } from "@/shared/utils/guestWishlist";
 import api from "@/shared/api/axiosInstance";
-import { getFamilySwatch } from "@/shared/utils/colorHelpers";
+import { normalizeColorFamily } from "@/shared/utils/colorHelpers";
 import type { ColorListItem } from "@/features/products/types/product.types";
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -49,11 +49,11 @@ export const listProducts = async (params: Record<string, any>) => {
     });
 
   // Color — backend reads this as a raw string and handles comma-split itself
-  if (params.colors)
+  if (params.colorFamilyIds)
     filters.push({
-      property: "color",
-      comparison: "eq",
-      value: String(params.colors),
+      property: "ColorFamilyId",
+      comparison: "in",
+      value: String(params.colorFamilyIds),
     });
 
   if (params.priceMin != null || params.min_price != null)
@@ -142,21 +142,14 @@ export const listBrands = async (params?: any) => {
 // sends (strings or objects). This is the single normalisation point — components
 // never need to call nameToHex() themselves.
 export const getProductColors = async (): Promise<ColorListItem[]> => {
-  const response = await api.get("/ProductVariantDetail/GetProductColor");
-  const raw: any[] = response.data || [];
+  const response = await api.get("/MDM/ProductColor", {
+    params: { "Page.Size": 200 },
+  });
+  const raw: any[] = response.data?.list || response.data || [];
 
   return raw
-    .map((c: any) => {
-      // Backend returns { color, colorFamily }
-      const name: string = (
-        typeof c === "string" ? c : c.color ?? c.colorName ?? c.name ?? ""
-      ).trim();
-      const colorFamily: string | null =
-        typeof c === "object" ? c.colorFamily ?? null : null;
-      const hex = getFamilySwatch(colorFamily);
-      return { name, colorFamily, hex };
-    })
-    .filter((c) => !!c.name);
+    .map((c: any) => normalizeColorFamily(c))
+    .filter((c): c is ColorListItem => Boolean(c));
 };
 
 // ── Category product counts ───────────────────────────────────────────────────

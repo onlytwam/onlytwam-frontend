@@ -1,4 +1,4 @@
-// ─── Product Types ────────────────────────────────────────────────────────────
+// Product Types
 
 export interface HomeProductModel {
   id: number;
@@ -29,38 +29,33 @@ export interface HomeProductModel {
   colorOptions?: ProductColorSwatch[];
 }
 
-/**
- * Canonical color shape used everywhere in the app.
- *
- * colorName → human label ("Bark")    – labels, aria-label, search, filter grouping
- * colorHex  → CSS hex    ("#C8A882")  – background for every swatch / dot
- *
- * The legacy `color` field is kept as an alias during migration so existing
- * code that reads `c.color` still works — it maps to colorName.
- */
 export interface ProductColorSwatch {
   productVariantId: number;
-  /** Human-readable name: "Bark", "Midnight", "Coffee Cream" */
+  /** Human-readable variant color name, e.g. "Bark" or "Coffee Cream". */
   colorName: string;
-  /** CSS hex value: "#C8A882". Always resolved — never an empty string. */
+  /** MDM color family id used for filtering. */
+  colorFamilyId?: number | null;
+  /** MDM color family display name. */
+  colorFamily?: string | null;
+  /** MDM color family swatch hex. */
+  colorFamilyHex?: string | null;
+  /** Compatibility alias for the MDM color family swatch hex. */
   colorHex: string;
-  /** Variant thumbnail image path */
+  /** Variant thumbnail image path. */
   image: string;
   /** @deprecated Use colorName. Kept for backward compatibility. */
   color?: string;
 }
 
-/**
- * Shape returned by GET /ProductVariantDetail/GetProductColor
- * after normalisation in products.api.ts.
- */
 export interface ColorListItem {
-  /** e.g. "Bark" */
+  /** MDM ProductColor id. */
+  id: number;
+  /** MDM family name, e.g. "Brown". */
   name: string;
-  /** Family swatch CSS hex — e.g. "#795548" for Brown */
+  /** Family swatch CSS hex, e.g. "#795548" for Brown. */
   hex: string;
-  /** Admin-set family: "Brown", "Blue", etc. Used for filter grouping. */
-  colorFamily?: string | null;
+  orderNo?: number | null;
+  isActive?: boolean;
 }
 
 export interface CategoryMenu {
