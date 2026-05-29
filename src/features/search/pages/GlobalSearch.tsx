@@ -16,12 +16,14 @@ import {
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listProducts } from "@/features/products/api/products.api";
+import {
+  getProductColors,
+  listProducts,
+} from "@/features/products/api/products.api";
 import ProductCard from "@/features/products/components/ProductCard";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import ProductFilters, {
-  COLOR_FAMILIES,
   ProductActiveFilters,
   getAppliedFilterCount,
   matchesVariantCollectionColorFilters,
@@ -37,85 +39,6 @@ import { Capacitor } from "@capacitor/core";
 import toast from "react-hot-toast";
 import { listCategories } from "@/features/products/api/products.api";
 import type { CategoryMenu } from "@/shared/types";
-
-const COLOR_HEX: Record<string, string> = {
-  black: "#000000",
-  cloud: "var(--heirloom)",
-  grey: "var(--heirloom)",
-  lavender: "#E6E6FA",
-  maroon: "var(--brand)",
-  navy: "#000080",
-  nude: "#E3BC9A",
-  orange: "var(--brand)",
-  pink: "#FFC0CB",
-  red: "var(--brand)",
-  rose: "#FF007F",
-  skin: "#FFCBA4",
-  teal: "#008080",
-  white: "#FFFFFF",
-  wine: "var(--brand)",
-  gray: "var(--heirloom)",
-  silver: "var(--heirloom)",
-  charcoal: "#36454F",
-  ash: "#B2BEB5",
-  ivory: "#ffffff",
-  cream: "var(--ivory)",
-  beige: "var(--ivory)",
-  brown: "#964B00",
-  tan: "#D2B48C",
-  caramel: "#C68642",
-  crimson: "var(--brand)",
-  scarlet: "#FF2400",
-  burgundy: "var(--brand)",
-  hot_pink: "#FF69B4",
-  blush: "#DE5D83",
-  salmon: "#FA8072",
-  magenta: "#FF00FF",
-  coral: "var(--brand)",
-  rust: "#B7410E",
-  amber: "var(--blush)",
-  gold: "var(--blush)",
-  mustard: "var(--blush)",
-  yellow: "#FFFF00",
-  green: "var(--brand)",
-  olive: "#808000",
-  mint: "#98FF98",
-  sage: "#8F9779",
-  forest: "#228B22",
-  emerald: "#50C878",
-  turquoise: "#40E0D0",
-  aqua: "#00FFFF",
-  blue: "#0000FF",
-  cobalt: "var(--brand)",
-  sky: "#87CEEB",
-  denim: "var(--brand)",
-  royal: "#4169E1",
-  purple: "var(--brand)",
-  violet: "#8B00FF",
-  lilac: "#C8A2C8",
-  plum: "#DDA0DD",
-  indigo: "var(--brand)",
-  orchid: "#DA70D6",
-};
-
-function resolveHex(q: string): string | null {
-  const key = q
-    .toLowerCase()
-    .trim()
-    .replace(/[\s-]+/g, "_");
-  if (COLOR_HEX[key]) return COLOR_HEX[key];
-  const plain = q.toLowerCase().trim();
-  if (COLOR_HEX[plain]) return COLOR_HEX[plain];
-  for (const [name, hex] of Object.entries(COLOR_HEX)) {
-    if (
-      plain.includes(name.replace(/_/g, " ")) ||
-      name.replace(/_/g, " ").includes(plain)
-    ) {
-      return hex;
-    }
-  }
-  return null;
-}
 
 const VOICE_PAUSE_MS = 4000;
 
@@ -183,35 +106,54 @@ function flattenCategories(categories: CategoryMenu[]): CategoryMenu[] {
   return out;
 }
 
-const COLOR_SEARCH_TERMS = Array.from(
-  new Set(COLOR_FAMILIES.flatMap((family) => family.keywords)),
-)
-  .map((term) => searchNormalize(term))
-  .filter(Boolean)
-  .sort((a, b) => b.length - a.length);
+type ColorSearchTerm = {
+  id: number;
+  name: string;
+  hex: string;
+  term: string;
+};
 
-function parseSearchIntent(rawQuery: string, categories: CategoryMenu[]) {
+function buildColorSearchTerms(colors: any[]): ColorSearchTerm[] {
+  return (colors || [])
+    .map((color) => ({
+      id: Number(color.id),
+      name: String(color.name || ""),
+      hex: String(color.hex || ""),
+      term: searchNormalize(String(color.name || "")),
+    }))
+    .filter((color) => color.id > 0 && color.term)
+    .sort((a, b) => b.term.length - a.term.length);
+}
+
+function parseSearchIntent(
+  rawQuery: string,
+  categories: CategoryMenu[],
+  colorTerms: ColorSearchTerm[],
+) {
   const normalized = searchNormalize(rawQuery);
   if (!normalized) {
     return {
-      colors: [] as string[],
+      colorFamilies: [] as ColorSearchTerm[],
+      colorFamilyIds: [] as number[],
       searchText: "",
       categoryIds: [] as number[],
     };
   }
 
   let working = ` ${normalized} `;
-  const colors: string[] = [];
+  const colorFamilies: ColorSearchTerm[] = [];
+  const colorFamilyIds: number[] = [];
 
-  for (const term of COLOR_SEARCH_TERMS) {
+  for (const color of colorTerms) {
     const checkPattern = new RegExp(
-      `(^|\\s)${escapeRegExp(term)}(?=\\s|$)`,
+      `(^|\\s)${escapeRegExp(color.term)}(?=\\s|$)`,
       "i",
     );
     if (checkPattern.test(working)) {
-      colors.push(term);
+      colorFamilies.push(color);
+      colorFamilyIds.push(color.id);
       working = working.replace(
-        new RegExp(`(^|\\s)${escapeRegExp(term)}(?=\\s|$)`, "gi"),
+        new RegExp(`(^|\\s)${escapeRegExp(color.term)}(?=\\s|$)`, "gi"),
         " ",
       );
     }
@@ -242,7 +184,8 @@ function parseSearchIntent(rawQuery: string, categories: CategoryMenu[]) {
   );
 
   return {
-    colors,
+    colorFamilies,
+    colorFamilyIds: Array.from(new Set(colorFamilyIds)),
     searchText: cleaned,
     categoryIds,
   };
@@ -294,7 +237,6 @@ function fuzzyMatch(query: string, target: string): boolean {
 }
 
 const DEFAULT_FILTERS: ProductFilterState = {
-  colors: [],
   colorFamilies: [],
   sizeIds: [],
   cupSizeIds: [],
@@ -421,15 +363,24 @@ export default function GlobalSearch() {
     queryFn: () => listCategories({ pageSize: 500 }),
     staleTime: 10 * 60 * 1000,
   });
+  const { data: colorsData } = useQuery({
+    queryKey: ["product-colors"],
+    queryFn: getProductColors,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const categoryList = useMemo(
     () => categoriesData?.list ?? [],
     [categoriesData],
   );
+  const colorSearchTerms = useMemo(
+    () => buildColorSearchTerms(colorsData || []),
+    [colorsData],
+  );
 
   const searchIntent = useMemo(
-    () => parseSearchIntent(q, categoryList),
-    [q, categoryList],
+    () => parseSearchIntent(q, categoryList, colorSearchTerms),
+    [q, categoryList, colorSearchTerms],
   );
 
   const clearPauseTimer = () => {
@@ -649,11 +600,18 @@ export default function GlobalSearch() {
   };
 
   const smartQuery = searchIntent.searchText;
-  const colorQueryText = searchIntent.colors.join(" ");
-  const hasColorSearch = searchIntent.colors.length > 0;
+  const colorQueryText = searchIntent.colorFamilies
+    .map((color) => color.name)
+    .join(" ");
+  const hasColorSearch = searchIntent.colorFamilyIds.length > 0;
   const displayQuery =
-    [...searchIntent.colors, smartQuery].filter(Boolean).join(" ") || q;
-  const anchorHex = hasColorSearch ? resolveHex(searchIntent.colors[0]) : null;
+    [
+      ...searchIntent.colorFamilies.map((color) => color.name),
+      smartQuery,
+    ]
+      .filter(Boolean)
+      .join(" ") || q;
+  const anchorColor = searchIntent.colorFamilies[0] || null;
 
   // Brands query — for chip label display in toolbar
 
@@ -666,8 +624,8 @@ export default function GlobalSearch() {
       orderAscending: false,
     };
     const deferCupSizeFiltering = shouldDeferCupSizeFiltering(filters);
-    if (searchIntent.colors.length)
-      params.colors = searchIntent.colors.join(",");
+    if (searchIntent.colorFamilyIds.length)
+      params.colorFamilyIds = searchIntent.colorFamilyIds.join(",");
     if (searchIntent.categoryIds.length)
       params.categoryIds = searchIntent.categoryIds.join(",");
     if (smartQuery) params.quickSearch = smartQuery;
@@ -678,7 +636,8 @@ export default function GlobalSearch() {
     if (filters.sizeIds.length) params.sizeIds = filters.sizeIds.join(",");
     if (filters.cupSizeIds.length && !deferCupSizeFiltering)
       params.cupSizeIds = filters.cupSizeIds.join(",");
-    if (filters.colors.length) params.colors = filters.colors.join(",");
+    if (filters.colorFamilies.length)
+      params.colorFamilyIds = filters.colorFamilies.join(",");
 
     if (sortOption === "az") {
       params.orderProperty = "product.name";
@@ -744,7 +703,10 @@ export default function GlobalSearch() {
             product.allVariants,
             filters,
           ) &&
-          matchesVariantCollectionPriceFilters(product.allVariants, filters),
+          matchesVariantCollectionPriceFilters(product.allVariants, filters) &&
+          // Brand filter — cross-section AND: re-enforced client-side after grouping
+          (filters.brandIds.length === 0 ||
+            filters.brandIds.includes(product.brandId)),
       );
   }, [fuzzyFiltered, filters]);
 
@@ -920,16 +882,18 @@ export default function GlobalSearch() {
       {/* ══ Page body ══ */}
       <div className="container s-globalsearch-58358e s-globalsearch-ff9e69e4">
         {/* Color badge */}
-        {q && hasColorSearch && anchorHex && (
+        {q && hasColorSearch && anchorColor && (
           <div className="s-cart-1fdbde">
             <span
               className="s-globalsearch-1ccf92"
-              style={{ background: anchorHex }}
+              style={{ background: anchorColor.hex }}
             />
             <span className="s-globalsearch-d2dadc">
               {smartQuery
                 ? `Showing ${displayQuery}`
-                : `Showing all ${searchIntent.colors.join(" ")} shades`}
+                : `Showing all ${searchIntent.colorFamilies
+                    .map((color) => color.name)
+                    .join(" ")} shades`}
             </span>
           </div>
         )}

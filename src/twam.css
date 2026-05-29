@@ -24162,3 +24162,73 @@ section.s-home-bcf04f {
     padding: 22px 20px;
   }
 }
+
+/* ── Variant colour-name fuzzy search (below colour swatches in filter panel) ─ */
+.gs-filter-color-name-search {
+  margin-top: 12px;
+}
+
+.gs-filter-color-name-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--ivory);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.gs-filter-color-name-field:focus-within {
+  border-color: var(--brand);
+}
+
+.gs-filter-color-name-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--heirloom);
+  opacity: 0.55;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.gs-filter-color-name-input {
+  border: none !important;
+  border-radius: 0 !important;
+  padding-left: 32px !important;
+  padding-right: 32px !important;
+  flex: 1;
+}
+
+.gs-filter-color-name-input:focus {
+  border-color: transparent !important;
+}
+
+.gs-filter-color-name-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--heirloom);
+  opacity: 0.55;
+  font-size: 16px;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  transition: opacity 0.1s;
+}
+
+.gs-filter-color-name-clear:hover {
+  opacity: 1;
+}
+
+.gs-filter-color-name-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--heirloom);
+  opacity: 0.72;
+  font-style: italic;
+  line-height: 1.4;
+}

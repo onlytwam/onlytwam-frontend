@@ -20,9 +20,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
 import {
-  COLOR_FAMILY_OPTIONS,
-  guessColorFamily,
-  getFamilySwatch,
+  colorFamilyHexOf,
+  colorFamilyNameOf,
+  normalizeColorFamily,
+  FALLBACK_COLOR_FAMILY_HEX,
+  type ColorFamilyOption,
 } from "@/shared/utils/colorHelpers";
 import { getImageUrl } from "@/shared/utils/helpers";
 import type { AdminLayoutOutletContext } from "@/features/admin/components/AdminLayout";
@@ -130,8 +132,7 @@ function resolveColor(c: string | null | undefined): string {
 }
 
 function getVariantColor(variant: any): string {
-  // Use family swatch color for display; no per-variant hex
-  return getFamilySwatch(variant?.colorFamily);
+  return colorFamilyHexOf(variant);
 }
 
 function imageIdFromAny(image: any): number | undefined {
@@ -405,32 +406,37 @@ function InlineSelect({
 }
 
 // ─── Inline string-select (Color Family) ─────────────────────────────────────
-function InlineStringSelect({
+function InlineColorFamilySelect({
   label,
-  value,
+  valueId,
+  valueName,
   options,
   onSave,
 }: {
   label: string;
-  value: string | null | undefined;
-  options: readonly string[];
-  onSave: (v: string) => void;
+  valueId: number | null | undefined;
+  valueName?: string | null;
+  options: ColorFamilyOption[];
+  onSave: (v: number | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [localValue, setLocalValue] = useState(value ?? "");
+  const [localValue, setLocalValue] = useState(valueId ? String(valueId) : "");
 
   useEffect(() => {
-    setLocalValue(value ?? "");
-  }, [value]);
+    setLocalValue(valueId ? String(valueId) : "");
+  }, [valueId]);
 
-  const isDirty = localValue !== (value ?? "");
-  const swatch = getFamilySwatch(localValue);
+  const savedValue = valueId ? String(valueId) : "";
+  const isDirty = localValue !== savedValue;
+  const current = options.find((o) => String(o.id) === localValue);
+  const displayName = current?.name || valueName || "";
+  const swatch = current?.hex || FALLBACK_COLOR_FAMILY_HEX;
 
   function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value;
     setLocalValue(next);
     setEditing(false);
-    if (next !== (value ?? "")) onSave(next);
+    if (next !== savedValue) onSave(next ? Number(next) : null);
   }
 
   return (
@@ -472,8 +478,8 @@ function InlineStringSelect({
         >
           <option value="">— Not set —</option>
           {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
+            <option key={o.id} value={o.id}>
+              {o.name}
             </option>
           ))}
         </select>
@@ -482,7 +488,7 @@ function InlineStringSelect({
           onClick={() => setEditing(true)}
           style={{
             fontSize: 14,
-            color: localValue ? TXT : SUB,
+            color: displayName ? TXT : SUB,
             cursor: "pointer",
             padding: "6px 0",
             borderBottom: isDirty
@@ -495,7 +501,7 @@ function InlineStringSelect({
           }}
           title="Click to edit"
         >
-          {localValue && (
+          {displayName && (
             <span
               style={{
                 width: 14,
@@ -507,7 +513,7 @@ function InlineStringSelect({
               }}
             />
           )}
-          {localValue || <span style={{ fontStyle: "italic" }}>Not set</span>}
+          {displayName || <span style={{ fontStyle: "italic" }}>Not set</span>}
           <i
             className="bi bi-pencil"
             style={{ fontSize: 11, color: SUB, opacity: 0.6 }}
@@ -888,6 +894,109 @@ function ImagePane({
   );
 }
 
+// ─── Standalone numeric input (defined OUTSIDE SizePalette so it never ────────
+// remounts on addForm state change — fixes the focus-lost-after-one-digit bug)
+function NumInput({
+  label,
+  value,
+  isPrice = false,
+  onChange,
+  onMrpBlur,
+}: {
+  label: string;
+  value: number;
+  isPrice?: boolean;
+  onChange: (val: number) => void;
+  onMrpBlur?: (val: number) => void;
+}) {
+  const [raw, setRaw] = useState<string>(value === 0 ? "" : String(value));
+
+  // Sync inbound value changes (e.g. when finalPrice is auto-filled from mrp)
+  useEffect(() => {
+    // Only overwrite if the parsed version differs — avoids clobbering mid-type
+    const parsed = isPrice ? parseFloat(raw) || 0 : parseInt(raw, 10) || 0;
+    if (parsed !== value) {
+      setRaw(value === 0 ? "" : String(value));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const allowed = isPrice ? /^[0-9]*\.?[0-9]*$/ : /^[0-9]*$/;
+
+  function commit() {
+    const num =
+      raw === "" ? 0 : isPrice ? parseFloat(raw) || 0 : parseInt(raw, 10) || 0;
+    onChange(num);
+    if (onMrpBlur) onMrpBlur(num);
+  }
+
+  return (
+    <div>
+      <div
+        style={{ fontSize: 10, fontWeight: 700, color: SUB, marginBottom: 3 }}
+      >
+        {label}
+      </div>
+      <input
+        type="text"
+        inputMode={isPrice ? "decimal" : "numeric"}
+        pattern={isPrice ? "[0-9]*.?[0-9]*" : "[0-9]*"}
+        value={raw}
+        placeholder="0"
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v !== "" && !allowed.test(v)) return;
+          setRaw(v);
+        }}
+        onBlur={commit}
+        style={{
+          ...fieldStyle({ fontSize: 13 }),
+          MozAppearance: "textfield" as any,
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── Standalone text input (same pattern as NumInput — lives outside SizePalette
+// so it never remounts on addForm state changes, preventing focus-loss)
+function TextInput({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (val: string) => void;
+}) {
+  const [local, setLocal] = useState<string>(value);
+
+  // Sync if parent resets the value (e.g. form clear after save)
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
+
+  return (
+    <div>
+      <div
+        style={{ fontSize: 10, fontWeight: 700, color: SUB, marginBottom: 3 }}
+      >
+        {label}
+      </div>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => onChange(local)}
+        style={fieldStyle({ fontSize: 13 })}
+      />
+    </div>
+  );
+}
+
 // ─── Inline editable size row ─────────────────────────────────────────────────
 // ── Stock breakdown mini-card (read-only, shown in header when collapsed too) ─
 function StockBreakdown({ pvd }: { pvd: any }) {
@@ -951,6 +1060,7 @@ function SizePalette({
   variantId,
   productId,
   isCupSize,
+  isAlphaSize,
   onRefresh,
   registerSave,
   onCupSizeToggle,
@@ -962,6 +1072,7 @@ function SizePalette({
   variantId: number;
   productId: number;
   isCupSize: boolean;
+  isAlphaSize: boolean;
   onRefresh: () => void;
   registerSave: (id: number, fn: () => Promise<void>) => void;
   onCupSizeToggle?: (val: boolean) => void;
@@ -970,23 +1081,55 @@ function SizePalette({
   highlightCupSizeId?: number | null;
   highlightStockId?: string | null;
 }) {
-  // Single endpoint returns all MDM sizes + embedded PVD data
+  // Resolve effective flag values before the query so they can drive the queryKey.
+  // The prop carries the live (unsaved) checkbox state from the parent; the palette
+  // API response carries the saved DB value. Prop takes priority.
+  // isAlphaSize: false/null → numerical (default); true → alphabetical.
+  const effectiveIsAlpha: boolean = isAlphaSize ?? false;
+  const effectiveIsCup: boolean = isCupSize ?? false;
+
+  // Single endpoint returns all MDM sizes + embedded PVD data.
+  // Include effectiveIsAlpha/Cup in the queryKey so React Query refetches
+  // immediately when the admin toggles the checkbox — before saving.
   const {
     data: paletteData,
     isLoading: paletteLoading,
     refetch: refetchPalette,
   } = useQuery({
-    queryKey: ["admin-size-palette", variantId],
+    queryKey: [
+      "admin-size-palette",
+      variantId,
+      effectiveIsAlpha,
+      effectiveIsCup,
+    ],
     queryFn: () =>
       api
-        .get(`/ProductVariantDetail/AdminSizePalette/${variantId}`)
+        .get(`/ProductVariantDetail/AdminSizePalette/${variantId}`, {
+          params: {
+            isAlphaSize: effectiveIsAlpha,
+            isCupSize: effectiveIsCup,
+          },
+        })
         .then((r) => r.data),
     enabled: !!variantId,
   });
 
-  const allSizes: any[] = paletteData?.bandSizes ?? [];
-  const bandSizesByType: Record<string, any[]> =
-    paletteData?.bandSizesByType ?? {};
+  const allBandSizes: any[] = paletteData?.bandSizes ?? [];
+
+  // Filter band sizes: show only the type matching the alpha toggle.
+  // sizeType comes from mdm.Size — "alphabetical" | "numerical" | null.
+  // When alpha is NOT set, always show numerical (never show alpha or null-type sizes).
+  const allSizes: any[] = effectiveIsAlpha
+    ? allBandSizes.filter((s: any) => s.sizeType === "alphabetical")
+    : allBandSizes.filter((s: any) => s.sizeType === "numerical");
+
+  // Rebuild grouped-by-type from the filtered set (keeps multi-type header logic intact).
+  const bandSizesByType: Record<string, any[]> = {};
+  for (const s of allSizes) {
+    const k = s.sizeType || "other";
+    if (!bandSizesByType[k]) bandSizesByType[k] = [];
+    bandSizesByType[k].push(s);
+  }
   const hasMultipleTypes = Object.keys(bandSizesByType).length > 1;
   const allCupSizes: any[] = paletteData?.cupSizes ?? [];
   const paletteIsCup: boolean = isCupSize || !!paletteData?.hasCupSize;
@@ -1050,12 +1193,15 @@ function SizePalette({
   async function addSize() {
     setSaving(true);
     try {
+      // NumInput commits values on blur, so addForm always has clean numbers.
+      // Default finalPrice to mrpPrice if still 0.
       const mrp = addForm.mrpPrice ?? 0;
-      const fp = addForm.finalPrice ?? 0;
+      const fp = addForm.finalPrice || mrp;
       const discountPercent =
         mrp > 0 ? Math.round(((mrp - fp) / mrp) * 100) : 0;
       await api.post("/ProductVariantDetail/", {
         ...addForm,
+        finalPrice: fp,
         discountPercent,
         productId,
         productVariantId: variantId,
@@ -1166,25 +1312,8 @@ function SizePalette({
     position: "relative",
   };
 
-  const addNumField = (key: string, label: string) => (
-    <div key={key}>
-      <div
-        style={{ fontSize: 10, fontWeight: 700, color: SUB, marginBottom: 3 }}
-      >
-        {label}
-      </div>
-      <input
-        type="number"
-        min={0}
-        step={key.includes("Price") ? 0.01 : 1}
-        value={addForm[key] ?? 0}
-        onChange={(e) =>
-          setAddForm((f) => ({ ...f, [key]: Number(e.target.value) }))
-        }
-        style={fieldStyle({ fontSize: 13 })}
-      />
-    </div>
-  );
+  // addNumField removed — replaced by <NumInput> standalone component above SizePalette
+  // to prevent focus-loss on every keystroke (component was re-created on each addForm update).
 
   function StockPanel({ pvd }: { pvd: any }) {
     const total = pvd.stockQuantity ?? 0;
@@ -1561,164 +1690,43 @@ function SizePalette({
             marginBottom: 10,
           }}
         >
-          {addNumField("stockQuantity", "Stock Qty *")}
-          {addNumField("mrpPrice", "MRP (₹) *")}
-          {addNumField("finalPrice", "Selling Price (₹) *")}
-          {/* Discount — auto-calculated, read-only */}
-          <div key="discountDisplay">
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: SUB,
-                marginBottom: 3,
-              }}
-            >
-              Discount %
-            </div>
-            <div
-              style={{
-                ...fieldStyle({ fontSize: 13 }),
-                background: "#f5f5f5",
-                color: SUB,
-                cursor: "default",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              {(() => {
-                const mrp = addForm.mrpPrice ?? 0;
-                const fp = addForm.finalPrice ?? 0;
-                return mrp > 0
-                  ? `${Math.round(((mrp - fp) / mrp) * 100)}%`
-                  : "—";
-              })()}
-            </div>
-          </div>
-          {/* CGST / SGST are auto-computed from TaxHSNCode — read-only */}
-          {(() => {
-            const price = addForm.finalPrice || 0;
-            // Show computed values when they exist on the form state (set by TaxHSNCode)
-            const cgstVal = addForm.cgst ?? 0;
-            const sgstVal = addForm.sgst ?? 0;
-            const cgstAmt =
-              price > 0 && cgstVal > 0
-                ? ((price * cgstVal) / 100).toFixed(2)
-                : null;
-            const sgstAmt =
-              price > 0 && sgstVal > 0
-                ? ((price * sgstVal) / 100).toFixed(2)
-                : null;
-            return (
-              <div
-                style={{
-                  gridColumn: "1/-1",
-                  display: "flex",
-                  gap: 12,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 120 }}>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: SUB,
-                      marginBottom: 3,
-                    }}
-                  >
-                    CGST %
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#374151",
-                      background: "#f9fafb",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 4,
-                      padding: "4px 8px",
-                    }}
-                  >
-                    {cgstVal ? `${cgstVal}%` : "—"}
-                    {cgstAmt && (
-                      <span
-                        style={{
-                          color: "#6b7280",
-                          marginLeft: 6,
-                          fontWeight: 400,
-                        }}
-                      >
-                        (₹{cgstAmt})
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
-                    Auto from HSN Code
-                  </div>
-                </div>
-                <div style={{ flex: 1, minWidth: 120 }}>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: SUB,
-                      marginBottom: 3,
-                    }}
-                  >
-                    SGST %
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#374151",
-                      background: "#f9fafb",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 4,
-                      padding: "4px 8px",
-                    }}
-                  >
-                    {sgstVal ? `${sgstVal}%` : "—"}
-                    {sgstAmt && (
-                      <span
-                        style={{
-                          color: "#6b7280",
-                          marginLeft: 6,
-                          fontWeight: 400,
-                        }}
-                      >
-                        (₹{sgstAmt})
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
-                    Auto from HSN Code
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {/* Stock Qty */}
+          <NumInput
+            label="Stock Qty *"
+            value={addForm.stockQuantity ?? 0}
+            isPrice={false}
+            onChange={(v) => setAddForm((f) => ({ ...f, stockQuantity: v }))}
+          />
+          {/* MRP — auto-fills Selling Price when Selling Price is untouched */}
+          <NumInput
+            label="MRP (₹) *"
+            value={addForm.mrpPrice ?? 0}
+            isPrice={true}
+            onChange={(v) => setAddForm((f) => ({ ...f, mrpPrice: v }))}
+            onMrpBlur={(v) =>
+              setAddForm((f) => {
+                // Only auto-fill if selling price is still 0 / untouched
+                if (!f.finalPrice || f.finalPrice === 0) {
+                  return { ...f, mrpPrice: v, finalPrice: v };
+                }
+                return { ...f, mrpPrice: v };
+              })
+            }
+          />
+          {/* Selling Price */}
+          <NumInput
+            label="Selling Price (₹) *"
+            value={addForm.finalPrice ?? 0}
+            isPrice={true}
+            onChange={(v) => setAddForm((f) => ({ ...f, finalPrice: v }))}
+          />
           {/* Stock ID */}
           <div style={{ gridColumn: "1/-1" }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: SUB,
-                marginBottom: 3,
-              }}
-            >
-              Stock ID
-            </div>
-            <input
-              type="text"
-              placeholder="e.g. STK-001"
+            <TextInput
+              label="Stock ID"
               value={addForm.stockId ?? ""}
-              onChange={(e) =>
-                setAddForm((f) => ({ ...f, stockId: e.target.value }))
-              }
-              style={fieldStyle({ fontSize: 13 })}
+              placeholder="e.g. STK-001"
+              onChange={(v) => setAddForm((f) => ({ ...f, stockId: v }))}
             />
           </div>
         </div>
@@ -2048,35 +2056,9 @@ function SizePalette({
           }}
         >
           Cup Sizes
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 600,
-              color: paletteIsCup ? P : SUB,
-              textTransform: "none",
-              letterSpacing: 0,
-              background: paletteIsCup ? PLT : GRY,
-              border: `1.5px solid ${paletteIsCup ? P : BDR}`,
-              borderRadius: 20,
-              padding: "2px 8px",
-              transition: "all 0.15s",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={paletteIsCup}
-              style={{ accentColor: P, width: 13, height: 13 }}
-              onChange={(e) => onCupSizeToggle?.(e.target.checked)}
-            />
-            {paletteIsCup ? "✓ Enabled" : "Enable Cup Sizes"}
-          </label>
           {paletteIsCup && (
             <span style={{ fontSize: 11, color: P, fontWeight: 700 }}>
-              ↓ Select a band size to manage cup stock
+              ↓ Select a band size, then a cup size to set stock
             </span>
           )}
         </div>
@@ -2580,6 +2562,9 @@ function SizePalette({
           0%, 100% { opacity: 1; }
           50%       { opacity: 0.2; }
         }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
       `}</style>
 
       {paletteLoading && (
@@ -2589,7 +2574,7 @@ function SizePalette({
       )}
       {!paletteLoading && allSizes.length === 0 && (
         <div style={{ fontSize: 12, color: SUB, padding: "10px 0" }}>
-          No band sizes found in MDM.
+          No band sizes found in MDM for the selected size type.
         </div>
       )}
       {renderBandSizes()}
@@ -2792,39 +2777,48 @@ function SizePalette({
 // ─── Add Variant modal ────────────────────────────────────────────────────────
 function AddVariantModal({
   productId,
+  colorFamilies,
   onClose,
   onAdded,
 }: {
   productId: number;
+  colorFamilies: ColorFamilyOption[];
   onClose: () => void;
   onAdded: () => void;
 }) {
   const [form, setForm] = useState({
     variantName: "",
-    productCode: "",
     color: "",
-    colorFamily: "",
+    colorFamilyId: "",
     variantDescription: "",
     isBestSeller: false,
     isReturnAvailable: false,
     isCupSize: false,
+    isAlphaSize: false,
   });
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    if (!form.variantName) return toast.error("Variant name required");
+    if (!form.color.trim()) return toast.error("Color Name is required");
+    if (!form.colorFamilyId) return toast.error("Color Family is required");
     setSaving(true);
     try {
-      await api.post("/ProductVariants/", { ...form, productId });
+      await api.post("/ProductVariants", {
+        ...form,
+        colorFamilyId: form.colorFamilyId ? Number(form.colorFamilyId) : null,
+        productId,
+      });
       toast.success("Variant created");
       onAdded();
       onClose();
     } catch {
-      toast.error("Failed");
+      toast.error("Failed to create variant");
     } finally {
       setSaving(false);
     }
   }
+
+  const canSubmit = form.color.trim() !== "" && form.colorFamilyId !== "";
 
   return (
     <div
@@ -2859,6 +2853,8 @@ function AddVariantModal({
         >
           Add New Variant
         </h3>
+
+        {/* Required: Color Name + Color Family */}
         <div
           style={{
             display: "grid",
@@ -2867,39 +2863,66 @@ function AddVariantModal({
             marginBottom: 16,
           }}
         >
-          {[
-            ["variantName", "Variant Name *"],
-            ["productCode", "Product Code *"],
-            ["color", "Color (hex / name)"],
-            ["variantDescription", "Description"],
-          ].map(([key, label]) => (
+          <div>
             <div
-              key={key}
               style={{
-                gridColumn: key === "variantDescription" ? "1/-1" : undefined,
+                fontSize: 11,
+                color: SUB,
+                fontWeight: 700,
+                marginBottom: 4,
+                textTransform: "uppercase" as const,
               }}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: SUB,
-                  fontWeight: 700,
-                  marginBottom: 4,
-                }}
-              >
-                {label}
-              </div>
-              <input
-                value={(form as any)[key] || ""}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, [key]: e.target.value }))
-                }
-                style={fieldStyle({ fontSize: 13 })}
-              />
+              Color Name <span style={{ color: "#c0392b" }}>*</span>
             </div>
-          ))}
+            <input
+              value={form.color}
+              placeholder="e.g. Midnight Black"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, color: e.target.value }))
+              }
+              style={fieldStyle({
+                fontSize: 13,
+                borderColor: !form.color.trim() ? "#e0c0c0" : undefined,
+              })}
+            />
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                color: SUB,
+                fontWeight: 700,
+                marginBottom: 4,
+                textTransform: "uppercase" as const,
+              }}
+            >
+              Color Family <span style={{ color: "#c0392b" }}>*</span>
+            </div>
+            <select
+              value={form.colorFamilyId}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, colorFamilyId: e.target.value }))
+              }
+              style={{
+                ...fieldStyle({
+                  cursor: "pointer",
+                  borderColor: !form.colorFamilyId ? "#e0c0c0" : undefined,
+                }),
+                appearance: "auto" as const,
+              }}
+            >
+              <option value="">— Select family —</option>
+              {colorFamilies.map((cf) => (
+                <option key={cf.id} value={cf.id}>
+                  {cf.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        {/* Color Family */}
+
+        {/* Optional: Variant Name */}
         <div style={{ marginBottom: 14 }}>
           <div
             style={{
@@ -2910,32 +2933,56 @@ function AddVariantModal({
               textTransform: "uppercase" as const,
             }}
           >
-            Color Family
+            Variant Name
           </div>
-          <select
-            value={form.colorFamily}
+          <input
+            value={form.variantName}
             onChange={(e) =>
-              setForm((f) => ({ ...f, colorFamily: e.target.value }))
+              setForm((f) => ({ ...f, variantName: e.target.value }))
             }
+            style={fieldStyle({ fontSize: 13 })}
+          />
+        </div>
+
+        {/* Optional: Description */}
+        <div style={{ marginBottom: 16 }}>
+          <div
             style={{
-              ...fieldStyle({ cursor: "pointer" }),
-              appearance: "auto" as const,
+              fontSize: 11,
+              color: SUB,
+              fontWeight: 700,
+              marginBottom: 4,
+              textTransform: "uppercase" as const,
             }}
           >
-            <option value="">— Select family —</option>
-            {COLOR_FAMILY_OPTIONS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+            Description
+          </div>
+          <input
+            value={form.variantDescription}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, variantDescription: e.target.value }))
+            }
+            style={fieldStyle({ fontSize: 13 })}
+          />
         </div>
-        <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
-          {[
-            ["isBestSeller", "Best Seller"],
-            ["isReturnAvailable", "Return Available"],
-            ["isCupSize", "Cup Size"],
-          ].map(([k, l]) => (
+
+        {/* Toggles */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap" as const,
+            gap: "10px 20px",
+            marginBottom: 24,
+          }}
+        >
+          {(
+            [
+              ["isBestSeller", "Best Seller"],
+              ["isReturnAvailable", "Return Available"],
+              ["isCupSize", "Cup Size"],
+              ["isAlphaSize", "Alpha Size"],
+            ] as [keyof typeof form, string][]
+          ).map(([k, l]) => (
             <label
               key={k}
               style={{
@@ -2948,7 +2995,7 @@ function AddVariantModal({
             >
               <input
                 type="checkbox"
-                checked={(form as any)[k]}
+                checked={form[k] as boolean}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, [k]: e.target.checked }))
                 }
@@ -2957,20 +3004,22 @@ function AddVariantModal({
             </label>
           ))}
         </div>
+
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={save}
-            disabled={saving}
+            disabled={saving || !canSubmit}
             style={{
               flex: 1,
               padding: "10px 0",
-              background: P,
+              background: saving || !canSubmit ? "#c8a0a8" : P,
               color: WHITE,
               border: "none",
               borderRadius: 10,
               fontSize: 14,
-              cursor: "pointer",
+              cursor: saving || !canSubmit ? "not-allowed" : "pointer",
               fontWeight: 700,
+              transition: "background 0.2s",
             }}
           >
             {saving ? "Creating…" : "Create Variant"}
@@ -2991,543 +3040,6 @@ function AddVariantModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── New Product Page ─────────────────────────────────────────────────────────
-// Full-detail-page-style layout for creating a new product.
-// All fields are filled here before hitting Create — mirrors the edit experience.
-function NewProductPage({
-  form,
-  setForm,
-  creating,
-  onCreate,
-  onCancel,
-}: {
-  form: Record<string, any>;
-  setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>;
-  creating: boolean;
-  onCreate: () => void;
-  onCancel: () => void;
-}) {
-  const qc = useQueryClient();
-
-  function set(k: string, v: any) {
-    setForm((f) => ({ ...f, [k]: v }));
-  }
-
-  const { data: catsData } = useQuery({
-    queryKey: ["admin-cats-all"],
-    queryFn: () =>
-      api
-        .get("/Category", { params: { "Page.Size": 500 } })
-        .then((r) => r.data),
-    staleTime: 120_000,
-  });
-  const { data: brandsData } = useQuery({
-    queryKey: ["admin-brands-all"],
-    queryFn: () =>
-      api
-        .get("/Brand/", { params: { showAll: true, "Page.Size": 200 } })
-        .then((r) => r.data),
-    staleTime: 120_000,
-  });
-  const { data: taxHsnData } = useQuery({
-    queryKey: ["mdm-taxhsn-all"],
-    queryFn: () =>
-      api
-        .get("/MDM/TaxHSNCode", { params: { "Page.Size": 500 } })
-        .then((r) => r.data),
-    staleTime: 300_000,
-  });
-  const { data: fabricsData } = useQuery({
-    queryKey: ["mdm-fabrics-all"],
-    queryFn: () =>
-      api
-        .get("/MDM/Fabrics", { params: { "Page.Size": 500 } })
-        .then((r) => r.data),
-    staleTime: 300_000,
-  });
-
-  const allCats = (catsData?.list ?? []) as any[];
-  const allBrands = (brandsData?.list ?? []) as any[];
-  const allTaxHsn = (taxHsnData?.list ?? []) as any[];
-  const allFabrics = (fabricsData?.list ?? []) as any[];
-  const parentCats = allCats.filter(
-    (c) => !c.parentCategoryId || c.parentCategoryId === 0,
-  );
-  const childCats = (pid: number) =>
-    allCats.filter((c) => Number(c.parentCategoryId) === Number(pid));
-
-  // ── shared styles ──────────────────────────────────────────────────────────
-  const fieldLabel: React.CSSProperties = {
-    fontSize: 11,
-    fontWeight: 700,
-    color: SUB,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-    marginBottom: 5,
-    display: "block",
-  };
-  const fieldInput: React.CSSProperties = {
-    width: "100%",
-    padding: "9px 12px",
-    fontSize: 14,
-    border: `1.5px solid ${BDR}`,
-    borderRadius: 8,
-    outline: "none",
-    color: TXT,
-    background: WHITE,
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-  };
-  const fieldSelect: React.CSSProperties = {
-    ...fieldInput,
-    cursor: "pointer",
-    appearance: "none",
-    background: `${WHITE} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%238A7F7A' d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 12px center`,
-  };
-  const section: React.CSSProperties = {
-    background: WHITE,
-    border: `1.5px solid ${BDR}`,
-    borderRadius: 14,
-    overflow: "hidden",
-    marginBottom: 20,
-  };
-  const sectionHead: React.CSSProperties = {
-    padding: "14px 22px",
-    background: GRY,
-    borderBottom: `1px solid ${BDR}`,
-    fontSize: 12,
-    fontWeight: 700,
-    color: SUB,
-    textTransform: "uppercase",
-    letterSpacing: "0.07em",
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  };
-  const grid2: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 18,
-  };
-  const grid3: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: 18,
-  };
-
-  const canCreate = !!form.name?.trim();
-
-  return (
-    <div style={{ background: BG, minHeight: "100vh", paddingBottom: 80 }}>
-      {/* ── Sticky header ──────────────────────────────────────────────────── */}
-      <div
-        style={{
-          background: WHITE,
-          borderBottom: `1px solid ${BDR}`,
-          padding: "14px 32px",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={onCancel}
-          style={{
-            width: 34,
-            height: 34,
-            background: WHITE,
-            border: `1px solid ${BDR}`,
-            borderRadius: 999,
-            cursor: "pointer",
-            fontSize: 14,
-            color: P,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <i className="bi bi-arrow-left" />
-        </button>
-        <div>
-          <div
-            style={{ fontSize: 18, fontWeight: 800, color: TXT, lineHeight: 1 }}
-          >
-            {form.name?.trim() || (
-              <span
-                style={{ color: SUB, fontWeight: 400, fontStyle: "italic" }}
-              >
-                New Product
-              </span>
-            )}
-          </div>
-          {form.productCode && (
-            <div style={{ fontSize: 12, color: SUB, marginTop: 3 }}>
-              {form.productCode}
-            </div>
-          )}
-        </div>
-        <span
-          style={{
-            marginLeft: 8,
-            padding: "3px 12px",
-            fontSize: 11,
-            fontWeight: 700,
-            borderRadius: 20,
-            background: "#fff8e1",
-            color: "#b45309",
-            border: "1px solid #fde68a",
-            letterSpacing: "0.05em",
-          }}
-        >
-          DRAFT
-        </span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: "9px 20px",
-              fontSize: 13,
-              fontWeight: 600,
-              border: `1.5px solid ${BDR}`,
-              borderRadius: 10,
-              background: WHITE,
-              color: SUB,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onCreate}
-            disabled={!canCreate || creating}
-            style={{
-              padding: "9px 24px",
-              fontSize: 13,
-              fontWeight: 700,
-              border: "none",
-              borderRadius: 10,
-              background: canCreate && !creating ? P : "#c4a4aa",
-              color: WHITE,
-              cursor: canCreate && !creating ? "pointer" : "default",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              transition: "background 0.15s",
-            }}
-          >
-            {creating ? (
-              <>
-                <span
-                  style={{
-                    width: 13,
-                    height: 13,
-                    border: "2px solid rgba(255,255,255,0.35)",
-                    borderTopColor: WHITE,
-                    borderRadius: "50%",
-                    display: "inline-block",
-                    animation: "spin 0.7s linear infinite",
-                  }}
-                />
-                Creating…
-              </>
-            ) : (
-              <>
-                <i className="bi bi-check2-circle" /> Create Product
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 820, margin: "32px auto", padding: "0 24px" }}>
-        {/* Hint */}
-        <div
-          style={{
-            marginBottom: 22,
-            padding: "12px 16px",
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            borderRadius: 10,
-            fontSize: 13,
-            color: "#1d4ed8",
-            display: "flex",
-            gap: 10,
-          }}
-        >
-          <i
-            className="bi bi-info-circle-fill"
-            style={{ flexShrink: 0, marginTop: 1 }}
-          />
-          <span>
-            Fill in the product details below and click{" "}
-            <strong>Create Product</strong>. Variants, sizes, images and pricing
-            are added after creation on this same page.
-          </span>
-        </div>
-
-        {/* ── Product Info ──────────────────────────────────────────────── */}
-        <div style={section}>
-          <div style={sectionHead}>
-            <i className="bi bi-box-seam" style={{ color: P }} />
-            Product Info
-          </div>
-          <div style={{ padding: "22px 22px 8px" }}>
-            {/* Name + Code */}
-            <div style={{ ...grid2, marginBottom: 18 }}>
-              <div>
-                <label style={fieldLabel}>
-                  Product Name <span style={{ color: "#c62828" }}>*</span>
-                </label>
-                <input
-                  style={{
-                    ...fieldInput,
-                    borderColor: form.name ? BDR : "#fca5a5",
-                  }}
-                  placeholder="e.g. Everyday Non-Wired Bra"
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  autoFocus
-                />
-                {!form.name && (
-                  <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>
-                    Required
-                  </div>
-                )}
-              </div>
-              <div>
-                <label style={fieldLabel}>Product Code</label>
-                <input
-                  style={fieldInput}
-                  placeholder="e.g. BNB-01"
-                  value={form.productCode}
-                  onChange={(e) => set("productCode", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div style={{ marginBottom: 18 }}>
-              <label style={fieldLabel}>Description</label>
-              <textarea
-                style={{ ...fieldInput, height: 90, resize: "vertical" }}
-                placeholder="Describe the product…"
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-              />
-            </div>
-
-            {/* Parent Cat + Child Cat + Brand */}
-            <div style={{ ...grid3, marginBottom: 18 }}>
-              <div>
-                <label style={fieldLabel}>Parent Category</label>
-                <select
-                  style={fieldSelect}
-                  value={form.categoryId ?? ""}
-                  onChange={(e) => {
-                    set(
-                      "categoryId",
-                      e.target.value ? Number(e.target.value) : null,
-                    );
-                    set("childCategoryId", null);
-                  }}
-                >
-                  <option value="">Select…</option>
-                  {parentCats.map((c) => (
-                    <option key={c.categoryId} value={c.categoryId}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={fieldLabel}>Child Category</label>
-                <select
-                  style={{ ...fieldSelect, opacity: form.categoryId ? 1 : 0.5 }}
-                  disabled={!form.categoryId}
-                  value={form.childCategoryId ?? ""}
-                  onChange={(e) =>
-                    set(
-                      "childCategoryId",
-                      e.target.value ? Number(e.target.value) : null,
-                    )
-                  }
-                >
-                  <option value="">Select…</option>
-                  {form.categoryId &&
-                    childCats(form.categoryId).map((c) => (
-                      <option key={c.categoryId} value={c.categoryId}>
-                        {c.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div>
-                <label style={fieldLabel}>Brand</label>
-                <select
-                  style={fieldSelect}
-                  value={form.brandId ?? ""}
-                  onChange={(e) =>
-                    set(
-                      "brandId",
-                      e.target.value ? Number(e.target.value) : null,
-                    )
-                  }
-                >
-                  <option value="">Select…</option>
-                  {allBrands.map((b) => (
-                    <option key={b.brandId} value={b.brandId}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Tax HSN + Tags */}
-            <div style={{ ...grid2, marginBottom: 18 }}>
-              <div>
-                <label style={fieldLabel}>Tax / HSN Code</label>
-                <select
-                  style={fieldSelect}
-                  value={form.taxHSNCodeId ?? ""}
-                  onChange={(e) =>
-                    set(
-                      "taxHSNCodeId",
-                      e.target.value ? Number(e.target.value) : null,
-                    )
-                  }
-                >
-                  <option value="">Select…</option>
-                  {allTaxHsn.map((t) => (
-                    <option
-                      key={t.taxHSNCodeId ?? t.id}
-                      value={t.taxHSNCodeId ?? t.id}
-                    >
-                      {t.hsnCode
-                        ? `${t.hsnCode}${
-                            t.hsnDescription ? " — " + t.hsnDescription : ""
-                          }${t.totalGST ? " (" + t.totalGST + "% GST)" : ""}`
-                        : String(t.taxHSNCodeId ?? t.id)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={fieldLabel}>Tags</label>
-                <input
-                  style={fieldInput}
-                  placeholder="comma-separated, e.g. non-wired, breathable"
-                  value={form.tag}
-                  onChange={(e) => set("tag", e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Variants placeholder ──────────────────────────────────────────── */}
-        <div style={{ ...section, opacity: 0.5 }}>
-          <div style={sectionHead}>
-            <i className="bi bi-palette" style={{ color: P }} />
-            Variants &amp; Sizes
-          </div>
-          <div
-            style={{
-              padding: "28px 22px",
-              textAlign: "center",
-              color: SUB,
-              fontSize: 13,
-            }}
-          >
-            <i
-              className="bi bi-lock"
-              style={{
-                fontSize: 28,
-                display: "block",
-                marginBottom: 10,
-                opacity: 0.4,
-              }}
-            />
-            Create the product first — then add colour variants, sizes, images
-            and pricing here.
-          </div>
-        </div>
-
-        {/* Bottom Create button */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 12,
-            marginTop: 8,
-          }}
-        >
-          <button
-            onClick={onCancel}
-            style={{
-              padding: "10px 22px",
-              fontSize: 13,
-              fontWeight: 600,
-              border: `1.5px solid ${BDR}`,
-              borderRadius: 10,
-              background: WHITE,
-              color: SUB,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onCreate}
-            disabled={!canCreate || creating}
-            style={{
-              padding: "10px 28px",
-              fontSize: 13,
-              fontWeight: 700,
-              border: "none",
-              borderRadius: 10,
-              background: canCreate && !creating ? P : "#c4a4aa",
-              color: WHITE,
-              cursor: canCreate && !creating ? "pointer" : "default",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            {creating ? (
-              <>
-                <span
-                  style={{
-                    width: 13,
-                    height: 13,
-                    border: "2px solid rgba(255,255,255,0.35)",
-                    borderTopColor: WHITE,
-                    borderRadius: "50%",
-                    display: "inline-block",
-                    animation: "spin 0.7s linear infinite",
-                  }}
-                />
-                Creating…
-              </>
-            ) : (
-              <>
-                <i className="bi bi-check2-circle" />
-                Create Product &amp; Add Variants →
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -3693,11 +3205,25 @@ export default function AdminProductDetail() {
         .then((r) => r.data),
     staleTime: 300_000,
   });
+  const { data: colorFamiliesData } = useQuery({
+    queryKey: ["mdm-product-colors"],
+    queryFn: () =>
+      api
+        .get("/MDM/ProductColor", { params: { "Page.Size": 200 } })
+        .then((r) => r.data),
+    staleTime: 300_000,
+  });
 
   const allCats: any[] = catsData?.list ?? [];
   const allBrands: any[] = brandsData?.list ?? [];
   const allTaxHsn: any[] = taxHsnData?.list ?? [];
   const allFabrics: any[] = fabricsData?.list ?? [];
+  const allColorFamilies: ColorFamilyOption[] = useMemo(() => {
+    const raw: any[] = colorFamiliesData?.list ?? colorFamiliesData ?? [];
+    return raw
+      .map((c: any) => normalizeColorFamily(c))
+      .filter((c): c is ColorFamilyOption => Boolean(c));
+  }, [colorFamiliesData]);
   const parentCats = allCats.filter(
     (c) => !c.parentCategoryId || c.parentCategoryId === 0,
   );
@@ -3918,55 +3444,206 @@ export default function AdminProductDetail() {
     );
 
   // ── New product mode ─────────────────────────────────────────────────────
-  // Render the full detail page with an empty product stub so the user can
-  // fill everything inline exactly like editing — then "Create" POSTs it.
-  const [newProductForm, setNewProductForm] = useState<Record<string, any>>({
-    name: "",
-    productCode: "",
-    description: "",
-    categoryId: null,
-    childCategoryId: null,
-    brandId: null,
-    taxHSNCodeId: null,
-    tag: "",
-  });
+  // Show a compact modal overlay on top of the (blank) detail page shell.
+  // Only the product name is required to POST; all other fields are edited
+  // inline on the detail page after the product is created.
+  const [newName, setNewName] = useState("");
+  const [newNameErr, setNewNameErr] = useState(false);
   const [creating, setCreating] = useState(false);
 
   async function handleCreateProduct() {
-    if (!newProductForm.name?.trim()) {
-      toast.error("Product name is required");
+    if (!newName.trim()) {
+      setNewNameErr(true);
       return;
     }
     setCreating(true);
     try {
       const { name: adminName } = getCurrentUser();
       const res = await api.post("/Products/", {
-        ...newProductForm,
+        name: newName.trim(),
         state: "Draft",
         createdBy: adminName,
       });
       const newId: number = res.data?.productId;
-      toast.success("Product created — add variants and sizes below");
+      toast.success("Product created — fill in details below");
       qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
       navigate(`/admin/products/${newId}`, { replace: true });
     } catch {
-      toast.error("Failed to create product — check required fields");
+      toast.error("Failed to create product");
     } finally {
       setCreating(false);
     }
   }
-
+  // ── "New product" modal — shown at /admin/products/new ─────────────────
+  // Renders a minimal modal over a blank page. Only the name is needed to
+  // POST the product; everything else is edited inline on the detail page.
   if (isNew) {
     return (
-      <NewProductPage
-        form={newProductForm}
-        setForm={setNewProductForm}
-        creating={creating}
-        onCreate={handleCreateProduct}
-        onCancel={goBack}
-      />
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15,10,10,0.45)",
+          zIndex: 200,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            padding: "36px 36px 28px",
+            width: "min(460px, 92vw)",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.22)",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 24,
+            }}
+          >
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: "#fdf2f4",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <i
+                className="bi bi-box-seam"
+                style={{ fontSize: 18, color: P }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: TXT }}>
+                New Product
+              </div>
+              <div style={{ fontSize: 12, color: SUB, marginTop: 1 }}>
+                Enter a name to get started — everything else can be filled in
+                after.
+              </div>
+            </div>
+          </div>
+
+          {/* Product Name field */}
+          <div style={{ marginBottom: 22 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 700,
+                color: SUB,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 6,
+              }}
+            >
+              Product Name <span style={{ color: "#c62828" }}>*</span>
+            </label>
+            <input
+              autoFocus
+              placeholder="e.g. Everyday Non-Wired Bra"
+              value={newName}
+              onChange={(e) => {
+                setNewName(e.target.value);
+                setNewNameErr(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateProduct();
+              }}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                fontSize: 14,
+                border: `1.5px solid ${newNameErr ? "#ef4444" : BDR}`,
+                borderRadius: 9,
+                outline: "none",
+                color: TXT,
+                background: "#fff",
+                boxSizing: "border-box",
+                fontFamily: "inherit",
+              }}
+            />
+            {newNameErr && (
+              <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>
+                Product name is required
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button
+              onClick={goBack}
+              style={{
+                padding: "9px 20px",
+                fontSize: 13,
+                fontWeight: 600,
+                border: `1.5px solid ${BDR}`,
+                borderRadius: 9,
+                background: "#fff",
+                color: SUB,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateProduct}
+              disabled={creating}
+              style={{
+                padding: "9px 24px",
+                fontSize: 13,
+                fontWeight: 700,
+                border: "none",
+                borderRadius: 9,
+                background: creating ? "#c4a4aa" : P,
+                color: "#fff",
+                cursor: creating ? "default" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                transition: "background 0.15s",
+              }}
+            >
+              {creating ? (
+                <>
+                  <span
+                    style={{
+                      width: 13,
+                      height: 13,
+                      border: "2px solid rgba(255,255,255,0.35)",
+                      borderTopColor: "#fff",
+                      borderRadius: "50%",
+                      display: "inline-block",
+                      animation: "spin 0.7s linear infinite",
+                    }}
+                  />
+                  Creating…
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-check2-circle" /> Create Product
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
     );
   }
+
   if (pLoading)
     return (
       <div style={{ padding: 60, textAlign: "center", color: SUB }}>
@@ -4209,12 +3886,21 @@ export default function AdminProductDetail() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 8,
+                gap: 10,
                 color: "#c0b0aa",
+                padding: 24,
+                textAlign: "center",
               }}
             >
-              <i className="bi bi-image" style={{ fontSize: 48 }} />
-              <span>Select a variant</span>
+              <i className="bi bi-palette" style={{ fontSize: 44 }} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#a08880" }}>
+                No variants yet
+              </span>
+              <span style={{ fontSize: 12, color: "#c0b0aa", lineHeight: 1.5 }}>
+                Use <strong style={{ color: "#a08880" }}>+ Add Variant</strong>{" "}
+                on the right to create your first colour variant, then upload
+                images here.
+              </span>
             </div>
           )}
         </div>
@@ -4244,7 +3930,7 @@ export default function AdminProductDetail() {
             />
           </div>
 
-          {/* SKU */}
+          {/* Product Code */}
           <div
             style={{
               display: "flex",
@@ -4253,7 +3939,7 @@ export default function AdminProductDetail() {
               marginBottom: 14,
             }}
           >
-            <span style={{ fontSize: 12, color: SUB }}>SKU:</span>
+            <span style={{ fontSize: 12, color: SUB }}>Product Code:</span>
             <span
               style={{
                 fontFamily: "'Courier New',monospace",
@@ -4265,26 +3951,43 @@ export default function AdminProductDetail() {
             >
               <InlineField
                 value={product.productCode || ""}
-                placeholder="SKU…"
+                placeholder="Product Code…"
                 onSave={(v) => queueProduct({ productCode: v })}
               />
             </span>
           </div>
 
-          {/* Tax HSN Code — product level */}
-          <InlineSelect
-            label="Tax / HSN Code"
-            value={product.taxHSNCodeId}
-            options={allTaxHsn.map((t) => ({
-              id: t.taxHSNCodeId,
-              name: t.hsnCode
-                ? `${t.hsnCode}${
-                    t.hsnDescription ? " — " + t.hsnDescription : ""
-                  }${t.totalGST ? " (" + t.totalGST + "% GST)" : ""}`
-                : String(t.taxHSNCodeId),
-            }))}
-            onSave={(v) => queueProduct({ taxHSNCodeId: v })}
-          />
+          {/* Tax HSN Code + Fabric — both product level, side by side */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0 16px",
+            }}
+          >
+            <InlineSelect
+              label="Tax / HSN Code"
+              value={product.taxHSNCodeId}
+              options={allTaxHsn.map((t) => ({
+                id: t.taxHSNCodeId,
+                name: t.hsnCode
+                  ? `${t.hsnCode}${
+                      t.hsnDescription ? " — " + t.hsnDescription : ""
+                    }${t.totalGST ? " (" + t.totalGST + "% GST)" : ""}`
+                  : String(t.taxHSNCodeId),
+              }))}
+              onSave={(v) => queueProduct({ taxHSNCodeId: v })}
+            />
+            <InlineSelect
+              label="Fabric"
+              value={product.fabricId}
+              options={allFabrics.map((f) => ({
+                id: f.fabricId,
+                name: f.name || f.fabricCode || String(f.fabricId),
+              }))}
+              onSave={(v) => queueProduct({ fabricId: v })}
+            />
+          </div>
 
           {/* Recalculate Taxes button — fixes existing PVDs with missing CGST/SGST */}
           {product.taxHSNCodeId && (
@@ -4439,68 +4142,107 @@ export default function AdminProductDetail() {
             })()}
           </div>
 
+          {/* ── VARIANT section label ────────────────────────────────────── */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              margin: "22px 0 16px",
+            }}
+          >
+            <div style={{ flex: 1, height: 1, background: BDR }} />
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: SUB,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+              }}
+            >
+              Variant
+            </span>
+            <div style={{ flex: 1, height: 1, background: BDR }} />
+          </div>
+
           {/* ── Variant swatches (like user-side colour picker) ────────────── */}
-          {variants.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 20 }}>
+            {/* Header row — always visible so Add Variant is always accessible */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 8,
+              }}
+            >
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  marginBottom: 8,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: SUB,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
                 }}
               >
-                <div
+                {variants.length > 0
+                  ? `Variants (${variants.length})`
+                  : "Variants"}
+              </div>
+              {hlStockId && (
+                <span
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: SUB,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  Variants ({variants.length})
-                </div>
-                {hlStockId && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#e65100",
-                      background: "#fff8e1",
-                      border: "1px solid #ffe082",
-                      borderRadius: 10,
-                      padding: "2px 9px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <i className="bi bi-box-seam" />
-                    Stock ID match
-                  </span>
-                )}
-                <button
-                  onClick={() => setAddVariantOpen(true)}
-                  style={{
-                    padding: "6px 12px",
-                    background: P,
-                    color: WHITE,
-                    border: "none",
-                    borderRadius: 8,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    fontWeight: 700,
+                    color: "#e65100",
+                    background: "#fff8e1",
+                    border: "1px solid #ffe082",
+                    borderRadius: 10,
+                    padding: "2px 9px",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 5,
-                    whiteSpace: "nowrap",
+                    gap: 4,
                   }}
                 >
-                  <i className="bi bi-plus-lg" /> Add Variant
-                </button>
+                  <i className="bi bi-box-seam" />
+                  Stock ID match
+                </span>
+              )}
+              <button
+                onClick={() => setAddVariantOpen(true)}
+                style={{
+                  padding: "6px 12px",
+                  background: P,
+                  color: WHITE,
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <i className="bi bi-plus-lg" /> Add Variant
+              </button>
+            </div>
+            {variants.length === 0 && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: SUB,
+                  padding: "8px 0 4px",
+                  fontStyle: "italic",
+                }}
+              >
+                No variants yet — add one to get started.
               </div>
+            )}
+            {variants.length > 0 && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {variants.map((v) => {
                   const isSel = v.productVariantId === selVariantId;
@@ -4602,15 +4344,42 @@ export default function AdminProductDetail() {
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          {/* ── Variant Name + Description — editable, shown when a variant is selected ── */}
+          {selVariant && (
+            <div style={{ marginBottom: 4 }}>
+              <InlineField
+                label="Variant Name"
+                value={
+                  pendingVariant.variantName !== undefined
+                    ? pendingVariant.variantName
+                    : selVariant.variantName || ""
+                }
+                placeholder="e.g. Dark Navy…"
+                onSave={(v) => queueVariant({ variantName: v })}
+              />
+              <InlineField
+                label="Variant Description"
+                value={
+                  pendingVariant.variantDescription !== undefined
+                    ? pendingVariant.variantDescription
+                    : selVariant.variantDescription || ""
+                }
+                placeholder="Short description for this colour / variant…"
+                multiline
+                onSave={(v) => queueVariant({ variantDescription: v })}
+              />
             </div>
           )}
 
-          {/* ── Color / Color Family / Fabric — 3-col ───────────────────── */}
+          {/* ── Color Name / Color Family — 2-col (Fabric moved to product level) ── */}
           {selVariant && (
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
+                gridTemplateColumns: "1fr 1fr",
                 gap: "0 16px",
                 marginBottom: 4,
               }}
@@ -4619,42 +4388,32 @@ export default function AdminProductDetail() {
                 label="Color Name"
                 value={selVariant.color || ""}
                 placeholder="e.g. Dark Navy Blue…"
-                onSave={(v) => {
-                  const suggested = !selVariant.colorFamily
-                    ? guessColorFamily(v)
-                    : null;
-                  queueVariant(
-                    suggested
-                      ? { color: v, colorFamily: suggested }
-                      : { color: v },
-                  );
-                }}
+                onSave={(v) => queueVariant({ color: v })}
               />
-              <InlineStringSelect
+              <InlineColorFamilySelect
                 label="Color Family"
-                value={
-                  pendingVariant.colorFamily !== undefined
-                    ? pendingVariant.colorFamily
-                    : selVariant.colorFamily || null
+                valueId={
+                  pendingVariant.colorFamilyId !== undefined
+                    ? pendingVariant.colorFamilyId
+                    : selVariant.colorFamilyId ?? null
                 }
-                options={COLOR_FAMILY_OPTIONS}
-                onSave={(v) => queueVariant({ colorFamily: v })}
-              />
-              <InlineSelect
-                label="Fabric"
-                value={selVariant.fabricId}
-                options={allFabrics.map((f) => ({
-                  id: f.fabricId,
-                  name: f.name || f.fabricCode || String(f.fabricId),
-                }))}
-                onSave={(v) => queueVariant({ fabricId: v })}
+                valueName={colorFamilyNameOf(selVariant)}
+                options={allColorFamilies}
+                onSave={(v) => queueVariant({ colorFamilyId: v })}
               />
             </div>
           )}
 
-          {/* ── Best Seller + Returns — variant-level, shown right below colour ── */}
+          {/* ── Best Seller / Returns / Cup Size — variant-level toggles ── */}
           {selVariant && (
-            <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 20,
+                marginBottom: 20,
+                flexWrap: "wrap",
+              }}
+            >
               {(
                 [
                   ["isBestSeller", "Best Seller"],
@@ -4690,6 +4449,86 @@ export default function AdminProductDetail() {
                   </label>
                 );
               })}
+
+              {/* Cup Size — plain checkbox, same as Best Seller / Returns */}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: TXT,
+                  userSelect: "none" as const,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    pendingVariant.isCupSize !== undefined
+                      ? !!pendingVariant.isCupSize
+                      : !!selVariant.isCupSize
+                  }
+                  style={{ accentColor: P, width: 14, height: 14 }}
+                  onChange={(e) =>
+                    queueVariant({ isCupSize: e.target.checked })
+                  }
+                />
+                Cup Size
+              </label>
+
+              {/* Alpha Size — hides numerical sizes when ticked */}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: TXT,
+                  userSelect: "none" as const,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    pendingVariant.isAlphaSize !== undefined
+                      ? !!pendingVariant.isAlphaSize
+                      : !!selVariant.isAlphaSize
+                  }
+                  style={{ accentColor: P, width: 14, height: 14 }}
+                  onChange={(e) =>
+                    queueVariant({ isAlphaSize: e.target.checked })
+                  }
+                />
+                Alpha Size
+              </label>
+            </div>
+          )}
+
+          {/* ── Variant Detail divider ───────────────────────────────────── */}
+          {selVariant && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                margin: "22px 0 16px",
+              }}
+            >
+              <div style={{ flex: 1, height: 1, background: BDR }} />
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: SUB,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                Variant Detail
+              </span>
+              <div style={{ flex: 1, height: 1, background: BDR }} />
             </div>
           )}
 
@@ -4719,9 +4558,18 @@ export default function AdminProductDetail() {
               <SizePalette
                 variantId={selVariantId!}
                 productId={productId}
-                isCupSize={!!selVariant.isCupSize}
+                isCupSize={
+                  pendingVariant.isCupSize !== undefined
+                    ? !!pendingVariant.isCupSize
+                    : !!selVariant.isCupSize
+                }
                 onRefresh={refetchPvd}
                 registerSave={(id, fn) => sizeRowSavers.current.set(id, fn)}
+                isAlphaSize={
+                  pendingVariant.isAlphaSize !== undefined
+                    ? !!pendingVariant.isAlphaSize
+                    : !!selVariant.isAlphaSize
+                }
                 onCupSizeToggle={(val) => queueVariant({ isCupSize: val })}
                 navigate={navigate}
                 highlightSizeId={selVariantId === hlVariantId ? hlSizeId : null}
@@ -4733,76 +4581,109 @@ export default function AdminProductDetail() {
                 }
               />
 
-              {/* ── Save + Hide/Show Variant ────────────────────────────── */}
+              {/* ── Action buttons: Save · Discard · Hide/Show · History ── */}
               <div
                 style={{
                   display: "flex",
-                  gap: 10,
-                  marginTop: 16,
+                  gap: 8,
+                  marginTop: 18,
                   flexWrap: "wrap",
+                  alignItems: "center",
                 }}
               >
+                {/* Save */}
                 <button
                   onClick={saveAll}
                   disabled={savingAll}
                   style={{
-                    flex: 1,
-                    padding: "13px 0",
-                    fontSize: 14,
+                    padding: "9px 20px",
+                    fontSize: 13,
                     fontWeight: 700,
-                    borderRadius: 12,
-                    cursor: "pointer",
+                    borderRadius: 10,
+                    cursor: savingAll ? "not-allowed" : "pointer",
                     border: "none",
                     background: P,
                     color: WHITE,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    minWidth: 120,
+                    gap: 6,
+                    opacity: savingAll ? 0.7 : 1,
                   }}
                 >
                   <i className="bi bi-floppy" />
                   {savingAll ? "Saving…" : "Save"}
                 </button>
+
+                {/* Discard — always visible; enabled only when isDirty */}
+                <button
+                  onClick={() => {
+                    if (!isDirty) return;
+                    setPendingProduct({});
+                    setPendingVariant({});
+                  }}
+                  disabled={!isDirty}
+                  style={{
+                    padding: "9px 16px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 10,
+                    cursor: isDirty ? "pointer" : "not-allowed",
+                    border: `1.5px solid ${isDirty ? BDR : "#e5e7eb"}`,
+                    background: "transparent",
+                    color: isDirty ? SUB : "#d1d5db",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    transition: "color 0.15s, border-color 0.15s",
+                  }}
+                  title={
+                    isDirty ? "Discard unsaved changes" : "No unsaved changes"
+                  }
+                >
+                  <i className="bi bi-x-circle" />
+                  Discard
+                </button>
+
+                {/* Spacer pushes Hide + History to the right */}
+                <div style={{ flex: 1 }} />
+
+                {/* Hide / Show Variant */}
                 <button
                   onClick={toggleVariantActive}
                   style={{
-                    flex: 1,
-                    padding: "13px 0",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    borderRadius: 12,
+                    padding: "9px 16px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 10,
                     cursor: "pointer",
                     border: "none",
                     background: isHidden ? "#e8f5e9" : PLT,
                     color: isHidden ? "#2e7d32" : P,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    minWidth: 120,
+                    gap: 6,
                   }}
                 >
                   <i className={`bi ${isHidden ? "bi-eye" : "bi-eye-slash"}`} />
                   {isHidden ? "Show Variant" : "Hide Variant"}
                 </button>
+
+                {/* History */}
                 <button
                   onClick={() =>
                     navigate(`/admin/stock?productId=${productId}`)
                   }
                   style={{
-                    padding: "13px 16px",
+                    padding: "9px 14px",
                     fontSize: 13,
-                    fontWeight: 700,
-                    borderRadius: 12,
+                    fontWeight: 600,
+                    borderRadius: 10,
                     cursor: "pointer",
                     border: `1.5px solid ${P}`,
                     background: "transparent",
                     color: P,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
                     gap: 6,
                   }}
                   title="View full product history in Stock page"
@@ -4914,6 +4795,7 @@ export default function AdminProductDetail() {
       {addVariantOpen && (
         <AddVariantModal
           productId={productId}
+          colorFamilies={allColorFamilies}
           onClose={() => setAddVariantOpen(false)}
           onAdded={refetchVariants}
         />

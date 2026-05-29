@@ -2,6 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/shared/api/axiosInstance";
+import {
+  colorFamilyHexOf,
+  colorFamilyNameOf,
+  FALLBACK_COLOR_FAMILY_HEX,
+} from "@/shared/utils/colorHelpers";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — match AdminProducts.tsx exactly
@@ -13,7 +18,6 @@ const GREY = "#F3EFEC";
 const SUB = "#8A7F7A";
 const TXT = "#2B2B2B";
 const MAX_SWATCHES = 6;
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,7 +77,7 @@ function getStatusInfo(p: any): StatusInfo {
 
 // ─────────────────────────────────────────────────────────────────────────────
 function resolveColorFields(obj: any) {
-  if (!obj) return { colorName: "", colorHex: "" };
+  if (!obj) return { colorName: "", colorFamily: "", colorHex: "" };
   const colorName =
     obj.colorName ||
     obj.color ||
@@ -85,18 +89,16 @@ function resolveColorFields(obj: any) {
     obj.productColor ||
     obj.productColour ||
     "";
-  const colorHex =
-    obj.colorHex ||
-    obj.colourHex ||
-    obj.hexCode ||
-    obj.colorHexCode ||
-    obj.hex ||
-    obj.colorCode ||
-    obj.color ||
-    obj.colourName ||
-    obj.colorName ||
+  const colorFamily =
+    colorFamilyNameOf(obj) ||
+    obj.colorFamily ||
+    obj.colourFamily ||
+    obj.ColorFamily ||
+    obj.colorGroup ||
+    obj.colourGroup ||
     "";
-  return { colorName, colorHex: colorHex || "" };
+  const colorHex = colorFamily || colorName ? colorFamilyHexOf(obj) : "";
+  return { colorName, colorFamily, colorHex };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -221,10 +223,11 @@ export function VariantSwatchRow({
     return {
       id: v.productVariantId,
       name: (() => {
-        const raw = color.colorName || "";
+        const raw = color.colorName || color.colorFamily || "";
         return raw || v.variantName || "Variant";
       })(),
-      hex: color.colorHex || "#ccc",
+      family: color.colorFamily,
+      hex: color.colorHex || FALLBACK_COLOR_FAMILY_HEX,
       variant: v,
     };
   });

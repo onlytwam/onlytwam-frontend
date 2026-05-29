@@ -3,9 +3,7 @@
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  listNewArrivals,
-} from "@/features/products/api/products.api";
+import { listNewArrivals } from "@/features/products/api/products.api";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
@@ -16,14 +14,13 @@ import ProductFilters, {
   matchesVariantCollectionSizeAndCupFilters,
   matchesVariantCollectionPriceFilters,
   matchesVariantCollectionColorFilters,
-  reorderVariantsForColorFilter,
+  filterVariantsByColorName,
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
 import { usePageImage, IMAGE_KEYS } from "@/features/images";
 
 const DEFAULT_FILTERS: ProductFilterState = {
-  colors: [],
   colorFamilies: [],
   sizeIds: [],
   cupSizeIds: [],
@@ -43,6 +40,7 @@ export default function NewArrivals() {
   const [sortOption, setSortOption] = useState("latest");
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [colorNameSearch, setColorNameSearch] = useState("");
   const [quickShopId, setQuickShopId] = useState<number | null>(null);
   const [filters, setFilters] = useState<ProductFilterState>(DEFAULT_FILTERS);
 
@@ -145,31 +143,49 @@ export default function NewArrivals() {
 
     let list = Array.from(grouped.values());
 
-    // Colour filter: hide products with no matching variant;
-    // reorder allVariants so the matching colour is first → card opens on it.
-    if (filters.colorFamilies.length > 0 || filters.colors.length > 0) {
+    // ── Step 1: Colour (within-section OR; trims allVariants to matching only)
+    if (filters.colorFamilies.length > 0) {
       list = list.filter((p) =>
         matchesVariantCollectionColorFilters(p.allVariants, filters),
       );
       list = list.map((p) => {
-        const reordered = reorderVariantsForColorFilter(p.allVariants, filters);
-        return { ...reordered[0], allVariants: reordered };
+        const matchingOnly = p.allVariants.filter((v: any) =>
+          matchesVariantCollectionColorFilters([v], filters),
+        );
+        const variants = matchingOnly.length > 0 ? matchingOnly : p.allVariants;
+        return { ...variants[0], allVariants: variants };
       });
     }
 
+    // ── Step 2: Brand / Category (AND)
     if (filters.brandIds.length > 0)
       list = list.filter((p) => filters.brandIds.includes(p.brandId));
     if (filters.categoryIds.length > 0)
       list = list.filter((p) => filters.categoryIds.includes(p.categoryId));
 
+    // ── Step 3: Size / Price (AND)
     list = list.filter(
       (p) =>
         matchesVariantCollectionSizeAndCupFilters(p.allVariants, filters) &&
         matchesVariantCollectionPriceFilters(p.allVariants, filters),
     );
 
+    // Color-name fuzzy search: trim allVariants further + filter products
+    if (colorNameSearch.trim()) {
+      list = list
+        .map((p) => {
+          const matched = filterVariantsByColorName(
+            p.allVariants,
+            colorNameSearch,
+          );
+          if (matched.length === 0) return null;
+          return { ...matched[0], allVariants: matched };
+        })
+        .filter(Boolean) as any[];
+    }
+
     return list;
-  }, [rawData, filters]);
+  }, [rawData, filters, colorNameSearch]);
 
   // ── Sort ───────────────────────────────────────────────────────────────────
   const sortedProducts = useMemo(() => {
@@ -245,7 +261,6 @@ export default function NewArrivals() {
     filters.brandIds.length > 0 ||
     filters.sizeIds.length > 0 ||
     filters.cupSizeIds.length > 0 ||
-    filters.colors.length > 0 ||
     filters.priceMin !== null ||
     filters.priceMax !== null;
 
@@ -312,6 +327,8 @@ export default function NewArrivals() {
           setPage(1);
         }}
         productCount={sortedProducts.length}
+        colorNameSearch={colorNameSearch}
+        onColorNameSearchChange={setColorNameSearch}
       />
 
       {/* Product grid */}

@@ -18,6 +18,10 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { slugify, getImageUrl } from "@/shared/utils/helpers";
+import {
+  colorFamilyHexOf,
+  colorFamilyNameOf,
+} from "@/shared/utils/colorHelpers";
 import { getDefaultProductVariant } from "@/features/products/utils/productPricing";
 
 interface Props {
@@ -75,6 +79,10 @@ export default function MobileProductCard({ product }: Props) {
     displayProduct.reviewsCount ||
     displayProduct.numReviews ||
     0;
+  const colorFamily = colorFamilyNameOf(displayProduct);
+  const colorName =
+    displayProduct.colorName || displayProduct.color || colorFamily || "";
+  const colorHex = colorFamily || colorName ? colorFamilyHexOf(displayProduct) : "";
 
   const {
     inWishlist,
@@ -95,9 +103,10 @@ export default function MobileProductCard({ product }: Props) {
       image: rawSrc,
       hoverImage: displayProduct.hoverImage || displayProduct.secondaryImage || "",
       images: [],
-      color: displayProduct.colorName || displayProduct.color || "",
-      colorName: displayProduct.colorName || displayProduct.color || "",
-      colorHex: displayProduct.colorHex || "",
+      color: colorName,
+      colorName,
+      colorFamily,
+      colorHex,
       brandName: brandLabel,
       rating,
       reviewCount,

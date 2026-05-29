@@ -1235,7 +1235,10 @@ export default function ProductDetail() {
       size: selLabel || null,
       cupSize: cupLabel || null,
       colorName: selectedColor || null,
-      colorHex: null,
+      colorHex:
+        selectedColorSwatch?.colorFamilyHex ??
+        selectedColorSwatch?.colorHex ??
+        null,
       color: selectedColor || null,
       stockQuantity: selStock ?? null,
       processedQuantity: quantity,
@@ -1742,7 +1745,7 @@ export default function ProductDetail() {
 
             {product.productCode && (
               <p className="s-productdetai-264680 s-productdetai-ffe77190">
-                SKU: {product.productCode}
+                Product Code: {product.productCode}
               </p>
             )}
 
@@ -1817,7 +1820,7 @@ export default function ProductDetail() {
                           img.style.display = "none";
                           const d = document.createElement("div");
                           d.style.cssText = `width:64px;height:78px;border-radius:6px;background:${
-                            c.colorHex ?? c.color ?? "#d0c8c2"
+                            c.colorFamilyHex ?? c.colorHex ?? "#d0c8c2"
                           }`;
                           img.parentElement?.appendChild(d);
                         }}
@@ -2265,7 +2268,7 @@ export default function ProductDetail() {
             <table className="s-productdetai-17e9ae s-productdetai-ffe77190">
               <tbody>
                 {[
-                  product.productCode && ["SKU", product.productCode],
+                  product.productCode && ["Product Code", product.productCode],
                   product.brandName && ["Brand", product.brandName],
                   product.isReturnAvailable !== undefined && [
                     "Returns",

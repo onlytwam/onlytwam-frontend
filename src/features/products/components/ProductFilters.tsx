@@ -33,8 +33,7 @@ import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ProductFilterState {
-  colors: string[];
-  colorFamilies: string[];
+  colorFamilies: number[];
   sizeIds: number[];
   cupSizeIds: number[];
   brandIds: number[];
@@ -51,6 +50,8 @@ interface ProductFiltersProps {
   productCount: number;
   currentCategoryId?: number | null;
   currentSubcategoryId?: number | null;
+  colorNameSearch?: string;
+  onColorNameSearchChange?: (value: string) => void;
 }
 
 interface ProductActiveFiltersProps {
@@ -59,148 +60,6 @@ interface ProductActiveFiltersProps {
 }
 
 // ─── Color Families (same as GlobalSearch) ────────────────────────────────────
-export const COLOR_FAMILIES: {
-  label: string;
-  swatch: string;
-  keywords: string[];
-}[] = [
-  {
-    label: "Red",
-    swatch: "#c0392b",
-    keywords: [
-      "red",
-      "crimson",
-      "scarlet",
-      "cherry",
-      "maroon",
-      "burgundy",
-      "wine",
-      "ruby",
-    ],
-  },
-  {
-    label: "Pink",
-    swatch: "#e91e8c",
-    keywords: [
-      "pink",
-      "blush",
-      "rose",
-      "magenta",
-      "fuchsia",
-      "hot pink",
-      "baby pink",
-      "salmon",
-    ],
-  },
-  {
-    label: "Purple",
-    swatch: "#8e44ad",
-    keywords: [
-      "purple",
-      "violet",
-      "lavender",
-      "mauve",
-      "lilac",
-      "plum",
-      "indigo",
-    ],
-  },
-  {
-    label: "Blue",
-    swatch: "#2980b9",
-    keywords: [
-      "blue",
-      "navy",
-      "cobalt",
-      "sky",
-      "azure",
-      "teal",
-      "steel",
-      "powder blue",
-      "denim",
-      "royal",
-    ],
-  },
-  {
-    label: "Green",
-    swatch: "#27ae60",
-    keywords: [
-      "green",
-      "olive",
-      "mint",
-      "sage",
-      "forest",
-      "lime",
-      "khaki",
-      "army",
-    ],
-  },
-  {
-    label: "Yellow",
-    swatch: "#f1c40f",
-    keywords: ["yellow", "gold", "mustard", "amber", "lemon", "corn"],
-  },
-  {
-    label: "Orange",
-    swatch: "#e67e22",
-    keywords: ["orange", "peach", "apricot", "tangerine", "coral", "rust"],
-  },
-  {
-    label: "Brown",
-    swatch: "#795548",
-    keywords: [
-      "brown",
-      "tan",
-      "beige",
-      "caramel",
-      "chocolate",
-      "mocha",
-      "nude",
-      "khaki",
-      "sand",
-    ],
-  },
-  {
-    label: "Grey",
-    swatch: "#7f8c8d",
-    keywords: ["grey", "gray", "silver", "charcoal", "slate", "ash"],
-  },
-  {
-    label: "White",
-    swatch: "#f0ede6",
-    keywords: ["white", "ivory", "cream", "snow", "off-white", "pearl"],
-  },
-  {
-    label: "Black",
-    swatch: "#000000",
-    keywords: ["black", "ebony", "onyx", "jet"],
-  },
-];
-
-export function colorToFamily(rawColor: string): string | null {
-  const lower = rawColor.toLowerCase().trim();
-  for (const fam of COLOR_FAMILIES) {
-    if (fam.keywords.some((k) => lower.includes(k) || k.includes(lower)))
-      return fam.label;
-  }
-  return null;
-}
-
-export function groupColors(
-  rawColors: { name: string; hex: string }[],
-): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-  for (const c of rawColors) {
-    const fam = colorToFamily(c.name);
-    if (fam) {
-      const existing = map.get(fam) ?? [];
-      existing.push(c.name);
-      map.set(fam, existing);
-    }
-  }
-  return map;
-}
-
 interface NormalizedFilterOption {
   id: number;
   label: string;
@@ -248,12 +107,13 @@ function normalizeOptionList(
   return Array.from(optionMap, ([id, label]) => ({ id, label }));
 }
 
-function getColorFamilyClassName(label: string): string {
-  return `gs-color-family-${label.toLowerCase().replace(/\s+/g, "-")}`;
-}
-
-function isLightColorFamily(label: string): boolean {
-  return label === "White" || label === "Yellow";
+function isLightHex(hex: string): boolean {
+  const clean = hex.replace("#", "").trim();
+  if (!/^[0-9a-f]{6}$/i.test(clean)) return false;
+  const r = Number.parseInt(clean.slice(0, 2), 16);
+  const g = Number.parseInt(clean.slice(2, 4), 16);
+  const b = Number.parseInt(clean.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 180;
 }
 
 const SIZE_ID_KEYS = ["sizeId", "SizeId", "sizeID"];
@@ -440,109 +300,28 @@ export function matchesVariantCollectionPriceFilters(
  * Given a raw color value (name or hex), return which COLOR_FAMILY label it
  * belongs to (e.g. "navy blue" → "Blue"). Returns null if no family matches.
  */
-export function variantColorToFamily(rawColor: string): string | null {
-  if (!rawColor) return null;
-  const lower = rawColor.toLowerCase().trim();
-  // Strip leading '#' so hex codes like "#1a1a1a" are checked by keyword too
-  const noHash = lower.startsWith("#") ? lower.slice(1) : lower;
-
-  for (const fam of COLOR_FAMILIES) {
-    if (
-      fam.keywords.some(
-        (k) =>
-          lower.includes(k) ||
-          k.includes(lower) ||
-          noHash.includes(k) ||
-          k.includes(noHash),
-      )
-    )
-      return fam.label;
-  }
-  return null;
-}
-
 /**
  * Returns true if the variant's color belongs to one of the selected color families.
  * Falls through to true when no color filter is active.
  */
 export function matchesVariantColorFilters(
   variant: any,
-  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
+  filters: Pick<ProductFilterState, "colorFamilies">,
 ): boolean {
   const hasColorFamilyFilter = filters.colorFamilies.length > 0;
-  const hasColorFilter = filters.colors.length > 0;
 
-  if (!hasColorFamilyFilter && !hasColorFilter) return true;
+  if (!hasColorFamilyFilter) return true;
 
-  const rawColor: string =
-    variant?.colorName ||
-    variant?.color ||
-    variant?.colourName ||
-    variant?.colour ||
-    "";
+  const colorFamilyId = readPositiveId(variant, [
+    "colorFamilyId",
+    "ColorFamilyId",
+    "productColorId",
+    "ProductColorId",
+  ]);
 
-  if (!rawColor) return false;
-
-  // Check exact color name match first (faster)
-  if (hasColorFilter) {
-    const lowerRaw = rawColor.toLowerCase().trim();
-    if (
-      filters.colors.some(
-        (fc) =>
-          lowerRaw === fc.toLowerCase().trim() ||
-          lowerRaw.includes(fc.toLowerCase().trim()) ||
-          fc.toLowerCase().trim().includes(lowerRaw),
-      )
-    )
-      return true;
-  }
-
-  // Check color family
-  if (hasColorFamilyFilter) {
-    const family = variantColorToFamily(rawColor);
-    if (family && filters.colorFamilies.includes(family)) return true;
-  }
-
-  return false;
-}
-
-/**
- * For a collection of variants, returns the IDs of variants that match the
- * active color filter — in order of best match.
- * Returns an empty array when no filter is active (all variants match).
- */
-export function getColorMatchingVariantIds(
-  variants: any[],
-  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
-): number[] {
-  const list = Array.isArray(variants) ? variants : [];
-  const hasFilter =
-    filters.colorFamilies.length > 0 || filters.colors.length > 0;
-
-  if (!hasFilter) return list.map((v) => v.productVariantId);
-
-  return list
-    .filter((v) => matchesVariantColorFilters(v, filters))
-    .map((v) => v.productVariantId);
-}
-
-/**
- * Given a product's allVariants list and the active filters, returns a new
- * list reordered so that variants matching the color filter come first.
- * If the color filter is not active, returns the original list unchanged.
- */
-export function reorderVariantsForColorFilter(
-  variants: any[],
-  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
-): any[] {
-  const list = Array.isArray(variants) ? variants : [];
-  const hasFilter =
-    filters.colorFamilies.length > 0 || filters.colors.length > 0;
-  if (!hasFilter) return list;
-
-  const matching = list.filter((v) => matchesVariantColorFilters(v, filters));
-  const rest = list.filter((v) => !matchesVariantColorFilters(v, filters));
-  return [...matching, ...rest];
+  return (
+    colorFamilyId !== null && filters.colorFamilies.includes(colorFamilyId)
+  );
 }
 
 /**
@@ -551,10 +330,9 @@ export function reorderVariantsForColorFilter(
  */
 export function matchesVariantCollectionColorFilters(
   variants: any[],
-  filters: Pick<ProductFilterState, "colors" | "colorFamilies">,
+  filters: Pick<ProductFilterState, "colorFamilies">,
 ): boolean {
-  const hasFilter =
-    filters.colorFamilies.length > 0 || filters.colors.length > 0;
+  const hasFilter = filters.colorFamilies.length > 0;
   if (!hasFilter) return true;
 
   const list = Array.isArray(variants) ? variants : [];
@@ -563,14 +341,70 @@ export function matchesVariantCollectionColorFilters(
   return list.some((v) => matchesVariantColorFilters(v, filters));
 }
 
-export function getAppliedFilterCount(filters: ProductFilterState): number {
-  const colorCount =
-    filters.colorFamilies.length > 0
-      ? filters.colorFamilies.length
-      : filters.colors.length;
+// ── Fuzzy variant colour-name search ─────────────────────────────────────────
 
+/** Normalise a string for fuzzy matching: lowercase, collapse whitespace. */
+function fuzzyNorm(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Returns true if the variant's colorName fuzzy-matches the search term.
+ * Empty / blank term always returns true (no filter active).
+ */
+export function matchesVariantColorNameSearch(
+  variant: any,
+  search: string,
+): boolean {
+  const term = fuzzyNorm(search);
+  if (!term) return true;
+  const name = fuzzyNorm(
+    variant?.colorName ||
+      variant?.ColorName ||
+      variant?.color ||
+      variant?.Color ||
+      "",
+  );
+  if (!name) return false;
+  // Fuzzy: every character of the term appears in order inside the name
+  let ti = 0;
+  for (let i = 0; i < name.length && ti < term.length; i++) {
+    if (name[i] === term[ti]) ti++;
+  }
+  return ti === term.length;
+}
+
+/**
+ * Returns true if at least one variant in the collection fuzzy-matches
+ * the colour name search. Always true when search is empty.
+ */
+export function matchesVariantCollectionColorNameSearch(
+  variants: any[],
+  search: string,
+): boolean {
+  if (!search.trim()) return true;
+  const list = Array.isArray(variants) ? variants : [];
+  if (list.length === 0) return false;
+  return list.some((v) => matchesVariantColorNameSearch(v, search));
+}
+
+/**
+ * Given a product's allVariants list and a colour-name search term,
+ * returns only the variants that match (or all if search is empty).
+ */
+export function filterVariantsByColorName(
+  variants: any[],
+  search: string,
+): any[] {
+  if (!search.trim()) return variants;
+  return (Array.isArray(variants) ? variants : []).filter((v) =>
+    matchesVariantColorNameSearch(v, search),
+  );
+}
+
+export function getAppliedFilterCount(filters: ProductFilterState): number {
   return (
-    colorCount +
+    filters.colorFamilies.length +
     filters.sizeIds.length +
     filters.cupSizeIds.length +
     filters.brandIds.length +
@@ -610,7 +444,6 @@ export function ProductActiveFilters({
   });
 
   const allColors = useMemo(() => colorsData || [], [colorsData]);
-  const colorGroups = useMemo(() => groupColors(allColors), [allColors]);
   const allBrands = useMemo(() => brandsData?.list || [], [brandsData]);
   const allCategories = useMemo(
     () => categoriesData?.list || [],
@@ -646,7 +479,6 @@ export function ProductActiveFilters({
 
   const clearAllFilters = () =>
     onFiltersChange({
-      colors: [],
       colorFamilies: [],
       sizeIds: [],
       cupSizeIds: [],
@@ -659,28 +491,23 @@ export function ProductActiveFilters({
   return (
     <div className="container">
       <div className="s-globalsearch-2b5321">
-        {filters.colorFamilies.map((fam) => {
-          const famData = COLOR_FAMILIES.find((f) => f.label === fam);
-          const familyColors = colorGroups.get(fam) || [];
+        {filters.colorFamilies.map((familyId) => {
+          const family = allColors.find((c) => c.id === familyId);
           return (
-            <span key={`color-${fam}`} className="gs-active-chip">
-              {famData && (
+            <span key={`color-${familyId}`} className="gs-active-chip">
+              {family && (
                 <span
-                  className={`s-globalsearch-170863 ${getColorFamilyClassName(
-                    fam,
-                  )}`}
+                  className="s-globalsearch-170863"
+                  style={{ background: family.hex }}
                 />
               )}
-              {fam}
+              {family?.name || `Color ${familyId}`}
               <i
                 className="bi bi-x s-globalsearch-7b6f74"
                 onClick={() =>
                   updateFilters({
                     colorFamilies: filters.colorFamilies.filter(
-                      (x) => x !== fam,
-                    ),
-                    colors: filters.colors.filter(
-                      (color) => !familyColors.includes(color),
+                      (x) => x !== familyId,
                     ),
                   })
                 }
@@ -792,8 +619,16 @@ export default function ProductFilters({
   productCount,
   currentCategoryId,
   currentSubcategoryId,
+  colorNameSearch: colorNameSearchProp = "",
+  onColorNameSearchChange,
 }: ProductFiltersProps) {
   const [brandSearch, setBrandSearch] = useState("");
+  const [colorNameSearch, setColorNameSearch] = useState(colorNameSearchProp);
+
+  // Sync internal state when prop changes (e.g. external clear)
+  useEffect(() => {
+    setColorNameSearch(colorNameSearchProp);
+  }, [colorNameSearchProp]);
   const PRICE_FLOOR = 0;
   const PRICE_CEIL = 10000;
   const PRICE_STEP = 100;
@@ -838,7 +673,6 @@ export default function ProductFilters({
   });
 
   const allColors = useMemo(() => colorsData || [], [colorsData]);
-  const colorGroups = useMemo(() => groupColors(allColors), [allColors]);
   const allSizes = useMemo(
     () =>
       normalizeOptionList(
@@ -883,20 +717,19 @@ export default function ProductFilters({
   const updateFilters = (partial: Partial<ProductFilterState>) =>
     onFiltersChange({ ...filters, ...partial });
 
-  const toggleColorFamily = (family: string) => {
-    const colors = colorGroups.get(family) || [];
+  const toggleColorFamily = (familyId: number) => {
+    const selected = filters.colorFamilies.includes(familyId);
     // Fix: [].every() is vacuously true in JS — without this guard, clicking a family
     // with no mapped colors always runs the deselect branch, so nothing ever gets selected.
-    const allSelected = colors.length > 0 && colors.every((c) => filters.colors.includes(c));
-    if (allSelected) {
+    if (selected) {
       updateFilters({
-        colors: filters.colors.filter((c) => !colors.includes(c)),
-        colorFamilies: filters.colorFamilies.filter((f) => f !== family),
+        colorFamilies: filters.colorFamilies.filter((f) => f !== familyId),
       });
     } else {
       updateFilters({
-        colors: Array.from(new Set([...filters.colors, ...colors])),
-        colorFamilies: Array.from(new Set([...filters.colorFamilies, family])),
+        colorFamilies: Array.from(
+          new Set([...filters.colorFamilies, familyId]),
+        ),
       });
     }
   };
@@ -912,7 +745,6 @@ export default function ProductFilters({
 
   const clearAllFilters = () => {
     onFiltersChange({
-      colors: [],
       colorFamilies: [],
       sizeIds: [],
       cupSizeIds: [],
@@ -924,6 +756,8 @@ export default function ProductFilters({
     setSliderMin(PRICE_FLOOR);
     setSliderMax(PRICE_CEIL);
     setHoveredSliderValue(null);
+    setColorNameSearch("");
+    onColorNameSearchChange?.("");
   };
 
   const resetPriceFilter = () => {
@@ -1050,27 +884,26 @@ export default function ProductFilters({
             <div className="gs-filter-section">
               <p className="gs-sec-label">Color</p>
               <div className="s-globalsearch-1372cd">
-                {COLOR_FAMILIES.map((fam) => {
-                  if (colorGroups.size > 0 && !colorGroups.has(fam.label))
-                    return null;
-                  const selected = filters.colorFamilies.includes(fam.label);
+                {allColors.map((fam) => {
+                  const selected = filters.colorFamilies.includes(fam.id);
                   return (
                     <div
-                      key={fam.label}
+                      key={fam.id}
                       className="s-globalsearch-264bb7 gs-filter-color-option"
-                      onClick={() => toggleColorFamily(fam.label)}
+                      onClick={() => toggleColorFamily(fam.id)}
                     >
                       <div
-                        className={`gs-color-swatch s-globalsearch-2da4c6 ${getColorFamilyClassName(
-                          fam.label,
-                        )}${selected ? " active" : ""}`}
-                        title={fam.label}
+                        className={`gs-color-swatch s-globalsearch-2da4c6${
+                          selected ? " active" : ""
+                        }`}
+                        style={{ background: fam.hex }}
+                        title={fam.name}
                       >
                         {selected && (
                           <div className="s-globalsearch-0ec8e4">
                             <i
                               className={`bi bi-check s-globalsearch-79d144 gs-filter-color-check${
-                                isLightColorFamily(fam.label)
+                                isLightHex(fam.hex)
                                   ? " gs-filter-color-check-dark"
                                   : ""
                               }`}
@@ -1083,11 +916,47 @@ export default function ProductFilters({
                           selected ? " active" : ""
                         }`}
                       >
-                        {fam.label}
+                        {fam.name}
                       </span>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Variant colour-name search */}
+              <div className="gs-filter-color-name-search">
+                <div className="s-globalsearch-303890 gs-filter-color-name-field">
+                  <i className="bi bi-search gs-filter-color-name-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search colour name…"
+                    value={colorNameSearch}
+                    onChange={(e) => {
+                      setColorNameSearch(e.target.value);
+                      onColorNameSearchChange?.(e.target.value);
+                    }}
+                    className="s-globalsearch-30c0ee s-globalsearch-ff9e69e4 gs-filter-search gs-filter-color-name-input"
+                  />
+                  {colorNameSearch && (
+                    <button
+                      type="button"
+                      className="gs-filter-color-name-clear"
+                      onClick={() => {
+                        setColorNameSearch("");
+                        onColorNameSearchChange?.("");
+                      }}
+                      title="Clear colour search"
+                    >
+                      <i className="bi bi-x" />
+                    </button>
+                  )}
+                </div>
+                {colorNameSearch.trim() && (
+                  <p className="gs-filter-color-name-hint">
+                    Showing products with a variant named like “
+                    {colorNameSearch}”
+                  </p>
+                )}
               </div>
             </div>
 

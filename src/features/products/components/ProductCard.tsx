@@ -9,6 +9,11 @@ import {
   getCanvasSafeImageUrl,
 } from "@/shared/utils/helpers";
 import {
+  colorFamilyHexOf,
+  colorFamilyNameOf,
+  FALLBACK_COLOR_FAMILY_HEX,
+} from "@/shared/utils/colorHelpers";
+import {
   getDefaultProductVariant,
   normalizeVariantPriceFields,
 } from "@/features/products/utils/productPricing";
@@ -30,7 +35,6 @@ const DISCOUNT_REVEAL_DELAY_MS = 3000;
 const DISCOUNT_VISIBLE_START_DELAY_MS = 4400;
 const DISCOUNT_VISIBLE_HOLD_MS = 10000;
 const DISCOUNT_CLOSE_DURATION_MS = 1800;
-
 interface Props {
   product: any;
   onQuickShop: (id: number) => void;
@@ -174,6 +178,7 @@ export default function ProductCard({
       images: rawImages,
       color: selectedColorFields.colorName,
       colorName: selectedColorFields.colorName,
+      colorFamily: selectedColorFields.colorFamily,
       colorHex: selectedColorFields.colorHex,
       brandName: brandLabel,
       rating,
@@ -743,7 +748,7 @@ export default function ProductCard({
   // ── Color fields — covers all known API naming variants ────────────────────
   // Dashboard API may use colourName (UK), colorCode, colorValue, hex, etc.
   const resolveColorFields = (obj: any) => {
-    if (!obj) return { colorName: "", colorHex: "" };
+    if (!obj) return { colorName: "", colorFamily: "", colorHex: "" };
     const name =
       obj.colorName ||
       obj.color ||
@@ -755,53 +760,66 @@ export default function ProductCard({
       obj.productColor ||
       obj.productColour ||
       "";
-    const hex =
-      obj.colorHex ||
-      obj.colourHex ||
-      obj.hexCode ||
-      obj.colorHexCode ||
-      obj.hex ||
-      // fall back to name-based resolution so named colours still render
-      obj.colorCode ||
-      obj.color ||
-      obj.colourName ||
-      obj.colorName ||
+    const family =
+      colorFamilyNameOf(obj) ||
+      obj.colorFamily ||
+      obj.colourFamily ||
+      obj.ColorFamily ||
+      obj.colorGroup ||
+      obj.colourGroup ||
       "";
-    return { colorName: name, colorHex: hex };
+    // Prefer colorFamilyHex (from colorFamilyId) for the swatch colour.
+    // If no family is attached, fall back to colorFamilyHexOf which may
+    // try to derive a hex from the name (rare path per requirements).
+    const colorHex = family || name ? colorFamilyHexOf(obj) : "";
+    return { colorName: name, colorFamily: family, colorHex };
   };
 
   const productColorFields = resolveColorFields(product);
   const selectedColorFields = resolveColorFields(selectedVariant);
 
-  const colorVariants: { id: number; colorName: string; colorHex: string }[] =
-    singleColorOnly
-      ? productColorFields.colorName || productColorFields.colorHex
-        ? [
-            {
-              id: product.productVariantId,
-              colorName: productColorFields.colorName,
-              colorHex: productColorFields.colorHex || "",
-            },
-          ]
-        : []
-      : product.allVariants?.length > 1
-      ? defaultVariant.allVariants.map((v: any) => {
-          const f = resolveColorFields(v);
-          return {
-            id: v.productVariantId,
-            colorName: f.colorName,
-            colorHex: f.colorHex || "",
-          };
-        })
-      : productColorFields.colorName || productColorFields.colorHex
+  const colorVariants: {
+    id: number;
+    colorName: string;
+    colorFamily: string;
+    colorHex: string;
+  }[] = singleColorOnly
+    ? productColorFields.colorName ||
+      productColorFields.colorFamily ||
+      productColorFields.colorHex
       ? [
           {
-            id: product.productVariantId,
-            colorName: productColorFields.colorName,
+            id: product.productVariantId ?? defaultVariant.productVariantId,
+            colorName:
+              productColorFields.colorName || productColorFields.colorFamily,
+            colorFamily: productColorFields.colorFamily,
             colorHex: productColorFields.colorHex || "",
           },
         ]
-      : [];
+      : []
+    : product.allVariants?.length > 1
+    ? defaultVariant.allVariants.map((v: any) => {
+        const f = resolveColorFields(v);
+        return {
+          id: v.productVariantId,
+          colorName: f.colorName || f.colorFamily,
+          colorFamily: f.colorFamily,
+          colorHex: f.colorHex || "",
+        };
+      })
+    : productColorFields.colorName ||
+      productColorFields.colorFamily ||
+      productColorFields.colorHex
+    ? [
+        {
+          id: product.productVariantId ?? defaultVariant.productVariantId,
+          colorName:
+            productColorFields.colorName || productColorFields.colorFamily,
+          colorFamily: productColorFields.colorFamily,
+          colorHex: productColorFields.colorHex || "",
+        },
+      ]
+    : [];
   const hasScrollableColors = colorVariants.length > 5;
 
   return (
@@ -968,8 +986,10 @@ export default function ProductCard({
                             ? " selected"
                             : ""
                         }`}
-                        style={{ background: v.colorHex || "#ccc" }}
-                        title={v.colorName}
+                        style={{
+                          background: v.colorHex || FALLBACK_COLOR_FAMILY_HEX,
+                        }}
+                        title={v.colorName || v.colorFamily || ""}
                         onClick={() =>
                           !singleColorOnly && handleColorChange(v.id)
                         }

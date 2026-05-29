@@ -18,14 +18,13 @@ import ProductFilters, {
   matchesVariantCollectionPriceFilters,
   matchesVariantCollectionSizeAndCupFilters,
   matchesVariantCollectionColorFilters,
-  reorderVariantsForColorFilter,
+  filterVariantsByColorName,
   type ProductFilterState,
 } from "@/features/products/components/ProductFilters";
 import ProductToolbar from "@/features/products/components/ProductToolbar";
 import { useMenuStore } from "@/shared/store/menuStore";
 
 const DEFAULT_FILTERS: ProductFilterState = {
-  colors: [],
   colorFamilies: [],
   sizeIds: [],
   cupSizeIds: [],
@@ -60,6 +59,7 @@ export default function AllProducts() {
   const [sortOption, setSortOption] = useState("latest");
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [colorNameSearch, setColorNameSearch] = useState("");
 
   useEffect(() => {
     const fn = () => setFilterOpen(false);
@@ -190,17 +190,22 @@ export default function AllProducts() {
 
     let list = Array.from(grouped.values());
 
-    // Color filter: hide products with no matching variant; reorder matching first
-    if (filters.colorFamilies.length > 0 || filters.colors.length > 0) {
+    // ── Step 1: Colour filter (within-section = OR, trims allVariants to
+    //   matching colours only so the card never shows off-filter swatches)
+    if (filters.colorFamilies.length > 0) {
       list = list.filter((p) =>
         matchesVariantCollectionColorFilters(p.allVariants, filters),
       );
       list = list.map((p) => {
-        const reordered = reorderVariantsForColorFilter(p.allVariants, filters);
-        return { ...reordered[0], allVariants: reordered };
+        const matchingOnly = p.allVariants.filter((v: any) =>
+          matchesVariantCollectionColorFilters([v], filters),
+        );
+        const variants = matchingOnly.length > 0 ? matchingOnly : p.allVariants;
+        return { ...variants[0], allVariants: variants };
       });
     }
 
+    // ── Step 2: Brand / Category — AND with everything above
     if (filters.brandIds.length > 0)
       list = list.filter((p: any) => filters.brandIds.includes(p.brandId));
     if (filters.categoryIds.length > 0)
@@ -208,12 +213,28 @@ export default function AllProducts() {
         filters.categoryIds.includes(p.categoryId),
       );
 
+    // ── Step 3: Size / Price — AND with everything above
+
+    // Color-name fuzzy search: trim allVariants further + filter products
+    if (colorNameSearch.trim()) {
+      list = list
+        .map((p) => {
+          const matched = filterVariantsByColorName(
+            p.allVariants,
+            colorNameSearch,
+          );
+          if (matched.length === 0) return null;
+          return { ...matched[0], allVariants: matched };
+        })
+        .filter(Boolean) as any[];
+    }
+
     return list.filter(
       (p) =>
         matchesVariantCollectionSizeAndCupFilters(p.allVariants, filters) &&
         matchesVariantCollectionPriceFilters(p.allVariants, filters),
     );
-  }, [rawData, filters]);
+  }, [rawData, filters, colorNameSearch]);
 
   // ── Client-side sorting ────────────────────────────────────────────────────
   const sortedProducts = useMemo(() => {
@@ -299,12 +320,12 @@ export default function AllProducts() {
     <div className="s-productlist-3ab64d s-productlist-ff586331">
       {/* ── Desktop hero: title + 3×2 category grid ── */}
       <section className="ap-hero-section" aria-label="Shop by category">
-          {/* Burgundy centered heading */}
+        {/* Burgundy centered heading */}
         <div className="ap-hero-title-bar">
           <h1 className="ap-hero-title">All Products</h1>
         </div>
 
-          {/* 3-row x 2-col category grid — images from API, no static assets */}
+        {/* 3-row x 2-col category grid — images from API, no static assets */}
         <div className="ap-category-grid">
           {categoryTiles.map((tile) => (
             <button
@@ -362,6 +383,8 @@ export default function AllProducts() {
           setPage(1);
         }}
         productCount={displayProducts.length}
+        colorNameSearch={colorNameSearch}
+        onColorNameSearchChange={setColorNameSearch}
       />
 
       {/* Product Grid */}
@@ -410,7 +433,6 @@ export default function AllProducts() {
             {(filters.brandIds.length > 0 ||
               filters.sizeIds.length > 0 ||
               filters.cupSizeIds.length > 0 ||
-              filters.colors.length > 0 ||
               filters.priceMin !== null ||
               filters.priceMax !== null) && (
               <button
