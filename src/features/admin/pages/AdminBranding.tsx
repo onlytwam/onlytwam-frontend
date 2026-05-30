@@ -22,6 +22,7 @@ import {
 import type { PageImageDto } from "@/features/images/api/images.api";
 import { IMAGE_KEYS } from "@/features/images/constants/imageKeys";
 import toast from "react-hot-toast";
+import { getImageUrl } from "@/shared/utils/helpers";
 
 // ── Slot metadata ─────────────────────────────────────────────────────────
 
@@ -312,7 +313,8 @@ function ImageSlotCard({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const displayUrl = previewUrl || currentUrl;
+  const resolvedCurrentUrl = getImageUrl(currentUrl || null, "");
+  const displayUrl = previewUrl || resolvedCurrentUrl;
   const showAsVideo = acceptBoth ? isVideoUrl(previewUrl || currentUrl) : false;
   const hasMedia = !!displayUrl;
 

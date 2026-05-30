@@ -2,6 +2,7 @@ import { useRef, useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
+import { getImageUrl } from "@/shared/utils/helpers";
 
 // ─────────────────────────────────────────────
 // Types
@@ -34,9 +35,7 @@ const PAGE_SIZE = 20;
 // ─────────────────────────────────────────────
 
 function resolveImgSrc(src: string | null | undefined): string {
-  if (!src) return "";
-  if (src.startsWith("http") || src.startsWith("/")) return src;
-  return "/" + src.replace(/\\/g, "/");
+  return getImageUrl(src, "");
 }
 
 // ─────────────────────────────────────────────

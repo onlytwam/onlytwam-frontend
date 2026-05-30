@@ -2282,34 +2282,7 @@ export default function AdminProducts() {
         </div>
         <button
           className="s-adminproduct-1f0204"
-          onClick={async () => {
-            try {
-              const raw =
-                localStorage.getItem("user") ||
-                localStorage.getItem("currentUser") ||
-                sessionStorage.getItem("user") ||
-                sessionStorage.getItem("currentUser") ||
-                "{}";
-              const u = JSON.parse(raw);
-              const adminName =
-                u.name ||
-                u.userName ||
-                u.firstName ||
-                u.fullName ||
-                u.email ||
-                "Admin";
-              const res = await api.post("/Products/", {
-                name: "New Product",
-                state: "Draft",
-                createdBy: adminName,
-              });
-              const newId: number = res.data?.productId;
-              navigate(`/admin/products/${newId}`, { replace: true });
-            } catch {
-              // fallback: open the /new route if POST fails
-              navigate("/admin/products/new");
-            }
-          }}
+          onClick={() => navigate("/admin/products/new")}
         >
           <i className="bi bi-plus-lg" /> Create New Product
         </button>
