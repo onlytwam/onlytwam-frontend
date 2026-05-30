@@ -30,3 +30,4 @@ dist-ssr
 .env.*
 azure-pipelines.yml
 *.zip
+azure-pipelines.yml

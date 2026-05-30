@@ -166,6 +166,7 @@ function InlineField({
   placeholder = "Click to edit…",
   onSave,
   large,
+  required = false,
 }: {
   label?: string;
   value: string;
@@ -173,6 +174,7 @@ function InlineField({
   placeholder?: string;
   onSave: (v: string) => void;
   large?: boolean;
+  required?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -230,6 +232,9 @@ function InlineField({
           }}
         >
           {label}
+          {required && (
+            <span style={{ color: "#c62828", marginLeft: 2 }}>*</span>
+          )}
           {isDirty && (
             <span
               style={{
@@ -309,11 +314,13 @@ function InlineSelect({
   value,
   options,
   onSave,
+  required = false,
 }: {
   label: string;
   value: number | null | undefined;
   options: { id: number; name: string }[];
   onSave: (v: number) => void;
+  required?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   // localValue tracks pending selection (may differ from server `value`)
@@ -349,6 +356,7 @@ function InlineSelect({
         }}
       >
         {label}
+        {required && <span style={{ color: "#c62828", marginLeft: 2 }}>*</span>}
         {isDirty && (
           <span
             style={{
@@ -2780,11 +2788,13 @@ function AddVariantModal({
   colorFamilies,
   onClose,
   onAdded,
+  isNew = false,
 }: {
   productId: number;
   colorFamilies: ColorFamilyOption[];
   onClose: () => void;
-  onAdded: () => void;
+  onAdded: (variantData?: Record<string, any>) => void;
+  isNew?: boolean;
 }) {
   const [form, setForm] = useState({
     variantName: "",
@@ -2801,6 +2811,13 @@ function AddVariantModal({
   async function save() {
     if (!form.color.trim()) return toast.error("Color Name is required");
     if (!form.colorFamilyId) return toast.error("Color Family is required");
+    // New product mode: stage variant locally, no API call yet
+    if (isNew) {
+      onAdded({ ...form });
+      toast.success("Variant staged — it will be saved when you click Save");
+      onClose();
+      return;
+    }
     setSaving(true);
     try {
       await api.post("/ProductVariants", {
@@ -3230,8 +3247,11 @@ export default function AdminProductDetail() {
   const childCats = (pid: number) =>
     allCats.filter((c) => Number(c.parentCategoryId) === Number(pid));
 
-  const productVariants = Array.isArray(product?.allVariants)
-    ? product.allVariants.filter((v: any) => v.deletedInd !== true)
+  // Derive effectiveProduct early so it can be used throughout the component
+  const effectiveProduct = isNew ? ({} as any) : product ?? ({} as any);
+
+  const productVariants = Array.isArray(effectiveProduct?.allVariants)
+    ? effectiveProduct.allVariants.filter((v: any) => v.deletedInd !== true)
     : [];
 
   const { data: variantsData, refetch: refetchVariants } = useQuery({
@@ -3394,6 +3414,40 @@ export default function AdminProductDetail() {
   // ── Save everything ───────────────────────────────────────────────────────
   const [savingAll, setSavingAll] = useState(false);
   async function saveAll() {
+    // NEW PRODUCT: create product + variant in DB on first save
+    if (isNew) {
+      setSavingAll(true);
+      try {
+        const { name: adminName } = getCurrentUser();
+        // 1. Create the product with all filled-in fields
+        const productRes = await api.post("/Products/", {
+          ...pendingProduct,
+          state: "Draft",
+          createdBy: adminName,
+        });
+        const newProductId: number = productRes.data?.productId;
+        if (!newProductId) throw new Error("No productId returned");
+        // 2. Create the variant if one was staged
+        if (pendingNewVariant) {
+          await api.post("/ProductVariants", {
+            ...pendingNewVariant,
+            colorFamilyId: pendingNewVariant.colorFamilyId
+              ? Number(pendingNewVariant.colorFamilyId)
+              : null,
+            productId: newProductId,
+          });
+        }
+        toast.success("Product saved successfully!");
+        qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
+        navigate(`/admin/products/${newProductId}`, { replace: true });
+      } catch {
+        toast.error("Failed to save product \u2014 please try again");
+      } finally {
+        setSavingAll(false);
+      }
+      return;
+    }
+    // EXISTING PRODUCT: patch changed fields
     setSavingAll(true);
     try {
       if (Object.keys(pendingProduct).length > 0) {
@@ -3444,207 +3498,16 @@ export default function AdminProductDetail() {
     );
 
   // ── New product mode ─────────────────────────────────────────────────────
-  // Show a compact modal overlay on top of the (blank) detail page shell.
-  // Only the product name is required to POST; all other fields are edited
-  // inline on the detail page after the product is created.
-  const [newName, setNewName] = useState("");
-  const [newNameErr, setNewNameErr] = useState(false);
-  const [creating, setCreating] = useState(false);
+  // The page renders normally with all fields empty. The admin fills in all
+  // required product-level fields, then adds a variant (stored in local state),
+  // then adds at least one size. Only when Save is clicked does the product
+  // get POSTed to the DB (POST /Products → POST /ProductVariants).
+  const [pendingNewVariant, setPendingNewVariant] = useState<Record<
+    string,
+    any
+  > | null>(null);
 
-  async function handleCreateProduct() {
-    if (!newName.trim()) {
-      setNewNameErr(true);
-      return;
-    }
-    setCreating(true);
-    try {
-      const { name: adminName } = getCurrentUser();
-      const res = await api.post("/Products/", {
-        name: newName.trim(),
-        state: "Draft",
-        createdBy: adminName,
-      });
-      const newId: number = res.data?.productId;
-      toast.success("Product created — fill in details below");
-      qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
-      navigate(`/admin/products/${newId}`, { replace: true });
-    } catch {
-      toast.error("Failed to create product");
-    } finally {
-      setCreating(false);
-    }
-  }
-  // ── "New product" modal — shown at /admin/products/new ─────────────────
-  // Renders a minimal modal over a blank page. Only the name is needed to
-  // POST the product; everything else is edited inline on the detail page.
-  if (isNew) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(15,10,10,0.45)",
-          zIndex: 200,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: "36px 36px 28px",
-            width: "min(460px, 92vw)",
-            boxShadow: "0 24px 64px rgba(0,0,0,0.22)",
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 24,
-            }}
-          >
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
-                background: "#fdf2f4",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <i
-                className="bi bi-box-seam"
-                style={{ fontSize: 18, color: P }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 17, fontWeight: 800, color: TXT }}>
-                New Product
-              </div>
-              <div style={{ fontSize: 12, color: SUB, marginTop: 1 }}>
-                Enter a name to get started — everything else can be filled in
-                after.
-              </div>
-            </div>
-          </div>
-
-          {/* Product Name field */}
-          <div style={{ marginBottom: 22 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 700,
-                color: SUB,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 6,
-              }}
-            >
-              Product Name <span style={{ color: "#c62828" }}>*</span>
-            </label>
-            <input
-              autoFocus
-              placeholder="e.g. Everyday Non-Wired Bra"
-              value={newName}
-              onChange={(e) => {
-                setNewName(e.target.value);
-                setNewNameErr(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateProduct();
-              }}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                fontSize: 14,
-                border: `1.5px solid ${newNameErr ? "#ef4444" : BDR}`,
-                borderRadius: 9,
-                outline: "none",
-                color: TXT,
-                background: "#fff",
-                boxSizing: "border-box",
-                fontFamily: "inherit",
-              }}
-            />
-            {newNameErr && (
-              <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>
-                Product name is required
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button
-              onClick={goBack}
-              style={{
-                padding: "9px 20px",
-                fontSize: 13,
-                fontWeight: 600,
-                border: `1.5px solid ${BDR}`,
-                borderRadius: 9,
-                background: "#fff",
-                color: SUB,
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCreateProduct}
-              disabled={creating}
-              style={{
-                padding: "9px 24px",
-                fontSize: 13,
-                fontWeight: 700,
-                border: "none",
-                borderRadius: 9,
-                background: creating ? "#c4a4aa" : P,
-                color: "#fff",
-                cursor: creating ? "default" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                transition: "background 0.15s",
-              }}
-            >
-              {creating ? (
-                <>
-                  <span
-                    style={{
-                      width: 13,
-                      height: 13,
-                      border: "2px solid rgba(255,255,255,0.35)",
-                      borderTopColor: "#fff",
-                      borderRadius: "50%",
-                      display: "inline-block",
-                      animation: "spin 0.7s linear infinite",
-                    }}
-                  />
-                  Creating…
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-check2-circle" /> Create Product
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  if (pLoading)
+  if (!isNew && pLoading)
     return (
       <div style={{ padding: 60, textAlign: "center", color: SUB }}>
         <i
@@ -3654,7 +3517,7 @@ export default function AdminProductDetail() {
         Loading product…
       </div>
     );
-  if (!product)
+  if (!isNew && !product)
     return (
       <div style={{ padding: 60, textAlign: "center" }}>
         <p style={{ color: "#c62828" }}>Product not found.</p>
@@ -3687,9 +3550,45 @@ export default function AdminProductDetail() {
     Rejected: { bg: "#fdecea", color: "#c62828" },
     Modified: { bg: "#fff8e1", color: "#f57f17" },
   };
-  const sc = stateColors[product.state] ?? { bg: GRY, color: SUB };
+  const sc = stateColors[effectiveProduct.state] ?? { bg: GRY, color: SUB };
 
   const isHidden = selVariant?.isActive === false;
+
+  // \u2500\u2500 Mandatory product-level fields (must be set before Add Variant unlocks) \u2500\u2500
+  const effectiveName = pendingProduct.name ?? effectiveProduct.name;
+  const effectiveBrandId = pendingProduct.brandId ?? effectiveProduct.brandId;
+  const effectiveHsnId =
+    pendingProduct.taxHSNCodeId ?? effectiveProduct.taxHSNCodeId;
+  const effectiveFabricId =
+    pendingProduct.fabricId ?? effectiveProduct.fabricId;
+  const effectiveCatId =
+    pendingProduct.categoryId ?? effectiveProduct.categoryId;
+  const effectiveChildId =
+    "childCategoryId" in pendingProduct
+      ? pendingProduct.childCategoryId
+      : effectiveProduct.childCategoryId;
+
+  const effectiveDescription =
+    pendingProduct.description ?? effectiveProduct.description;
+  const effectiveTag = pendingProduct.tag ?? effectiveProduct.tag;
+
+  const missingProductFields: string[] = [];
+  if (!effectiveName?.trim()) missingProductFields.push("Product Name");
+  if (!effectiveBrandId) missingProductFields.push("Brand");
+  if (!effectiveHsnId) missingProductFields.push("Tax / HSN Code");
+  if (!effectiveFabricId) missingProductFields.push("Fabric");
+  if (!effectiveCatId) missingProductFields.push("Parent Category");
+  if (!effectiveChildId) missingProductFields.push("Child Category");
+  if (!effectiveDescription?.trim()) missingProductFields.push("Description");
+
+  const productFieldsComplete = missingProductFields.length === 0;
+  const hasVariant = isNew ? !!pendingNewVariant : variants.length > 0;
+  const hasSizes = isNew ? !!pendingNewVariant : pvds.length > 0;
+  // For new products: product fields + variant required (sizes added after creation on detail page)
+  // For existing products: product fields + variant + at least one size required
+  const canSave = isNew
+    ? productFieldsComplete && hasVariant
+    : productFieldsComplete && hasVariant && hasSizes;
 
   return (
     <div style={{ background: BG, minHeight: "100vh", paddingBottom: 80 }}>
@@ -3730,8 +3629,21 @@ export default function AdminProductDetail() {
           <i className="bi bi-arrow-left" />
         </button>
         <div style={{ flex: 1 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: TXT }}>
-            {product.name || "Unnamed Product"}
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 700,
+              color: pendingProduct.name ?? effectiveProduct.name ? TXT : SUB,
+            }}
+          >
+            {(pendingProduct.name ?? effectiveProduct.name) || (
+              <span
+                style={{ fontStyle: "italic", fontWeight: 400, fontSize: 15 }}
+              >
+                Not set
+              </span>
+            )}
           </h2>
           <div
             style={{
@@ -3741,7 +3653,10 @@ export default function AdminProductDetail() {
               fontFamily: "'Courier New',monospace",
             }}
           >
-            #{product.productCode}
+            #
+            {pendingProduct.productCode ??
+              effectiveProduct.productCode ??
+              "NEW"}
           </div>
         </div>
         <span
@@ -3755,7 +3670,7 @@ export default function AdminProductDetail() {
             border: `1.5px solid ${sc.color}`,
           }}
         >
-          {product.state || "Draft"}
+          {isNew ? "New" : effectiveProduct.state || "Draft"}
         </span>
         <span
           style={{
@@ -3763,11 +3678,21 @@ export default function AdminProductDetail() {
             borderRadius: 20,
             fontSize: 11,
             fontWeight: 700,
-            background: product.isActive !== false ? "#e8f5e9" : "#fdecea",
-            color: product.isActive !== false ? "#2e7d32" : "#c62828",
+            background:
+              !isNew && effectiveProduct.isActive !== false
+                ? "#e8f5e9"
+                : "#fdecea",
+            color:
+              !isNew && effectiveProduct.isActive !== false
+                ? "#2e7d32"
+                : "#c62828",
           }}
         >
-          {product.isActive !== false ? "Active" : "Inactive"}
+          {!isNew
+            ? effectiveProduct.isActive !== false
+              ? "Active"
+              : "Inactive"
+            : "Draft"}
         </span>
         <button
           onClick={() =>
@@ -3775,7 +3700,7 @@ export default function AdminProductDetail() {
               .patch(`/Products/${productId}/toggle-active`)
               .then(() => {
                 toast.success(
-                  product.isActive !== false
+                  effectiveProduct.isActive !== false
                     ? "Product hidden"
                     : "Product shown",
                 );
@@ -3790,10 +3715,11 @@ export default function AdminProductDetail() {
           }
           style={{
             padding: "4px 12px",
-            background: product.isActive !== false ? "#fff8e1" : "#e8f5e9",
-            color: product.isActive !== false ? "#e65100" : "#2e7d32",
+            background:
+              effectiveProduct.isActive !== false ? "#fff8e1" : "#e8f5e9",
+            color: effectiveProduct.isActive !== false ? "#e65100" : "#2e7d32",
             border: `1.5px solid ${
-              product.isActive !== false ? "#ffe082" : "#c8e6c9"
+              effectiveProduct.isActive !== false ? "#ffe082" : "#c8e6c9"
             }`,
             borderRadius: 20,
             fontSize: 11,
@@ -3801,7 +3727,9 @@ export default function AdminProductDetail() {
             fontWeight: 600,
           }}
         >
-          {product.isActive !== false ? "Hide Product" : "Show Product"}
+          {effectiveProduct.isActive !== false
+            ? "Hide Product"
+            : "Show Product"}
         </button>
       </div>
 
@@ -3912,7 +3840,8 @@ export default function AdminProductDetail() {
           {/* Brand */}
           <InlineSelect
             label="Brand"
-            value={product.brandId}
+            required
+            value={pendingProduct.brandId ?? effectiveProduct.brandId}
             options={allBrands.map((b) => ({
               id: b.brandId,
               name: b.brandName,
@@ -3923,8 +3852,10 @@ export default function AdminProductDetail() {
           {/* Product Name */}
           <div style={{ marginBottom: 6 }}>
             <InlineField
-              value={product.name || ""}
-              placeholder="Product name…"
+              label="Product Name"
+              required
+              value={pendingProduct.name ?? effectiveProduct.name ?? ""}
+              placeholder="Not set"
               onSave={(v) => queueProduct({ name: v })}
               large
             />
@@ -3950,7 +3881,11 @@ export default function AdminProductDetail() {
               onClick={() => {}}
             >
               <InlineField
-                value={product.productCode || ""}
+                value={
+                  pendingProduct.productCode ??
+                  effectiveProduct.productCode ??
+                  ""
+                }
                 placeholder="Product Code…"
                 onSave={(v) => queueProduct({ productCode: v })}
               />
@@ -3967,7 +3902,10 @@ export default function AdminProductDetail() {
           >
             <InlineSelect
               label="Tax / HSN Code"
-              value={product.taxHSNCodeId}
+              required
+              value={
+                pendingProduct.taxHSNCodeId ?? effectiveProduct.taxHSNCodeId
+              }
               options={allTaxHsn.map((t) => ({
                 id: t.taxHSNCodeId,
                 name: t.hsnCode
@@ -3980,7 +3918,8 @@ export default function AdminProductDetail() {
             />
             <InlineSelect
               label="Fabric"
-              value={product.fabricId}
+              required
+              value={pendingProduct.fabricId ?? effectiveProduct.fabricId}
               options={allFabrics.map((f) => ({
                 id: f.fabricId,
                 name: f.name || f.fabricCode || String(f.fabricId),
@@ -3990,7 +3929,7 @@ export default function AdminProductDetail() {
           </div>
 
           {/* Recalculate Taxes button — fixes existing PVDs with missing CGST/SGST */}
-          {product.taxHSNCodeId && (
+          {(pendingProduct.taxHSNCodeId ?? effectiveProduct.taxHSNCodeId) && (
             <div style={{ marginBottom: 8 }}>
               <button
                 onClick={async () => {
@@ -4078,7 +4017,10 @@ export default function AdminProductDetail() {
           {/* Description */}
           <InlineField
             label="Description"
-            value={product.description || ""}
+            required
+            value={
+              pendingProduct.description ?? effectiveProduct.description ?? ""
+            }
             multiline
             placeholder="Add a description…"
             onSave={(v) => queueProduct({ description: v })}
@@ -4087,7 +4029,7 @@ export default function AdminProductDetail() {
           {/* Tags */}
           <InlineField
             label="Tags"
-            value={product.tag || ""}
+            value={pendingProduct.tag ?? effectiveProduct.tag ?? ""}
             placeholder="Add tags…"
             onSave={(v) => queueProduct({ tag: v })}
           />
@@ -4109,7 +4051,8 @@ export default function AdminProductDetail() {
           >
             <InlineSelect
               label="Parent Category"
-              value={product.categoryId}
+              required
+              value={pendingProduct.categoryId ?? effectiveProduct.categoryId}
               options={parentCats.map((c) => ({
                 id: c.categoryId,
                 name: c.name,
@@ -4122,15 +4065,16 @@ export default function AdminProductDetail() {
               // Effective parent: prefer the locally-queued value so child options
               // update instantly when parent changes (before save+refetch).
               const effectiveCatId =
-                (pendingProduct.categoryId ?? product.categoryId) || 0;
+                (pendingProduct.categoryId ?? effectiveProduct.categoryId) || 0;
               // Effective child: prefer locally-queued value; null means cleared.
               const effectiveChildId =
                 "childCategoryId" in pendingProduct
                   ? pendingProduct.childCategoryId
-                  : product.childCategoryId;
+                  : effectiveProduct.childCategoryId;
               return (
                 <InlineSelect
                   label="Child Category"
+                  required
                   value={effectiveChildId}
                   options={childCats(effectiveCatId).map((c) => ({
                     id: c.categoryId,
@@ -4211,35 +4155,170 @@ export default function AdminProductDetail() {
                 </span>
               )}
               <button
-                onClick={() => setAddVariantOpen(true)}
+                onClick={() => {
+                  if (!productFieldsComplete) {
+                    toast.error(
+                      `Fill in required fields first: ${missingProductFields.join(
+                        ", ",
+                      )}`,
+                      { duration: 4000 },
+                    );
+                    return;
+                  }
+                  setAddVariantOpen(true);
+                }}
+                disabled={!productFieldsComplete}
+                title={
+                  productFieldsComplete
+                    ? "Add a colour variant"
+                    : `Complete required fields first: ${missingProductFields.join(
+                        ", ",
+                      )}`
+                }
                 style={{
                   padding: "6px 12px",
-                  background: P,
+                  background: productFieldsComplete ? P : "#d1c4c7",
                   color: WHITE,
                   border: "none",
                   borderRadius: 8,
                   fontSize: 12,
-                  cursor: "pointer",
+                  cursor: productFieldsComplete ? "pointer" : "not-allowed",
                   fontWeight: 700,
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 5,
                   whiteSpace: "nowrap",
+                  opacity: productFieldsComplete ? 1 : 0.65,
                 }}
               >
                 <i className="bi bi-plus-lg" /> Add Variant
               </button>
             </div>
-            {variants.length === 0 && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: SUB,
-                  padding: "8px 0 4px",
-                  fontStyle: "italic",
-                }}
-              >
-                No variants yet — add one to get started.
+            {/* Show staged (unsaved) variant in new product mode */}
+            {isNew && pendingNewVariant && (
+              <div style={{ padding: "8px 0 4px" }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: SUB,
+                    fontWeight: 700,
+                    marginBottom: 6,
+                    textTransform: "uppercase" as const,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Staged Variant (not saved yet)
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: "#e8f5e9",
+                    border: "1px solid #c8e6c9",
+                    borderRadius: 8,
+                    padding: "8px 14px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      background: colorFamilyHexOf(pendingNewVariant) || "#ccc",
+                      border: "1px solid #ddd",
+                    }}
+                  />
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#1b5e20",
+                      }}
+                    >
+                      {pendingNewVariant.variantName ||
+                        pendingNewVariant.color ||
+                        "Variant"}
+                    </div>
+                    {pendingNewVariant.color && (
+                      <div style={{ fontSize: 11, color: "#2e7d32" }}>
+                        Color: {pendingNewVariant.color}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPendingNewVariant(null);
+                    }}
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 11,
+                      padding: "3px 10px",
+                      background: "#fdecea",
+                      color: "#c62828",
+                      border: "1px solid #ef9a9a",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            )}
+            {!isNew && variants.length === 0 && (
+              <div style={{ padding: "8px 0 4px" }}>
+                {!productFieldsComplete ? (
+                  <div
+                    style={{
+                      background: "#fff8e1",
+                      border: "1px solid #ffe082",
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      fontSize: 12,
+                      color: "#7c4d00",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        marginBottom: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <i
+                        className="bi bi-exclamation-triangle-fill"
+                        style={{ color: "#f59e0b" }}
+                      />
+                      Complete these required fields before adding a variant:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9 }}>
+                      {missingProductFields.map((f) => (
+                        <li key={f} style={{ fontWeight: 600 }}>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "#2e7d32",
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    <i className="bi bi-check-circle-fill" /> All required
+                    fields set — click <strong>+ Add Variant</strong> to
+                    continue.
+                  </div>
+                )}
               </div>
             )}
             {variants.length > 0 && (
@@ -4592,27 +4671,82 @@ export default function AdminProductDetail() {
                 }}
               >
                 {/* Save */}
-                <button
-                  onClick={saveAll}
-                  disabled={savingAll}
-                  style={{
-                    padding: "9px 20px",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    borderRadius: 10,
-                    cursor: savingAll ? "not-allowed" : "pointer",
-                    border: "none",
-                    background: P,
-                    color: WHITE,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    opacity: savingAll ? 0.7 : 1,
-                  }}
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 4 }}
                 >
-                  <i className="bi bi-floppy" />
-                  {savingAll ? "Saving…" : "Save"}
-                </button>
+                  <button
+                    onClick={() => {
+                      if (!canSave) {
+                        if (!productFieldsComplete) {
+                          toast.error(
+                            `Fill in required fields: ${missingProductFields.join(
+                              ", ",
+                            )}`,
+                            { duration: 4000 },
+                          );
+                        } else if (!hasVariant) {
+                          toast.error(
+                            "Add at least one colour variant before saving.",
+                            { duration: 4000 },
+                          );
+                        } else if (!hasSizes) {
+                          toast.error(
+                            "Add at least one size to the variant before saving.",
+                            { duration: 4000 },
+                          );
+                        }
+                        return;
+                      }
+                      saveAll();
+                    }}
+                    disabled={savingAll}
+                    title={
+                      !productFieldsComplete
+                        ? `Fill in required fields: ${missingProductFields.join(
+                            ", ",
+                          )}`
+                        : !hasVariant
+                        ? "Add at least one colour variant before saving"
+                        : !hasSizes
+                        ? "Add at least one size before saving"
+                        : "Save all changes"
+                    }
+                    style={{
+                      padding: "9px 20px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      borderRadius: 10,
+                      cursor: savingAll || !canSave ? "not-allowed" : "pointer",
+                      border: "none",
+                      background: canSave ? P : "#d1c4c7",
+                      color: WHITE,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      opacity: savingAll ? 0.7 : 1,
+                    }}
+                  >
+                    <i className="bi bi-floppy" />
+                    {savingAll ? "Saving…" : "Save"}
+                  </button>
+                  {!canSave && !savingAll && (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#b45309",
+                        fontWeight: 600,
+                        maxWidth: 180,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {!productFieldsComplete
+                        ? `Missing: ${missingProductFields.join(", ")}`
+                        : !hasVariant
+                        ? "No variant added yet"
+                        : "No sizes added yet"}
+                    </div>
+                  )}
+                </div>
 
                 {/* Discard — always visible; enabled only when isDirty */}
                 <button
@@ -4794,10 +4928,18 @@ export default function AdminProductDetail() {
 
       {addVariantOpen && (
         <AddVariantModal
-          productId={productId}
+          productId={isNew ? 0 : productId}
           colorFamilies={allColorFamilies}
           onClose={() => setAddVariantOpen(false)}
-          onAdded={refetchVariants}
+          onAdded={(variantData?: Record<string, any>) => {
+            if (isNew && variantData) {
+              // Stage the variant locally; no API call yet
+              setPendingNewVariant(variantData);
+            } else {
+              refetchVariants();
+            }
+          }}
+          isNew={isNew}
         />
       )}
     </div>

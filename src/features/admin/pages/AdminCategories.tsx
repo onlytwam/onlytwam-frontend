@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
 import { useMenuStore } from "@/shared/store/menuStore";
+import { getImageUrl } from "@/shared/utils/helpers";
 
 const BRAND = "#6B0F2A";
 
@@ -377,12 +378,16 @@ function ViewCategoryModal({
               border: "1px solid #eadfd8",
             }}
             onClick={() =>
-              onViewImage(cat.categoryImage, cat.name, cat.categoryId)
+              onViewImage(
+                getImageUrl(cat.categoryImage, ""),
+                cat.name,
+                cat.categoryId,
+              )
             }
             title="Click to view full image"
           >
             <img
-              src={cat.categoryImage}
+              src={getImageUrl(cat.categoryImage)}
               alt={cat.name}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
@@ -839,11 +844,11 @@ export default function AdminCategories() {
     c.categoryImage ? (
       <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
         <img
-          src={c.categoryImage}
+          src={getImageUrl(c.categoryImage)}
           alt={c.name}
           onClick={() =>
             setViewImage({
-              url: c.categoryImage,
+              url: getImageUrl(c.categoryImage, ""),
               name: c.name,
               categoryId: c.categoryId,
             })
@@ -1681,7 +1686,7 @@ export default function AdminCategories() {
                 <button
                   onClick={() =>
                     setViewImage({
-                      url: modal.categoryImage,
+                      url: getImageUrl(modal.categoryImage, ""),
                       name: modal.name,
                       categoryId: modal.categoryId,
                     })
@@ -1921,7 +1926,7 @@ export default function AdminCategories() {
             </p>
             {confirmDeleteImage.categoryImage && (
               <img
-                src={confirmDeleteImage.categoryImage}
+                src={getImageUrl(confirmDeleteImage.categoryImage)}
                 alt={confirmDeleteImage.name}
                 style={{
                   width: "100%",
