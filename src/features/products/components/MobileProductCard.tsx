@@ -44,7 +44,13 @@ export default function MobileProductCard({ product }: Props) {
     displayProduct.productImage ||
     displayProduct.selectedImage ||
     displayProduct.thumbnail ||
-    (Array.isArray(displayProduct.images) ? displayProduct.images[0] : "") ||
+    (Array.isArray(displayProduct.images) && displayProduct.images.length > 0
+      ? typeof displayProduct.images[0] === "string"
+        ? displayProduct.images[0]
+        : displayProduct.images[0]?.fileData ||
+          displayProduct.images[0]?.filePath ||
+          ""
+      : "") ||
     "";
   const imgSrc = imgError ? "/assets/category-bg.png" : getImageUrl(rawSrc);
 
@@ -60,7 +66,9 @@ export default function MobileProductCard({ product }: Props) {
     "";
 
   const price = Number(displayProduct.price ?? displayProduct.finalPrice ?? 0);
-  const oldPrice = Number(displayProduct.oldPrice ?? displayProduct.mrpPrice ?? 0);
+  const oldPrice = Number(
+    displayProduct.oldPrice ?? displayProduct.mrpPrice ?? 0,
+  );
   const hasDiscount = oldPrice > 0 && oldPrice > price;
   const discountPct = hasDiscount
     ? Math.round(((oldPrice - price) / oldPrice) * 100)
@@ -82,7 +90,8 @@ export default function MobileProductCard({ product }: Props) {
   const colorFamily = colorFamilyNameOf(displayProduct);
   const colorName =
     displayProduct.colorName || displayProduct.color || colorFamily || "";
-  const colorHex = colorFamily || colorName ? colorFamilyHexOf(displayProduct) : "";
+  const colorHex =
+    colorFamily || colorName ? colorFamilyHexOf(displayProduct) : "";
 
   const {
     inWishlist,
@@ -101,7 +110,8 @@ export default function MobileProductCard({ product }: Props) {
       price,
       oldPrice,
       image: rawSrc,
-      hoverImage: displayProduct.hoverImage || displayProduct.secondaryImage || "",
+      hoverImage:
+        displayProduct.hoverImage || displayProduct.secondaryImage || "",
       images: [],
       color: colorName,
       colorName,
