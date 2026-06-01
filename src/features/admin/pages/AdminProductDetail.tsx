@@ -3631,31 +3631,8 @@ export default function AdminProductDetail() {
           newVariantId =
             variantRes.data?.productVariantId ?? variantRes.data?.id;
         }
-        // 3. Create PVDs for any pre-filled sizes
-        if (newVariantId && Object.keys(pendingNewVariantSizes).length > 0) {
-          const { name: adminName2 } = getCurrentUser();
-          const pvdPayloads = Object.entries(pendingNewVariantSizes)
-            .filter(([, s]) => s.mrpPrice && s.finalPrice && s.stockQuantity)
-            .map(([key, s]) => {
-              const [sizeId, cupSizeId] = key.split("-");
-              return {
-                productId: newProductId,
-                productVariantId: newVariantId!,
-                sizeId: Number(sizeId),
-                cupSizeId: cupSizeId ? Number(cupSizeId) : null,
-                mrpPrice: Number(s.mrpPrice),
-                finalPrice: Number(s.finalPrice),
-                stockQuantity: Number(s.stockQuantity),
-                stockId: s.stockId || null,
-                state: "Created",
-                createdBy: adminName2,
-              };
-            });
-          await Promise.all(
-            pvdPayloads.map((pl) => api.post("/ProductVariantDetail", pl)),
-          );
-        }
-        toast.success("Product, variant & sizes saved!");
+        // 3. (Sizes are added on the real product page after redirect)
+        toast.success("Product & variant saved! Now add sizes & stock below.");
         qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
         // Navigate to the real product page; pass the new variantId so it
         // auto-selects the variant and scrolls to the Sizes & Stock section.
@@ -3842,14 +3819,12 @@ export default function AdminProductDetail() {
   const productFieldsComplete = missingProductFields.length === 0;
   const hasVariant = isNew ? !!pendingNewVariant : variants.length > 0;
   const hasSizes = isNew
-    ? Object.values(pendingNewVariantSizes).some(
-        (s) => s.mrpPrice && s.finalPrice && s.stockQuantity,
-      )
+    ? true // sizes are added after the product+variant is saved and redirected
     : pvds.length > 0;
-  // For new products: product fields + variant + at least one size required
+  // For new products: only need product fields + variant to save (sizes added after)
   // For existing products: product fields + variant + at least one size required
   const canSave = isNew
-    ? productFieldsComplete && hasVariant && hasSizes
+    ? productFieldsComplete && hasVariant
     : productFieldsComplete && hasVariant && hasSizes;
 
   return (
@@ -4595,7 +4570,7 @@ export default function AdminProductDetail() {
                   </button>
                 </div>
 
-                {/* Sizes & Stock — interactive tiles for new product */}
+                {/* Sizes & Stock — unlocked AFTER saving to DB */}
                 <div
                   style={{
                     display: "flex",
@@ -4632,200 +4607,58 @@ export default function AdminProductDetail() {
                   Sizes &amp; Stock
                 </div>
 
-                {/* Size tiles — filtered by isAlphaSize / isCupSize flag */}
-                {(() => {
-                  const isAlpha = !!pendingNewVariant?.isAlphaSize;
-                  const isCup = !!pendingNewVariant?.isCupSize;
-                  const bandSizes = allMdmSizes.filter(
-                    (s: any) =>
-                      s.isActive !== false &&
-                      !s.isCupSize &&
-                      s.sizeType === (isAlpha ? "alphabetical" : "numerical"),
-                  );
-                  const cupSizes = isCup
-                    ? allMdmCupSizes.filter((c: any) => c.isActive !== false)
-                    : [];
-
-                  if (bandSizes.length === 0) {
-                    return (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: SUB,
-                          padding: "10px 0",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        No {isAlpha ? "alpha" : "numerical"} sizes in MDM yet.
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: 8,
-                          marginBottom: 12,
-                        }}
-                      >
-                        {bandSizes.map((s: any) => {
-                          const key = String(s.sizeId);
-                          const filled = pendingNewVariantSizes[key];
-                          const hasFill =
-                            filled?.mrpPrice &&
-                            filled?.finalPrice &&
-                            filled?.stockQuantity;
-                          const isOpen = newProductExpandedSize === key;
-                          return (
-                            <div key={s.sizeId}>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setNewProductExpandedSize(isOpen ? null : key)
-                                }
-                                style={{
-                                  minWidth: 52,
-                                  padding: "8px 10px",
-                                  border: `2px solid ${
-                                    isOpen ? P : hasFill ? "#4caf50" : BDR
-                                  }`,
-                                  borderRadius: 8,
-                                  background: isOpen
-                                    ? P
-                                    : hasFill
-                                    ? "#e8f5e9"
-                                    : WHITE,
-                                  color: isOpen
-                                    ? WHITE
-                                    : hasFill
-                                    ? "#2e7d32"
-                                    : TXT,
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  alignItems: "center",
-                                  gap: 2,
-                                }}
-                              >
-                                <span>{s.sizeLabel || s.sizeCode}</span>
-                                {hasFill && (
-                                  <span
-                                    style={{ fontSize: 9, fontWeight: 600 }}
-                                  >
-                                    ✓
-                                  </span>
-                                )}
-                              </button>
-                              {isOpen && !isCup && (
-                                <NewSizeTileForm
-                                  sizeKey={key}
-                                  sizes={pendingNewVariantSizes}
-                                  onUpdate={updatePendingSize}
-                                  onClose={() =>
-                                    setNewProductExpandedSize(null)
-                                  }
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Cup size grid */}
-                      {isCup &&
-                        newProductExpandedSize &&
-                        cupSizes.length > 0 && (
-                          <div style={{ marginBottom: 12 }}>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: SUB,
-                                marginBottom: 8,
-                              }}
-                            >
-                              Cup sizes for{" "}
-                              {bandSizes.find(
-                                (s: any) =>
-                                  String(s.sizeId) === newProductExpandedSize,
-                              )?.sizeLabel || newProductExpandedSize}
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 8,
-                              }}
-                            >
-                              {cupSizes.map((c: any) => {
-                                const ckey = `${newProductExpandedSize}-${c.cupSizeId}`;
-                                const filled = pendingNewVariantSizes[ckey];
-                                const hasFill =
-                                  filled?.mrpPrice &&
-                                  filled?.finalPrice &&
-                                  filled?.stockQuantity;
-                                return (
-                                  <div key={c.cupSizeId}>
-                                    <button
-                                      type="button"
-                                      style={{
-                                        minWidth: 48,
-                                        padding: "7px 9px",
-                                        border: `2px solid ${
-                                          hasFill ? "#4caf50" : BDR
-                                        }`,
-                                        borderRadius: 8,
-                                        background: hasFill ? "#e8f5e9" : WHITE,
-                                        color: hasFill ? "#2e7d32" : TXT,
-                                        fontSize: 12,
-                                        fontWeight: 700,
-                                        cursor: "default",
-                                      }}
-                                    >
-                                      {c.sizeLabel || c.sizeCode}
-                                      {hasFill && (
-                                        <span
-                                          style={{
-                                            display: "block",
-                                            fontSize: 9,
-                                          }}
-                                        >
-                                          ✓
-                                        </span>
-                                      )}
-                                    </button>
-                                    <NewSizeTileForm
-                                      sizeKey={ckey}
-                                      sizes={pendingNewVariantSizes}
-                                      onUpdate={updatePendingSize}
-                                      onClose={() => {}}
-                                    />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                      <p
-                        style={{ fontSize: 11, color: SUB, margin: "4px 0 0" }}
-                      >
-                        Click a size tile to set MRP, selling price &amp; stock.
-                        Green = filled.
-                      </p>
-                    </div>
-                  );
-                })()}
-
-                {/* Save button — shown here for new product */}
+                {/* Info box: sizes unlocked after save */}
                 <div
                   style={{
-                    marginTop: 24,
+                    background: "#fffbf0",
+                    border: "1.5px dashed #f59e0b",
+                    borderRadius: 10,
+                    padding: "14px 18px",
+                    marginBottom: 16,
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <i
+                    className="bi bi-unlock"
+                    style={{
+                      fontSize: 22,
+                      color: "#d97706",
+                      flexShrink: 0,
+                      marginTop: 2,
+                    }}
+                  />
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: "#92400e",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Sizes &amp; stock are added after saving
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#78350f",
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      Click <strong>Save Product</strong> below to create the
+                      product and variant in the database. You'll land on the
+                      variant page where you can click any size tile, enter MRP,
+                      stock quantity and Stock ID, then save.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save button */}
+                <div
+                  style={{
+                    marginTop: 8,
                     display: "flex",
                     gap: 8,
                     alignItems: "center",
@@ -4846,11 +4679,6 @@ export default function AdminProductDetail() {
                           toast.error("Add at least one colour variant.", {
                             duration: 4000,
                           });
-                        } else if (!hasSizes) {
-                          toast.error(
-                            "Fill MRP, selling price & stock for at least one size.",
-                            { duration: 4000 },
-                          );
                         }
                         return;
                       }
@@ -4886,9 +4714,7 @@ export default function AdminProductDetail() {
                     >
                       {!productFieldsComplete
                         ? `Missing: ${missingProductFields.join(", ")}`
-                        : !hasVariant
-                        ? "No variant added yet"
-                        : "Fill at least one size"}
+                        : "No variant added yet"}
                     </div>
                   )}
                 </div>
@@ -5332,8 +5158,6 @@ export default function AdminProductDetail() {
                         ? "Add at least one colour variant before saving"
                         : !hasSizes && !isNew
                         ? "Add at least one size before saving"
-                        : isNew
-                        ? "Save product & variant — you can add sizes next"
                         : "Save all changes"
                     }
                     style={{
