@@ -3896,7 +3896,11 @@ export default function AdminProductDetail() {
               onClick={() => {}}
             >
               <InlineField
-                value={product.productCode || ""}
+                value={
+                  pendingProduct.productCode ??
+                  effectiveProduct.productCode ??
+                  ""
+                }
                 placeholder="Product Code…"
                 onSave={(v) => queueProduct({ productCode: v })}
               />
