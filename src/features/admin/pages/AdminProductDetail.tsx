@@ -734,8 +734,8 @@ function ImagePane({
                   display: "block",
                 }}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "/assets/category-bg.png";
+                  const el = e.target as HTMLImageElement;
+                  el.style.display = "none";
                 }}
               />
               {/* Prev / Next */}
@@ -3329,15 +3329,8 @@ export default function AdminProductDetail() {
     () =>
       mergeImageSources(
         Array.isArray(imagesData) ? imagesData : imagesData?.list ?? [],
-        userVariantDetail?.images,
-        userVariantDetail?.image,
-        selVariant?.images,
-        selVariant?.imageUrl ||
-          selVariant?.image ||
-          selVariant?.selectedImage ||
-          selVariant?.thumbnail,
       ),
-    [imagesData, userVariantDetail, selVariant],
+    [imagesData],
   );
 
   // Reset image index when variant switches
@@ -3881,11 +3874,7 @@ export default function AdminProductDetail() {
               onClick={() => {}}
             >
               <InlineField
-                value={
-                  pendingProduct.productCode ??
-                  effectiveProduct.productCode ??
-                  ""
-                }
+                value={product.productCode || ""}
                 placeholder="Product Code…"
                 onSave={(v) => queueProduct({ productCode: v })}
               />
@@ -4328,14 +4317,10 @@ export default function AdminProductDetail() {
                   const isHlVariant =
                     !!hlVariantId && v.productVariantId === hlVariantId;
                   const hex = getVariantColor(v);
-                  const firstImg = mergeImageSources(
-                    v.images,
-                    v.imageUrl ||
-                      v.imageURL ||
-                      v.image ||
-                      v.selectedImage ||
-                      v.thumbnail,
-                  )[0];
+                  const firstImg =
+                    Array.isArray(v.images) && v.images.length > 0
+                      ? v.images[0]
+                      : null;
                   const imgSrc = firstImg
                     ? imgUrl(imagePathFromAny(firstImg))
                     : null;
