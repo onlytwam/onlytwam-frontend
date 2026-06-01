@@ -110,7 +110,18 @@ function mergeImageSources(...sources: any[]): any[] {
     const filePath = imagePathFromAny(image);
     if (!filePath) return;
 
-    const key = filePath.trim().toLowerCase();
+    // Normalize to a path-only key so that relative and absolute forms of
+    // the same file don't both get included (e.g. "uploads/x.jpg" vs
+    // "http://127.0.0.1:8000/uploads/x.jpg" are the same image).
+    let key = filePath.trim().toLowerCase();
+    try {
+      // If it's a full URL, use just the pathname for dedup
+      key = new URL(key).pathname;
+    } catch {
+      // Not a URL — strip any leading host:port prefix if present
+      key = key.replace(/^https?:\/\/[^/]+/, "");
+    }
+    if (!key) return;
     if (seen.has(key)) return;
     seen.add(key);
 
@@ -2793,7 +2804,7 @@ function AddVariantModal({
   productId: number;
   colorFamilies: ColorFamilyOption[];
   onClose: () => void;
-  onAdded: (variantData?: Record<string, any>) => void;
+  onAdded: (variantData?: Record<string, any>, newVariantId?: number) => void;
   isNew?: boolean;
 }) {
   const [form, setForm] = useState({
@@ -2820,13 +2831,15 @@ function AddVariantModal({
     }
     setSaving(true);
     try {
-      await api.post("/ProductVariants", {
+      const res = await api.post("/ProductVariants", {
         ...form,
         colorFamilyId: form.colorFamilyId ? Number(form.colorFamilyId) : null,
         productId,
       });
       toast.success("Variant created");
-      onAdded();
+      const newVariantId: number | undefined =
+        res?.data?.productVariantId ?? res?.data?.id ?? undefined;
+      onAdded(undefined, newVariantId);
       onClose();
     } catch {
       toast.error("Failed to create variant");
@@ -3331,10 +3344,13 @@ export default function AdminProductDetail() {
   }, [selVariantId]);
 
   useEffect(() => {
-    if (activeImgIdx >= variantImages.length) {
-      setActiveImgIdx(Math.max(0, variantImages.length - 1));
-    }
-  }, [activeImgIdx, variantImages.length]);
+    setActiveImgIdx((prev) =>
+      prev >= variantImages.length
+        ? Math.max(0, variantImages.length - 1)
+        : prev,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantImages.length]);
 
   // PVD (sizes) for selected variant
   const { data: pvdData, refetch: refetchPvd } = useQuery({
@@ -3384,8 +3400,15 @@ export default function AdminProductDetail() {
   async function patchVariant(data: Record<string, any>) {
     if (!selVariantId) return;
     try {
+      // Strip heavy / read-only fields that should not be sent back to the API
+      const {
+        images: _i,
+        allSizes: _as,
+        pvds: _pvds,
+        ...safeVariant
+      } = selVariant ?? {};
       await api.put(`/ProductVariants/${selVariantId}`, {
-        ...selVariant,
+        ...safeVariant,
         ...data,
         productId,
       });
@@ -4908,12 +4931,19 @@ export default function AdminProductDetail() {
           productId={isNew ? 0 : productId}
           colorFamilies={allColorFamilies}
           onClose={() => setAddVariantOpen(false)}
-          onAdded={(variantData?: Record<string, any>) => {
+          onAdded={(
+            variantData?: Record<string, any>,
+            newVariantId?: number,
+          ) => {
             if (isNew && variantData) {
               // Stage the variant locally; no API call yet
               setPendingNewVariant(variantData);
             } else {
-              refetchVariants();
+              refetchVariants().then(() => {
+                if (newVariantId) {
+                  setSelVariantId(newVariantId);
+                }
+              });
             }
           }}
           isNew={isNew}
