@@ -1,5 +1,5 @@
 /**
- * AdminProductDetail.tsx — v3
+ * AdminProductDetail.tsx — v5
  * Layout mirrors the user-side ProductDetail:
  *   LEFT  (sticky) : per-variant image gallery with per-image upload / delete
  *   RIGHT (scroll)  : all product + variant info, every field editable on click
