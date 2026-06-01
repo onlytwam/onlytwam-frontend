@@ -3074,6 +3074,154 @@ function AddVariantModal({
   );
 }
 
+// ─── Inline size pre-fill form (for new product before saving) ───────────────
+function NewSizeTileForm({
+  sizeKey,
+  sizes,
+  onUpdate,
+  onClose,
+}: {
+  sizeKey: string;
+  sizes: Record<
+    string,
+    {
+      mrpPrice: string;
+      finalPrice: string;
+      stockQuantity: string;
+      stockId: string;
+    }
+  >;
+  onUpdate: (key: string, field: string, value: string) => void;
+  onClose: () => void;
+}) {
+  const val = sizes[sizeKey] ?? {
+    mrpPrice: "",
+    finalPrice: "",
+    stockQuantity: "",
+    stockId: "",
+  };
+  const mrp = Number(val.mrpPrice || 0);
+  const fin = Number(val.finalPrice || 0);
+  const disc =
+    mrp > 0 && fin > 0 && fin <= mrp
+      ? Math.round(((mrp - fin) / mrp) * 100)
+      : 0;
+
+  const fld: React.CSSProperties = {
+    border: "none",
+    borderBottom: `1.5px solid ${BDR}`,
+    padding: "6px 0",
+    fontSize: 13,
+    color: TXT,
+    background: "transparent",
+    outline: "none",
+    width: "100%",
+    fontFamily: "inherit",
+  };
+
+  return (
+    <div
+      style={{
+        background: "#f9f9fb",
+        border: `1.5px solid ${P}`,
+        borderRadius: 10,
+        padding: "14px 16px",
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "10px 16px",
+      }}
+    >
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          MRP (₹) *
+        </label>
+        <input
+          type="number"
+          min={0}
+          style={fld}
+          placeholder="0"
+          value={val.mrpPrice}
+          onChange={(e) => onUpdate(sizeKey, "mrpPrice", e.target.value)}
+        />
+      </div>
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          Selling Price (₹) *
+        </label>
+        <input
+          type="number"
+          min={0}
+          style={fld}
+          placeholder="0"
+          value={val.finalPrice}
+          onChange={(e) => onUpdate(sizeKey, "finalPrice", e.target.value)}
+        />
+        {disc > 0 && (
+          <span style={{ fontSize: 10, color: "#2e7d32", fontWeight: 600 }}>
+            {disc}% off
+          </span>
+        )}
+        {mrp > 0 && fin > mrp && (
+          <span style={{ fontSize: 10, color: P, fontWeight: 600 }}>
+            Cannot exceed MRP
+          </span>
+        )}
+      </div>
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          Stock Qty *
+        </label>
+        <input
+          type="number"
+          min={0}
+          style={fld}
+          placeholder="0"
+          value={val.stockQuantity}
+          onChange={(e) => onUpdate(sizeKey, "stockQuantity", e.target.value)}
+        />
+      </div>
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          Stock ID
+        </label>
+        <input
+          type="text"
+          style={fld}
+          placeholder="Optional"
+          value={val.stockId}
+          onChange={(e) => onUpdate(sizeKey, "stockId", e.target.value)}
+        />
+      </div>
+      <div
+        style={{
+          gridColumn: "1 / -1",
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 4,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            padding: "5px 14px",
+            fontSize: 12,
+            borderRadius: 8,
+            border: `1.5px solid ${BDR}`,
+            background: "transparent",
+            color: SUB,
+            cursor: "pointer",
+          }}
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -3246,6 +3394,21 @@ export default function AdminProductDetail() {
         .then((r) => r.data),
     staleTime: 300_000,
   });
+  // MDM sizes (band) + cup sizes — used for pre-fill tiles on new product
+  const { data: mdmSizesData } = useQuery({
+    queryKey: ["mdm-sizes-all"],
+    queryFn: () =>
+      api.get("/Size", { params: { "Page.Size": 200 } }).then((r) => r.data),
+    staleTime: 300_000,
+  });
+  const { data: mdmCupSizesData } = useQuery({
+    queryKey: ["mdm-cupsizes-all"],
+    queryFn: () =>
+      api.get("/CupSize", { params: { "Page.Size": 200 } }).then((r) => r.data),
+    staleTime: 300_000,
+  });
+  const allMdmSizes: any[] = mdmSizesData?.list ?? [];
+  const allMdmCupSizes: any[] = mdmCupSizesData?.list ?? [];
 
   const allCats: any[] = catsData?.list ?? [];
   const allBrands: any[] = brandsData?.list ?? [];
@@ -3468,9 +3631,31 @@ export default function AdminProductDetail() {
           newVariantId =
             variantRes.data?.productVariantId ?? variantRes.data?.id;
         }
-        toast.success(
-          "Product & variant saved — now add sizes and stock below.",
-        );
+        // 3. Create PVDs for any pre-filled sizes
+        if (newVariantId && Object.keys(pendingNewVariantSizes).length > 0) {
+          const { name: adminName2 } = getCurrentUser();
+          const pvdPayloads = Object.entries(pendingNewVariantSizes)
+            .filter(([, s]) => s.mrpPrice && s.finalPrice && s.stockQuantity)
+            .map(([key, s]) => {
+              const [sizeId, cupSizeId] = key.split("-");
+              return {
+                productId: newProductId,
+                productVariantId: newVariantId!,
+                sizeId: Number(sizeId),
+                cupSizeId: cupSizeId ? Number(cupSizeId) : null,
+                mrpPrice: Number(s.mrpPrice),
+                finalPrice: Number(s.finalPrice),
+                stockQuantity: Number(s.stockQuantity),
+                stockId: s.stockId || null,
+                state: "Created",
+                createdBy: adminName2,
+              };
+            });
+          await Promise.all(
+            pvdPayloads.map((pl) => api.post("/ProductVariantDetail", pl)),
+          );
+        }
+        toast.success("Product, variant & sizes saved!");
         qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
         // Navigate to the real product page; pass the new variantId so it
         // auto-selects the variant and scrolls to the Sizes & Stock section.
@@ -3548,6 +3733,37 @@ export default function AdminProductDetail() {
     string,
     any
   > | null>(null);
+  // Pre-filled size data for new product before saving
+  // key = `${sizeId}` or `${sizeId}-${cupSizeId}`, value = { mrpPrice, finalPrice, stockQuantity, stockId }
+  const [pendingNewVariantSizes, setPendingNewVariantSizes] = useState<
+    Record<
+      string,
+      {
+        mrpPrice: string;
+        finalPrice: string;
+        stockQuantity: string;
+        stockId: string;
+      }
+    >
+  >({});
+  const updatePendingSize = (key: string, field: string, value: string) => {
+    setPendingNewVariantSizes((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? {
+          mrpPrice: "",
+          finalPrice: "",
+          stockQuantity: "",
+          stockId: "",
+        }),
+        [field]: value,
+      },
+    }));
+  };
+  // Which size tile is expanded in the new-product size pre-fill UI
+  const [newProductExpandedSize, setNewProductExpandedSize] = useState<
+    string | null
+  >(null);
 
   if (!isNew && pLoading)
     return (
@@ -3625,11 +3841,15 @@ export default function AdminProductDetail() {
 
   const productFieldsComplete = missingProductFields.length === 0;
   const hasVariant = isNew ? !!pendingNewVariant : variants.length > 0;
-  const hasSizes = isNew ? !!pendingNewVariant : pvds.length > 0;
-  // For new products: product fields + variant required (sizes added after creation on detail page)
+  const hasSizes = isNew
+    ? Object.values(pendingNewVariantSizes).some(
+        (s) => s.mrpPrice && s.finalPrice && s.stockQuantity,
+      )
+    : pvds.length > 0;
+  // For new products: product fields + variant + at least one size required
   // For existing products: product fields + variant + at least one size required
   const canSave = isNew
-    ? productFieldsComplete && hasVariant
+    ? productFieldsComplete && hasVariant && hasSizes
     : productFieldsComplete && hasVariant && hasSizes;
 
   return (
@@ -4375,7 +4595,7 @@ export default function AdminProductDetail() {
                   </button>
                 </div>
 
-                {/* Sizes & Stock — locked until product is saved */}
+                {/* Sizes & Stock — interactive tiles for new product */}
                 <div
                   style={{
                     display: "flex",
@@ -4412,51 +4632,265 @@ export default function AdminProductDetail() {
                   Sizes &amp; Stock
                 </div>
 
+                {/* Size tiles — filtered by isAlphaSize / isCupSize flag */}
+                {(() => {
+                  const isAlpha = !!pendingNewVariant?.isAlphaSize;
+                  const isCup = !!pendingNewVariant?.isCupSize;
+                  const bandSizes = allMdmSizes.filter(
+                    (s: any) =>
+                      s.isActive !== false &&
+                      !s.isCupSize &&
+                      s.sizeType === (isAlpha ? "alphabetical" : "numerical"),
+                  );
+                  const cupSizes = isCup
+                    ? allMdmCupSizes.filter((c: any) => c.isActive !== false)
+                    : [];
+
+                  if (bandSizes.length === 0) {
+                    return (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: SUB,
+                          padding: "10px 0",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No {isAlpha ? "alpha" : "numerical"} sizes in MDM yet.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 8,
+                          marginBottom: 12,
+                        }}
+                      >
+                        {bandSizes.map((s: any) => {
+                          const key = String(s.sizeId);
+                          const filled = pendingNewVariantSizes[key];
+                          const hasFill =
+                            filled?.mrpPrice &&
+                            filled?.finalPrice &&
+                            filled?.stockQuantity;
+                          const isOpen = newProductExpandedSize === key;
+                          return (
+                            <div key={s.sizeId}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setNewProductExpandedSize(isOpen ? null : key)
+                                }
+                                style={{
+                                  minWidth: 52,
+                                  padding: "8px 10px",
+                                  border: `2px solid ${
+                                    isOpen ? P : hasFill ? "#4caf50" : BDR
+                                  }`,
+                                  borderRadius: 8,
+                                  background: isOpen
+                                    ? P
+                                    : hasFill
+                                    ? "#e8f5e9"
+                                    : WHITE,
+                                  color: isOpen
+                                    ? WHITE
+                                    : hasFill
+                                    ? "#2e7d32"
+                                    : TXT,
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                  gap: 2,
+                                }}
+                              >
+                                <span>{s.sizeLabel || s.sizeCode}</span>
+                                {hasFill && (
+                                  <span
+                                    style={{ fontSize: 9, fontWeight: 600 }}
+                                  >
+                                    ✓
+                                  </span>
+                                )}
+                              </button>
+                              {isOpen && !isCup && (
+                                <NewSizeTileForm
+                                  sizeKey={key}
+                                  sizes={pendingNewVariantSizes}
+                                  onUpdate={updatePendingSize}
+                                  onClose={() =>
+                                    setNewProductExpandedSize(null)
+                                  }
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Cup size grid */}
+                      {isCup &&
+                        newProductExpandedSize &&
+                        cupSizes.length > 0 && (
+                          <div style={{ marginBottom: 12 }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: SUB,
+                                marginBottom: 8,
+                              }}
+                            >
+                              Cup sizes for{" "}
+                              {bandSizes.find(
+                                (s: any) =>
+                                  String(s.sizeId) === newProductExpandedSize,
+                              )?.sizeLabel || newProductExpandedSize}
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: 8,
+                              }}
+                            >
+                              {cupSizes.map((c: any) => {
+                                const ckey = `${newProductExpandedSize}-${c.cupSizeId}`;
+                                const filled = pendingNewVariantSizes[ckey];
+                                const hasFill =
+                                  filled?.mrpPrice &&
+                                  filled?.finalPrice &&
+                                  filled?.stockQuantity;
+                                return (
+                                  <div key={c.cupSizeId}>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        minWidth: 48,
+                                        padding: "7px 9px",
+                                        border: `2px solid ${
+                                          hasFill ? "#4caf50" : BDR
+                                        }`,
+                                        borderRadius: 8,
+                                        background: hasFill ? "#e8f5e9" : WHITE,
+                                        color: hasFill ? "#2e7d32" : TXT,
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        cursor: "default",
+                                      }}
+                                    >
+                                      {c.sizeLabel || c.sizeCode}
+                                      {hasFill && (
+                                        <span
+                                          style={{
+                                            display: "block",
+                                            fontSize: 9,
+                                          }}
+                                        >
+                                          ✓
+                                        </span>
+                                      )}
+                                    </button>
+                                    <NewSizeTileForm
+                                      sizeKey={ckey}
+                                      sizes={pendingNewVariantSizes}
+                                      onUpdate={updatePendingSize}
+                                      onClose={() => {}}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                      <p
+                        style={{ fontSize: 11, color: SUB, margin: "4px 0 0" }}
+                      >
+                        Click a size tile to set MRP, selling price &amp; stock.
+                        Green = filled.
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Save button — shown here for new product */}
                 <div
                   style={{
-                    background: "#fffbeb",
-                    border: "1.5px dashed #fbbf24",
-                    borderRadius: 10,
-                    padding: "16px 18px",
+                    marginTop: 24,
                     display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    marginBottom: 8,
+                    gap: 8,
+                    alignItems: "center",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <i
-                    className="bi bi-lock-fill"
-                    style={{
-                      color: "#e65100",
-                      fontSize: 18,
-                      marginTop: 1,
-                      flexShrink: 0,
+                  <button
+                    onClick={() => {
+                      if (!canSave) {
+                        if (!productFieldsComplete) {
+                          toast.error(
+                            `Fill in required fields: ${missingProductFields.join(
+                              ", ",
+                            )}`,
+                            { duration: 4000 },
+                          );
+                        } else if (!hasVariant) {
+                          toast.error("Add at least one colour variant.", {
+                            duration: 4000,
+                          });
+                        } else if (!hasSizes) {
+                          toast.error(
+                            "Fill MRP, selling price & stock for at least one size.",
+                            { duration: 4000 },
+                          );
+                        }
+                        return;
+                      }
+                      saveAll();
                     }}
-                  />
-                  <div>
+                    disabled={savingAll}
+                    style={{
+                      padding: "11px 28px",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      borderRadius: 10,
+                      cursor: savingAll || !canSave ? "not-allowed" : "pointer",
+                      border: "none",
+                      background: canSave ? P : "#d1c4c7",
+                      color: WHITE,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      opacity: savingAll ? 0.7 : 1,
+                    }}
+                  >
+                    <i className="bi bi-floppy" />
+                    {savingAll ? "Saving…" : "Save Product"}
+                  </button>
+                  {!canSave && !savingAll && (
                     <div
                       style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: "#92400e",
-                        marginBottom: 4,
+                        fontSize: 11,
+                        color: "#b45309",
+                        fontWeight: 600,
+                        lineHeight: 1.4,
                       }}
                     >
-                      Sizes &amp; stock are added after saving
+                      {!productFieldsComplete
+                        ? `Missing: ${missingProductFields.join(", ")}`
+                        : !hasVariant
+                        ? "No variant added yet"
+                        : "Fill at least one size"}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#a16207",
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Click <strong>Save</strong> below to create the product
-                      and variant in the database. You'll land on the variant
-                      where you can click any size tile, enter MRP, stock
-                      quantity and Stock ID, then save.
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
