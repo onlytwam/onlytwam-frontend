@@ -3328,14 +3328,21 @@ export default function AdminProductDetail() {
     enabled: !!selVariantId,
   });
 
-  // userVariantDetail query removed — images come solely from the /images endpoint below
+  // userVariantDetail query removed — images come solely from the /images endpoint.
+  // WARNING: Do NOT reference userVariantDetail here — it was never declared and
+  // causes "ReferenceError: userVariantDetail is not defined" which crashes the page.
 
   const variantImages: any[] = useMemo(
     () =>
       mergeImageSources(
         Array.isArray(imagesData) ? imagesData : imagesData?.list ?? [],
+        selVariant?.images,
+        selVariant?.imageUrl ||
+          selVariant?.image ||
+          selVariant?.selectedImage ||
+          selVariant?.thumbnail,
       ),
-    [imagesData],
+    [imagesData, selVariant],
   );
 
   // Reset image index when variant switches
