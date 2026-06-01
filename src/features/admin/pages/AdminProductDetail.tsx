@@ -3090,6 +3090,9 @@ export default function AdminProductDetail() {
   const hlSizeId: number | null = location.state?.highlightSizeId ?? null;
   const hlCupSizeId: number | null = location.state?.highlightCupSizeId ?? null;
   const hlStockId: string | null = location.state?.highlightStockId ?? null;
+  // After a new product is first saved, auto-scroll to the Sizes & Stock section
+  const autoOpenSizes: boolean = location.state?.autoOpenSizes ?? false;
+  const sizesRef = useRef<HTMLDivElement | null>(null);
 
   const [selVariantId, setSelVariantId] = useState<number | null>(
     hlVariantId ?? null, // pre-seed from deep-link if present
@@ -3318,6 +3321,16 @@ export default function AdminProductDetail() {
     setPendingVariant({});
   }, [selVariantId]);
 
+  // After a new-product save navigates here with autoOpenSizes=true,
+  // wait for the variant to be selected then scroll straight to Sizes & Stock.
+  useEffect(() => {
+    if (!autoOpenSizes || !selVariantId || !sizesRef.current) return;
+    const t = setTimeout(() => {
+      sizesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [autoOpenSizes, selVariantId]);
+
   const selVariant = variants.find((v) => v.productVariantId === selVariantId);
 
   // Images for selected variant (fresh from API)
@@ -3442,19 +3455,33 @@ export default function AdminProductDetail() {
         });
         const newProductId: number = productRes.data?.productId;
         if (!newProductId) throw new Error("No productId returned");
-        // 2. Create the variant if one was staged
+        // 2. Create the variant if one was staged — capture the new variantId
+        let newVariantId: number | undefined;
         if (pendingNewVariant) {
-          await api.post("/ProductVariants", {
+          const variantRes = await api.post("/ProductVariants", {
             ...pendingNewVariant,
             colorFamilyId: pendingNewVariant.colorFamilyId
               ? Number(pendingNewVariant.colorFamilyId)
               : null,
             productId: newProductId,
           });
+          newVariantId =
+            variantRes.data?.productVariantId ?? variantRes.data?.id;
         }
-        toast.success("Product saved successfully!");
+        toast.success(
+          "Product & variant saved — now add sizes and stock below.",
+        );
         qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
-        navigate(`/admin/products/${newProductId}`, { replace: true });
+        // Navigate to the real product page; pass the new variantId so it
+        // auto-selects the variant and scrolls to the Sizes & Stock section.
+        navigate(`/admin/products/${newProductId}`, {
+          replace: true,
+          state: {
+            ...(location.state ?? {}),
+            highlightVariantId: newVariantId ?? null,
+            autoOpenSizes: true,
+          },
+        });
       } catch {
         toast.error("Failed to save product \u2014 please try again");
       } finally {
@@ -4217,13 +4244,80 @@ export default function AdminProductDetail() {
                     fontSize: 11,
                     color: SUB,
                     fontWeight: 700,
-                    marginBottom: 6,
+                    marginBottom: 8,
                     textTransform: "uppercase" as const,
                     letterSpacing: "0.06em",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
                   }}
                 >
-                  Staged Variant (not saved yet)
+                  Variant
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "#e65100",
+                      background: "#fff8e1",
+                      border: "1px solid #ffe082",
+                      borderRadius: 10,
+                      padding: "1px 8px",
+                      textTransform: "none" as const,
+                      letterSpacing: 0,
+                    }}
+                  >
+                    Not saved yet
+                  </span>
                 </div>
+
+                {/* Variant swatch tile */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 64,
+                      height: 78,
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      border: `2.5px solid ${P}`,
+                      background: GRY,
+                      position: "relative",
+                      cursor: "default",
+                    }}
+                    title={
+                      pendingNewVariant.variantName ||
+                      pendingNewVariant.color ||
+                      "Variant"
+                    }
+                  >
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        background:
+                          colorFamilyHexOf(pendingNewVariant) || "#ccc",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 3,
+                        background: P,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Variant info row */}
                 <div
                   style={{
                     display: "flex",
@@ -4233,15 +4327,17 @@ export default function AdminProductDetail() {
                     border: "1px solid #c8e6c9",
                     borderRadius: 8,
                     padding: "8px 14px",
+                    marginBottom: 12,
                   }}
                 >
                   <div
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
+                      width: 22,
+                      height: 22,
+                      borderRadius: 5,
                       background: colorFamilyHexOf(pendingNewVariant) || "#ccc",
                       border: "1px solid #ddd",
+                      flexShrink: 0,
                     }}
                   />
                   <div>
@@ -4263,9 +4359,7 @@ export default function AdminProductDetail() {
                     )}
                   </div>
                   <button
-                    onClick={() => {
-                      setPendingNewVariant(null);
-                    }}
+                    onClick={() => setPendingNewVariant(null)}
                     style={{
                       marginLeft: "auto",
                       fontSize: 11,
@@ -4279,6 +4373,90 @@ export default function AdminProductDetail() {
                   >
                     Remove
                   </button>
+                </div>
+
+                {/* Sizes & Stock — locked until product is saved */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    margin: "18px 0 12px",
+                  }}
+                >
+                  <div style={{ flex: 1, height: 1, background: BDR }} />
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: SUB,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                    }}
+                  >
+                    Variant Detail
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: BDR }} />
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: SUB,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 10,
+                  }}
+                >
+                  Sizes &amp; Stock
+                </div>
+
+                <div
+                  style={{
+                    background: "#fffbeb",
+                    border: "1.5px dashed #fbbf24",
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    marginBottom: 8,
+                  }}
+                >
+                  <i
+                    className="bi bi-lock-fill"
+                    style={{
+                      color: "#e65100",
+                      fontSize: 18,
+                      marginTop: 1,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#92400e",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Sizes &amp; stock are added after saving
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#a16207",
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      Click <strong>Save</strong> below to create the product
+                      and variant in the database. You'll land on the variant
+                      where you can click any size tile, enter MRP, stock
+                      quantity and Stock ID, then save.
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -4624,7 +4802,7 @@ export default function AdminProductDetail() {
 
           {/* ── Sizes section ────────────────────────────────────────────── */}
           {selVariant && (
-            <div style={{ marginBottom: 20 }}>
+            <div ref={sizesRef} style={{ marginBottom: 20 }}>
               <div
                 style={{
                   display: "flex",
@@ -4718,8 +4896,10 @@ export default function AdminProductDetail() {
                           )}`
                         : !hasVariant
                         ? "Add at least one colour variant before saving"
-                        : !hasSizes
+                        : !hasSizes && !isNew
                         ? "Add at least one size before saving"
+                        : isNew
+                        ? "Save product & variant — you can add sizes next"
                         : "Save all changes"
                     }
                     style={{
@@ -4754,7 +4934,9 @@ export default function AdminProductDetail() {
                         ? `Missing: ${missingProductFields.join(", ")}`
                         : !hasVariant
                         ? "No variant added yet"
-                        : "No sizes added yet"}
+                        : !isNew
+                        ? "No sizes added yet"
+                        : ""}
                     </div>
                   )}
                 </div>
