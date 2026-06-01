@@ -18,7 +18,9 @@ import App from "./app/App";
 import { Toaster, ToastBar, toast } from "react-hot-toast";
 import { useMenuStore } from "@/shared/store/menuStore";
 
-const queryClient = new QueryClient({
+// Exported so non-component code (e.g. authStore) can call invalidateQueries
+// directly without violating Rules of Hooks (useQueryClient is a hook).
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
