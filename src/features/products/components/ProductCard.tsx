@@ -289,9 +289,23 @@ export default function ProductCard({
   const resolveImageList = (obj: any): string[] => {
     if (!obj) return [];
 
-    // If API gives array → use directly
+    // If API gives array → extract string paths from object or string entries
     if (Array.isArray(obj.images) && obj.images.length) {
-      return obj.images.filter(Boolean);
+      return obj.images
+        .map((img: any) => {
+          if (typeof img === "string") return img;
+          return (
+            img?.fileData ||
+            img?.filePath ||
+            img?.imageUrl ||
+            img?.imageURL ||
+            img?.src ||
+            img?.url ||
+            img?.path ||
+            ""
+          );
+        })
+        .filter(Boolean);
     }
 
     // 🔥 PRIORITY ORDER (fix here)
