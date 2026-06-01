@@ -110,7 +110,18 @@ function mergeImageSources(...sources: any[]): any[] {
     const filePath = imagePathFromAny(image);
     if (!filePath) return;
 
-    const key = filePath.trim().toLowerCase();
+    // Normalize to a path-only key so that relative and absolute forms of
+    // the same file don't both get included (e.g. "uploads/x.jpg" vs
+    // "http://127.0.0.1:8000/uploads/x.jpg" are the same image).
+    let key = filePath.trim().toLowerCase();
+    try {
+      // If it's a full URL, use just the pathname for dedup
+      key = new URL(key).pathname;
+    } catch {
+      // Not a URL — strip any leading host:port prefix if present
+      key = key.replace(/^https?:\/\/[^/]+/, "");
+    }
+    if (!key) return;
     if (seen.has(key)) return;
     seen.add(key);
 
@@ -734,8 +745,8 @@ function ImagePane({
                   display: "block",
                 }}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "/assets/category-bg.png";
+                  const el = e.target as HTMLImageElement;
+                  el.style.display = "none";
                 }}
               />
               {/* Prev / Next */}
@@ -2793,7 +2804,7 @@ function AddVariantModal({
   productId: number;
   colorFamilies: ColorFamilyOption[];
   onClose: () => void;
-  onAdded: (variantData?: Record<string, any>) => void;
+  onAdded: (variantData?: Record<string, any>, newVariantId?: number) => void;
   isNew?: boolean;
 }) {
   const [form, setForm] = useState({
@@ -2820,13 +2831,15 @@ function AddVariantModal({
     }
     setSaving(true);
     try {
-      await api.post("/ProductVariants", {
+      const res = await api.post("/ProductVariants", {
         ...form,
         colorFamilyId: form.colorFamilyId ? Number(form.colorFamilyId) : null,
         productId,
       });
       toast.success("Variant created");
-      onAdded();
+      const newVariantId: number | undefined =
+        res?.data?.productVariantId ?? res?.data?.id ?? undefined;
+      onAdded(undefined, newVariantId);
       onClose();
     } catch {
       toast.error("Failed to create variant");
@@ -3061,6 +3074,154 @@ function AddVariantModal({
   );
 }
 
+// ─── Inline size pre-fill form (for new product before saving) ───────────────
+function NewSizeTileForm({
+  sizeKey,
+  sizes,
+  onUpdate,
+  onClose,
+}: {
+  sizeKey: string;
+  sizes: Record<
+    string,
+    {
+      mrpPrice: string;
+      finalPrice: string;
+      stockQuantity: string;
+      stockId: string;
+    }
+  >;
+  onUpdate: (key: string, field: string, value: string) => void;
+  onClose: () => void;
+}) {
+  const val = sizes[sizeKey] ?? {
+    mrpPrice: "",
+    finalPrice: "",
+    stockQuantity: "",
+    stockId: "",
+  };
+  const mrp = Number(val.mrpPrice || 0);
+  const fin = Number(val.finalPrice || 0);
+  const disc =
+    mrp > 0 && fin > 0 && fin <= mrp
+      ? Math.round(((mrp - fin) / mrp) * 100)
+      : 0;
+
+  const fld: React.CSSProperties = {
+    border: "none",
+    borderBottom: `1.5px solid ${BDR}`,
+    padding: "6px 0",
+    fontSize: 13,
+    color: TXT,
+    background: "transparent",
+    outline: "none",
+    width: "100%",
+    fontFamily: "inherit",
+  };
+
+  return (
+    <div
+      style={{
+        background: "#f9f9fb",
+        border: `1.5px solid ${P}`,
+        borderRadius: 10,
+        padding: "14px 16px",
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "10px 16px",
+      }}
+    >
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          MRP (₹) *
+        </label>
+        <input
+          type="number"
+          min={0}
+          style={fld}
+          placeholder="0"
+          value={val.mrpPrice}
+          onChange={(e) => onUpdate(sizeKey, "mrpPrice", e.target.value)}
+        />
+      </div>
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          Selling Price (₹) *
+        </label>
+        <input
+          type="number"
+          min={0}
+          style={fld}
+          placeholder="0"
+          value={val.finalPrice}
+          onChange={(e) => onUpdate(sizeKey, "finalPrice", e.target.value)}
+        />
+        {disc > 0 && (
+          <span style={{ fontSize: 10, color: "#2e7d32", fontWeight: 600 }}>
+            {disc}% off
+          </span>
+        )}
+        {mrp > 0 && fin > mrp && (
+          <span style={{ fontSize: 10, color: P, fontWeight: 600 }}>
+            Cannot exceed MRP
+          </span>
+        )}
+      </div>
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          Stock Qty *
+        </label>
+        <input
+          type="number"
+          min={0}
+          style={fld}
+          placeholder="0"
+          value={val.stockQuantity}
+          onChange={(e) => onUpdate(sizeKey, "stockQuantity", e.target.value)}
+        />
+      </div>
+      <div>
+        <label style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>
+          Stock ID
+        </label>
+        <input
+          type="text"
+          style={fld}
+          placeholder="Optional"
+          value={val.stockId}
+          onChange={(e) => onUpdate(sizeKey, "stockId", e.target.value)}
+        />
+      </div>
+      <div
+        style={{
+          gridColumn: "1 / -1",
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 4,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            padding: "5px 14px",
+            fontSize: 12,
+            borderRadius: 8,
+            border: `1.5px solid ${BDR}`,
+            background: "transparent",
+            color: SUB,
+            cursor: "pointer",
+          }}
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -3077,6 +3238,9 @@ export default function AdminProductDetail() {
   const hlSizeId: number | null = location.state?.highlightSizeId ?? null;
   const hlCupSizeId: number | null = location.state?.highlightCupSizeId ?? null;
   const hlStockId: string | null = location.state?.highlightStockId ?? null;
+  // After a new product is first saved, auto-scroll to the Sizes & Stock section
+  const autoOpenSizes: boolean = location.state?.autoOpenSizes ?? false;
+  const sizesRef = useRef<HTMLDivElement | null>(null);
 
   const [selVariantId, setSelVariantId] = useState<number | null>(
     hlVariantId ?? null, // pre-seed from deep-link if present
@@ -3230,6 +3394,21 @@ export default function AdminProductDetail() {
         .then((r) => r.data),
     staleTime: 300_000,
   });
+  // MDM sizes (band) + cup sizes — used for pre-fill tiles on new product
+  const { data: mdmSizesData } = useQuery({
+    queryKey: ["mdm-sizes-all"],
+    queryFn: () =>
+      api.get("/Size", { params: { "Page.Size": 200 } }).then((r) => r.data),
+    staleTime: 300_000,
+  });
+  const { data: mdmCupSizesData } = useQuery({
+    queryKey: ["mdm-cupsizes-all"],
+    queryFn: () =>
+      api.get("/CupSize", { params: { "Page.Size": 200 } }).then((r) => r.data),
+    staleTime: 300_000,
+  });
+  const allMdmSizes: any[] = mdmSizesData?.list ?? [];
+  const allMdmCupSizes: any[] = mdmCupSizesData?.list ?? [];
 
   const allCats: any[] = catsData?.list ?? [];
   const allBrands: any[] = brandsData?.list ?? [];
@@ -3305,6 +3484,16 @@ export default function AdminProductDetail() {
     setPendingVariant({});
   }, [selVariantId]);
 
+  // After a new-product save navigates here with autoOpenSizes=true,
+  // wait for the variant to be selected then scroll straight to Sizes & Stock.
+  useEffect(() => {
+    if (!autoOpenSizes || !selVariantId || !sizesRef.current) return;
+    const t = setTimeout(() => {
+      sizesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [autoOpenSizes, selVariantId]);
+
   const selVariant = variants.find((v) => v.productVariantId === selVariantId);
 
   // Images for selected variant (fresh from API)
@@ -3315,29 +3504,21 @@ export default function AdminProductDetail() {
     enabled: !!selVariantId,
   });
 
-  const { data: userVariantDetail } = useQuery({
-    queryKey: ["admin-user-variant-detail", selVariantId],
-    queryFn: () =>
-      api
-        .get(`/ProductVariantDetail/UserProductVariant/${selVariantId}`)
-        .then((r) => r.data),
-    enabled: !!selVariantId,
-    staleTime: 60_000,
-  });
+  // userVariantDetail query removed — images come solely from the /images endpoint.
+  // WARNING: Do NOT reference userVariantDetail here — it was never declared and
+  // causes "ReferenceError: userVariantDetail is not defined" which crashes the page.
 
   const variantImages: any[] = useMemo(
     () =>
       mergeImageSources(
         Array.isArray(imagesData) ? imagesData : imagesData?.list ?? [],
-        userVariantDetail?.images,
-        userVariantDetail?.image,
         selVariant?.images,
         selVariant?.imageUrl ||
           selVariant?.image ||
           selVariant?.selectedImage ||
           selVariant?.thumbnail,
       ),
-    [imagesData, userVariantDetail, selVariant],
+    [imagesData, selVariant],
   );
 
   // Reset image index when variant switches
@@ -3346,10 +3527,13 @@ export default function AdminProductDetail() {
   }, [selVariantId]);
 
   useEffect(() => {
-    if (activeImgIdx >= variantImages.length) {
-      setActiveImgIdx(Math.max(0, variantImages.length - 1));
-    }
-  }, [activeImgIdx, variantImages.length]);
+    setActiveImgIdx((prev) =>
+      prev >= variantImages.length
+        ? Math.max(0, variantImages.length - 1)
+        : prev,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantImages.length]);
 
   // PVD (sizes) for selected variant
   const { data: pvdData, refetch: refetchPvd } = useQuery({
@@ -3399,8 +3583,15 @@ export default function AdminProductDetail() {
   async function patchVariant(data: Record<string, any>) {
     if (!selVariantId) return;
     try {
+      // Strip heavy / read-only fields that should not be sent back to the API
+      const {
+        images: _i,
+        allSizes: _as,
+        pvds: _pvds,
+        ...safeVariant
+      } = selVariant ?? {};
       await api.put(`/ProductVariants/${selVariantId}`, {
-        ...selVariant,
+        ...safeVariant,
         ...data,
         productId,
       });
@@ -3427,19 +3618,32 @@ export default function AdminProductDetail() {
         });
         const newProductId: number = productRes.data?.productId;
         if (!newProductId) throw new Error("No productId returned");
-        // 2. Create the variant if one was staged
+        // 2. Create the variant if one was staged — capture the new variantId
+        let newVariantId: number | undefined;
         if (pendingNewVariant) {
-          await api.post("/ProductVariants", {
+          const variantRes = await api.post("/ProductVariants", {
             ...pendingNewVariant,
             colorFamilyId: pendingNewVariant.colorFamilyId
               ? Number(pendingNewVariant.colorFamilyId)
               : null,
             productId: newProductId,
           });
+          newVariantId =
+            variantRes.data?.productVariantId ?? variantRes.data?.id;
         }
-        toast.success("Product saved successfully!");
+        // 3. (Sizes are added on the real product page after redirect)
+        toast.success("Product & variant saved! Now add sizes & stock below.");
         qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
-        navigate(`/admin/products/${newProductId}`, { replace: true });
+        // Navigate to the real product page; pass the new variantId so it
+        // auto-selects the variant and scrolls to the Sizes & Stock section.
+        navigate(`/admin/products/${newProductId}`, {
+          replace: true,
+          state: {
+            ...(location.state ?? {}),
+            highlightVariantId: newVariantId ?? null,
+            autoOpenSizes: true,
+          },
+        });
       } catch {
         toast.error("Failed to save product \u2014 please try again");
       } finally {
@@ -3506,6 +3710,37 @@ export default function AdminProductDetail() {
     string,
     any
   > | null>(null);
+  // Pre-filled size data for new product before saving
+  // key = `${sizeId}` or `${sizeId}-${cupSizeId}`, value = { mrpPrice, finalPrice, stockQuantity, stockId }
+  const [pendingNewVariantSizes, setPendingNewVariantSizes] = useState<
+    Record<
+      string,
+      {
+        mrpPrice: string;
+        finalPrice: string;
+        stockQuantity: string;
+        stockId: string;
+      }
+    >
+  >({});
+  const updatePendingSize = (key: string, field: string, value: string) => {
+    setPendingNewVariantSizes((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? {
+          mrpPrice: "",
+          finalPrice: "",
+          stockQuantity: "",
+          stockId: "",
+        }),
+        [field]: value,
+      },
+    }));
+  };
+  // Which size tile is expanded in the new-product size pre-fill UI
+  const [newProductExpandedSize, setNewProductExpandedSize] = useState<
+    string | null
+  >(null);
 
   if (!isNew && pLoading)
     return (
@@ -3583,8 +3818,10 @@ export default function AdminProductDetail() {
 
   const productFieldsComplete = missingProductFields.length === 0;
   const hasVariant = isNew ? !!pendingNewVariant : variants.length > 0;
-  const hasSizes = isNew ? !!pendingNewVariant : pvds.length > 0;
-  // For new products: product fields + variant required (sizes added after creation on detail page)
+  const hasSizes = isNew
+    ? true // sizes are added after the product+variant is saved and redirected
+    : pvds.length > 0;
+  // For new products: only need product fields + variant to save (sizes added after)
   // For existing products: product fields + variant + at least one size required
   const canSave = isNew
     ? productFieldsComplete && hasVariant
@@ -4202,13 +4439,80 @@ export default function AdminProductDetail() {
                     fontSize: 11,
                     color: SUB,
                     fontWeight: 700,
-                    marginBottom: 6,
+                    marginBottom: 8,
                     textTransform: "uppercase" as const,
                     letterSpacing: "0.06em",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
                   }}
                 >
-                  Staged Variant (not saved yet)
+                  Variant
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "#e65100",
+                      background: "#fff8e1",
+                      border: "1px solid #ffe082",
+                      borderRadius: 10,
+                      padding: "1px 8px",
+                      textTransform: "none" as const,
+                      letterSpacing: 0,
+                    }}
+                  >
+                    Not saved yet
+                  </span>
                 </div>
+
+                {/* Variant swatch tile */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 64,
+                      height: 78,
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      border: `2.5px solid ${P}`,
+                      background: GRY,
+                      position: "relative",
+                      cursor: "default",
+                    }}
+                    title={
+                      pendingNewVariant.variantName ||
+                      pendingNewVariant.color ||
+                      "Variant"
+                    }
+                  >
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        background:
+                          colorFamilyHexOf(pendingNewVariant) || "#ccc",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 3,
+                        background: P,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Variant info row */}
                 <div
                   style={{
                     display: "flex",
@@ -4218,15 +4522,17 @@ export default function AdminProductDetail() {
                     border: "1px solid #c8e6c9",
                     borderRadius: 8,
                     padding: "8px 14px",
+                    marginBottom: 12,
                   }}
                 >
                   <div
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
+                      width: 22,
+                      height: 22,
+                      borderRadius: 5,
                       background: colorFamilyHexOf(pendingNewVariant) || "#ccc",
                       border: "1px solid #ddd",
+                      flexShrink: 0,
                     }}
                   />
                   <div>
@@ -4248,9 +4554,7 @@ export default function AdminProductDetail() {
                     )}
                   </div>
                   <button
-                    onClick={() => {
-                      setPendingNewVariant(null);
-                    }}
+                    onClick={() => setPendingNewVariant(null)}
                     style={{
                       marginLeft: "auto",
                       fontSize: 11,
@@ -4264,6 +4568,70 @@ export default function AdminProductDetail() {
                   >
                     Remove
                   </button>
+                </div>
+
+                {/* Save button */}
+                <div
+                  style={{
+                    marginTop: 18,
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      if (!canSave) {
+                        if (!productFieldsComplete) {
+                          toast.error(
+                            `Fill in required fields: ${missingProductFields.join(
+                              ", ",
+                            )}`,
+                            { duration: 4000 },
+                          );
+                        } else if (!hasVariant) {
+                          toast.error("Add at least one colour variant.", {
+                            duration: 4000,
+                          });
+                        }
+                        return;
+                      }
+                      saveAll();
+                    }}
+                    disabled={savingAll}
+                    style={{
+                      padding: "11px 28px",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      borderRadius: 10,
+                      cursor: savingAll || !canSave ? "not-allowed" : "pointer",
+                      border: "none",
+                      background: canSave ? P : "#d1c4c7",
+                      color: WHITE,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      opacity: savingAll ? 0.7 : 1,
+                    }}
+                  >
+                    <i className="bi bi-floppy" />
+                    {savingAll ? "Saving…" : "Save Product"}
+                  </button>
+                  {!canSave && !savingAll && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#b45309",
+                        fontWeight: 600,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {!productFieldsComplete
+                        ? `Missing: ${missingProductFields.join(", ")}`
+                        : "No variant added yet"}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -4328,14 +4696,10 @@ export default function AdminProductDetail() {
                   const isHlVariant =
                     !!hlVariantId && v.productVariantId === hlVariantId;
                   const hex = getVariantColor(v);
-                  const firstImg = mergeImageSources(
-                    v.images,
-                    v.imageUrl ||
-                      v.imageURL ||
-                      v.image ||
-                      v.selectedImage ||
-                      v.thumbnail,
-                  )[0];
+                  const firstImg =
+                    Array.isArray(v.images) && v.images.length > 0
+                      ? v.images[0]
+                      : null;
                   const imgSrc = firstImg
                     ? imgUrl(imagePathFromAny(firstImg))
                     : null;
@@ -4613,7 +4977,7 @@ export default function AdminProductDetail() {
 
           {/* ── Sizes section ────────────────────────────────────────────── */}
           {selVariant && (
-            <div style={{ marginBottom: 20 }}>
+            <div ref={sizesRef} style={{ marginBottom: 20 }}>
               <div
                 style={{
                   display: "flex",
@@ -4707,7 +5071,7 @@ export default function AdminProductDetail() {
                           )}`
                         : !hasVariant
                         ? "Add at least one colour variant before saving"
-                        : !hasSizes
+                        : !hasSizes && !isNew
                         ? "Add at least one size before saving"
                         : "Save all changes"
                     }
@@ -4743,7 +5107,9 @@ export default function AdminProductDetail() {
                         ? `Missing: ${missingProductFields.join(", ")}`
                         : !hasVariant
                         ? "No variant added yet"
-                        : "No sizes added yet"}
+                        : !isNew
+                        ? "No sizes added yet"
+                        : ""}
                     </div>
                   )}
                 </div>
@@ -4931,12 +5297,19 @@ export default function AdminProductDetail() {
           productId={isNew ? 0 : productId}
           colorFamilies={allColorFamilies}
           onClose={() => setAddVariantOpen(false)}
-          onAdded={(variantData?: Record<string, any>) => {
+          onAdded={(
+            variantData?: Record<string, any>,
+            newVariantId?: number,
+          ) => {
             if (isNew && variantData) {
               // Stage the variant locally; no API call yet
               setPendingNewVariant(variantData);
             } else {
-              refetchVariants();
+              refetchVariants().then(() => {
+                if (newVariantId) {
+                  setSelVariantId(newVariantId);
+                }
+              });
             }
           }}
           isNew={isNew}

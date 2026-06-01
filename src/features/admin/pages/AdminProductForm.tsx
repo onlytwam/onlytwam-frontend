@@ -327,6 +327,9 @@ export default function AdminProductForm() {
   const [editV, setEditV] = useState<any>(null);
   const [editVD, setEditVD] = useState<any>(null);
   const [childCats, setChildCats] = useState<any[]>([]);
+  const [justAddedVariantName, setJustAddedVariantName] = useState<
+    string | null
+  >(null);
 
   // ── Color state ──────────────────────────────────────────────────────────────
   const [colorName, setColorName] = useState("");
@@ -800,16 +803,46 @@ export default function AdminProductForm() {
         }
       }
 
-      return { ...savedVariant, _newVariantId: newVariantId };
+      return {
+        ...savedVariant,
+        _newVariantId: newVariantId,
+        productVariantId: newVariantId ?? savedVariant?.productVariantId,
+        _wasNew: !editV,
+      };
     },
     onSuccess: (res) => {
-      toast.success(editV ? "Variant updated!" : "Variant created!");
+      toast.success(
+        editV
+          ? "Variant updated!"
+          : "Variant created! Now add sizes & pricing.",
+      );
       setShowVF(false);
       setEditV(null);
       setPendingFiles([]);
       setImgPreviews([]);
       setUploadedPaths([]);
       setExistingImgs([]);
+
+      // ── Auto-navigate to details tab for the saved variant ──
+      const savedVid: number | null =
+        res?._newVariantId ??
+        res?.productVariantId ??
+        res?.id ??
+        (editV ? editV.productVariantId : null);
+
+      if (savedVid) {
+        setSelVid(savedVid);
+        setTab("details");
+        // Open the Add Detail form immediately for new variants
+        if (!editV) {
+          setShowVDF(true);
+          setEditVD(null);
+          // Capture variant name for the guidance banner
+          const vName = (res as any)?.variantName ?? "";
+          setJustAddedVariantName(vName || "new variant");
+        }
+      }
+
       refV();
     },
     onError: (e: any) => {
@@ -869,6 +902,7 @@ export default function AdminProductForm() {
       toast.success(editVD ? "Details updated!" : "Details added!");
       setShowVDF(false);
       setEditVD(null);
+      setJustAddedVariantName(null);
       refVD();
     },
     onError: (e: any) => {
@@ -2126,44 +2160,66 @@ export default function AdminProductForm() {
                         fontWeight: 600,
                       }}
                     >
-                      Ready to submit?
+                      {vds.length} size{vds.length > 1 ? "s" : ""} added.
                     </p>
                     <p style={{ fontSize: 12, color: "#888", margin: 0 }}>
-                      All variants and sizes entered.
+                      Add more sizes or submit for approval when ready.
                     </p>
                   </div>
-                  {(pState === "Created" ||
-                    pState === "Modified" ||
-                    pState === "Rejected") && (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap" as const,
+                    }}
+                  >
                     <button
                       type="button"
-                      onClick={() =>
-                        updProdState.mutate("Submitted To Product Manager")
-                      }
-                      disabled={updProdState.isPending}
-                      style={{
-                        background: "#2e7d32",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 24,
-                        padding: "10px 26px",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: "pointer",
+                      onClick={() => {
+                        setEditVD(null);
+                        setShowVDF(true);
                       }}
+                      style={{ ...btnOut, fontSize: 13 }}
                     >
-                      {updProdState.isPending
-                        ? "Submitting…"
-                        : "✓ Submit For Approval"}
+                      + Add Another Size
                     </button>
-                  )}
-                  {pState === "Submitted To Product Manager" && (
-                    <span
-                      style={{ fontSize: 13, color: primary, fontWeight: 600 }}
-                    >
-                      ⏳ Awaiting approval…
-                    </span>
-                  )}
+                    {(pState === "Created" ||
+                      pState === "Modified" ||
+                      pState === "Rejected") && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updProdState.mutate("Submitted To Product Manager")
+                        }
+                        disabled={updProdState.isPending}
+                        style={{
+                          background: "#2e7d32",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 24,
+                          padding: "10px 26px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {updProdState.isPending
+                          ? "Submitting…"
+                          : "✓ Submit For Approval"}
+                      </button>
+                    )}
+                    {pState === "Submitted To Product Manager" && (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: primary,
+                          fontWeight: 600,
+                        }}
+                      >
+                        ⏳ Awaiting approval…
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -2185,6 +2241,46 @@ export default function AdminProductForm() {
                 </h2>
                 {vdState && <span style={badgeStyle(vdState)}>{vdState}</span>}
               </div>
+
+              {/* ── Guided banner: shown when arriving from a just-saved new variant ── */}
+              {justAddedVariantName && !editVD && (
+                <div
+                  style={{
+                    background: "#e8f5e9",
+                    border: "1.5px solid #66bb6a",
+                    borderRadius: 10,
+                    padding: "14px 18px",
+                    marginBottom: 24,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <span style={{ fontSize: 22 }}>✅</span>
+                  <div>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: "#2e7d32",
+                      }}
+                    >
+                      Variant saved! Now add size &amp; pricing.
+                    </p>
+                    <p
+                      style={{
+                        margin: "3px 0 0",
+                        fontSize: 12,
+                        color: "#388e3c",
+                      }}
+                    >
+                      Select a size, enter MRP, selling price and stock quantity
+                      below — then click <strong>Save</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <form onSubmit={hVD((d) => saveVD.mutate(d))}>
                 <div style={grid3}>
@@ -2427,6 +2523,7 @@ export default function AdminProductForm() {
                     onClick={() => {
                       setShowVDF(false);
                       setEditVD(null);
+                      setJustAddedVariantName(null);
                     }}
                     style={btnOut}
                   >
