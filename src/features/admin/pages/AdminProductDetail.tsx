@@ -1,5 +1,5 @@
 /**
- * AdminProductDetail.tsx — v5
+ * AdminProductDetail.tsx — v3
  * Layout mirrors the user-side ProductDetail:
  *   LEFT  (sticky) : per-variant image gallery with per-image upload / delete
  *   RIGHT (scroll)  : all product + variant info, every field editable on click
@@ -3315,15 +3315,7 @@ export default function AdminProductDetail() {
     enabled: !!selVariantId,
   });
 
-  const { data: userVariantDetail } = useQuery({
-    queryKey: ["admin-user-variant-detail", selVariantId],
-    queryFn: () =>
-      api
-        .get(`/ProductVariantDetail/UserProductVariant/${selVariantId}`)
-        .then((r) => r.data),
-    enabled: !!selVariantId,
-    staleTime: 60_000,
-  });
+  // userVariantDetail query removed — images come solely from the /images endpoint below
 
   const variantImages: any[] = useMemo(
     () =>
