@@ -4570,95 +4570,10 @@ export default function AdminProductDetail() {
                   </button>
                 </div>
 
-                {/* Sizes & Stock — unlocked AFTER saving to DB */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    margin: "18px 0 12px",
-                  }}
-                >
-                  <div style={{ flex: 1, height: 1, background: BDR }} />
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: SUB,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                    }}
-                  >
-                    Variant Detail
-                  </span>
-                  <div style={{ flex: 1, height: 1, background: BDR }} />
-                </div>
-
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: SUB,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 10,
-                  }}
-                >
-                  Sizes &amp; Stock
-                </div>
-
-                {/* Info box: sizes unlocked after save */}
-                <div
-                  style={{
-                    background: "#fffbf0",
-                    border: "1.5px dashed #f59e0b",
-                    borderRadius: 10,
-                    padding: "14px 18px",
-                    marginBottom: 16,
-                    display: "flex",
-                    gap: 12,
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <i
-                    className="bi bi-unlock"
-                    style={{
-                      fontSize: 22,
-                      color: "#d97706",
-                      flexShrink: 0,
-                      marginTop: 2,
-                    }}
-                  />
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 13,
-                        color: "#92400e",
-                        marginBottom: 4,
-                      }}
-                    >
-                      Sizes &amp; stock are added after saving
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#78350f",
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Click <strong>Save Product</strong> below to create the
-                      product and variant in the database. You'll land on the
-                      variant page where you can click any size tile, enter MRP,
-                      stock quantity and Stock ID, then save.
-                    </div>
-                  </div>
-                </div>
-
                 {/* Save button */}
                 <div
                   style={{
-                    marginTop: 8,
+                    marginTop: 18,
                     display: "flex",
                     gap: 8,
                     alignItems: "center",
