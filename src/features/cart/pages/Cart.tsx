@@ -1552,16 +1552,21 @@ export default function Cart() {
         store.setSubTotal?.(subTotal);
       }
 
+      const cartReturnPath =
+        "/user-products/cart" + (isBuyNowView ? "?buyNow=1" : "");
       const checkoutPath =
         "/user-products/payment-address" + (isBuyNowView ? "?buyNow=1" : "");
 
       if (!isAuth) {
-        navigate(checkoutPath, {
-          state: {
-            from: location.pathname + location.search,
-            surpriseGiftFlow: currentCartSignature,
+        navigate(
+          `/register?checkout=1&redirect=${encodeURIComponent(cartReturnPath)}`,
+          {
+            state: {
+              from: cartReturnPath,
+              surpriseGiftFlow: currentCartSignature,
+            },
           },
-        });
+        );
         return;
       }
 

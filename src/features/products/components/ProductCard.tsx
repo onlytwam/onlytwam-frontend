@@ -83,6 +83,7 @@ export default function ProductCard({
   const [discountAnimationPhase, setDiscountAnimationPhase] = useState<
     "idle" | "opening" | "open" | "closing"
   >("idle");
+  const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
   const [tearVisualStyle, setTearVisualStyle] = useState<React.CSSProperties>(
     {},
   );
@@ -286,6 +287,9 @@ export default function ProductCard({
   //   return Array.from(new Set(candidates));
   // };
 
+  const normalizeImageCandidate = (src: unknown): string =>
+    String(src ?? "").trim();
+
   const resolveImageList = (obj: any): string[] => {
     if (!obj) return [];
 
@@ -293,16 +297,18 @@ export default function ProductCard({
     if (Array.isArray(obj.images) && obj.images.length) {
       return obj.images
         .map((img: any) => {
-          if (typeof img === "string") return img;
+          if (typeof img === "string") return normalizeImageCandidate(img);
           return (
-            img?.fileData ||
-            img?.filePath ||
-            img?.imageUrl ||
-            img?.imageURL ||
-            img?.src ||
-            img?.url ||
-            img?.path ||
-            ""
+            normalizeImageCandidate(
+              img?.filePath ||
+                img?.imageUrl ||
+                img?.imageURL ||
+                img?.src ||
+                img?.url ||
+                img?.path ||
+                img?.fileData ||
+                "",
+            )
           );
         })
         .filter(Boolean);
@@ -311,6 +317,7 @@ export default function ProductCard({
     // 🔥 PRIORITY ORDER (fix here)
     const candidates = [
       obj.primaryImage,
+      obj.selectedImage,
       obj.image,
       obj.imageUrl,
       obj.imageURL,
@@ -325,7 +332,8 @@ export default function ProductCard({
       obj.backImage,
     ]
       .filter(Boolean)
-      .map((src) => String(src).trim());
+      .map(normalizeImageCandidate)
+      .filter(Boolean);
 
     return Array.from(new Set(candidates));
   };
@@ -343,11 +351,33 @@ export default function ProductCard({
       ? productImages
       : [];
 
-  const resolvedImages = rawImages.map((src) => getImageUrl(src));
-  const FALLBACK_IMAGE = "/assets/category-bg.png";
+  const resolveDisplayImageUrl = (src: string): string => {
+    const value = src.trim();
+    if (!value) return "";
+    if (value.startsWith("data:") || value.startsWith("blob:")) return value;
+    if (value.startsWith("/assets/")) return value;
+    if (value.startsWith("assets/")) return `/${value}`;
+    return getImageUrl(value);
+  };
 
-  const imgSrc = resolvedImages[0] || FALLBACK_IMAGE;
-  const hoverImgSrc = resolvedImages[1] || "";
+  const resolvedImages = rawImages.map(resolveDisplayImageUrl).filter(Boolean);
+  const FALLBACK_IMAGE = "/assets/category-bg.png";
+  const imageCandidates = Array.from(
+    new Set([...resolvedImages, FALLBACK_IMAGE]),
+  );
+  const safePrimaryImageIndex = Math.min(
+    primaryImageIndex,
+    Math.max(imageCandidates.length - 1, 0),
+  );
+
+  const imgSrc = imageCandidates[safePrimaryImageIndex] || FALLBACK_IMAGE;
+  const hoverImgSrc =
+    resolvedImages.find((src, index) => index > safePrimaryImageIndex) || "";
+  const imageKey = rawImages.join("|");
+
+  useEffect(() => {
+    setPrimaryImageIndex(0);
+  }, [imageKey, selectedVariant.productVariantId]);
   // console.log("RAW IMAGES:", rawImages);
   // console.log("FINAL IMG:", imgSrc);
   // if (rawImages.length === 0) {
@@ -904,8 +934,10 @@ export default function ProductCard({
               onLoad={(e) => {
                 refreshTearVisualStyle(e.currentTarget);
               }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
+              onError={() => {
+                setPrimaryImageIndex((index) =>
+                  index < imageCandidates.length - 1 ? index + 1 : index,
+                );
               }}
             />
             {enableHoverImageTransition &&

@@ -1,13 +1,22 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { registerUser, encryptPassword } from "@/features/auth/api/auth.api";
+import {
+  registerUser,
+  encryptPassword,
+  loginWithPassword,
+  getUserInfo,
+  normalizeUserInfo,
+  getCategories,
+} from "@/features/auth/api/auth.api";
+import { useAuthStore } from "@/features/auth/store/authStore";
 import AuthBackdrop from "@/features/auth/components/AuthBackdrop";
 import { usePageImage, IMAGE_KEYS } from "@/features/images";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
+import { useMenuStore } from "@/shared/store/menuStore";
 import toast from "react-hot-toast";
 
 function isPhone(v: string) {
@@ -23,8 +32,16 @@ const signupSchema = z
     firstName: z.string().min(1, "First Name is required").max(500),
     middleName: z.string().max(500).optional(),
     lastName: z.string().min(1, "Last Name is required").max(500),
-    email: z.string().optional(),
-    phoneNumber: z.string().optional(),
+    email: z
+      .string()
+      .trim()
+      .min(1, "Email is required")
+      .refine(isEmail, "Invalid email address"),
+    phoneNumber: z
+      .string()
+      .trim()
+      .min(1, "Phone number is required")
+      .refine(isPhone, "10-digit phone number required"),
     dateOfBirth: z
       .string()
       .min(1, "Date of birth is required")
@@ -38,28 +55,29 @@ const signupSchema = z
   .refine((d) => d.password === d.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
-  .refine((d) => d.email?.trim() || d.phoneNumber?.trim(), {
-    message: "Email or phone number is required",
-    path: ["email"],
-  })
-  .refine((d) => !d.email || isEmail(d.email), {
-    message: "Invalid email address",
-    path: ["email"],
-  })
-  .refine((d) => !d.phoneNumber || isPhone(d.phoneNumber), {
-    message: "10-digit phone number required",
-    path: ["phoneNumber"],
   });
 
 type SignupForm = z.infer<typeof signupSchema>;
 
 export default function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
   const bgImage = usePageImage(IMAGE_KEYS.LOGIN_BACKGROUND);
+  const { login } = useAuthStore();
+  const { setMenus } = useMenuStore();
   const [loading, setLoading] = useState(false);
   const [hidePass, setHidePass] = useState(true);
+  const redirectFromQuery = searchParams.get("redirect") || "";
+  const checkoutReturnPath =
+    redirectFromQuery.startsWith("/") && redirectFromQuery.includes("cart")
+      ? redirectFromQuery
+      : (location.state as any)?.from?.includes("cart")
+      ? (location.state as any).from
+      : "";
+  const isCheckoutRegister =
+    searchParams.get("checkout") === "1" || Boolean(checkoutReturnPath);
 
   const {
     register,
@@ -87,11 +105,36 @@ export default function Register() {
         firstName: data.firstName,
         middleName: data.middleName || "",
         lastName: data.lastName,
-        emailId: data.email || undefined,
+        emailId: data.email,
         password: encryptPassword(data.password),
-        phoneNumber: data.phoneNumber || undefined,
+        phoneNumber: data.phoneNumber,
         dateOfBirth: data.dateOfBirth,
-      } as any);
+      });
+      const returnPath = checkoutReturnPath || "/user-products/cart";
+
+      if (isCheckoutRegister) {
+        try {
+          const tokenData = await loginWithPassword(data.email, data.password);
+          const rawInfo = await getUserInfo(tokenData.access_token);
+          const userInfo = normalizeUserInfo(rawInfo);
+          const menus = await getCategories({ roleId: userInfo.roleId });
+          sessionStorage.setItem("menus", JSON.stringify(menus));
+          setMenus(menus);
+          await login(userInfo as any, tokenData.access_token);
+          toast.success("Account created. Your cart is ready.");
+          reset();
+          navigate(returnPath, { replace: true });
+          return;
+        } catch {
+          toast.success("Account created! Please sign in to continue checkout.");
+          reset();
+          navigate(`/login?redirect=${encodeURIComponent(returnPath)}`, {
+            replace: true,
+          });
+          return;
+        }
+      }
+
       toast.success("Account created! Please sign in.");
       reset();
       navigate("/login");
@@ -176,32 +219,30 @@ export default function Register() {
 
               <div className="s-login-863afe">
                 <div className="s-adminproduct-02d219">
-                  <label className="s-login-4d06e1">Email</label>
+                  <label className="s-login-4d06e1">Email *</label>
                   <input
                     {...register("email")}
                     className={inputCls(errors.email)}
                     type="email"
-                    placeholder="you@example.com (optional if phone given)"
+                    placeholder="you@example.com"
+                    required
                   />
                   {errMsg(errors.email?.message)}
                 </div>
 
                 <div className="s-adminproduct-02d219">
-                  <label className="s-login-4d06e1">Phone Number</label>
+                  <label className="s-login-4d06e1">Phone Number *</label>
                   <input
                     {...register("phoneNumber")}
                     className={inputCls(errors.phoneNumber)}
                     type="tel"
-                    placeholder="10-digit (optional if email given)"
+                    placeholder="10-digit mobile number"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
                     maxLength={10}
+                    required
                   />
                   {errMsg(errors.phoneNumber?.message)}
-                </div>
-
-                <div className="s-adminproduct-02d219" style={{ gridColumn: "1/-1" }}>
-                  <p style={{ fontSize: 12, color: "var(--heirloom)", marginBottom: 4 }}>
-                    * At least one of email or phone number is required.
-                  </p>
                 </div>
 
                 <div className="s-adminproduct-02d219" style={{ gridColumn: "1/-1" }}>

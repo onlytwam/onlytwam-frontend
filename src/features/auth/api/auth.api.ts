@@ -124,49 +124,6 @@ export const registerUser = async (user: AuthenticationModel) => {
   return response.data;
 };
 
-// ── OTP — universal (email and/or phone) ─────────────────────────────────────
-
-/** Send OTP to email and/or phone. purpose: guest_checkout | login | verify
- *  channel: 'whatsapp' | 'sms' — only used when phone is given; backend defaults to 'whatsapp'
- */
-export const sendOtp = async (params: {
-  email?: string;
-  phone?: string;
-  purpose?: string;
-  channel?: "whatsapp" | "sms";
-}) => {
-  const response = await api.post("/auth/send-otp", {
-    email: params.email || undefined,
-    phone: params.phone || undefined,
-    purpose: params.purpose || "guest_checkout",
-    ...(params.channel ? { channel: params.channel } : {}),
-  });
-  return response.data; // { success, channels: ['email'|'phone'|'whatsapp'|'sms'], message }
-};
-
-/** Verify OTP. identifier = email or phone */
-export const verifyOtpUniversal = async (params: {
-  identifier: string;
-  otp: string;
-  purpose?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  newPassword?: string;
-}) => {
-  const response = await api.post("/auth/verify-otp", {
-    identifier: params.identifier,
-    otp: params.otp,
-    purpose: params.purpose || "guest_checkout",
-    firstName: params.firstName,
-    lastName: params.lastName,
-    email: params.email,
-    phone: params.phone,
-    newPassword: params.newPassword,
-  });
-  return response.data; // { success, access_token?, token_type?, message }
-};
 
 // ── Forgot Password — 3-step multi-channel flow ───────────────────────────────
 
@@ -223,10 +180,6 @@ export const verifyForgotPasswordOtpAndReset = async (params: {
 // ── Legacy aliases (kept so any existing callers don't break) ─────────────────
 export const sendForgotPasswordOtp = (emailId: string) =>
   checkForgotPasswordChannels(emailId); // old code expected this shape — callers updated below
-export const verifyForgotPasswordOtp = (emailId: string, otp: string) =>
-  verifyOtpUniversal({ identifier: emailId, otp, purpose: "forgot_password" });
-export const sendOtpEmail = sendForgotPasswordOtp;
-export const verifyOtp = verifyForgotPasswordOtp;
 
 export const resetPasswordWithToken = async (params: {
   emailId: string;
