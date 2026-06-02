@@ -39,6 +39,21 @@ function getPostLoginPath(
   return redirectTo;
 }
 
+function safeRedirectPath(value: string | null | undefined) {
+  const path = (value || "").trim();
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return "";
+  return path;
+}
+
+function normalizeCheckoutRedirect(value: string | null | undefined) {
+  const path = safeRedirectPath(value);
+  if (!path) return "";
+  if (path.includes("/user-products/payment-address")) {
+    return `/user-products/cart${path.includes("buyNow=1") ? "?buyNow=1" : ""}`;
+  }
+  return path;
+}
+
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email or phone is required"),
   password: z.string().min(1, "Password is required"),
@@ -98,7 +113,15 @@ export default function Login() {
   const isMobile = useIsMobile();
   const bgImage = usePageImage(IMAGE_KEYS.LOGIN_BACKGROUND);
 
-  const redirectTo = searchParams.get("redirect") || "/";
+  const redirectTo =
+    normalizeCheckoutRedirect(searchParams.get("redirect")) ||
+    normalizeCheckoutRedirect(sessionStorage.getItem("redirect_after_login")) ||
+    "/";
+  const isCartRedirect =
+    redirectTo.includes("/cart") || redirectTo.includes("payment-address");
+  const registerRedirectPath = isCartRedirect
+    ? `/register?checkout=1&redirect=${encodeURIComponent(redirectTo)}`
+    : "/register";
   const [mode, setMode] = useState<Mode>("signin");
   const [hidePass, setHidePass] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -112,7 +135,8 @@ export default function Login() {
   } | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || isSyncing) return;
+    if (!isAuthenticated || isSyncing || !user) return;
+    sessionStorage.removeItem("redirect_after_login");
     navigate(
       getPostLoginPath(user?.roleId ?? 0, user?.isRandomPassword, redirectTo),
       { replace: true },
@@ -168,6 +192,7 @@ export default function Login() {
       // Reset failed attempts on successful login
       setFailedAttempts(0);
       await login(userInfo as any, tokenData.access_token);
+      sessionStorage.removeItem("redirect_after_login");
       navigate(
         getPostLoginPath(
           userInfo.roleId,
@@ -328,10 +353,10 @@ export default function Login() {
               />
             </div>
 
-            {redirectTo.includes("payment-address") && (
+            {isCartRedirect && (
               <div className="s-login-3b11d9">
                 <i className="bi bi-bag me-2" />
-                Sign in to complete your order. Your cart items are saved.
+                Sign in to continue checkout. Your cart items are saved.
               </div>
             )}
 
@@ -457,7 +482,7 @@ export default function Login() {
                 <p className="s-login-89ef73">
                   Don't have an account?{" "}
                   <button
-                    onClick={() => navigate("/register")}
+                    onClick={() => navigate(registerRedirectPath)}
                     className="s-login-182bea"
                   >
                     Sign Up

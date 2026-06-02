@@ -27,6 +27,21 @@ function isEmail(v: string) {
   return /\S+@\S+\.\S+/.test(v.trim());
 }
 
+function safeRedirectPath(value: string | null | undefined) {
+  const path = (value || "").trim();
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return "";
+  return path;
+}
+
+function getCheckoutReturnPath(value: string | null | undefined) {
+  const path = safeRedirectPath(value);
+  if (!path) return "";
+  if (path.includes("/user-products/payment-address")) {
+    return `/user-products/cart${path.includes("buyNow=1") ? "?buyNow=1" : ""}`;
+  }
+  return path.includes("/user-products/cart") ? path : "";
+}
+
 const signupSchema = z
   .object({
     firstName: z.string().min(1, "First Name is required").max(500),
@@ -71,13 +86,13 @@ export default function Register() {
   const [hidePass, setHidePass] = useState(true);
   const redirectFromQuery = searchParams.get("redirect") || "";
   const checkoutReturnPath =
-    redirectFromQuery.startsWith("/") && redirectFromQuery.includes("cart")
-      ? redirectFromQuery
-      : (location.state as any)?.from?.includes("cart")
-      ? (location.state as any).from
-      : "";
+    getCheckoutReturnPath(redirectFromQuery) ||
+    getCheckoutReturnPath((location.state as any)?.from);
   const isCheckoutRegister =
     searchParams.get("checkout") === "1" || Boolean(checkoutReturnPath);
+  const loginRedirectPath = checkoutReturnPath
+    ? `/login?redirect=${encodeURIComponent(checkoutReturnPath)}`
+    : "/login";
 
   const {
     register,
@@ -137,7 +152,7 @@ export default function Register() {
 
       toast.success("Account created! Please sign in.");
       reset();
-      navigate("/login");
+      navigate(loginRedirectPath);
     } catch (err: any) {
       const apiErrors = err?.response?.data?.errors || err?.response?.data?.detail?.errors;
       if (Array.isArray(apiErrors)) {
@@ -299,7 +314,7 @@ export default function Register() {
 
             <p className="s-login-5d4ce1">
               Already have an account?{" "}
-              <button onClick={() => navigate("/login")} className="s-login-182bea">
+              <button onClick={() => navigate(loginRedirectPath)} className="s-login-182bea">
                 Sign In
               </button>
             </p>
