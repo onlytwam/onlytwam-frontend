@@ -52,7 +52,7 @@ export default function MobileProductCard({ product }: Props) {
           ""
       : "") ||
     "";
-  const imgSrc = imgError ? "/assets/category-bg.png" : getImageUrl(rawSrc);
+  const imgSrc = imgError ? "" : getImageUrl(rawSrc);
 
   const displayName =
     displayProduct.name ||

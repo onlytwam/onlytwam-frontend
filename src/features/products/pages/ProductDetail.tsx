@@ -606,7 +606,8 @@ export default function ProductDetail() {
     queryKey: ["product-detail", currentVId],
     queryFn: () => getProductDetail(currentVId),
     enabled: currentVId > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 min — don't refetch on color switch
+    gcTime: 30 * 60 * 1000, // 30 min — keep in cache across color changes
   });
 
   // viewOnly = category is inactive AND user arrived from wishlist or cart.
@@ -636,6 +637,8 @@ export default function ProductDetail() {
         orderAscending: false,
       }),
     enabled: !!product?.categoryId,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     select: (d: any) =>
       (d?.list ?? []).filter((p: any) => p.productId !== product?.productId),
   });
@@ -656,7 +659,7 @@ export default function ProductDetail() {
   }, [similarRaw]);
 
   const { data: exploreRaw = [] } = useQuery<any[]>({
-    queryKey: ["explore", product?.categoryId],
+    queryKey: ["explore"],
     queryFn: () =>
       listProducts({
         pageNumber: 1,
@@ -665,6 +668,8 @@ export default function ProductDetail() {
         orderAscending: false,
       }),
     enabled: !!product?.categoryId,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     select: (d: any) =>
       (d?.list ?? []).filter((p: any) => p.categoryId !== product?.categoryId),
   });
@@ -684,19 +689,32 @@ export default function ProductDetail() {
   }, [exploreRaw]);
 
   const reviews: any[] = reviewData?.list ?? [];
-  const images: string[] = (
-    product?.images?.length
-      ? product.images
-      : product?.image
-      ? [product.image]
-      : []
-  ).map(getImageUrl);
-  const colors: any[] = product?.colors ?? [];
+  const images: string[] = useMemo(
+    () =>
+      (product?.images?.length
+        ? product.images
+        : product?.image
+        ? [product.image]
+        : []
+      ).map((img: any) => {
+        if (typeof img === "string") return getImageUrl(img);
+        return getImageUrl(img?.fileData || img?.filePath || "");
+      }),
+    [product?.images, product?.image],
+  );
+
+  const colors: any[] = useMemo(() => product?.colors ?? [], [product?.colors]);
   const selectedColorSwatch = colors.find(
     (c: any) => c.productVariantId === currentVId,
   );
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
+
+  // Stable ref for navigate/location so the effect doesn't re-fire on every render
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const locationStateRef = useRef(location.state);
+  locationStateRef.current = location.state;
 
   useEffect(() => {
     if (!product?.productId || !colors.length) return;
@@ -708,21 +726,16 @@ export default function ProductDetail() {
 
     if (cheapestVariantId > 0 && cheapestVariantId !== currentVId) {
       setCurrentVId(cheapestVariantId);
-      navigate(
+      navigateRef.current(
         `/user-products/product-detail/${cheapestVariantId}/${slugify(
           product?.name || "product",
         )}`,
-        { replace: true, state: location.state },
+        { replace: true, state: locationStateRef.current },
       );
     }
-  }, [
-    colors,
-    currentVId,
-    location.state,
-    navigate,
-    product?.name,
-    product?.productId,
-  ]);
+    // Only re-run when the product or colors actually change — not on navigate/location refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.productId, product?.name, colors, currentVId]);
 
   useEffect(() => {
     if (!isMobileViewport) {
@@ -1558,8 +1571,7 @@ export default function ProductDetail() {
                     onPointerCancel={resetMainImageSwipe}
                     onDragStart={(e) => e.preventDefault()}
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        "/assets/category-bg.png";
+                      (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
                 ) : (
@@ -1809,22 +1821,40 @@ export default function ProductDetail() {
                             ? "var(--brand)"
                             : "transparent"
                         }`,
+                        borderRadius: 10,
+                        padding: 0,
+                        overflow: "hidden",
+                        background: "none",
+                        cursor: "pointer",
+                        lineHeight: 0,
                       }}
                     >
-                      <img
-                        src={getImageUrl(c.image)}
-                        alt={c.colorName || c.color || "color"}
-                        className="s-productdetai-f2b35e"
-                        onError={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          img.style.display = "none";
-                          const d = document.createElement("div");
-                          d.style.cssText = `width:64px;height:78px;border-radius:6px;background:${
-                            c.colorFamilyHex ?? c.colorHex ?? "#d0c8c2"
-                          }`;
-                          img.parentElement?.appendChild(d);
-                        }}
-                      />
+                      {c.image ? (
+                        <img
+                          src={getImageUrl(c.image)}
+                          alt={c.colorName || c.color || ""}
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 8,
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 8,
+                            background:
+                              c.colorFamilyHex ??
+                              c.colorHex ??
+                              c.colourHex ??
+                              "#d0c8c2",
+                          }}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

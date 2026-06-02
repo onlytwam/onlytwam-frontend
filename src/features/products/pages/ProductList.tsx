@@ -187,7 +187,8 @@ export default function ProductList() {
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
     queryFn: () => listCategories({ pageSize: 200 }),
-    staleTime: 0,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   const { data: brandsData } = useQuery({

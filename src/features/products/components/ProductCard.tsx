@@ -905,7 +905,7 @@ export default function ProductCard({
                 refreshTearVisualStyle(e.currentTarget);
               }}
               onError={(e) => {
-                (e.target as HTMLImageElement).src = "/assets/category-bg.png";
+                (e.target as HTMLImageElement).style.display = "none";
               }}
             />
             {enableHoverImageTransition &&
