@@ -1008,7 +1008,10 @@ function TextInput({
         type="text"
         placeholder={placeholder}
         value={local}
-        onChange={(e) => setLocal(e.target.value)}
+        onChange={(e) => {
+          setLocal(e.target.value);
+          onChange(e.target.value);
+        }}
         onBlur={() => onChange(local)}
         style={fieldStyle({ fontSize: 13 })}
       />
