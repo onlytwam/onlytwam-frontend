@@ -1,6 +1,7 @@
 import {
   useState,
   useEffect,
+  useMemo,
   useRef,
   type CSSProperties,
   type WheelEvent,
@@ -134,6 +135,8 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     queryKey: ["qs-product", variantId],
     queryFn: () => getProductDetail(variantId),
     enabled: variantId > 0,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -164,13 +167,19 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     };
   }, []);
 
-  const images: string[] = (
-    product?.images?.length
-      ? product.images
-      : product?.image
-      ? [product.image]
-      : []
-  ).map(getImageUrl);
+  const images: string[] = useMemo(
+    () =>
+      (product?.images?.length
+        ? product.images
+        : product?.image
+        ? [product.image]
+        : []
+      ).map((img: any) => {
+        if (typeof img === "string") return getImageUrl(img);
+        return getImageUrl(img?.fileData || img?.filePath || "");
+      }),
+    [product?.images, product?.image],
+  );
   const displayedThumbs = Math.min(images.length, visibleThumbs);
 
   useEffect(() => {
@@ -253,8 +262,10 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
   const pvdMatrix: any[] = product?.pvdMatrix ?? [];
   // Backend already filters isActive=false from color_rows, but guard here too
   // so hidden variants never appear as swatches even if the API cache is stale.
-  const colors: any[] = (product?.colors ?? []).filter(
-    (c: any) => c.isActive !== false,
+  const colors: any[] = useMemo(
+    () => (product?.colors ?? []).filter((c: any) => c.isActive !== false),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [product?.colors],
   );
 
   useEffect(() => {
@@ -659,11 +670,10 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
             >
               <div className="qsm-main-image" onClick={goToDetail}>
                 <img
-                  src={images[imgIdx] || "/assets/category-bg.png"}
+                  src={images[imgIdx] || ""}
                   alt={product.name}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "/assets/category-bg.png";
+                    (e.target as HTMLImageElement).style.display = "none";
                   }}
                 />
                 {images.length > 1 && (

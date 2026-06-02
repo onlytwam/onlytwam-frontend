@@ -73,7 +73,7 @@ const BLOB_BASE = (
 
 export const getImageUrl = (
   path: string | null | undefined,
-  fallback = "/assets/category-bg.png",
+  fallback = "",
 ): string => {
   if (!path) return fallback;
 
@@ -105,7 +105,7 @@ export const getImageUrl = (
 
 export const getCanvasSafeImageUrl = (
   path: string | null | undefined,
-  fallback = "/assets/category-bg.png",
+  fallback = "",
 ): string => {
   if (!path) return fallback;
 
