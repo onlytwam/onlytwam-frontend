@@ -1234,8 +1234,10 @@ function SizePalette({
       setAddForm({});
       onRefresh();
       refetchPalette();
-    } catch {
-      toast.error("Failed to add size");
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail || err?.message || "Failed to add size";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
