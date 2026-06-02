@@ -990,13 +990,11 @@ function TextInput({
   placeholder?: string;
   onChange: (val: string) => void;
 }) {
-  const [local, setLocal] = useState<string>(value);
-
-  // Sync if parent resets the value (e.g. form clear after save)
-  useEffect(() => {
-    setLocal(value);
-  }, [value]);
-
+  // Pure controlled input — no local state, no useEffect.
+  // The previous implementation held a local copy in useState and synced it
+  // via useEffect([value]). Every keystroke called onChange → parent updated
+  // addForm.stockId → re-render changed the value prop → useEffect fired →
+  // setLocal() scheduled another render → input lost focus after each digit.
   return (
     <div>
       <div
@@ -1007,12 +1005,8 @@ function TextInput({
       <input
         type="text"
         placeholder={placeholder}
-        value={local}
-        onChange={(e) => {
-          setLocal(e.target.value);
-          onChange(e.target.value);
-        }}
-        onBlur={() => onChange(local)}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         style={fieldStyle({ fontSize: 13 })}
       />
     </div>
