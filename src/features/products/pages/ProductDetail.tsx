@@ -1821,20 +1821,40 @@ export default function ProductDetail() {
                             ? "var(--brand)"
                             : "transparent"
                         }`,
+                        borderRadius: 10,
+                        padding: 0,
+                        overflow: "hidden",
+                        background: "none",
+                        cursor: "pointer",
+                        lineHeight: 0,
                       }}
                     >
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: "50%",
-                          background:
-                            c.colorFamilyHex ??
-                            c.colorHex ??
-                            c.colourHex ??
-                            "#d0c8c2",
-                        }}
-                      />
+                      {c.image ? (
+                        <img
+                          src={getImageUrl(c.image)}
+                          alt={c.colorName || c.color || ""}
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 8,
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 8,
+                            background:
+                              c.colorFamilyHex ??
+                              c.colorHex ??
+                              c.colourHex ??
+                              "#d0c8c2",
+                          }}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>
