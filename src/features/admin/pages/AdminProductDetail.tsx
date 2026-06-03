@@ -608,7 +608,9 @@ function ImagePane({
       toast.success(`${files.length} image(s) uploaded`);
       onRefresh();
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || err?.message || "Upload failed");
+      toast.error(
+        err?.response?.data?.detail || err?.message || "Upload failed",
+      );
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -4036,6 +4038,7 @@ export default function AdminProductDetail() {
               onRefresh={() => {
                 refetchImages();
                 refetchVariants();
+                qc.invalidateQueries({ queryKey: ["admin-products-filtered"] });
               }}
             />
           ) : (
