@@ -250,9 +250,6 @@ const AdminInventory = lazy(
   () => import("@/features/admin/pages/AdminInventory"),
 );
 const AdminReports = lazy(() => import("@/features/admin/pages/AdminReports"));
-const AdminProductForm = lazy(
-  () => import("@/features/admin/pages/AdminProductForm"),
-);
 const AdminProductDetail = lazy(
   () => import("@/features/admin/pages/AdminProductDetail"),
 );

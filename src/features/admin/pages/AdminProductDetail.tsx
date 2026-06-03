@@ -67,6 +67,11 @@ const TXT = "#2B2B2B";
 const SUB = "#8A7F7A";
 const BG = "#FAF7F4";
 const WHITE = "#ffffff";
+const API_ORIGIN = (
+  (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+)
+  .replace(/\/api\/?$/, "")
+  .replace(/\/$/, "");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function imgUrl(src: string | null | undefined): string {
@@ -77,8 +82,8 @@ function imgUrl(src: string | null | undefined): string {
   if (src.startsWith("data:") || src.startsWith("blob:")) return src;
   if (src.startsWith("http://") || src.startsWith("https://")) return src;
   if (src.startsWith("/assets/")) return src;
-  if (src.startsWith("/uploads/")) return `http://127.0.0.1:8000${src}`;
-  if (src.startsWith("uploads/")) return `http://127.0.0.1:8000/${src}`;
+  if (src.startsWith("/uploads/")) return `${API_ORIGIN}${src}`;
+  if (src.startsWith("uploads/")) return `${API_ORIGIN}/${src}`;
   return getImageUrl(src, "");
 }
 
@@ -609,8 +614,8 @@ function ImagePane({
       });
       toast.success(`${files.length} image(s) uploaded`);
       onRefresh();
-    } catch {
-      toast.error("Upload failed");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || err?.message || "Upload failed");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
