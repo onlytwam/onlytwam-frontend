@@ -106,9 +106,18 @@ const resolveProductDetailImageUrl = (src: unknown): string => {
 const getImageSourceFromRecord = (record: any): string => {
   if (!record) return "";
   if (typeof record === "string") return normalizeImageCandidate(record);
+  if (Array.isArray(record)) {
+    for (const item of record) {
+      const src = getImageSourceFromRecord(item);
+      if (src) return src;
+    }
+    return "";
+  }
 
   const directCandidates = [
     record.filePath,
+    record.imagePath,
+    record.fileName,
     record.imageUrl,
     record.imageURL,
     record.src,
@@ -140,11 +149,18 @@ const getImageSourceFromRecord = (record: any): string => {
 
 const getFirstImageSource = (record: any): string => {
   if (!record) return "";
-  if (Array.isArray(record.images)) {
-    for (const img of record.images) {
-      const src = getImageSourceFromRecord(img);
-      if (src) return src;
-    }
+  const imageCollections = [
+    record.images,
+    record.productImages,
+    record.productImageList,
+    record.variantImages,
+    record.productVariantImages,
+    record.imageList,
+  ];
+
+  for (const collection of imageCollections) {
+    const src = getImageSourceFromRecord(collection);
+    if (src) return src;
   }
   return getImageSourceFromRecord(record);
 };
@@ -815,13 +831,17 @@ export default function ProductDetail() {
       .filter(Boolean);
   }, [product?.images, product?.image]);
 
-  const colors: any[] = useMemo(() => product?.colors ?? [], [product?.colors]);
+  const colors: any[] = useMemo(
+    () => (product?.colors ?? []).filter((c: any) => c.isActive !== false),
+    [product?.colors],
+  );
   const selectedColorSwatch = colors.find(
     (c: any) => c.productVariantId === currentVId,
   );
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
   const colorSwatchSize = isMobileViewport ? 62 : 72;
+  const selectedColorSwatchSize = colorSwatchSize + (isMobileViewport ? 8 : 10);
 
   // Stable ref for navigate/location so the effect doesn't re-fire on every render
   const navigateRef = useRef(navigate);
@@ -1914,12 +1934,18 @@ export default function ProductDetail() {
                 </p>
                 <div className="s-adminproduct-47622e">
                   {colors.map((c: any) => {
-                    const swatchImage = getFirstVariantImageUrl(c);
+                    const isSelected = c.productVariantId === currentVId;
+                    const swatchImage =
+                      getFirstVariantImageUrl(c) ||
+                      (isSelected ? images[0] || "" : "");
                     const fallbackColor =
                       c.colorFamilyHex ??
                       c.colorHex ??
                       c.colourHex ??
                       "#d0c8c2";
+                    const swatchSize = isSelected
+                      ? selectedColorSwatchSize
+                      : colorSwatchSize;
 
                     return (
                       <button
@@ -1935,23 +1961,30 @@ export default function ProductDetail() {
                           }
                         }}
                         title={c.colorName || c.color || ""}
+                        aria-pressed={isSelected}
+                        aria-label={`Select ${c.colorName || c.color || "color"}`}
                         className="s-productdetai-e37fda"
                         style={{
-                          width: colorSwatchSize,
-                          height: colorSwatchSize,
+                          position: "relative",
+                          width: swatchSize,
+                          height: swatchSize,
                           border: `2.5px solid ${
-                            c.productVariantId === currentVId
-                              ? "var(--brand)"
-                              : "transparent"
+                            isSelected ? "var(--brand)" : "transparent"
                           }`,
                           borderRadius: 12,
-                          padding: 0,
+                          padding: isSelected ? 3 : 0,
                           overflow: "hidden",
                           background: fallbackColor,
                           cursor: "pointer",
                           lineHeight: 0,
                           boxSizing: "border-box",
                           flexShrink: 0,
+                          transform: isSelected ? "translateY(-2px)" : "none",
+                          boxShadow: isSelected
+                            ? "0 0 0 3px rgba(107, 15, 42, 0.14), 0 8px 20px rgba(107, 15, 42, 0.22)"
+                            : "0 1px 4px rgba(0, 0, 0, 0.08)",
+                          transition:
+                            "width 0.18s ease, height 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease",
                         }}
                       >
                         {swatchImage ? (
@@ -1979,6 +2012,30 @@ export default function ProductDetail() {
                               background: fallbackColor,
                             }}
                           />
+                        )}
+                        {isSelected && (
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              position: "absolute",
+                              right: 5,
+                              bottom: 5,
+                              width: 20,
+                              height: 20,
+                              borderRadius: "50%",
+                              background: "var(--brand)",
+                              color: "#fff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 12,
+                              lineHeight: 1,
+                              border: "2px solid #fff",
+                              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.22)",
+                            }}
+                          >
+                            <i className="bi bi-check-lg" />
+                          </span>
                         )}
                       </button>
                     );
