@@ -1017,9 +1017,10 @@ function updateMergedCartItems(
 ) {
   const matchKey = getCartItemMatchKey(item);
   if (matchKey == null) {
+    // No usable key at all — try cartId, then give up gracefully.
     return {
       nextItems: items.map((current) =>
-        current.cartId === item.cartId
+        item.cartId != null && current.cartId === item.cartId
           ? {
               ...current,
               processedQuantity: desiredTotalQty,
@@ -1039,16 +1040,22 @@ function updateMergedCartItems(
 
   if (matches.length <= 1) {
     const targetCartId = matches[0]?.cartId ?? item.cartId ?? null;
+    // For guest items there is no cartId — fall back to matching by matchKey
+    // (productVariantDetailId) so the quantity update actually lands.
     return {
-      nextItems: items.map((current) =>
-        current.cartId === targetCartId
+      nextItems: items.map((current) => {
+        const isTarget =
+          targetCartId != null
+            ? current.cartId === targetCartId
+            : getCartItemMatchKey(current) === matchKey;
+        return isTarget
           ? {
               ...current,
               processedQuantity: desiredTotalQty,
               quantity: desiredTotalQty,
             }
-          : current,
-      ),
+          : current;
+      }),
       targetCartId,
       targetQty: desiredTotalQty,
     };
@@ -1377,6 +1384,23 @@ export default function Cart() {
 
     setBuyNowItems(normalizeBuyNowItems(getBuyNowSession()?.items ?? []));
   }, [isBuyNowView]);
+
+  // Re-sync guestItems whenever localStorage is updated by an external source
+  // (e.g. QuickCart changes qty, another tab, or buy-now return merge).
+  // This is a no-op for logged-in users and buy-now view.
+  useEffect(() => {
+    if (isAuth || isBuyNowView) return;
+    const syncGuest = () => {
+      setGuestItems(
+        GuestCart.get().map((i: any) => ({
+          ...i,
+          isSelected: i.isSelected ?? true,
+        })),
+      );
+    };
+    window.addEventListener("guestCartUpdated", syncGuest);
+    return () => window.removeEventListener("guestCartUpdated", syncGuest);
+  }, [isAuth, isBuyNowView]);
 
   // Fix 1: When user navigates BACK from Buy Now cart without paying,
   // add the buyNow item(s) into their real cart.
