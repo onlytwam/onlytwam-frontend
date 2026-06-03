@@ -338,6 +338,7 @@ export default function UpdateProfile() {
           ...profile,
           email: response?.emailId || profile.email,
           phoneNumber: response?.phoneNumber || profile.phoneNumber,
+          dateOfBirth: response?.dateOfBirth || profile.dateOfBirth,
           profileImageUrl: nextProfileImageUrl,
           profileImageOriginalUrl: nextOriginalProfileImageUrl,
           name:
