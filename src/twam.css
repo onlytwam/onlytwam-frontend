@@ -20372,13 +20372,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   }
 }
 
-/* from features/admin/pages/AdminProductForm.tsx */
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* from features/content/pages/Blog1.tsx */
 @keyframes spin {
   to {
