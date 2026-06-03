@@ -26,9 +26,9 @@ export default function UserAvatar({
     setHasImageError(false);
   }, [imageUrl]);
 
-  const resolvedImage = imageUrl && !hasImageError
-    ? (imageUrl.startsWith('blob:') || imageUrl.startsWith('data:') ? imageUrl : getImageUrl(imageUrl, ''))
-    : '';
+  // Backend returns full URLs; getImageUrl passes them through unchanged.
+  // blob:/data: are kept for local preview before upload completes.
+  const resolvedImage = imageUrl && !hasImageError ? getImageUrl(imageUrl, '') : '';
   const fallbackIconSize = iconSize ?? Math.max(20, Math.round(size * 0.52));
   const fallbackTextSize = iconSize ?? Math.max(14, Math.round(size * 0.44));
   const avatarStyle = {

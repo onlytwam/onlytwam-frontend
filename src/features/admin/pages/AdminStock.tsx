@@ -43,12 +43,12 @@ function fmtSize(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+// Backend always returns full URLs — no construction needed
 function imgUrl(src: string | null | undefined): string {
   if (!src) return "";
   if (src.startsWith("http://") || src.startsWith("https://")) return src;
-  if (src.startsWith("/uploads/") || src.startsWith("uploads/"))
-    return `http://127.0.0.1:8000/${src.replace(/^\//, "")}`;
-  return src;
+  if (src.startsWith("/assets")) return src;
+  return "";
 }
 
 function fmtDateFull(iso: string | null | undefined): {

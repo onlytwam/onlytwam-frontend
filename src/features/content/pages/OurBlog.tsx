@@ -65,7 +65,7 @@ export default function OurBlog() {
                   (e.currentTarget as HTMLElement).style.boxShadow = "none";
                 }}
               >
-                {/* Blog image — imageUrl is stored as relative path "uploads/…" in DB */}
+                {/* Blog image — imageUrl is a full URL resolved by the backend */}
                 <div className="s-ourblog-2e37ef">
                   <img
                     src={getImageUrl(item.imageUrl)}

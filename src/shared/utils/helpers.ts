@@ -61,50 +61,29 @@ export const formatDate = (date: string | Date | null | undefined): string => {
 };
 
 // ─── Image URL helper ──────────────────────────────────────────────────────────
+// The backend always resolves images to full URLs before sending to the
+// frontend (via resolve_url in url_helpers.py). The frontend must NOT
+// construct or modify URLs — just pass them through as-is.
 export const getImageUrl = (
   path: string | null | undefined,
   fallback = "",
 ): string => {
   if (!path) return fallback;
-
-  const value = path.trim().replace(/\\/g, "/");
+  const value = path.trim();
   if (!value) return fallback;
+  // Local blob/data previews (e.g. before upload completes)
   if (value.startsWith("data:") || value.startsWith("blob:")) return value;
+  // Static bundled assets
   if (value.startsWith("/assets/")) return value;
   if (value.startsWith("assets/")) return `/${value}`;
+  // Full URL from backend — return as-is
   if (value.startsWith("http://") || value.startsWith("https://")) return value;
-  if (value.startsWith("/")) return value;
-
+  // Any other value (should not happen if backend is correct) — return fallback
   return fallback;
 };
 
+// Same as getImageUrl — kept for canvas/image-editor callers
 export const getCanvasSafeImageUrl = (
   path: string | null | undefined,
   fallback = "",
-): string => {
-  if (!path) return fallback;
-
-  const trimmed = path.trim();
-  if (!trimmed) return fallback;
-  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:"))
-    return trimmed;
-  if (trimmed.startsWith("/assets/") || trimmed.startsWith("assets/")) {
-    return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  }
-
-  const resolved = getImageUrl(trimmed, fallback);
-
-  if (typeof window === "undefined") return resolved;
-
-  try {
-    const resolvedUrl = new URL(resolved, window.location.origin);
-
-    if (resolvedUrl.origin === window.location.origin) {
-      return resolvedUrl.toString();
-    }
-
-    return resolved;
-  } catch {
-    return resolved;
-  }
-};
+): string => getImageUrl(path, fallback);

@@ -67,23 +67,16 @@ const TXT = "#2B2B2B";
 const SUB = "#8A7F7A";
 const BG = "#FAF7F4";
 const WHITE = "#ffffff";
-const API_ORIGIN = (
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
-)
-  .replace(/\/api\/?$/, "")
-  .replace(/\/$/, "");
+// API_ORIGIN removed — backend always returns full URLs
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+// Backend returns full URLs — no URL construction needed on the frontend.
 function imgUrl(src: string | null | undefined): string {
   if (!src) return "";
+  // Keep base64 data inline (legacy path)
   if (/^data:image\//.test(src)) return src;
   if (/^[A-Za-z0-9+/]+=*$/.test(src) && src.length > 120)
     return `data:image/jpeg;base64,${src}`;
-  if (src.startsWith("data:") || src.startsWith("blob:")) return src;
-  if (src.startsWith("http://") || src.startsWith("https://")) return src;
-  if (src.startsWith("/assets/")) return src;
-  if (src.startsWith("/uploads/")) return `${API_ORIGIN}${src}`;
-  if (src.startsWith("uploads/")) return `${API_ORIGIN}/${src}`;
   return getImageUrl(src, "");
 }
 

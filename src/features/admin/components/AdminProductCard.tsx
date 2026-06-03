@@ -19,26 +19,12 @@ const GREY = "#F3EFEC";
 const SUB = "#8A7F7A";
 const TXT = "#2B2B2B";
 const MAX_SWATCHES = 6;
-const API_ORIGIN = (
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
-)
-  .replace(/\/api\/?$/, "")
-  .replace(/\/$/, "");
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+// Backend returns full URLs — just pass through via getImageUrl
 function resolveImg(src: string | null | undefined): string {
-  if (!src) return "";
-  const value = src.replace(/\\/g, "/").trim();
-  if (!value) return "";
-  if (value.startsWith("data:") || value.startsWith("blob:")) return value;
-  if (value.startsWith("/assets/")) return value;
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    return value;
-  }
-  if (value.startsWith("/uploads/")) return `${API_ORIGIN}${value}`;
-  if (value.startsWith("uploads/")) return `${API_ORIGIN}/${value}`;
-  return encodeURI(getImageUrl(value, ""));
+  return getImageUrl(src, "");
 }
 
 function getVariantImageSrc(variant: any): string {
