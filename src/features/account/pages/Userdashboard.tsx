@@ -21,6 +21,7 @@ import MobileProductCard from "@/features/products/components/MobileProductCard"
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import UserAvatar from "@/shared/components/UserAvatar";
+import { getImageUrl } from "@/shared/utils/helpers";
 
 const ORDER_FILTERS = [
   "All",
@@ -143,10 +144,7 @@ function TypingGreeting({ text }: { text: string }) {
       aria-live="polite"
     >
       <span className="s-profilelayou-typing-text">{displayText}</span>
-      <span
-        className="s-profilelayou-typing-cursor"
-        aria-hidden="true"
-      />
+      <span className="s-profilelayou-typing-cursor" aria-hidden="true" />
     </span>
   );
 }
@@ -457,16 +455,11 @@ export default function UserDashboard() {
                   <div className="s-userdashboar-e71c31 s-userdashboar-cc0420">
                     {firstImg ? (
                       <img
-                        src={
-                          firstImg.startsWith("http")
-                            ? firstImg
-                            : `${((import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${firstImg}`
-                        }
+                        src={getImageUrl(firstImg, "")}
                         alt=""
                         className="s-userdashboar-4ebae2"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.display =
-                            "none";
+                          (e.target as HTMLImageElement).style.display = "none";
                         }}
                       />
                     ) : (
@@ -493,9 +486,7 @@ export default function UserDashboard() {
                     </div>
                     {(order.orderDate || order.createdDate) && (
                       <div className="s-userdashboar-f42419">
-                        {formatOrderDate(
-                          order.orderDate || order.createdDate,
-                        )}
+                        {formatOrderDate(order.orderDate || order.createdDate)}
                       </div>
                     )}
                     <div className="d-flex align-items-center position-relative mt-3">
@@ -652,11 +643,7 @@ export default function UserDashboard() {
                     <div className="s-userdashboar-e71c31 s-userdashboar-cc0420">
                       {firstImg ? (
                         <img
-                          src={
-                            firstImg.startsWith("http")
-                              ? firstImg
-                              : `${((import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${firstImg}`
-                          }
+                          src={getImageUrl(firstImg, "")}
                           alt=""
                           className="s-userdashboar-4ebae2"
                           onError={(e) => {
@@ -757,11 +744,7 @@ export default function UserDashboard() {
                       <div className="s-userdashboar-d3398b s-userdashboar-cc0420">
                         {firstImg ? (
                           <img
-                            src={
-                              firstImg.startsWith("http")
-                                ? firstImg
-                                : `${((import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${firstImg}`
-                            }
+                            src={getImageUrl(firstImg, "")}
                             alt=""
                             className="s-userdashboar-4ebae2"
                             onError={(e) => {
@@ -890,11 +873,7 @@ export default function UserDashboard() {
                     <div className="s-userdashboar-e71c31 s-userdashboar-cc0420">
                       {firstImg ? (
                         <img
-                          src={
-                            firstImg.startsWith("http")
-                              ? firstImg
-                              : `${((import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}${firstImg}`
-                          }
+                          src={getImageUrl(firstImg, "")}
                           alt=""
                           className="s-userdashboar-4ebae2"
                           onError={(e) => {

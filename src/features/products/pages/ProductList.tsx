@@ -33,15 +33,13 @@ import ProductFilters, {
 import ProductToolbar from "@/features/products/components/ProductToolbar";
 
 const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
-const API_ASSET_ORIGIN = (
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
-).replace(/\/api\/?$/, "");
 
+// Backend always returns full URLs — no construction needed on the frontend
 function getBrandImageUrl(path?: string | null) {
   if (!path) return "";
-  if (path.startsWith("http") || path.startsWith("/assets")) return path;
-  if (path.startsWith("/")) return encodeURI(`${API_ASSET_ORIGIN}${path}`);
-  return encodeURI(`${API_ASSET_ORIGIN}/${path.replace(/\\/g, "/")}`);
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (path.startsWith("/assets")) return path;
+  return "";
 }
 
 // ─── Category images ──────────────────────────────────────────────────────────

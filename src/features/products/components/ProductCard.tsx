@@ -351,14 +351,8 @@ export default function ProductCard({
       ? productImages
       : [];
 
-  const resolveDisplayImageUrl = (src: string): string => {
-    const value = src.trim();
-    if (!value) return "";
-    if (value.startsWith("data:") || value.startsWith("blob:")) return value;
-    if (value.startsWith("/assets/")) return value;
-    if (value.startsWith("assets/")) return `/${value}`;
-    return getImageUrl(value);
-  };
+  // Backend returns full URLs — just delegate to getImageUrl which passes them through
+  const resolveDisplayImageUrl = (src: string): string => getImageUrl(src, "");
 
   const resolvedImages = rawImages.map(resolveDisplayImageUrl).filter(Boolean);
   const FALLBACK_IMAGE = "/assets/category-bg.png";

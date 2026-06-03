@@ -40,67 +40,13 @@ const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 const DOUBLE_TAP_MAX_DELAY = 320;
 const DOUBLE_TAP_MAX_DISTANCE = 24;
-const STORAGE_ROOT_FROM_LEGACY_BASE = getImageUrl("__twam_probe__").replace(
-  /\/(?:(?:product-images|products|category|brands|blogs|profiles|reviews|contactus|home)\/)?__twam_probe__$/,
-  "",
-);
-const STORAGE_CONTAINER_PREFIXES = [
-  "products/",
-  "category/",
-  "brands/",
-  "blogs/",
-  "profiles/",
-  "reviews/",
-  "contactus/",
-  "home/",
-];
-
 const normalizeImageCandidate = (src: unknown): string =>
   String(src ?? "").trim();
-
-const normalizeStoragePath = (src: string): string => {
-  let value = src.trim().replace(/\\/g, "/");
-  if (!value) return "";
-
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    try {
-      const url = new URL(value);
-      if (
-        url.hostname.includes("blob.core.windows.net") ||
-        url.hostname.startsWith("twamstorage") ||
-        url.hostname.startsWith("twamlivestorage")
-      ) {
-        return value;
-      }
-      value = url.pathname;
-    } catch {
-      value = value.replace(/^https?:\/\/[^/]+/i, "");
-    }
-  }
-
-  return value
-    .replace(/^\/+/, "")
-    .replace(/^api\/+/i, "")
-    .replace(/^uploads\/+/i, "")
-    .replace(/^product-images\/+/i, "");
-};
 
 const resolveProductDetailImageUrl = (src: unknown): string => {
   const raw = normalizeImageCandidate(src);
   if (!raw) return "";
-  if (raw.startsWith("data:") || raw.startsWith("blob:")) return raw;
-  if (raw.startsWith("/assets/")) return raw;
-  if (raw.startsWith("assets/")) return `/${raw}`;
-
-  const clean = normalizeStoragePath(raw);
-  if (!clean) return "";
-  if (clean.startsWith("http://") || clean.startsWith("https://")) {
-    return clean;
-  }
-  if (STORAGE_CONTAINER_PREFIXES.some((prefix) => clean.startsWith(prefix))) {
-    return `${STORAGE_ROOT_FROM_LEGACY_BASE}/${clean}`;
-  }
-  return getImageUrl(clean);
+  return getImageUrl(raw, "");
 };
 
 const getImageSourceFromRecord = (record: any): string => {
@@ -2734,14 +2680,7 @@ export default function ProductDetail() {
                   <div className="s-addresslist-f8b697">
                     {r.photo ? (
                       <img
-                        src={
-                          r.photo.startsWith("http")
-                            ? r.photo
-                            : `${(
-                                import.meta.env.VITE_API_BASE_URL ||
-                                "http://127.0.0.1:8000/api"
-                              ).replace(/\/api$/, "")}${r.photo}`
-                        }
+                        src={getImageUrl(r.photo, "")}
                         alt="reviewer"
                         className="s-productdetai-55b05c"
                         onError={(e) => {

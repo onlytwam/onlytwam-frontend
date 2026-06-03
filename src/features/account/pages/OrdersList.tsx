@@ -748,7 +748,10 @@ export function LegacyOrdersListExpanded() {
                       >
                         {/* FIX: item.productImage not item.image */}
                         <img
-                          src={item.productImage || item.image}
+                          src={getImageUrl(
+                            item.productImage || item.image,
+                            "/assets/images/placeholder.jpg",
+                          )}
                           alt={item.productName}
                           className="s-orderslist-777a95"
                           onError={(e) => {

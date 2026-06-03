@@ -61,79 +61,29 @@ export const formatDate = (date: string | Date | null | undefined): string => {
 };
 
 // ─── Image URL helper ──────────────────────────────────────────────────────────
-const _apiBase =
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8000/api";
-
-const API_ORIGIN = _apiBase.replace(/\/api\/?$/, "").replace(/\/$/, "");
-
-const BLOB_BASE = (
-  (import.meta as any).env?.VITE_AZURE_BLOB_BASE_URL ||
-  "https://twamstorage.blob.core.windows.net/product-images"
-).replace(/\/+$/, "");
-
+// The backend always resolves images to full URLs before sending to the
+// frontend (via resolve_url in url_helpers.py). The frontend must NOT
+// construct or modify URLs — just pass them through as-is.
 export const getImageUrl = (
   path: string | null | undefined,
   fallback = "",
 ): string => {
   if (!path) return fallback;
-
-  // Already a blob/CDN URL — return as-is
-  if (
-    path.startsWith("https://twamstorage") ||
-    path.startsWith("https://twamlivestorage")
-  ) {
-    return path;
-  }
-
-  // Full URL (could be old local API URL like https://api.preprod.onlytwam.com/uploads/...)
-  // Strip the host and treat the pathname as a relative path to re-route through blob
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    try {
-      const url = new URL(path);
-      path = url.pathname;
-    } catch {
-      path = path.replace(/^https?:\/\/[^/]*/, "");
-    }
-  }
-
-  const clean = path.replace(/^\/+/, "").replace(/^uploads\/+/, "");
-
-  if (!clean) return fallback;
-
-  return `${BLOB_BASE}/${clean}`;
+  const value = path.trim();
+  if (!value) return fallback;
+  // Local blob/data previews (e.g. before upload completes)
+  if (value.startsWith("data:") || value.startsWith("blob:")) return value;
+  // Static bundled assets
+  if (value.startsWith("/assets/")) return value;
+  if (value.startsWith("assets/")) return `/${value}`;
+  // Full URL from backend — return as-is
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  // Any other value (should not happen if backend is correct) — return fallback
+  return fallback;
 };
 
+// Same as getImageUrl — kept for canvas/image-editor callers
 export const getCanvasSafeImageUrl = (
   path: string | null | undefined,
   fallback = "",
-): string => {
-  if (!path) return fallback;
-
-  const trimmed = path.trim();
-  if (!trimmed) return fallback;
-  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:"))
-    return trimmed;
-  if (trimmed.startsWith("/assets/") || trimmed.startsWith("assets/")) {
-    return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  }
-
-  const resolved = getImageUrl(trimmed, fallback);
-
-  if (typeof window === "undefined") return resolved;
-
-  try {
-    const resolvedUrl = new URL(resolved, window.location.origin);
-
-    if (resolvedUrl.origin === window.location.origin) {
-      return resolvedUrl.toString();
-    }
-
-    if (resolvedUrl.origin === API_ORIGIN) {
-      return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
-    }
-
-    return resolved;
-  } catch {
-    return resolved;
-  }
-};
+): string => getImageUrl(path, fallback);

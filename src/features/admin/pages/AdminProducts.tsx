@@ -23,16 +23,12 @@ const TXT = "#2B2B2B";
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-const _API_ORIGIN = (
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
-)
-  .replace(/\/api\/?$/, "")
-  .replace(/\/$/, "");
-
+// Backend returns full URLs — just delegate to getImageUrl
 function resolveImg(src: string | null | undefined): string {
   if (!src) return "";
-  if (src.startsWith("http") || src.startsWith("/")) return src;
-  return encodeURI(`${_API_ORIGIN}/${src.replace(/\\/g, "/")}`);
+  if (src.startsWith("http://") || src.startsWith("https://")) return src;
+  if (src.startsWith("/assets")) return src;
+  return "";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
