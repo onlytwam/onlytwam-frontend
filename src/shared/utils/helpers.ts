@@ -61,46 +61,21 @@ export const formatDate = (date: string | Date | null | undefined): string => {
 };
 
 // ─── Image URL helper ──────────────────────────────────────────────────────────
-const _apiBase =
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8000/api";
-
-const API_ORIGIN = _apiBase.replace(/\/api\/?$/, "").replace(/\/$/, "");
-
-const BLOB_BASE = (
-  (import.meta as any).env?.VITE_AZURE_BLOB_BASE_URL ||
-  "https://twamstorage.blob.core.windows.net/product-images"
-).replace(/\/+$/, "");
-
 export const getImageUrl = (
   path: string | null | undefined,
   fallback = "",
 ): string => {
   if (!path) return fallback;
 
-  // Already a blob/CDN URL — return as-is
-  if (
-    path.startsWith("https://twamstorage") ||
-    path.startsWith("https://twamlivestorage")
-  ) {
-    return path;
-  }
+  const value = path.trim().replace(/\\/g, "/");
+  if (!value) return fallback;
+  if (value.startsWith("data:") || value.startsWith("blob:")) return value;
+  if (value.startsWith("/assets/")) return value;
+  if (value.startsWith("assets/")) return `/${value}`;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  if (value.startsWith("/")) return value;
 
-  // Full URL (could be old local API URL like https://api.preprod.onlytwam.com/uploads/...)
-  // Strip the host and treat the pathname as a relative path to re-route through blob
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    try {
-      const url = new URL(path);
-      path = url.pathname;
-    } catch {
-      path = path.replace(/^https?:\/\/[^/]*/, "");
-    }
-  }
-
-  const clean = path.replace(/^\/+/, "").replace(/^uploads\/+/, "");
-
-  if (!clean) return fallback;
-
-  return `${BLOB_BASE}/${clean}`;
+  return fallback;
 };
 
 export const getCanvasSafeImageUrl = (
@@ -126,10 +101,6 @@ export const getCanvasSafeImageUrl = (
 
     if (resolvedUrl.origin === window.location.origin) {
       return resolvedUrl.toString();
-    }
-
-    if (resolvedUrl.origin === API_ORIGIN) {
-      return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
     }
 
     return resolved;

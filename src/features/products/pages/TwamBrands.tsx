@@ -1,12 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { listBrands } from "@/features/products/api/products.api";
+import { getImageUrl } from "@/shared/utils/helpers";
 
-export function getImageUrl(path?: string) {
-  if (!path) return "/assets/fallback.png";
-  if (path.startsWith("http")) return path;
-  return encodeURI(`http://127.0.0.1:8000${path}`);
-}
 export default function TwamBrands() {
   const navigate = useNavigate();
 
@@ -58,7 +54,10 @@ export default function TwamBrands() {
               >
                 <span className="s-twambrands-image-frame">
                   <img
-                    src={getImageUrl(brand.brandImage || brand.brandLogo)}
+                    src={getImageUrl(
+                      brand.brandImage || brand.brandLogo,
+                      "/assets/fallback.png",
+                    )}
                     alt={brand.brandName}
                     className="s-twambrands-62d26f"
                     onError={(e) => {
