@@ -57,6 +57,17 @@ export const getUserInfo = async (token?: string) => {
   return response.data;
 };
 
+const normalizeDateForInput = (value: any): string => {
+  if (!value) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  const isoDate = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDate) return isoDate[1];
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().split("T")[0];
+};
+
 // export const normalizeUserInfo = (raw: any) => ({
 //   userId: raw.sub || raw.UserId || "",
 //   email: raw.email_id || raw.email || "",
@@ -98,6 +109,7 @@ export const normalizeUserInfo = (raw: any) => ({
   lastName:        raw.LastName || raw.last_name || "",
   name:            raw.name || `${raw.FirstName || ""} ${raw.LastName || ""}`.trim(),
   phoneNumber:     raw.PhoneNumber || raw.phone_number || "",
+  dateOfBirth:     normalizeDateForInput(raw.dateOfBirth ?? raw.DateOfBirth ?? raw.date_of_birth ?? raw.dob),
   profileImageUrl: raw.ProfileImageUrl || raw.profileImageUrl || raw.profile_image_url || "",
   isActive:        raw.is_active !== undefined ? raw.is_active : true,
   
@@ -226,6 +238,7 @@ export const updateProfile = async (params: {
   middleName?: string;
   lastName: string;
   phoneNumber: string;
+  dateOfBirth?: string;
   profileImage?: File | null;
   profileImageData?: string | null;
   removeProfileImage?: boolean;
@@ -236,6 +249,7 @@ export const updateProfile = async (params: {
   formData.append("middleName", params.middleName || "");
   formData.append("lastName", params.lastName);
   formData.append("phoneNumber", params.phoneNumber);
+  formData.append("dateOfBirth", normalizeDateForInput(params.dateOfBirth));
   if (params.removeProfileImage) formData.append("removeProfileImage", "true");
   if (params.profileImage) formData.append("profileImage", params.profileImage);
   if (params.profileImageData)
