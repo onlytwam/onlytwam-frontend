@@ -7,22 +7,16 @@
  *  • Pincode verification via India Post API (real-time city / state / country)
  *  • Geolocation auto-fill (country, state, city, locality via Nominatim)
  *  • 10-digit phone validation with +91 prefix
- *  • Guest: email → OTP verify → address form
  *  • Auth: saved-address list + add / edit
  *  • Matches brand palette: Burgundy #6B0F2A · Heirloom #9E6070 · Ivory #F5F0E6
  */
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
-import {
-  checkForgotPasswordChannels,
-  getUserInfo,
-  normalizeUserInfo,
-} from "@/features/auth/api/auth.api";
 import { useCartStore } from "@/features/cart/store/cartStore";
 import { readCheckoutSession } from "@/features/cart/utils/checkoutSession";
 import { getBuyNowSession } from "@/shared/utils/checkoutSession";
@@ -44,7 +38,6 @@ import type { MapPickerResult } from "@/shared/components/MapPicker";
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const IVORY_DK = "var(--ivory)";
 const FONT_UI = '"Trebuchet MS", Arial, sans-serif';
-const GUEST_OTP_LENGTH = 6;
 
 // ── Empty form ────────────────────────────────────────────────────────────────
 const emptyForm = {
@@ -711,6 +704,16 @@ export default function PaymentAddress() {
   const { getUserId, hasValidToken } = useAuthStore();
   const userId = getUserId();
   const isAuth = hasValidToken();
+  const checkoutCartPath = "/user-products/cart" + (isBuyNow ? "?buyNow=1" : "");
+
+  useEffect(() => {
+    if (isAuth) return;
+    navigate(
+      `/register?checkout=1&redirect=${encodeURIComponent(checkoutCartPath)}`,
+      { replace: true, state: { from: checkoutCartPath } },
+    );
+  }, [checkoutCartPath, isAuth, navigate]);
+
   useEffect(() => {
     const session = isBuyNow ? getBuyNowSession() : readCheckoutSession();
     if (!session?.items?.length) return;
@@ -732,23 +735,6 @@ export default function PaymentAddress() {
   const [form, setForm] = useState<FormState>(() => createDraftForm(user));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<any[]>([]);
-
-  // Guest
-  const [guestEmail, setGuestEmail] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpValue, setOtpValue] = useState("");
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpError, setOtpError] = useState("");
-  const [showSignInBanner, setShowSignInBanner] = useState(true);
-  const [emailRegistered, setEmailRegistered] = useState(false);
-  const [resendTimer, setResendTimer] = useState(0);
-
-  // Guest address form state
-  const [guestForm, setGuestForm] = useState<FormState>(() =>
-    createDraftForm(user),
-  );
-  const [guestErrors, setGuestErrors] = useState<Record<string, string>>({});
 
   // Fetch saved addresses
   const { data: addresses = [], isLoading } = useQuery({
@@ -777,19 +763,9 @@ export default function PaymentAddress() {
   }, [addresses]);
 
   useEffect(() => {
-    setGuestForm((f) => mergeContactIntoForm(f, user));
-  }, [user]);
-
-  useEffect(() => {
     if (!showForm || editItem) return;
     setForm((f) => mergeContactIntoForm(f, user));
   }, [showForm, editItem, user]);
-
-  useEffect(() => {
-    if (resendTimer <= 0) return;
-    const t = setTimeout(() => setResendTimer((r) => r - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resendTimer]);
 
   useEffect(() => {
     const hydrateState = (f: FormState): FormState => {
@@ -810,7 +786,6 @@ export default function PaymentAddress() {
     };
 
     setForm(hydrateState);
-    setGuestForm(hydrateState);
   }, [states]);
 
   const saveMutation = useMutation({
@@ -906,143 +881,7 @@ export default function PaymentAddress() {
     return Object.keys(e).length === 0;
   };
 
-  // ── OTP flow ────────────────────────────────────────────────────────────
-  const handleSendOtp = async () => {
-    const email = guestEmail.trim().toLowerCase();
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setOtpError("Enter a valid email address");
-      return;
-    }
-    setOtpLoading(true);
-    setOtpError("");
-    setEmailRegistered(false);
-    try {
-      const registration = await checkForgotPasswordChannels(email);
-      if (registration.registered) {
-        setEmailRegistered(true);
-        setOtpSent(false);
-        setOtpValue("");
-        setResendTimer(0);
-        toast.error(
-          "This email is already registered. Please sign in. If you forgot your password, please reset it.",
-        );
-        return;
-      }
-    } catch {
-      setOtpError(
-        "Unable to verify whether this email is registered. Please try again.",
-      );
-      return;
-    }
-    try {
-      await api.post("/auth/send-otp", {
-        email,
-        purpose: "guest_checkout",
-      });
-      setOtpSent(true);
-      setResendTimer(120);
-      toast.success("OTP sent to " + guestEmail);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const detail = err?.response?.data?.detail;
-      const message = String(
-        err?.response?.data?.message ??
-          (typeof detail === "string" ? detail : "") ??
-          "",
-      ).trim();
-      const isRegistered =
-        status === 409 ||
-        (typeof detail === "object" && detail?.exists) ||
-        /already registered|already exists|exists/i.test(message);
-
-      if (isRegistered) {
-        setEmailRegistered(true);
-        setOtpSent(false);
-        setOtpValue("");
-        setResendTimer(0);
-        toast.error(
-          "This email is already registered. Please sign in. If you forgot your password, please reset it.",
-        );
-      } else if (status === 400)
-        setOtpError(typeof detail === "string" ? detail : "Invalid email.");
-      else setOtpError("Failed to send OTP. Please try again.");
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!otpValue || otpValue.length < GUEST_OTP_LENGTH) {
-      setOtpError(`Enter all ${GUEST_OTP_LENGTH} digits of the OTP`);
-      return;
-    }
-    setOtpLoading(true);
-    setOtpError("");
-    try {
-      const res = await api.post("/auth/verify-otp", {
-        email: guestEmail.toLowerCase(),
-        otp: otpValue.replace(/\s/g, "").trim(),
-        purpose: "guest_checkout",
-      });
-      if (res.data?.access_token) {
-        const { login } = useAuthStore.getState();
-        let userInfo: any = {
-          userId: "",
-          email: guestEmail,
-          roleId: 2,
-          firstName: "",
-        };
-
-        try {
-          const rawInfo = await getUserInfo(res.data.access_token);
-          userInfo = normalizeUserInfo(rawInfo);
-        } catch {
-          // Best-effort only. The address can still be saved immediately via cache update.
-        }
-
-        login(userInfo as any, res.data.access_token);
-      }
-      setOtpVerified(true);
-      setResendTimer(0);
-      toast.success("Email verified! Now fill in your delivery address.");
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      setOtpError(
-        typeof detail === "string"
-          ? detail
-          : typeof detail === "object"
-          ? detail?.message ?? "Invalid OTP"
-          : "Invalid OTP. Try again.",
-      );
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
   // ── Continue handlers ───────────────────────────────────────────────────
-  const handleGuestContinue = () => {
-    if (!validate(guestForm, setGuestErrors)) {
-      toast.error("Please fix the highlighted errors");
-      return;
-    }
-    const state =
-      guestForm.state.trim() || getStateLabelById(states, guestForm.stateId);
-    const stateId = resolveStateId(states, state) ?? guestForm.stateId ?? null;
-    sessionStorage.setItem(
-      "guestAddress",
-      JSON.stringify({
-        ...guestForm,
-        state,
-        stateId,
-        addressLine: [guestForm.houseNo, guestForm.addressLine]
-          .filter(Boolean)
-          .join(", "),
-        email: guestEmail,
-      }),
-    );
-    navigate("/user-products/shipping-option?buyNow=" + (isBuyNow ? "1" : "0"));
-  };
-
   const handleAuthContinue = () => {
     if (!selectedAddressId) {
       toast.error("Please select a delivery address");
@@ -1068,16 +907,7 @@ export default function PaymentAddress() {
     });
   };
 
-  const mobileFooterAction = !isAuth
-    ? otpVerified
-      ? {
-          label: "Continue to Shipping",
-          onClick: handleGuestContinue,
-          disabled: false,
-          busy: false,
-        }
-      : null
-    : showForm
+  const mobileFooterAction = showForm
     ? {
         label: editItem ? "Update Address" : "Save Address",
         onClick: handleSaveAddress,
@@ -1091,9 +921,7 @@ export default function PaymentAddress() {
         busy: false,
       };
 
-  const mobileFooterBadge = !isAuth
-    ? "Delivery address"
-    : showForm
+  const mobileFooterBadge = showForm
     ? editItem
       ? "Edit address"
       : "New address"
@@ -1149,226 +977,14 @@ export default function PaymentAddress() {
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="s-paymentaddre-2e2509 s-paymentaddre-ffd8281d checkout-shell checkout-shell--address">
-      {/* ════════════════ GUEST FLOW ════════════════ */}
+      {/* Unauthenticated checkout redirects to account creation. */}
       {!isAuth && (
-        <>
-          {/* Sign-in nudge */}
-          {showSignInBanner && (
-            <div className="s-paymentaddre-8d9363">
-              <span className="s-quickcart-08341f s-paymentaddre-ffd8281d">
-                <i className="bi bi-person-circle s-paymentaddre-dffb97" />
-                Have an account?{" "}
-                <Link to="/login" className="s-paymentaddre-8b8b2d">
-                  Sign in
-                </Link>{" "}
-                to use saved addresses &amp; track orders.
-              </span>
-              <button
-                onClick={() => setShowSignInBanner(false)}
-                className="s-paymentaddre-d488bf"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {/* Step 1 — Email verify */}
-          {!otpVerified && (
-            <div className="s-paymentaddre-81c77f">
-              <div className="s-paymentaddre-083bcb">
-                <div className="s-paymentaddre-39fefb">1</div>
-                <h6 className="s-paymentaddre-bf268a s-paymentaddre-ffd02986">
-                  Verify your email
-                </h6>
-              </div>
-
-              <div className="s-paymentaddre-392b28">
-                <div className="s-userdashboar-6d7d28">
-                  <label style={labelSt}>
-                    Email Address{" "}
-                    <span className="s-resetpasswor-ddc1b2">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={guestEmail}
-                    onChange={(e) => {
-                      setGuestEmail(e.target.value);
-                      setOtpError("");
-                      setOtpSent(false);
-                      setOtpValue("");
-                      setEmailRegistered(false);
-                    }}
-                    placeholder="you@example.com"
-                    disabled={otpSent}
-                    style={inpStyle(false, otpSent)}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={
-                    otpSent
-                      ? () => {
-                          setOtpSent(false);
-                          setOtpValue("");
-                          setEmailRegistered(false);
-                        }
-                      : handleSendOtp
-                  }
-                  disabled={otpLoading || emailRegistered}
-                  className="s-paymentaddre-a7c6a4"
-                  style={{
-                    background: otpSent ? "#fff" : "var(--brand)",
-                    color: otpSent ? "var(--brand)" : "#fff",
-                    fontFamily: FONT_UI,
-                  }}
-                >
-                  {otpLoading
-                    ? "Sending…"
-                    : otpSent
-                    ? "Change email"
-                    : "Send OTP"}
-                </button>
-              </div>
-
-              {otpSent && (
-                <div className="s-paymentaddre-10efad">
-                  <label style={labelSt}>
-                    OTP sent to <strong>{guestEmail}</strong>
-                  </label>
-                  <div className="s-adminproduct-0f6417">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={otpValue}
-                      onChange={(e) => {
-                        setOtpValue(
-                          e.target.value
-                            .replace(/\D/g, "")
-                            .slice(0, GUEST_OTP_LENGTH),
-                        );
-                        setOtpError("");
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
-                      placeholder="• • • • • •"
-                      maxLength={GUEST_OTP_LENGTH}
-                      autoComplete="one-time-code"
-                      className="s-paymentaddre-66b84d s-paymentaddre-ffd8281d"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleVerifyOtp}
-                      disabled={
-                        otpLoading || otpValue.length < GUEST_OTP_LENGTH
-                      }
-                      className="s-paymentaddre-24677c"
-                      style={{
-                        background:
-                          otpValue.length >= GUEST_OTP_LENGTH
-                            ? "var(--brand)"
-                            : "var(--ivory)",
-                        cursor:
-                          otpValue.length >= GUEST_OTP_LENGTH
-                            ? "pointer"
-                            : "not-allowed",
-                        fontFamily: FONT_UI,
-                      }}
-                    >
-                      {otpLoading ? "Verifying…" : "Verify OTP"}
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (resendTimer > 0) return;
-                      setOtpValue("");
-                      setOtpError("");
-                      handleSendOtp();
-                    }}
-                    disabled={resendTimer > 0}
-                    className="s-paymentaddre-3e995d"
-                    style={{
-                      border: `1.5px solid ${
-                        resendTimer > 0 ? "var(--ivory)" : "var(--brand)"
-                      }`,
-                      color:
-                        resendTimer > 0 ? "var(--heirloom)" : "var(--brand)",
-                      fontFamily: FONT_UI,
-                      cursor: resendTimer > 0 ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {resendTimer > 0 ? (
-                      `Resend in ${Math.floor(resendTimer / 60)}:${String(
-                        resendTimer % 60,
-                      ).padStart(2, "0")}`
-                    ) : (
-                      <>
-                        <i className="bi bi-arrow-clockwise" /> Resend OTP
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {emailRegistered && (
-                <div className="s-paymentaddre-e5a6a2">
-                  <span className="s-quickcart-08341f">
-                    <i className="bi bi-info-circle s-paymentaddre-827b5f" />
-                    <strong>{guestEmail}</strong> is already registered.
-                  </span>
-                  <div className="s-adminbrands-ac734d">
-                    <Link to="/login" className="s-paymentaddre-e47eab">
-                      Sign In
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmailRegistered(false);
-                        setGuestEmail("");
-                        setOtpError("");
-                      }}
-                      className="s-paymentaddre-99313b s-paymentaddre-ffd8281d"
-                    >
-                      Use different email
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {otpError && !emailRegistered && (
-                <p style={{ ...errSt, marginTop: 10, fontSize: 13 }}>
-                  <i className="bi bi-exclamation-circle" /> {otpError}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Step 2 — Delivery Address form */}
-          {otpVerified && (
-            <div className="s-ourstores-5cd98f">
-              <div className="s-paymentaddre-3618cd">
-                <i className="bi bi-check-circle-fill s-paymentaddre-d3e729" />
-                <span className="s-cart-1c5a85">{guestEmail} verified</span>
-              </div>
-              <div className="s-paymentaddre-b28ef4">
-                <div className="s-paymentaddre-39fefb">2</div>
-                <h6 className="s-paymentaddre-bf268a s-paymentaddre-ffd02986">
-                  Delivery Address
-                </h6>
-              </div>
-              <AddressFormPanel
-                form={guestForm}
-                setForm={setGuestForm}
-                errors={guestErrors}
-                setErrors={setGuestErrors}
-                states={states}
-                onSubmit={handleGuestContinue}
-                submitLabel="Continue to Shipping"
-                showDefault={false}
-              />
-            </div>
-          )}
-        </>
+        <div className="s-paymentaddre-db9c9f">
+          <i className="bi bi-person-plus s-paymentaddre-47f187" />
+          <p className="s-addresslist-92985e">
+            Redirecting you to create an account...
+          </p>
+        </div>
       )}
 
       {/* ════════════════ AUTH FLOW ════════════════ */}

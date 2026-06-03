@@ -2111,14 +2111,20 @@ export default function Home() {
 
   const { data: bestSellersProducts = [], isSuccess: bsReady } = useQuery({
     queryKey: ["home-best-sellers"],
-    queryFn: () => listProducts({ isBestSeller: true, pageSize: 40 }),
+    queryFn: () =>
+      listProducts({
+        isBestSeller: true,
+        pageSize: 500,
+        orderProperty: "Rating",
+        orderAscending: false,
+      }),
     select: dedupeByProductId,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: newArrivalsProducts = [], isSuccess: naReady } = useQuery({
     queryKey: ["home-new-arrivals"],
-    queryFn: () => listNewArrivals({ pageSize: 40 }),
+    queryFn: () => listNewArrivals({ pageSize: 500 }),
     select: dedupeByProductId,
     staleTime: 5 * 60 * 1000,
   });
@@ -2146,7 +2152,7 @@ export default function Home() {
   const { data: twamFeaturedProducts = [], isSuccess: tfReady } = useQuery({
     queryKey: ["home-twam-featured", twamBrandId],
     enabled: twamBrandId != null,
-    queryFn: () => listProducts({ brandIds: twamBrandId, pageSize: 40 }),
+    queryFn: () => listProducts({ brandIds: twamBrandId, pageSize: 500 }),
     select: dedupeByProductId,
     staleTime: 5 * 60 * 1000,
   });

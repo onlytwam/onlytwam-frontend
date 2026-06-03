@@ -40,6 +40,117 @@ const FONTS = '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
 const FONT_UI = '"Trebuchet MS", "Gill Sans", Arial, sans-serif';
 const DOUBLE_TAP_MAX_DELAY = 320;
 const DOUBLE_TAP_MAX_DISTANCE = 24;
+const STORAGE_ROOT_FROM_LEGACY_BASE = getImageUrl("__twam_probe__").replace(
+  /\/(?:(?:product-images|products|category|brands|blogs|profiles|reviews|contactus|home)\/)?__twam_probe__$/,
+  "",
+);
+const STORAGE_CONTAINER_PREFIXES = [
+  "products/",
+  "category/",
+  "brands/",
+  "blogs/",
+  "profiles/",
+  "reviews/",
+  "contactus/",
+  "home/",
+];
+
+const normalizeImageCandidate = (src: unknown): string =>
+  String(src ?? "").trim();
+
+const normalizeStoragePath = (src: string): string => {
+  let value = src.trim().replace(/\\/g, "/");
+  if (!value) return "";
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    try {
+      const url = new URL(value);
+      if (
+        url.hostname.includes("blob.core.windows.net") ||
+        url.hostname.startsWith("twamstorage") ||
+        url.hostname.startsWith("twamlivestorage")
+      ) {
+        return value;
+      }
+      value = url.pathname;
+    } catch {
+      value = value.replace(/^https?:\/\/[^/]+/i, "");
+    }
+  }
+
+  return value
+    .replace(/^\/+/, "")
+    .replace(/^api\/+/i, "")
+    .replace(/^uploads\/+/i, "")
+    .replace(/^product-images\/+/i, "");
+};
+
+const resolveProductDetailImageUrl = (src: unknown): string => {
+  const raw = normalizeImageCandidate(src);
+  if (!raw) return "";
+  if (raw.startsWith("data:") || raw.startsWith("blob:")) return raw;
+  if (raw.startsWith("/assets/")) return raw;
+  if (raw.startsWith("assets/")) return `/${raw}`;
+
+  const clean = normalizeStoragePath(raw);
+  if (!clean) return "";
+  if (clean.startsWith("http://") || clean.startsWith("https://")) {
+    return clean;
+  }
+  if (STORAGE_CONTAINER_PREFIXES.some((prefix) => clean.startsWith(prefix))) {
+    return `${STORAGE_ROOT_FROM_LEGACY_BASE}/${clean}`;
+  }
+  return getImageUrl(clean);
+};
+
+const getImageSourceFromRecord = (record: any): string => {
+  if (!record) return "";
+  if (typeof record === "string") return normalizeImageCandidate(record);
+
+  const directCandidates = [
+    record.filePath,
+    record.imageUrl,
+    record.imageURL,
+    record.src,
+    record.url,
+    record.path,
+    record.primaryImage,
+    record.selectedImage,
+    record.productImage,
+    record.variantImage,
+    record.thumbnail,
+    record.image,
+    record.fileData,
+  ];
+
+  for (const candidate of directCandidates) {
+    if (!candidate) continue;
+    if (typeof candidate === "object") {
+      const nested = getImageSourceFromRecord(candidate);
+      if (nested) return nested;
+      continue;
+    }
+
+    const normalized = normalizeImageCandidate(candidate);
+    if (normalized) return normalized;
+  }
+
+  return "";
+};
+
+const getFirstImageSource = (record: any): string => {
+  if (!record) return "";
+  if (Array.isArray(record.images)) {
+    for (const img of record.images) {
+      const src = getImageSourceFromRecord(img);
+      if (src) return src;
+    }
+  }
+  return getImageSourceFromRecord(record);
+};
+
+const getFirstVariantImageUrl = (variant: any): string =>
+  resolveProductDetailImageUrl(getFirstImageSource(variant));
 
 // Size/cup-size display is driven entirely by product-level PVD data.
 // The backend detects whether sizes are alphabetical or numerical from the
@@ -689,19 +800,20 @@ export default function ProductDetail() {
   }, [exploreRaw]);
 
   const reviews: any[] = reviewData?.list ?? [];
-  const images: string[] = useMemo(
-    () =>
-      (product?.images?.length
+  const images: string[] = useMemo(() => {
+    const rawImages =
+      Array.isArray(product?.images) && product.images.length
         ? product.images
         : product?.image
         ? [product.image]
-        : []
-      ).map((img: any) => {
-        if (typeof img === "string") return getImageUrl(img);
-        return getImageUrl(img?.fileData || img?.filePath || "");
-      }),
-    [product?.images, product?.image],
-  );
+        : [];
+
+    return rawImages
+      .map((img: any) =>
+        resolveProductDetailImageUrl(getImageSourceFromRecord(img)),
+      )
+      .filter(Boolean);
+  }, [product?.images, product?.image]);
 
   const colors: any[] = useMemo(() => product?.colors ?? [], [product?.colors]);
   const selectedColorSwatch = colors.find(
@@ -709,6 +821,7 @@ export default function ProductDetail() {
   );
   const selectedColor: string =
     selectedColorSwatch?.colorName ?? selectedColorSwatch?.color ?? "";
+  const colorSwatchSize = isMobileViewport ? 62 : 72;
 
   // Stable ref for navigate/location so the effect doesn't re-fire on every render
   const navigateRef = useRef(navigate);
@@ -1800,63 +1913,76 @@ export default function ProductDetail() {
                   </span>
                 </p>
                 <div className="s-adminproduct-47622e">
-                  {colors.map((c: any) => (
-                    <button
-                      key={c.productVariantId}
-                      onClick={() => {
-                        if (c.productVariantId !== currentVId) {
-                          setCurrentVId(c.productVariantId);
-                          navigate(
-                            `/user-products/product-detail/${
-                              c.productVariantId
-                            }/${slugify(product?.name || "product")}`,
-                          );
-                        }
-                      }}
-                      title={c.colorName || c.color || ""}
-                      className="s-productdetai-e37fda"
-                      style={{
-                        border: `2.5px solid ${
-                          c.productVariantId === currentVId
-                            ? "var(--brand)"
-                            : "transparent"
-                        }`,
-                        borderRadius: 10,
-                        padding: 0,
-                        overflow: "hidden",
-                        background: "none",
-                        cursor: "pointer",
-                        lineHeight: 0,
-                      }}
-                    >
-                      {c.image ? (
-                        <img
-                          src={getImageUrl(c.image)}
-                          alt={c.colorName || c.color || ""}
-                          style={{
-                            width: 52,
-                            height: 52,
-                            borderRadius: 8,
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 52,
-                            height: 52,
-                            borderRadius: 8,
-                            background:
-                              c.colorFamilyHex ??
-                              c.colorHex ??
-                              c.colourHex ??
-                              "#d0c8c2",
-                          }}
-                        />
-                      )}
-                    </button>
-                  ))}
+                  {colors.map((c: any) => {
+                    const swatchImage = getFirstVariantImageUrl(c);
+                    const fallbackColor =
+                      c.colorFamilyHex ??
+                      c.colorHex ??
+                      c.colourHex ??
+                      "#d0c8c2";
+
+                    return (
+                      <button
+                        key={c.productVariantId}
+                        onClick={() => {
+                          if (c.productVariantId !== currentVId) {
+                            setCurrentVId(c.productVariantId);
+                            navigate(
+                              `/user-products/product-detail/${
+                                c.productVariantId
+                              }/${slugify(product?.name || "product")}`,
+                            );
+                          }
+                        }}
+                        title={c.colorName || c.color || ""}
+                        className="s-productdetai-e37fda"
+                        style={{
+                          width: colorSwatchSize,
+                          height: colorSwatchSize,
+                          border: `2.5px solid ${
+                            c.productVariantId === currentVId
+                              ? "var(--brand)"
+                              : "transparent"
+                          }`,
+                          borderRadius: 12,
+                          padding: 0,
+                          overflow: "hidden",
+                          background: fallbackColor,
+                          cursor: "pointer",
+                          lineHeight: 0,
+                          boxSizing: "border-box",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {swatchImage ? (
+                          <img
+                            src={swatchImage}
+                            alt={c.colorName || c.color || ""}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              borderRadius: 9,
+                              objectFit: "cover",
+                              display: "block",
+                            }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              borderRadius: 9,
+                              background: fallbackColor,
+                            }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

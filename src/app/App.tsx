@@ -107,7 +107,6 @@ const MOBILE_BACK_HEADER_ROUTES: MobileBackHeaderRoute[] = [
   { path: "/register", title: "Create Account" },
   { path: "/reset-password", title: "Reset Password" },
   { path: "/verify-otp", title: "Verify OTP" },
-  { path: "/user-products/guest-signup", title: "Checkout" },
   { path: "/order-details", title: "Order Details" },
   { path: "/user-products/order-confirm", title: "Order Confirmed" },
   { path: "/user-products/payment-callback", title: "Payment Failed" },
@@ -195,7 +194,6 @@ const OrderConfirm = lazy(() => import("@/features/orders/pages/OrderConfirm"));
 const PaymentCallback = lazy(
   () => import("@/features/orders/pages/PaymentCallback"),
 );
-const GuestSignup = lazy(() => import("@/features/auth/pages/GuestSignup"));
 const ShippingOption = lazy(
   () => import("@/features/orders/pages/ShippingOption"),
 );
@@ -362,10 +360,6 @@ const STATIC_ROUTE_CRUMBS: Record<string, StaticCrumbs> = {
     { label: "Address", path: "/user-products/payment-address" },
     { label: "Shipping", path: "/user-products/shipping-option" },
     { label: "Payment" },
-  ],
-  "/user-products/guest-signup": [
-    { label: "Checkout" },
-    { label: "Guest Sign Up" },
   ],
   "/user-products/return-order": [
     { label: "Returns" },
@@ -980,10 +974,6 @@ export default function App() {
             <Route
               path="/user-products/invoice-details/:id"
               element={<Invoice />}
-            />
-            <Route
-              path="/user-products/guest-signup"
-              element={<GuestSignup />}
             />
 
             {/* ── Returns ── */}

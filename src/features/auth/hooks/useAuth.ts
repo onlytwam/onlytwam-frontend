@@ -1,7 +1,7 @@
 /**
  * features/auth/hooks/useAuth.ts
  * ───────────────────────────────
- * TanStack Query mutations for login, register, OTP flows.
+ * TanStack Query mutations for login, register, and password reset flows.
  * Wraps the auth API calls with proper error handling and
  * store updates so components don't need to do it manually.
  */
@@ -14,8 +14,6 @@ import {
   getUserInfo,
   normalizeUserInfo,
   registerUser,
-  sendOtpEmail,
-  verifyOtp,
   resetPassword,
 } from '../api/auth.api';
 
@@ -53,7 +51,7 @@ export function useRegister() {
   return useMutation({
     mutationFn: (data: Parameters<typeof registerUser>[0]) => registerUser(data),
     onSuccess: () => {
-      toast.success('Account created! Please verify your email.');
+      toast.success('Account created! Please sign in.');
     },
     onError: (err: any) => {
       const msg =
@@ -62,26 +60,6 @@ export function useRegister() {
         'Registration failed. Please try again.';
       toast.error(msg);
     },
-  });
-}
-
-// ── Send OTP ──────────────────────────────────────────────────────────────────
-export function useSendOtp() {
-  return useMutation({
-    mutationFn: (email: string) => sendOtpEmail(email),
-    onSuccess: () => {
-      toast.success('OTP sent to your email.');
-    },
-    onError: () => {
-      toast.error('Could not send OTP. Please try again.');
-    },
-  });
-}
-
-// ── Verify OTP ────────────────────────────────────────────────────────────────
-export function useVerifyOtp() {
-  return useMutation({
-    mutationFn: (data: { email: string; otp: string }) => verifyOtp(data.email, data.otp),
   });
 }
 

@@ -966,6 +966,50 @@ function getItemStockQuantity(item: any) {
   return Number.isFinite(stock) && stock >= 0 ? stock : null;
 }
 
+function getOutOfStockProducts(payload: any): any[] {
+  const list =
+    payload?.outOfStockProducts ??
+    payload?.data?.outOfStockProducts ??
+    payload?.detail?.outOfStockProducts ??
+    [];
+  return Array.isArray(list) ? list : [];
+}
+
+function getBackendStockIssues(products: any[], items: any[]): StockIssue[] {
+  return products.map((product) => {
+    const productVariantDetailId = product?.productVariantDetailId;
+    const item =
+      items.find(
+        (current) =>
+          String(current?.productVariantDetailId) ===
+          String(productVariantDetailId),
+      ) ?? {};
+    const available = Number(product?.stockQuantity);
+
+    return {
+      id: String(
+        productVariantDetailId ??
+          item.cartId ??
+          item.productVariantDetailId ??
+          item.productVariantId,
+      ),
+      name:
+        product?.productName ||
+        item.productName ||
+        item.name ||
+        "Unnamed product",
+      requested: getCartItemQuantity(item),
+      available: Number.isFinite(available) && available >= 0 ? available : 0,
+      item,
+    } satisfies StockIssue;
+  });
+}
+
+function isAuthFailure(error: any) {
+  const status = Number(error?.response?.status);
+  return status === 401 || status === 403;
+}
+
 function updateMergedCartItems(
   items: any[],
   item: any,
@@ -1147,8 +1191,8 @@ export default function Cart() {
     physicalCouponCode,
   } = useCartStore();
 
-  const isAuth = hasValidToken();
   const userId = getUserId();
+  const isAuth = hasValidToken() && Boolean(userId);
   const [buyNowItems, setBuyNowItems] = useState<any[]>(() =>
     isBuyNowView ? normalizeBuyNowItems(getBuyNowSession()?.items ?? []) : [],
   );
@@ -1486,24 +1530,79 @@ export default function Cart() {
     checkoutTransitionInProgressRef.current = false;
   };
 
+  const getCartReturnPath = () =>
+    "/user-products/cart" + (isBuyNowView ? "?buyNow=1" : "");
+
+  const redirectGuestToLogin = () => {
+    const cartReturnPath = getCartReturnPath();
+    checkoutTransitionInProgressRef.current = true;
+    didProceedToCheckoutRef.current = true;
+    clearGiftRedirectTimer();
+    giftUnlockPendingRef.current = false;
+    giftFlowSignatureRef.current = null;
+
+    navigate(`/login?redirect=${encodeURIComponent(cartReturnPath)}`, {
+      state: {
+        from: cartReturnPath,
+        surpriseGiftFlow: currentCartSignature,
+      },
+    });
+  };
+
   const validateCartStock = async () => {
-    const localIssues = getStockIssues(selectedItems);
-    if (localIssues.length > 0) {
-      showStockIssuesPopup(localIssues, (issue) => {
-        handleQtyChange(issue.item, Math.max(1, issue.requested - 1));
-      });
+    if (!isAuth) {
+      redirectGuestToLogin();
       return false;
     }
 
     try {
-      await checkOutOfStock({
+      const stockResponse = await checkOutOfStock({
         orderItems: selectedItems
           .filter((i) => i.productVariantDetailId)
           .map((i) => ({ productVariantDetailId: i.productVariantDetailId })),
       });
+
+      const backendIssues = getBackendStockIssues(
+        getOutOfStockProducts(stockResponse),
+        selectedItems,
+      );
+      if (backendIssues.length > 0) {
+        showStockIssuesPopup(backendIssues, (issue) => {
+          handleQtyChange(issue.item, Math.max(1, issue.requested - 1));
+        });
+        return false;
+      }
+
+      const localIssues = getStockIssues(selectedItems);
+      if (localIssues.length > 0) {
+        showStockIssuesPopup(localIssues, (issue) => {
+          handleQtyChange(issue.item, Math.max(1, issue.requested - 1));
+        });
+        return false;
+      }
+
       return true;
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Some items are out of stock");
+      if (isAuthFailure(e)) {
+        redirectGuestToLogin();
+        return false;
+      }
+
+      const backendIssues = getBackendStockIssues(
+        getOutOfStockProducts(e?.response?.data),
+        selectedItems,
+      );
+      if (backendIssues.length > 0) {
+        showStockIssuesPopup(backendIssues, (issue) => {
+          handleQtyChange(issue.item, Math.max(1, issue.requested - 1));
+        });
+        return false;
+      }
+
+      toast.error(
+        e?.response?.data?.message ||
+          "Could not validate stock. Please try checkout again.",
+      );
       return false;
     }
   };
@@ -1511,6 +1610,11 @@ export default function Cart() {
   const proceedToCheckoutAddress = async () => {
     if (checkoutTransitionInProgressRef.current) return;
     try {
+      if (!isAuth) {
+        redirectGuestToLogin();
+        return;
+      }
+
       // Gate: block checkout if any selected item has an inactive category
       const inactiveSelected = selectedItems.filter(
         (i: any) => i.categoryIsActive === false,
@@ -1555,16 +1659,6 @@ export default function Cart() {
       const checkoutPath =
         "/user-products/payment-address" + (isBuyNowView ? "?buyNow=1" : "");
 
-      if (!isAuth) {
-        navigate(checkoutPath, {
-          state: {
-            from: location.pathname + location.search,
-            surpriseGiftFlow: currentCartSignature,
-          },
-        });
-        return;
-      }
-
       navigate(checkoutPath, {
         state: {
           from: location.pathname + location.search,
@@ -1573,7 +1667,15 @@ export default function Cart() {
       });
     } catch (e: any) {
       checkoutTransitionInProgressRef.current = false;
-      toast.error(e?.response?.data?.message || "Some items are out of stock");
+      if (isAuthFailure(e)) {
+        redirectGuestToLogin();
+        return;
+      }
+
+      toast.error(
+        e?.response?.data?.message ||
+          "Could not continue checkout. Please try again.",
+      );
     }
   };
 
@@ -2210,6 +2312,11 @@ export default function Cart() {
   const handleCheckout = async () => {
     if (selectedItems.length === 0) {
       toast.error("Please select at least one item");
+      return;
+    }
+
+    if (!isAuth) {
+      redirectGuestToLogin();
       return;
     }
 
@@ -3277,7 +3384,7 @@ export default function Cart() {
                   <button onClick={handleCheckout} className="s-cart-769238">
                     {isBuyNowView
                       ? "Checkout Buy Now →"
-                      : "Checkout as Guest →"}
+                      : "Sign in to Checkout →"}
                   </button>
                 )}
                 <button
@@ -3321,7 +3428,11 @@ export default function Cart() {
           disabled={selectedItems.length === 0}
           className="cart-mobile-place-order__btn"
         >
-          {isBuyNowView ? "Buy Now Checkout" : "Place Order"}
+          {isAuth
+            ? isBuyNowView
+              ? "Buy Now Checkout"
+              : "Place Order"
+            : "Sign in to Checkout"}
         </button>
       </div>
     </>
