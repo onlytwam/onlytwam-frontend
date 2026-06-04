@@ -85,22 +85,19 @@ export default function TwamBrands() {
                     />
                   </div>
                   <div className="s-twambrands-featured-copy">
-                    <span className="s-twambrands-featured-eyebrow">
-                      Our own brand
-                    </span>
                     <h2 className="s-twambrands-featured-title">
-                      {twamBrand.brandName}
+                      Our signature brand
                     </h2>
                     <p className="s-twambrands-featured-tagline">
-                      {twamBrand.brandDescription ||
-                        "Designed for premium comfort, easy style, and the perfect fit."}
+                      Designed to stand out with premium comfort, effortless
+                      style, and a bold sense of self.
                     </p>
                     <button
                       type="button"
                       className="s-twambrands-featured-cta"
                       onClick={() => goToProducts(twamBrand.brandId)}
                     >
-                      Explore TWAM
+                      Shop TWAM
                     </button>
                   </div>
                 </div>
