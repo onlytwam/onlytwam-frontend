@@ -18,7 +18,10 @@ export default function TwamBrands() {
       }),
   });
 
-  const logos = data?.list ?? [];
+  // Only show brands that have an image uploaded — a card with no image is useless.
+  const logos = (data?.list ?? []).filter(
+    (b: any) => b.brandImage || b.brandLogo,
+  );
 
   const goToProducts = (brandId: number) => {
     navigate(`/user-products/product-list?brandId=${brandId}`);
