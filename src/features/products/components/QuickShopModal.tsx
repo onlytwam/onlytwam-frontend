@@ -167,19 +167,24 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
     };
   }, []);
 
-  const images: string[] = useMemo(
-    () =>
-      (product?.images?.length
-        ? product.images
-        : product?.image
-        ? [product.image]
-        : []
-      ).map((img: any) => {
+  const images: string[] = useMemo(() => {
+    // Images must come from the currently-selected variant entry inside
+    // product.colors — NOT from product.images / product.image which are
+    // product-level fields shared across all variants.
+    const variantEntry = (product?.colors ?? []).find(
+      (c: any) => c.productVariantId === variantId,
+    );
+    const raw: any[] =
+      Array.isArray(variantEntry?.images) && variantEntry.images.length
+        ? variantEntry.images
+        : [];
+    return raw
+      .map((img: any) => {
         if (typeof img === "string") return getImageUrl(img);
         return getImageUrl(img?.fileData || img?.filePath || "");
-      }),
-    [product?.images, product?.image],
-  );
+      })
+      .filter(Boolean);
+  }, [product?.colors, variantId]);
   const displayedThumbs = Math.min(images.length, visibleThumbs);
 
   useEffect(() => {
