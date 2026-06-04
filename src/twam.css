@@ -12563,6 +12563,90 @@ button {
   text-align: center;
 }
 
+.s-twambrands-featured {
+  margin-bottom: 40px;
+}
+
+.s-twambrands-featured-card {
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) 1fr;
+  gap: 24px;
+  align-items: center;
+  padding: 28px;
+  border: 1px solid rgba(107, 15, 42, 0.12);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(107, 15, 42, 0.08);
+  cursor: pointer;
+}
+
+.s-twambrands-featured-card:focus-visible,
+.s-twambrands-featured-card:hover {
+  border-color: var(--brand);
+}
+
+.s-twambrands-featured-image-frame {
+  width: 100%;
+  min-height: 240px;
+  background: #f5f0e6;
+  overflow: hidden;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.s-twambrands-featured-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.s-twambrands-featured-eyebrow {
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.s-twambrands-featured-title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.1;
+  color: #000;
+}
+
+.s-twambrands-featured-tagline {
+  margin: 0;
+  color: var(--heirloom);
+  font-size: 16px;
+  max-width: 520px;
+}
+
+.s-twambrands-featured-cta {
+  width: fit-content;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.s-twambrands-featured-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 880px) {
+  .s-twambrands-featured-card {
+    grid-template-columns: 1fr;
+  }
+}
+
 .s-yourfitfinde-eb5fe4 {
   font-size: 36px;
   font-weight: 700;
