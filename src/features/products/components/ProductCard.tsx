@@ -298,17 +298,15 @@ export default function ProductCard({
       return obj.images
         .map((img: any) => {
           if (typeof img === "string") return normalizeImageCandidate(img);
-          return (
-            normalizeImageCandidate(
-              img?.filePath ||
-                img?.imageUrl ||
-                img?.imageURL ||
-                img?.src ||
-                img?.url ||
-                img?.path ||
-                img?.fileData ||
-                "",
-            )
+          return normalizeImageCandidate(
+            img?.filePath ||
+              img?.imageUrl ||
+              img?.imageURL ||
+              img?.src ||
+              img?.url ||
+              img?.path ||
+              img?.fileData ||
+              "",
           );
         })
         .filter(Boolean);
@@ -337,19 +335,12 @@ export default function ProductCard({
 
     return Array.from(new Set(candidates));
   };
-  // const rawImages: string[] = resolveImageList(selectedVariant).length
-  //   ? resolveImageList(selectedVariant)
-  //   : resolveImageList(product);
-
+  // Images must come strictly from the selected variant.
+  // Do NOT fall back to product-level images — the product object holds shared
+  // fields (imageUrl, images) that are not scoped to any single variant, so
+  // falling back would show the same image pool on every colour swatch.
   const variantImages = resolveImageList(selectedVariant);
-  const productImages = resolveImageList(product);
-
-  const rawImages: string[] =
-    variantImages.length > 0
-      ? variantImages
-      : productImages.length > 0
-      ? productImages
-      : [];
+  const rawImages: string[] = variantImages;
 
   // Backend returns full URLs — just delegate to getImageUrl which passes them through
   const resolveDisplayImageUrl = (src: string): string => getImageUrl(src, "");
