@@ -229,7 +229,7 @@ export default function AdminLayout() {
           </button>
           <button
             onClick={() => {
-              logout();
+              logout({ showToast: true });
               navigate("/login");
             }}
             className="s-adminlayout-e5f366"

@@ -80,7 +80,7 @@ export default function AccountHome() {
   const profileImageUrl = (user as any)?.profileImageUrl || "";
 
   const handleSignOut = () => {
-    logout();
+    logout({ showToast: true });
     navigate("/");
   };
 

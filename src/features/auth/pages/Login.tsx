@@ -192,6 +192,11 @@ export default function Login() {
       // Reset failed attempts on successful login
       setFailedAttempts(0);
       await login(userInfo as any, tokenData.access_token);
+      toast.success(
+        userInfo.firstName
+          ? `Welcome back, ${userInfo.firstName}!`
+          : "Signed in successfully.",
+      );
       sessionStorage.removeItem("redirect_after_login");
       navigate(
         getPostLoginPath(
