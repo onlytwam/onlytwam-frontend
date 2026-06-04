@@ -572,6 +572,12 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
         imageURL: images[0] || "",
         isSelected: true,
         color: selectedColor || "",
+        colorName: selectedColor || "",
+        colorHex:
+          selectedColorSwatch?.colorFamilyHex ??
+          selectedColorSwatch?.colorHex ??
+          selectedColorSwatch?.colourHex ??
+          "",
         size: selLabel || "",
         cupSize: cupLabel || "",
         stockQuantity: selStock ?? undefined, // ← enables stock check in QuickCart

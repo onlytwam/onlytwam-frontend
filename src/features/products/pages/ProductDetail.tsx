@@ -1243,6 +1243,12 @@ export default function ProductDetail() {
         image: images[0] || "",
         imageURL: images[0] || "",
         color: selectedColor || "",
+        colorName: selectedColor || "",
+        colorHex:
+          selectedColorSwatch?.colorFamilyHex ??
+          selectedColorSwatch?.colorHex ??
+          selectedColorSwatch?.colourHex ??
+          "",
         size: selLabel || "",
         cupSize: cupLabel || "",
         isSelected: true,
