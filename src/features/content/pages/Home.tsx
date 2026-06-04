@@ -516,6 +516,21 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
       [],
     );
   }, [logos]);
+
+  const twamBrandImage = useMemo(
+    () =>
+      brandImages.find(
+        (b) => typeof b.name === "string" && b.name.trim().toLowerCase() === "twam",
+      ),
+    [brandImages],
+  );
+
+  const otherBrandImages = useMemo(
+    () =>
+      brandImages.filter((b) => b.brandId !== twamBrandImage?.brandId),
+    [brandImages, twamBrandImage],
+  );
+
   const navigate = useNavigate();
 
   // Nothing to show — hide section entirely
@@ -525,7 +540,7 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
     itemHeight = itemWidth / 3,
     gap = 0,
     durationSeconds = 34;
-  const setWidth = brandImages.length * itemWidth;
+  const setWidth = otherBrandImages.length * itemWidth;
   const marqueeStyle: CSSProperties & {
     "--brand-gap": string;
     "--brand-duration": string;
@@ -541,19 +556,80 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
       <div className="s-home-b9d256" />
       <div className="container s-home-59ddea">
         <SectionTitle title="Brands" />
-        <div
-          className="brand-marquee s-home-68cb82"
-          style={marqueeStyle}
-        >
-          <div className="brand-marquee-track">
-            {[...brandImages, ...brandImages].map((brand, i) => {
-              const isClone = i >= brandImages.length;
-              const goToBrand = () => {
-                if (!brand.brandId) return;
-                navigate(`/user-products/product-list?brandId=${brand.brandId}`);
-              };
+        {twamBrandImage ? (
+          <div className="home-brands-featured">
+            <div
+              className="home-brands-featured-card"
+              onClick={() => {
+                if (twamBrandImage.brandId) {
+                  navigate(
+                    `/user-products/product-list?brandId=${twamBrandImage.brandId}`,
+                  );
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  if (twamBrandImage.brandId) {
+                    navigate(
+                      `/user-products/product-list?brandId=${twamBrandImage.brandId}`,
+                    );
+                  }
+                }
+              }}
+            >
+              <div className="home-brands-featured-image">
+                <img
+                  src={twamBrandImage.src}
+                  alt={twamBrandImage.name}
+                  className="s-home-783e28"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
+              <div className="home-brands-featured-copy">
+                <div className="home-brands-featured-label">TWAM</div>
+                <h3 className="home-brands-featured-title">
+                  Our signature brand
+                </h3>
+                <p className="home-brands-featured-tagline">
+                  Designed to stand out with premium comfort, effortless style,
+                  and a bold sense of self.
+                </p>
+                <button
+                  type="button"
+                  className="home-brands-featured-action"
+                  onClick={() => {
+                    if (twamBrandImage.brandId) {
+                      navigate(
+                        `/user-products/product-list?brandId=${twamBrandImage.brandId}`,
+                      );
+                    }
+                  }}
+                >
+                  Shop TWAM
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {otherBrandImages.length > 0 ? (
+          <div
+            className="brand-marquee s-home-68cb82"
+            style={marqueeStyle}
+          >
+            <div className="brand-marquee-track">
+              {[...otherBrandImages, ...otherBrandImages].map((brand, i) => {
+                const isClone = i >= otherBrandImages.length;
+                const goToBrand = () => {
+                  if (!brand.brandId) return;
+                  navigate(`/user-products/product-list?brandId=${brand.brandId}`);
+                };
 
-              return (
+                return (
                 <div
                   key={`${brand.src}-${brand.name || i}-${
                     isClone ? "clone" : "original"

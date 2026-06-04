@@ -598,6 +598,99 @@ button {
   animation-play-state: paused;
 }
 
+.home-brands-featured {
+  margin-bottom: 24px;
+}
+
+.home-brands-featured-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 360px) 1fr;
+  gap: 20px;
+  align-items: center;
+  padding: 24px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(107, 15, 42, 0.12);
+  box-shadow: 0 24px 64px rgba(107, 15, 42, 0.12);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.home-brands-featured-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-2px);
+}
+
+.home-brands-featured-image {
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.03);
+}
+
+.home-brands-featured-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-brands-featured-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.home-brands-featured-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(107, 15, 42, 0.08);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.home-brands-featured-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+  color: #111;
+}
+
+.home-brands-featured-tagline {
+  margin: 0;
+  color: var(--heirloom);
+  font-size: 15px;
+  max-width: 520px;
+}
+
+.home-brands-featured-action {
+  align-self: start;
+  width: fit-content;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--brand);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-brands-featured-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 900px) {
+  .home-brands-featured-card {
+    grid-template-columns: 1fr;
+  }
+}
+
 .brand-marquee-item {
   flex: 0 0 auto;
   display: flex;
