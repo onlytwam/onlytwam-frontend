@@ -12675,6 +12675,34 @@ button {
   margin-bottom: 40px;
 }
 
+.s-twambrands-featured-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) 1fr;
+  gap: 24px;
+  align-items: center;
+}
+
+.s-twambrands-featured-image-card {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.s-twambrands-featured-image-card:hover .s-twambrands-image-frame {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.09);
+}
+
+.s-twambrands-featured-name {
+  margin: 14px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #000;
+  text-align: left;
+}
+
 .s-twambrands-featured-card {
   display: grid;
   grid-template-columns: minmax(240px, 360px) 1fr;

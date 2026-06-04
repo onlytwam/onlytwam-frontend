@@ -58,32 +58,33 @@ export default function TwamBrands() {
           <>
             {twamBrand ? (
               <section className="s-twambrands-featured">
-                <div
-                  className="s-twambrands-featured-card"
-                  onClick={() => goToProducts(twamBrand.brandId)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      goToProducts(twamBrand.brandId);
-                    }
-                  }}
-                >
-                  <div className="s-twambrands-featured-image-frame">
-                    <img
-                      src={getImageUrl(
-                        twamBrand.brandImage || twamBrand.brandLogo,
-                        "/assets/fallback.png",
-                      )}
-                      alt={twamBrand.brandName}
-                      className="s-twambrands-62d26f"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "/assets/fallback.png";
-                      }}
-                    />
-                  </div>
+                <div className="s-twambrands-featured-row">
+                  <button
+                    type="button"
+                    className="s-twambrands-featured-image-card"
+                    onClick={() => goToProducts(twamBrand.brandId)}
+                  >
+                    <span className="s-twambrands-image-frame">
+                      <img
+                        src={getImageUrl(
+                          twamBrand.brandImage || twamBrand.brandLogo,
+                          "/assets/fallback.png",
+                        )}
+                        alt={twamBrand.brandName}
+                        className="s-twambrands-62d26f"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            "/assets/fallback.png";
+                        }}
+                      />
+                    </span>
+                    {twamBrand.brandName && (
+                      <p className="s-twambrands-featured-name">
+                        {twamBrand.brandName}
+                      </p>
+                    )}
+                  </button>
+
                   <div className="s-twambrands-featured-copy">
                     <h2 className="s-twambrands-featured-title">
                       Our signature brand
