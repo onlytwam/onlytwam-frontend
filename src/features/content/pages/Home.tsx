@@ -535,7 +535,9 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
     itemHeight = itemWidth / 3,
     gap = 0,
     durationSeconds = 34;
-  const setWidth = brandImages.length * itemWidth;
+  const extraTwamSpace = 24;
+  const setWidth =
+    brandImages.length * itemWidth + (twamBrandImage ? extraTwamSpace : 0);
   const marqueeStyle: CSSProperties & {
     "--brand-gap": string;
     "--brand-duration": string;
@@ -580,7 +582,8 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
                     minWidth: itemWidth,
                     height: itemHeight,
                     aspectRatio: "3 / 1",
-                    marginRight: gap,
+                    marginLeft: isTwam ? 12 : 0,
+                    marginRight: isTwam ? gap + 12 : gap,
                     overflow: "hidden",
                   }}
                 >
