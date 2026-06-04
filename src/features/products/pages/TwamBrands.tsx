@@ -78,11 +78,6 @@ export default function TwamBrands() {
                         }}
                       />
                     </span>
-                    {twamBrand.brandName && (
-                      <p className="s-twambrands-featured-name">
-                        {twamBrand.brandName}
-                      </p>
-                    )}
                   </button>
 
                   <div className="s-twambrands-featured-copy">

@@ -12695,14 +12695,6 @@ button {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.09);
 }
 
-.s-twambrands-featured-name {
-  margin: 14px 0 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: #000;
-  text-align: left;
-}
-
 .s-twambrands-featured-card {
   display: grid;
   grid-template-columns: minmax(240px, 360px) 1fr;
