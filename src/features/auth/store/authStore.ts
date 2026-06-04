@@ -9,6 +9,7 @@
 // 5. Sequential sync (wishlist first, then cart) to avoid API overload
 
 import { create } from "zustand";
+import toast from "react-hot-toast";
 import type { User, WishlistItem } from "@/shared/types";
 import {
   getGuestWishlistCount,
@@ -93,7 +94,7 @@ interface AuthState {
   passwordUpdateRequired: boolean;
 
   login: (user: User, token: string) => Promise<void>; // Changed to async
-  logout: () => void;
+  logout: (opts?: { showToast?: boolean }) => void;
   setUser: (user: User) => void;
   setCartCount: (count: number) => void;
   setWishlistCount: (count: number) => void;
@@ -435,7 +436,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: ({ showToast } = { showToast: false }) => {
     localStorage.removeItem("access_token");
     localStorage.removeItem(STORED_ROLE_KEY);
     localStorage.removeItem(STORED_USER_KEY);
@@ -452,6 +453,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isSyncing: false,
       passwordUpdateRequired: false,
     });
+
+    if (showToast) {
+      toast.success("Signed out successfully.");
+    }
   },
 
   setUser: (user) => {

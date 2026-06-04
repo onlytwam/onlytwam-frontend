@@ -8,6 +8,10 @@ import {
   updateCart,
 } from "@/features/cart/api/cart.api";
 import { getImageUrl } from "@/shared/utils/helpers";
+import {
+  colorFamilyHexOf,
+  FALLBACK_COLOR_FAMILY_HEX,
+} from "@/shared/utils/colorHelpers";
 
 import { useOverlayBackDismiss } from "@/shared/hooks/useOverlayBackDismiss";
 import toast from "react-hot-toast";
@@ -338,7 +342,12 @@ export default function QuickCart({ onClose }: Props) {
                 item.imageURL || item.image || item.selectedImage || "";
               const img = getImageUrl(rawImg);
               const name = item.productName || item.name || "";
-              const colorHex = item.colorHex ?? item.color ?? item.Color ?? "";
+              // Prefer colorFamilyHex (same logic as ProductCard swatches)
+              const colorHex =
+                item.colorHex ||
+                item.colorFamilyHex ||
+                colorFamilyHexOf(item) ||
+                (item.colorName || item.color ? FALLBACK_COLOR_FAMILY_HEX : "");
               const colorLabel =
                 item.colorName ?? item.color ?? item.Color ?? "";
               const bandSize = item.size || item.bandSize || "";
@@ -453,17 +462,17 @@ export default function QuickCart({ onClose }: Props) {
                               </span>
                             )}
                             {bandSize && (
-                              <span className="s-adminnewslet-f01220">
+                              <span className="s-quickcart-b02946">
                                 <span className="s-adminsizes-b54cfc">
-                                  Band Size:{" "}
+                                  Band Size:
                                 </span>
                                 <strong>{bandSize}</strong>
                               </span>
                             )}
                             {cupSize && (
-                              <span className="s-adminnewslet-f01220">
+                              <span className="s-quickcart-b02946">
                                 <span className="s-adminsizes-b54cfc">
-                                  Cup Size:{" "}
+                                  Cup Size:
                                 </span>
                                 <strong>{cupSize}</strong>
                               </span>

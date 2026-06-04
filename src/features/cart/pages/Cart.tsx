@@ -22,6 +22,10 @@ import {
   markPhysicalCouponUsed,
 } from "@/features/orders/api/orders.api";
 import { getImageUrl, slugify } from "@/shared/utils/helpers";
+import {
+  colorFamilyHexOf,
+  FALLBACK_COLOR_FAMILY_HEX,
+} from "@/shared/utils/colorHelpers";
 
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { createWishlist } from "@/features/products/api/products.api";
@@ -2944,7 +2948,11 @@ export default function Cart() {
                           <span
                             className="s-cart-552e26"
                             style={{
-                              background: item.colorHex ?? item.color ?? "",
+                              background:
+                                item.colorHex ||
+                                item.colorFamilyHex ||
+                                colorFamilyHexOf(item) ||
+                                FALLBACK_COLOR_FAMILY_HEX,
                             }}
                           />
                           {item.colorName ?? item.color}
@@ -2963,6 +2971,63 @@ export default function Cart() {
                       )}
                     </div>
                   )}
+
+                  {/* Inline stock disclaimer — shows available qty; warns when over-selected */}
+                  {item.categoryIsActive !== false &&
+                    (() => {
+                      const availStock =
+                        item.stockQuantity != null
+                          ? Number(item.stockQuantity)
+                          : null;
+                      const reqQty = item.processedQuantity || 1;
+                      if (availStock === null) return null;
+                      const isOver = reqQty > availStock;
+                      return (
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            borderRadius: 5,
+                            padding: "3px 8px",
+                            marginBottom: 4,
+                            background: isOver
+                              ? "rgba(185,28,28,0.08)"
+                              : availStock <= 3
+                              ? "rgba(107,15,42,0.06)"
+                              : "rgba(34,139,34,0.07)",
+                            color: isOver
+                              ? "#b91c1c"
+                              : availStock <= 3
+                              ? "var(--brand)"
+                              : "#2e7d32",
+                            border: isOver
+                              ? "1px solid rgba(185,28,28,0.25)"
+                              : availStock <= 3
+                              ? "1px solid rgba(107,15,42,0.2)"
+                              : "1px solid rgba(34,139,34,0.2)",
+                          }}
+                        >
+                          <i
+                            className={`bi ${
+                              isOver
+                                ? "bi-exclamation-circle-fill"
+                                : availStock <= 3
+                                ? "bi-exclamation-triangle-fill"
+                                : "bi-check-circle-fill"
+                            }`}
+                            style={{ fontSize: 11 }}
+                          />
+                          {isOver
+                            ? `Only ${availStock} available — please reduce quantity`
+                            : availStock <= 3
+                            ? `Only ${availStock} left in stock`
+                            : `${availStock} in stock`}
+                        </div>
+                      );
+                    })()}
 
                   {/* Quantity — hidden when category is inactive */}
                   {item.categoryIsActive !== false && (

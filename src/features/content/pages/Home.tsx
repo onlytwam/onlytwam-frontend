@@ -516,6 +516,16 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
       [],
     );
   }, [logos]);
+
+  const twamBrandImage = useMemo(
+    () =>
+      brandImages.find(
+        (b) =>
+          typeof b.name === "string" && b.name.trim().toLowerCase() === "twam",
+      ),
+    [brandImages],
+  );
+
   const navigate = useNavigate();
 
   // Nothing to show — hide section entirely
@@ -525,7 +535,9 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
     itemHeight = itemWidth / 3,
     gap = 0,
     durationSeconds = 34;
-  const setWidth = brandImages.length * itemWidth;
+  const extraTwamSpace = 24;
+  const setWidth =
+    brandImages.length * itemWidth + (twamBrandImage ? extraTwamSpace : 0);
   const marqueeStyle: CSSProperties & {
     "--brand-gap": string;
     "--brand-duration": string;
@@ -541,16 +553,18 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
       <div className="s-home-b9d256" />
       <div className="container s-home-59ddea">
         <SectionTitle title="Brands" />
-        <div
-          className="brand-marquee s-home-68cb82"
-          style={marqueeStyle}
-        >
+        <div className="brand-marquee s-home-68cb82" style={marqueeStyle}>
           <div className="brand-marquee-track">
             {[...brandImages, ...brandImages].map((brand, i) => {
               const isClone = i >= brandImages.length;
+              const isTwam =
+                typeof brand.name === "string" &&
+                brand.name.trim().toLowerCase() === "twam";
               const goToBrand = () => {
                 if (!brand.brandId) return;
-                navigate(`/user-products/product-list?brandId=${brand.brandId}`);
+                navigate(
+                  `/user-products/product-list?brandId=${brand.brandId}`,
+                );
               };
 
               return (
@@ -558,7 +572,9 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
                   key={`${brand.src}-${brand.name || i}-${
                     isClone ? "clone" : "original"
                   }`}
-                  className="brand-marquee-item"
+                  className={`brand-marquee-item${
+                    isTwam ? " brand-marquee-item--twam" : ""
+                  }`}
                   aria-hidden={isClone}
                   style={{
                     flex: `0 0 ${itemWidth}px`,
@@ -566,7 +582,8 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
                     minWidth: itemWidth,
                     height: itemHeight,
                     aspectRatio: "3 / 1",
-                    marginRight: gap,
+                    marginLeft: isTwam ? 12 : 0,
+                    marginRight: isTwam ? gap + 12 : gap,
                     overflow: "hidden",
                   }}
                 >

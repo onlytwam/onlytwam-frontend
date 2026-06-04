@@ -78,12 +78,9 @@ type MobileBackHeaderRoute = {
 };
 
 const MOBILE_BACK_HEADER_ROUTES: MobileBackHeaderRoute[] = [
-  { path: "/about", title: "About Us" },
   { path: "/contact-us", title: "Contact Us" },
   { path: "/unsubscribe", title: "Unsubscribe" },
   { path: "/our-stores", title: "Our Stores" },
-  { path: "/our-blog", title: "Our Blog" },
-  { path: "/blog-1", title: "Blog" },
   { path: "/privacy-policy", title: "Privacy Policy" },
   { path: "/terms-conditions", title: "Terms & Conditions" },
   { path: "/shipping-info", title: "Shipping Info" },
@@ -907,12 +904,9 @@ export default function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Navigate to="/" replace />} />
-            <Route path="/about" element={<About />} />
             <Route path="/contact-us" element={<ContactUs />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/our-stores" element={<OurStores />} />
-            <Route path="/our-blog" element={<OurBlog />} />
-            <Route path="/blog-1/:id" element={<Blog1 />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/shipping-info" element={<ShippingInfo />} />

@@ -61,11 +61,15 @@ const getImageSourceFromRecord = (record: any): string => {
   }
 
   const directCandidates = [
+    // fileData and imageUrl/imageURL are always fully-resolved URLs from
+    // the backend — check them before filePath which may be a raw relative
+    // path in older data rows and would cause getImageUrl() to return ''.
+    record.fileData,
+    record.imageUrl,
+    record.imageURL,
     record.filePath,
     record.imagePath,
     record.fileName,
-    record.imageUrl,
-    record.imageURL,
     record.src,
     record.url,
     record.path,
@@ -75,7 +79,6 @@ const getImageSourceFromRecord = (record: any): string => {
     record.variantImage,
     record.thumbnail,
     record.image,
-    record.fileData,
   ];
 
   for (const candidate of directCandidates) {
@@ -1240,6 +1243,12 @@ export default function ProductDetail() {
         image: images[0] || "",
         imageURL: images[0] || "",
         color: selectedColor || "",
+        colorName: selectedColor || "",
+        colorHex:
+          selectedColorSwatch?.colorFamilyHex ??
+          selectedColorSwatch?.colorHex ??
+          selectedColorSwatch?.colourHex ??
+          "",
         size: selLabel || "",
         cupSize: cupLabel || "",
         isSelected: true,
@@ -1908,7 +1917,9 @@ export default function ProductDetail() {
                         }}
                         title={c.colorName || c.color || ""}
                         aria-pressed={isSelected}
-                        aria-label={`Select ${c.colorName || c.color || "color"}`}
+                        aria-label={`Select ${
+                          c.colorName || c.color || "color"
+                        }`}
                         className="s-productdetai-e37fda"
                         style={{
                           position: "relative",

@@ -344,7 +344,7 @@ export default function Navbar() {
   }
 
   const handleLogout = () => {
-    logout();
+    logout({ showToast: true });
     setIsUserMenuOpen(false);
     navigate("/");
   };
