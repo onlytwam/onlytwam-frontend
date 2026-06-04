@@ -765,12 +765,18 @@ export default function ProductDetail() {
   }, [exploreRaw]);
 
   const reviews: any[] = reviewData?.list ?? [];
+  // Images must come from the currently-selected variant (via the colors array),
+  // NOT from product.images / product.image which are product-level fields shared
+  // across all variants and cause every colour switch to show the same gallery.
   const images: string[] = useMemo(() => {
+    // The selected variant is one entry in product.colors
+    const variantEntry = (product?.colors ?? []).find(
+      (c: any) => c.productVariantId === currentVId,
+    );
+
     const rawImages =
-      Array.isArray(product?.images) && product.images.length
-        ? product.images
-        : product?.image
-        ? [product.image]
+      Array.isArray(variantEntry?.images) && variantEntry.images.length
+        ? variantEntry.images
         : [];
 
     return rawImages
@@ -778,7 +784,7 @@ export default function ProductDetail() {
         resolveProductDetailImageUrl(getImageSourceFromRecord(img)),
       )
       .filter(Boolean);
-  }, [product?.images, product?.image]);
+  }, [product?.colors, currentVId]);
 
   const colors: any[] = useMemo(
     () => (product?.colors ?? []).filter((c: any) => c.isActive !== false),
@@ -1890,9 +1896,7 @@ export default function ProductDetail() {
                 <div className="s-adminproduct-47622e">
                   {colors.map((c: any) => {
                     const isSelected = c.productVariantId === currentVId;
-                    const swatchImage =
-                      getFirstVariantImageUrl(c) ||
-                      (isSelected ? images[0] || "" : "");
+                    const swatchImage = getFirstVariantImageUrl(c);
                     const fallbackColor =
                       c.colorFamilyHex ??
                       c.colorHex ??
