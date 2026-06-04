@@ -23,16 +23,24 @@ export default function TwamBrands() {
     (b: any) => b.brandImage || b.brandLogo,
   );
 
+  const getBrandLabel = (brand: any) =>
+    (brand.brandName ?? brand.name ?? "").toString().trim();
+
   const isTwamBrand = (brand: any) =>
-    typeof brand.brandName === "string" &&
-    brand.brandName.trim().toLowerCase() === "twam";
+    typeof getBrandLabel(brand) === "string" &&
+    getBrandLabel(brand).toLowerCase() === "twam";
 
   const twamBrand = logos.find(isTwamBrand);
-  const otherBrands = logos.filter(
-    (brand: any) => brand.brandId !== twamBrand?.brandId,
-  );
+  const twamBrandId = twamBrand?.brandId ?? twamBrand?.id ?? null;
+  const otherBrands = logos.filter((brand: any) => {
+    const id = brand.brandId ?? brand.id;
+    return id !== twamBrandId;
+  });
 
-  const goToProducts = (brandId: number) => {
+  const normalizeBrandId = (brand: any) => brand.brandId ?? brand.id;
+  const goToProducts = (brand: any) => {
+    const brandId = normalizeBrandId(brand);
+    if (!brandId) return;
     navigate(`/user-products/product-list?brandId=${brandId}`);
   };
 
@@ -62,7 +70,7 @@ export default function TwamBrands() {
                   <button
                     type="button"
                     className="s-twambrands-featured-image-card"
-                    onClick={() => goToProducts(twamBrand.brandId)}
+                    onClick={() => goToProducts(twamBrand)}
                   >
                     <span className="s-twambrands-image-frame">
                       <img
@@ -91,7 +99,7 @@ export default function TwamBrands() {
                     <button
                       type="button"
                       className="s-twambrands-featured-cta"
-                      onClick={() => goToProducts(twamBrand.brandId)}
+                      onClick={() => goToProducts(twamBrand)}
                     >
                       Shop TWAM
                     </button>
@@ -121,11 +129,11 @@ export default function TwamBrands() {
               <div className="s-twambrands-e2516f">
                 {otherBrands.map((brand: any) => (
                   <button
-                    key={brand.brandId}
+                    key={normalizeBrandId(brand)}
                     type="button"
-                    onClick={() => goToProducts(brand.brandId)}
+                    onClick={() => goToProducts(brand)}
                     className="s-twambrands-cd99a8"
-                    aria-label={`Shop ${brand.brandName}`}
+                    aria-label={`Shop ${brand.brandName ?? brand.name}`}
                   >
                     <span className="s-twambrands-image-frame">
                       <img

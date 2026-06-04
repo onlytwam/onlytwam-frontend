@@ -488,9 +488,9 @@ function SectionTitle({
 
 // ─── Brands Marquee ───────────────────────────────────────────────────────────
 function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
-  // Only show brands that have a dedicated brandImage uploaded via the admin
-  // image-upload feature. brandLogo is excluded here — logos are small
-  // transparent PNGs; brandImage is the banner uploaded for this marquee.
+  // Show a brand banner image, with brandLogo as a fallback when no dedicated
+  // banner image is uploaded. This prevents the TWAM marquee from disappearing
+  // when only a single brand exists without a brandImage.
   const brandImages = useMemo(() => {
     const seen = new Set<string>();
 
@@ -499,7 +499,7 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
         items: { src: string; name: string; brandId: number | string | null }[],
         b,
       ) => {
-        const src = b.brandImage ?? "";
+        const src = b.brandImage || b.brandLogo || "";
         if (!src) return items;
 
         const key = String(b.brandId ?? b.id ?? src);

@@ -3507,17 +3507,15 @@ export default function AdminProductDetail() {
   // WARNING: Do NOT reference userVariantDetail here — it was never declared and
   // causes "ReferenceError: userVariantDetail is not defined" which crashes the page.
 
+  // Images come solely from the per-variant API response.
+  // Do NOT merge selVariant.images / thumbnail fields — those are product-level
+  // or stale data that causes every variant to show the same image pool.
   const variantImages: any[] = useMemo(
     () =>
       mergeImageSources(
         Array.isArray(imagesData) ? imagesData : imagesData?.list ?? [],
-        selVariant?.images,
-        selVariant?.imageUrl ||
-          selVariant?.image ||
-          selVariant?.selectedImage ||
-          selVariant?.thumbnail,
       ),
-    [imagesData, selVariant],
+    [imagesData],
   );
 
   // Reset image index when variant switches
