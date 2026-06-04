@@ -520,14 +520,14 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
   const twamBrandImage = useMemo(
     () =>
       brandImages.find(
-        (b) => typeof b.name === "string" && b.name.trim().toLowerCase() === "twam",
+        (b) =>
+          typeof b.name === "string" && b.name.trim().toLowerCase() === "twam",
       ),
     [brandImages],
   );
 
   const otherBrandImages = useMemo(
-    () =>
-      brandImages.filter((b) => b.brandId !== twamBrandImage?.brandId),
+    () => brandImages.filter((b) => b.brandId !== twamBrandImage?.brandId),
     [brandImages, twamBrandImage],
   );
 
@@ -617,68 +617,68 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
           </div>
         ) : null}
         {otherBrandImages.length > 0 ? (
-          <div
-            className="brand-marquee s-home-68cb82"
-            style={marqueeStyle}
-          >
+          <div className="brand-marquee s-home-68cb82" style={marqueeStyle}>
             <div className="brand-marquee-track">
               {[...otherBrandImages, ...otherBrandImages].map((brand, i) => {
                 const isClone = i >= otherBrandImages.length;
                 const goToBrand = () => {
                   if (!brand.brandId) return;
-                  navigate(`/user-products/product-list?brandId=${brand.brandId}`);
+                  navigate(
+                    `/user-products/product-list?brandId=${brand.brandId}`,
+                  );
                 };
 
                 return (
-                <div
-                  key={`${brand.src}-${brand.name || i}-${
-                    isClone ? "clone" : "original"
-                  }`}
-                  className="brand-marquee-item"
-                  aria-hidden={isClone}
-                  style={{
-                    flex: `0 0 ${itemWidth}px`,
-                    width: itemWidth,
-                    minWidth: itemWidth,
-                    height: itemHeight,
-                    aspectRatio: "3 / 1",
-                    marginRight: gap,
-                    overflow: "hidden",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={goToBrand}
-                    disabled={!brand.brandId}
-                    tabIndex={isClone ? -1 : 0}
-                    aria-label={
-                      isClone ? undefined : `View ${brand.name} products`
-                    }
+                  <div
+                    key={`${brand.src}-${brand.name || i}-${
+                      isClone ? "clone" : "original"
+                    }`}
+                    className="brand-marquee-item"
+                    aria-hidden={isClone}
                     style={{
-                      width: "100%",
-                      height: "100%",
-                      border: 0,
-                      padding: 0,
-                      background: "transparent",
-                      cursor: brand.brandId ? "pointer" : "default",
-                      display: "block",
+                      flex: `0 0 ${itemWidth}px`,
+                      width: itemWidth,
+                      minWidth: itemWidth,
+                      height: itemHeight,
+                      aspectRatio: "3 / 1",
+                      marginRight: gap,
                       overflow: "hidden",
                     }}
                   >
-                    <img
-                      src={brand.src}
-                      alt={isClone ? "" : brand.name}
-                      className="s-home-783e28"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
+                    <button
+                      type="button"
+                      onClick={goToBrand}
+                      disabled={!brand.brandId}
+                      tabIndex={isClone ? -1 : 0}
+                      aria-label={
+                        isClone ? undefined : `View ${brand.name} products`
+                      }
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        border: 0,
+                        padding: 0,
+                        background: "transparent",
+                        cursor: brand.brandId ? "pointer" : "default",
+                        display: "block",
+                        overflow: "hidden",
                       }}
-                    />
-                  </button>
-                </div>
-              );
-            })}
+                    >
+                      <img
+                        src={brand.src}
+                        alt={isClone ? "" : brand.name}
+                        className="s-home-783e28"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </section>
   );
