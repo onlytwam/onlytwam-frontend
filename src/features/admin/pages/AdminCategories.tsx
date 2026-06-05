@@ -1077,75 +1077,176 @@ export default function AdminCategories() {
     : [];
 
   // ── Shared render helpers ─────────────────────────────────────────────────
-  const renderThumb = (c: any) =>
-    c.categoryImage ? (
-      <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
-        <img
-          src={getImageUrl(c.categoryImage)}
-          alt={c.name}
-          onClick={() =>
-            setViewImage({
-              url: getImageUrl(c.categoryImage, ""),
-              name: c.name,
-              categoryId: c.categoryId,
-            })
-          }
-          onError={(e) =>
-            ((e.target as HTMLImageElement).style.display = "none")
-          }
+  const renderThumb = (c: any) => (
+    <div
+      style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}
+    >
+      {/* Category image */}
+      {c.categoryImage ? (
+        <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
+          <img
+            src={getImageUrl(c.categoryImage)}
+            alt={c.name}
+            onClick={() =>
+              setViewImage({
+                url: getImageUrl(c.categoryImage, ""),
+                name: c.name,
+                categoryId: c.categoryId,
+              })
+            }
+            onError={(e) =>
+              ((e.target as HTMLImageElement).style.display = "none")
+            }
+            style={{
+              width: 42,
+              height: 42,
+              objectFit: "cover",
+              borderRadius: 7,
+              border: "1px solid #eadfd8",
+              display: "block",
+              cursor: "pointer",
+            }}
+            title="Category image — click to view"
+          />
+          <button
+            onClick={() => setConfirmDeleteImage(c)}
+            title="Remove image"
+            style={{
+              position: "absolute",
+              top: -5,
+              right: -5,
+              width: 16,
+              height: 16,
+              background: BRAND,
+              color: "#fff",
+              border: "none",
+              borderRadius: "50%",
+              fontSize: 9,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+            }}
+          >
+            ×
+          </button>
+        </div>
+      ) : (
+        <div
           style={{
             width: 42,
             height: 42,
-            objectFit: "cover",
             borderRadius: 7,
-            border: "1px solid #eadfd8",
-            display: "block",
-            cursor: "pointer",
-          }}
-          title="Click to view"
-        />
-        <button
-          onClick={() => setConfirmDeleteImage(c)}
-          title="Remove image"
-          style={{
-            position: "absolute",
-            top: -5,
-            right: -5,
-            width: 16,
-            height: 16,
-            background: BRAND,
-            color: "#fff",
-            border: "none",
-            borderRadius: "50%",
-            fontSize: 9,
-            fontWeight: 700,
-            cursor: "pointer",
+            background: "#f5f0eb",
+            border: "1px dashed #d9cac2",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+            flexShrink: 0,
           }}
+          title="No category image"
         >
-          ×
-        </button>
-      </div>
-    ) : (
-      <div
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: 7,
-          background: "#f5f0eb",
-          border: "1px dashed #d9cac2",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontSize: 8, color: "#b89fa8" }}>None</span>
-      </div>
-    );
+          <span style={{ fontSize: 8, color: "#b89fa8" }}>None</span>
+        </div>
+      )}
+
+      {/* Mobile banner thumbnail */}
+      {c.mobileBannerImage ? (
+        <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
+          <img
+            src={getImageUrl(c.mobileBannerImage)}
+            alt={`${c.name} mobile banner`}
+            onClick={() =>
+              setViewImage({
+                url: getImageUrl(c.mobileBannerImage, ""),
+                name: `${c.name} — Mobile Banner`,
+                categoryId: c.categoryId,
+                isMobileBanner: true,
+              })
+            }
+            onError={(e) =>
+              ((e.target as HTMLImageElement).style.display = "none")
+            }
+            style={{
+              width: 42,
+              height: 42,
+              objectFit: "cover",
+              borderRadius: 7,
+              border: "1px solid #b3d4e8",
+              display: "block",
+              cursor: "pointer",
+            }}
+            title="Mobile banner — click to view"
+          />
+          {/* 📱 badge */}
+          <span
+            style={{
+              position: "absolute",
+              bottom: -3,
+              left: -3,
+              fontSize: 9,
+              lineHeight: 1,
+              background: "#1565c0",
+              color: "#fff",
+              borderRadius: "50%",
+              width: 14,
+              height: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+              pointerEvents: "none",
+            }}
+          >
+            📱
+          </span>
+          <button
+            onClick={() => setConfirmDeleteMobileBanner(c)}
+            title="Remove mobile banner"
+            style={{
+              position: "absolute",
+              top: -5,
+              right: -5,
+              width: 16,
+              height: 16,
+              background: "#1565c0",
+              color: "#fff",
+              border: "none",
+              borderRadius: "50%",
+              fontSize: 9,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+            }}
+          >
+            ×
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 7,
+            background: "#eef6fc",
+            border: "1px dashed #b3d4e8",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+          title="No mobile banner"
+        >
+          <span style={{ fontSize: 9, color: "#7fb3d0" }}>📱</span>
+        </div>
+      )}
+    </div>
+  );
 
   const renderActions = (c: any) => (
     <div style={{ display: "flex", gap: 4, flexWrap: "nowrap" }}>
@@ -1292,7 +1393,7 @@ export default function AdminCategories() {
               <tr className="s-adminbrands-1ba202">
                 {[
                   "ID",
-                  "Image",
+                  "Images",
                   "Name",
                   "Description",
                   "Parent",
