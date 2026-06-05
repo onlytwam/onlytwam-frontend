@@ -488,48 +488,38 @@ function ViewCategoryModal({
   onViewImage: (url: string, name: string, categoryId: number) => void;
   onViewMobileBanner?: (url: string, name: string, categoryId: number) => void;
 }) {
-  const row = (label: string, value: React.ReactNode) => (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        padding: "10px 0",
-        borderBottom: "1px solid #f0e8e3",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: "#999",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontSize: 14, color: "#333", wordBreak: "break-word" }}>
-        {value || "—"}
-      </span>
-    </div>
-  );
-
   return (
     <div className="s-admincategor-172a23">
       <div
-        className="s-adminbrands-cd5358"
-        style={{ maxWidth: 460, width: "100%" }}
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          padding: "clamp(14px, 2vh, 22px) clamp(14px, 2vw, 24px)",
+          width: "min(92vw, 720px)",
+          maxHeight: "92vh",
+          display: "flex",
+          flexDirection: "column",
+          gap: "clamp(8px, 1.2vh, 14px)",
+          boxSizing: "border-box",
+        }}
       >
+        {/* Header */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 12,
+            alignItems: "center",
+            flexShrink: 0,
           }}
         >
-          <h3 className="s-adminblog-e6371f" style={{ margin: 0 }}>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "clamp(14px, 1.8vh, 17px)",
+              fontWeight: 700,
+              color: "#333",
+            }}
+          >
             Category Details
           </h3>
           <button
@@ -547,104 +537,227 @@ function ViewCategoryModal({
             ✕
           </button>
         </div>
-        {cat.categoryImage && (
+
+        {/* Images side by side */}
+        {(cat.categoryImage || cat.mobileBannerImage) && (
           <div
             style={{
-              width: "100%",
-              height: 140,
-              borderRadius: 10,
-              overflow: "hidden",
-              marginBottom: 12,
-              cursor: "pointer",
-              border: "1px solid #eadfd8",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "clamp(6px, 1vw, 12px)",
+              flexShrink: 0,
             }}
-            onClick={() =>
-              onViewImage(
-                getImageUrl(cat.categoryImage, ""),
-                cat.name,
-                cat.categoryId,
-              )
-            }
-            title="Click to view full image"
           >
-            <img
-              src={getImageUrl(cat.categoryImage)}
-              alt={cat.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </div>
-        )}
-        {cat.mobileBannerImage && (
-          <div style={{ marginBottom: 12 }}>
-            <p
-              style={{
-                margin: "0 0 6px",
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#1565c0",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              📱 Mobile Banner
-            </p>
-            <div
-              style={{
-                width: "100%",
-                height: 100,
-                borderRadius: 10,
-                overflow: "hidden",
-                cursor: "pointer",
-                border: "1px solid #b3d4e8",
-              }}
-              onClick={() =>
-                onViewMobileBanner &&
-                onViewMobileBanner(
-                  getImageUrl(cat.mobileBannerImage, ""),
-                  `${cat.name} — Mobile Banner`,
-                  cat.categoryId,
-                )
-              }
-              title="Click to view full mobile banner"
-            >
-              <img
-                src={getImageUrl(cat.mobileBannerImage)}
-                alt={`${cat.name} mobile banner`}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
+            {/* Web image */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#999",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Web Image
+              </span>
+              {cat.categoryImage ? (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "clamp(70px, 12vh, 110px)",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    border: "1px solid #eadfd8",
+                  }}
+                  onClick={() =>
+                    onViewImage(
+                      getImageUrl(cat.categoryImage, ""),
+                      cat.name,
+                      cat.categoryId,
+                    )
+                  }
+                  title="Click to view full image"
+                >
+                  <img
+                    src={getImageUrl(cat.categoryImage)}
+                    alt={cat.name}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "clamp(70px, 12vh, 110px)",
+                    borderRadius: 8,
+                    background: "#f5f0eb",
+                    border: "1px dashed #d9cac2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: "#b89fa8" }}>
+                    No image
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile banner */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#1565c0",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Mobile Banner
+              </span>
+              {cat.mobileBannerImage ? (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "clamp(70px, 12vh, 110px)",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    border: "1px solid #b3d4e8",
+                  }}
+                  onClick={() =>
+                    onViewMobileBanner &&
+                    onViewMobileBanner(
+                      getImageUrl(cat.mobileBannerImage, ""),
+                      `${cat.name} — Mobile Banner`,
+                      cat.categoryId,
+                    )
+                  }
+                  title="Click to view full mobile banner"
+                >
+                  <img
+                    src={getImageUrl(cat.mobileBannerImage)}
+                    alt={`${cat.name} mobile banner`}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "clamp(70px, 12vh, 110px)",
+                    borderRadius: 8,
+                    background: "#eef6fc",
+                    border: "1px dashed #b3d4e8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: "#7fb3d0" }}>
+                    No mobile banner
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {row("ID", `#${cat.categoryId}`)}
-          {row("Name", cat.name)}
-          {row("Description", cat.description)}
-          {row(
-            "Parent",
-            cat.parentCategoryName
-              ? `${cat.parentCategoryName} (#${cat.parentCategoryId})`
-              : cat.parentCategoryId
-              ? `#${cat.parentCategoryId}`
-              : "Root (No Parent)",
-          )}
-          {row(
-            "Status",
-            <span
+
+        {/* Details — 2-col grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "0 clamp(8px, 2vw, 20px)",
+            flexShrink: 0,
+          }}
+        >
+          {[
+            ["ID", `#${cat.categoryId}`],
+            ["Status", null],
+            ["Name", cat.name],
+            [
+              "Parent",
+              cat.parentCategoryName
+                ? `${cat.parentCategoryName} (#${cat.parentCategoryId})`
+                : cat.parentCategoryId
+                ? `#${cat.parentCategoryId}`
+                : "Root (No Parent)",
+            ],
+            ["Description", cat.description || "—"],
+          ].map(([label, value], i) => (
+            <div
+              key={i}
               style={{
-                display: "inline-block",
-                padding: "3px 10px",
-                borderRadius: 20,
-                fontSize: 11,
-                fontWeight: 700,
-                background: cat.isActive !== false ? "#e6f4ea" : "#fdecea",
-                color: cat.isActive !== false ? "#2e7d32" : "#c62828",
+                padding: "8px 0",
+                borderBottom: "1px solid #f0e8e3",
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
               }}
             >
-              {cat.isActive !== false ? "Active" : "Inactive"}
-            </span>,
-          )}
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "#999",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {label}
+              </span>
+              {label === "Status" ? (
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "2px 10px",
+                    borderRadius: 20,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: cat.isActive !== false ? "#e6f4ea" : "#fdecea",
+                    color: cat.isActive !== false ? "#2e7d32" : "#c62828",
+                    width: "fit-content",
+                  }}
+                >
+                  {cat.isActive !== false ? "Active" : "Inactive"}
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: "#333",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {value || "—"}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
-        <div className="s-adminblog-679e96" style={{ marginTop: 16 }}>
+
+        {/* Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
           <button onClick={onClose} className="s-admincategor-68998a">
             Close
           </button>
@@ -1079,172 +1192,193 @@ export default function AdminCategories() {
   // ── Shared render helpers ─────────────────────────────────────────────────
   const renderThumb = (c: any) => (
     <div
-      style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}
+      style={{
+        display: "flex",
+        gap: 8,
+        flexShrink: 0,
+        alignItems: "flex-start",
+      }}
     >
       {/* Category image */}
-      {c.categoryImage ? (
-        <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
-          <img
-            src={getImageUrl(c.categoryImage)}
-            alt={c.name}
-            onClick={() =>
-              setViewImage({
-                url: getImageUrl(c.categoryImage, ""),
-                name: c.name,
-                categoryId: c.categoryId,
-              })
-            }
-            onError={(e) =>
-              ((e.target as HTMLImageElement).style.display = "none")
-            }
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+        }}
+      >
+        {c.categoryImage ? (
+          <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
+            <img
+              src={getImageUrl(c.categoryImage)}
+              alt={c.name}
+              onClick={() =>
+                setViewImage({
+                  url: getImageUrl(c.categoryImage, ""),
+                  name: c.name,
+                  categoryId: c.categoryId,
+                })
+              }
+              onError={(e) =>
+                ((e.target as HTMLImageElement).style.display = "none")
+              }
+              style={{
+                width: 42,
+                height: 42,
+                objectFit: "cover",
+                borderRadius: 7,
+                border: "1px solid #eadfd8",
+                display: "block",
+                cursor: "pointer",
+              }}
+              title="Category image — click to view"
+            />
+            <button
+              onClick={() => setConfirmDeleteImage(c)}
+              title="Remove image"
+              style={{
+                position: "absolute",
+                top: -5,
+                right: -5,
+                width: 16,
+                height: 16,
+                background: BRAND,
+                color: "#fff",
+                border: "none",
+                borderRadius: "50%",
+                fontSize: 9,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <div
             style={{
               width: 42,
               height: 42,
-              objectFit: "cover",
               borderRadius: 7,
-              border: "1px solid #eadfd8",
-              display: "block",
-              cursor: "pointer",
-            }}
-            title="Category image — click to view"
-          />
-          <button
-            onClick={() => setConfirmDeleteImage(c)}
-            title="Remove image"
-            style={{
-              position: "absolute",
-              top: -5,
-              right: -5,
-              width: 16,
-              height: 16,
-              background: BRAND,
-              color: "#fff",
-              border: "none",
-              borderRadius: "50%",
-              fontSize: 9,
-              fontWeight: 700,
-              cursor: "pointer",
+              background: "#f5f0eb",
+              border: "1px dashed #d9cac2",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+              flexShrink: 0,
             }}
+            title="No category image"
           >
-            ×
-          </button>
-        </div>
-      ) : (
-        <div
+            <span style={{ fontSize: 8, color: "#b89fa8" }}>None</span>
+          </div>
+        )}
+        <span
           style={{
-            width: 42,
-            height: 42,
-            borderRadius: 7,
-            background: "#f5f0eb",
-            border: "1px dashed #d9cac2",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
+            fontSize: 9,
+            color: "#aaa",
+            fontWeight: 600,
+            letterSpacing: "0.03em",
           }}
-          title="No category image"
         >
-          <span style={{ fontSize: 8, color: "#b89fa8" }}>None</span>
-        </div>
-      )}
+          Web
+        </span>
+      </div>
 
       {/* Mobile banner thumbnail */}
-      {c.mobileBannerImage ? (
-        <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
-          <img
-            src={getImageUrl(c.mobileBannerImage)}
-            alt={`${c.name} mobile banner`}
-            onClick={() =>
-              setViewImage({
-                url: getImageUrl(c.mobileBannerImage, ""),
-                name: `${c.name} — Mobile Banner`,
-                categoryId: c.categoryId,
-                isMobileBanner: true,
-              })
-            }
-            onError={(e) =>
-              ((e.target as HTMLImageElement).style.display = "none")
-            }
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+        }}
+      >
+        {c.mobileBannerImage ? (
+          <div style={{ position: "relative", width: 42, flexShrink: 0 }}>
+            <img
+              src={getImageUrl(c.mobileBannerImage)}
+              alt={`${c.name} mobile banner`}
+              onClick={() =>
+                setViewImage({
+                  url: getImageUrl(c.mobileBannerImage, ""),
+                  name: `${c.name} — Mobile Banner`,
+                  categoryId: c.categoryId,
+                  isMobileBanner: true,
+                })
+              }
+              onError={(e) =>
+                ((e.target as HTMLImageElement).style.display = "none")
+              }
+              style={{
+                width: 42,
+                height: 42,
+                objectFit: "cover",
+                borderRadius: 7,
+                border: "1px solid #b3d4e8",
+                display: "block",
+                cursor: "pointer",
+              }}
+              title="Mobile banner — click to view"
+            />
+            <button
+              onClick={() => setConfirmDeleteMobileBanner(c)}
+              title="Remove mobile banner"
+              style={{
+                position: "absolute",
+                top: -5,
+                right: -5,
+                width: 16,
+                height: 16,
+                background: "#1565c0",
+                color: "#fff",
+                border: "none",
+                borderRadius: "50%",
+                fontSize: 9,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <div
             style={{
               width: 42,
               height: 42,
-              objectFit: "cover",
               borderRadius: 7,
-              border: "1px solid #b3d4e8",
-              display: "block",
-              cursor: "pointer",
-            }}
-            title="Mobile banner — click to view"
-          />
-          {/* 📱 badge */}
-          <span
-            style={{
-              position: "absolute",
-              bottom: -3,
-              left: -3,
-              fontSize: 9,
-              lineHeight: 1,
-              background: "#1565c0",
-              color: "#fff",
-              borderRadius: "50%",
-              width: 14,
-              height: 14,
+              background: "#eef6fc",
+              border: "1px dashed #b3d4e8",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-              pointerEvents: "none",
+              flexShrink: 0,
             }}
+            title="No mobile banner"
           >
-            📱
-          </span>
-          <button
-            onClick={() => setConfirmDeleteMobileBanner(c)}
-            title="Remove mobile banner"
-            style={{
-              position: "absolute",
-              top: -5,
-              right: -5,
-              width: 16,
-              height: 16,
-              background: "#1565c0",
-              color: "#fff",
-              border: "none",
-              borderRadius: "50%",
-              fontSize: 9,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-            }}
-          >
-            ×
-          </button>
-        </div>
-      ) : (
-        <div
+            <span style={{ fontSize: 8, color: "#7fb3d0" }}>None</span>
+          </div>
+        )}
+        <span
           style={{
-            width: 42,
-            height: 42,
-            borderRadius: 7,
-            background: "#eef6fc",
-            border: "1px dashed #b3d4e8",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
+            fontSize: 9,
+            color: "#7fb3d0",
+            fontWeight: 600,
+            letterSpacing: "0.03em",
           }}
-          title="No mobile banner"
         >
-          <span style={{ fontSize: 9, color: "#7fb3d0" }}>📱</span>
-        </div>
-      )}
+          Mobile
+        </span>
+      </div>
     </div>
   );
 
