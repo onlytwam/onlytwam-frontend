@@ -78,12 +78,12 @@ function ImageUploadField({
   const displayUrl = preview || currentUrl;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div
         style={{
           width: "100%",
-          height: 120,
-          borderRadius: 10,
+          height: "clamp(60px, 10vh, 90px)",
+          borderRadius: 8,
           border: "1.5px dashed #d9cac2",
           background: displayUrl
             ? `url("${displayUrl}") center/cover no-repeat #f5f0eb`
@@ -124,15 +124,15 @@ function ImageUploadField({
         accept="image/*"
         onChange={handleChange}
         style={{
-          fontSize: 12,
+          fontSize: 11,
           border: "1px solid #d9cac2",
-          borderRadius: 8,
-          padding: "6px 10px",
+          borderRadius: 6,
+          padding: "4px 8px",
           background: "#faf8f6",
           cursor: "pointer",
         }}
       />
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 6 }}>
         <button
           onClick={handleSave}
           disabled={upload.isPending || !preview}
@@ -141,9 +141,9 @@ function ImageUploadField({
             background: upload.isPending || !preview ? "#d4b8be" : BRAND,
             color: "#fff",
             border: "none",
-            borderRadius: 8,
-            padding: "8px 0",
-            fontSize: 12,
+            borderRadius: 6,
+            padding: "6px 0",
+            fontSize: 11,
             fontWeight: 700,
             cursor: upload.isPending || !preview ? "not-allowed" : "pointer",
           }}
@@ -160,9 +160,9 @@ function ImageUploadField({
               background: "#f5f0eb",
               color: BRAND,
               border: "1px solid #d9cac2",
-              borderRadius: 8,
-              padding: "8px 12px",
-              fontSize: 12,
+              borderRadius: 6,
+              padding: "6px 10px",
+              fontSize: 11,
               fontWeight: 600,
               cursor: "pointer",
             }}
@@ -172,8 +172,187 @@ function ImageUploadField({
         )}
       </div>
       {!categoryId && (
-        <p style={{ margin: 0, fontSize: 11, color: "#aaa" }}>
-          Save the category first, then you can upload its image.
+        <p style={{ margin: 0, fontSize: 10, color: "#aaa" }}>
+          Save the category first, then upload its image.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Mobile Banner image upload hook ─────────────────────────────────────────
+function useMobileBannerUpload(
+  categoryId: number | undefined,
+  onSuccess: (imageUrl: string) => void,
+) {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      if (!categoryId)
+        throw new Error(
+          "Save the category first before uploading a mobile banner.",
+        );
+      const form = new FormData();
+      form.append("file", file);
+      const res = await api.put(`/Category/${categoryId}/mobile-banner`, form);
+      return res.data;
+    },
+    onSuccess: (res: any) => {
+      toast.success("Mobile banner updated.");
+      onSuccess(res?.imageUrl ?? "");
+    },
+    onError: (e: any) =>
+      toast.error(
+        e?.response?.data?.detail ||
+          e?.message ||
+          "Mobile banner upload failed.",
+      ),
+  });
+}
+
+// ── MobileBannerUploadField ──────────────────────────────────────────────────
+function MobileBannerUploadField({
+  categoryId,
+  currentUrl,
+  onUploaded,
+}: {
+  categoryId?: number;
+  currentUrl?: string;
+  onUploaded: (url: string) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string>("");
+  const qc = useQueryClient();
+
+  const upload = useMobileBannerUpload(categoryId, (imageUrl: string) => {
+    qc.invalidateQueries({ queryKey: ["admin-categories-tree"] });
+    if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+    setPreview("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    onUploaded(imageUrl);
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+    const blobUrl = URL.createObjectURL(file);
+    setPreview(blobUrl);
+  };
+
+  const handleSave = () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      toast.error("Select a file first.");
+      return;
+    }
+    if (!categoryId) {
+      toast.error("Save the category first, then upload its mobile banner.");
+      return;
+    }
+    upload.mutate(file);
+  };
+
+  const displayUrl = preview || currentUrl;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div
+        style={{
+          width: "100%",
+          height: "clamp(60px, 10vh, 90px)",
+          borderRadius: 8,
+          border: "1.5px dashed #b3d4e8",
+          background: displayUrl
+            ? `url("${displayUrl}") center/cover no-repeat #eef6fc`
+            : "#eef6fc",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {!displayUrl && (
+          <span style={{ fontSize: 11, color: "#7fb3d0" }}>
+            No mobile banner
+          </span>
+        )}
+        {preview && (
+          <span
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 6,
+              background: "#1565c0",
+              color: "#fff",
+              fontSize: 9,
+              fontWeight: 700,
+              padding: "2px 7px",
+              borderRadius: 20,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+            }}
+          >
+            Preview
+          </span>
+        )}
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleChange}
+        style={{
+          fontSize: 11,
+          border: "1px solid #b3d4e8",
+          borderRadius: 6,
+          padding: "4px 8px",
+          background: "#f4f9fd",
+          cursor: "pointer",
+        }}
+      />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          onClick={handleSave}
+          disabled={upload.isPending || !preview}
+          style={{
+            flex: 1,
+            background: upload.isPending || !preview ? "#90b8d4" : "#1565c0",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            padding: "6px 0",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: upload.isPending || !preview ? "not-allowed" : "pointer",
+          }}
+        >
+          {upload.isPending ? "Uploading…" : "Upload Banner"}
+        </button>
+        {preview && (
+          <button
+            onClick={() => {
+              setPreview("");
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+            style={{
+              background: "#eef6fc",
+              color: "#1565c0",
+              border: "1px solid #b3d4e8",
+              borderRadius: 6,
+              padding: "6px 10px",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      {!categoryId && (
+        <p style={{ margin: 0, fontSize: 10, color: "#aaa" }}>
+          Save the category first, then upload its mobile banner.
         </p>
       )}
     </div>
@@ -301,11 +480,13 @@ function ViewCategoryModal({
   onClose,
   onEdit,
   onViewImage,
+  onViewMobileBanner,
 }: {
   cat: any;
   onClose: () => void;
   onEdit: () => void;
   onViewImage: (url: string, name: string, categoryId: number) => void;
+  onViewMobileBanner?: (url: string, name: string, categoryId: number) => void;
 }) {
   const row = (label: string, value: React.ReactNode) => (
     <div
@@ -393,6 +574,47 @@ function ViewCategoryModal({
             />
           </div>
         )}
+        {cat.mobileBannerImage && (
+          <div style={{ marginBottom: 12 }}>
+            <p
+              style={{
+                margin: "0 0 6px",
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#1565c0",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              📱 Mobile Banner
+            </p>
+            <div
+              style={{
+                width: "100%",
+                height: 100,
+                borderRadius: 10,
+                overflow: "hidden",
+                cursor: "pointer",
+                border: "1px solid #b3d4e8",
+              }}
+              onClick={() =>
+                onViewMobileBanner &&
+                onViewMobileBanner(
+                  getImageUrl(cat.mobileBannerImage, ""),
+                  `${cat.name} — Mobile Banner`,
+                  cat.categoryId,
+                )
+              }
+              title="Click to view full mobile banner"
+            >
+              <img
+                src={getImageUrl(cat.mobileBannerImage)}
+                alt={`${cat.name} mobile banner`}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column" }}>
           {row("ID", `#${cat.categoryId}`)}
           {row("Name", cat.name)}
@@ -443,6 +665,7 @@ type CatItem = {
   isActive: boolean;
   description?: string;
   categoryImage?: string;
+  mobileBannerImage?: string;
   parentCategoryId?: number | null;
   parentCategoryName?: string;
   deletedInd?: boolean;
@@ -458,10 +681,13 @@ export default function AdminCategories() {
   const [modal, setModal] = useState<any>(null);
   const [confirm, setConfirm] = useState<any>(null);
   const [confirmDeleteImage, setConfirmDeleteImage] = useState<any>(null);
+  const [confirmDeleteMobileBanner, setConfirmDeleteMobileBanner] =
+    useState<any>(null);
   const [viewImage, setViewImage] = useState<{
     url: string;
     name: string;
     categoryId?: number;
+    isMobileBanner?: boolean;
   } | null>(null);
   // ── Unhide flow: two-step (children first → then products) ─────────────────
   const [unhideChildrenConfirm, setUnhideChildrenConfirm] = useState<{
@@ -780,6 +1006,17 @@ export default function AdminCategories() {
       setViewImage(null);
     },
     onError: () => toast.error("Could not delete image."),
+  });
+
+  const deleteMobileBannerMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/Category/${id}/mobile-banner`),
+    onSuccess: () => {
+      toast.success("Mobile banner removed.");
+      qc.invalidateQueries({ queryKey: INV });
+      setConfirmDeleteMobileBanner(null);
+      setViewImage(null);
+    },
+    onError: () => toast.error("Could not delete mobile banner."),
   });
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -1620,33 +1857,101 @@ export default function AdminCategories() {
           onViewImage={(url, name, categoryId) =>
             setViewImage({ url, name, categoryId })
           }
+          onViewMobileBanner={(url, name, categoryId) =>
+            setViewImage({ url, name, categoryId, isMobileBanner: true })
+          }
         />
       )}
 
       {/* ─── Edit / Add Modal ─── */}
       {modal && (
         <div className="s-admincategor-172a23">
-          <div className="s-adminbrands-cd5358">
-            <h3 className="s-adminblog-e6371f">
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: "clamp(14px, 2vh, 24px) clamp(14px, 2vw, 24px)",
+              width: "min(92vw, 780px)",
+              maxHeight: "92vh",
+              display: "flex",
+              flexDirection: "column",
+              gap: "clamp(6px, 1vh, 12px)",
+              boxSizing: "border-box",
+            }}
+          >
+            {/* Title */}
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "clamp(14px, 1.8vh, 17px)",
+                fontWeight: 700,
+                color: "#333",
+                flexShrink: 0,
+              }}
+            >
               {modal.categoryId ? "Edit" : "New"} Category
             </h3>
-            {(
-              [
-                ["Name *", "name"],
-                ["Description", "description"],
-              ] as [string, string][]
-            ).map(([l, k]) => (
-              <div key={k} className="s-adminblog-22a617">
-                <label className="s-addressform-f1fb64">{l}</label>
-                <input
-                  value={modal[k] || ""}
-                  onChange={(e) => setModal({ ...modal, [k]: e.target.value })}
-                  className="inp-field"
-                />
-              </div>
-            ))}
-            <div className="s-adminblog-19fd7a">
-              <label className="s-addressform-f1fb64">
+
+            {/* Name + Description side by side */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "clamp(6px, 1vw, 12px)",
+                flexShrink: 0,
+              }}
+            >
+              {(
+                [
+                  ["Name *", "name"],
+                  ["Description", "description"],
+                ] as [string, string][]
+              ).map(([l, k]) => (
+                <div
+                  key={k}
+                  style={{ display: "flex", flexDirection: "column", gap: 3 }}
+                >
+                  <label
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#888",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    {l}
+                  </label>
+                  <input
+                    value={modal[k] || ""}
+                    onChange={(e) =>
+                      setModal({ ...modal, [k]: e.target.value })
+                    }
+                    className="inp-field"
+                    style={{ padding: "6px 10px", fontSize: 13 }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Parent Category ID */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+                flexShrink: 0,
+              }}
+            >
+              <label
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#888",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
                 Parent Category ID (optional)
               </label>
               <input
@@ -1661,58 +1966,189 @@ export default function AdminCategories() {
                   })
                 }
                 className="inp-field"
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  width: "50%",
+                  boxSizing: "border-box",
+                }}
               />
             </div>
+
+            {/* Images: side by side */}
             <div
               style={{
-                marginTop: 16,
-                padding: "14px 16px",
-                background: "#fafafa",
-                border: "1.5px solid #ece6f0",
-                borderRadius: 10,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "clamp(6px, 1vw, 12px)",
+                flexShrink: 0,
               }}
             >
-              <p
+              {/* ── Category Image ── */}
+              <div
                 style={{
-                  margin: "0 0 12px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#333",
+                  padding: "10px 12px",
+                  background: "#fafafa",
+                  border: "1.5px solid #ece6f0",
+                  borderRadius: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
                 }}
               >
-                🖼️ Category Image
-              </p>
-              {modal.categoryImage && (
-                <button
-                  onClick={() =>
-                    setViewImage({
-                      url: getImageUrl(modal.categoryImage, ""),
-                      name: modal.name,
-                      categoryId: modal.categoryId,
-                    })
-                  }
+                <div
                   style={{
-                    marginBottom: 10,
-                    padding: "4px 12px",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    background: "#e8eaf6",
-                    color: "#3949ab",
-                    border: "1px solid #9fa8da",
-                    borderRadius: 6,
-                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
                   }}
                 >
-                  👁 View Current Image
-                </button>
-              )}
-              <ImageUploadField
-                categoryId={modal.categoryId}
-                currentUrl={modal.categoryImage}
-                onUploaded={(url) => setModal({ ...modal, categoryImage: url })}
-              />
+                  <span
+                    style={{ fontSize: 12, fontWeight: 700, color: "#333" }}
+                  >
+                    🖼️ Category Image
+                  </span>
+                  {modal.categoryImage && (
+                    <button
+                      onClick={() =>
+                        setViewImage({
+                          url: getImageUrl(modal.categoryImage, ""),
+                          name: modal.name,
+                          categoryId: modal.categoryId,
+                        })
+                      }
+                      style={{
+                        padding: "2px 8px",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        background: "#e8eaf6",
+                        color: "#3949ab",
+                        border: "1px solid #9fa8da",
+                        borderRadius: 5,
+                        cursor: "pointer",
+                      }}
+                    >
+                      👁 View
+                    </button>
+                  )}
+                </div>
+                <ImageUploadField
+                  categoryId={modal.categoryId}
+                  currentUrl={modal.categoryImage}
+                  onUploaded={(url) =>
+                    setModal({ ...modal, categoryImage: url })
+                  }
+                />
+              </div>
+
+              {/* ── Mobile Banner ── */}
+              <div
+                style={{
+                  padding: "10px 12px",
+                  background: "#f4f9fd",
+                  border: "1.5px solid #b3d4e8",
+                  borderRadius: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 12, fontWeight: 700, color: "#1565c0" }}
+                  >
+                    📱 Mobile Banner
+                  </span>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {modal.mobileBannerImage && (
+                      <>
+                        <button
+                          onClick={() =>
+                            setViewImage({
+                              url: getImageUrl(modal.mobileBannerImage, ""),
+                              name: `${modal.name} — Mobile Banner`,
+                              categoryId: modal.categoryId,
+                              isMobileBanner: true,
+                            })
+                          }
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            background: "#e3f2fd",
+                            color: "#1565c0",
+                            border: "1px solid #90caf9",
+                            borderRadius: 5,
+                            cursor: "pointer",
+                          }}
+                        >
+                          👁 View
+                        </button>
+                        <button
+                          onClick={() =>
+                            setConfirmDeleteMobileBanner({
+                              categoryId: modal.categoryId,
+                              name: modal.name,
+                              mobileBannerImage: modal.mobileBannerImage,
+                            })
+                          }
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            background: "#fdecea",
+                            color: "#c62828",
+                            border: "1px solid #f5c6cb",
+                            borderRadius: 5,
+                            cursor: "pointer",
+                          }}
+                        >
+                          🗑
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 10,
+                    color: "#7fb3d0",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Mobile app only — not shown on desktop.
+                </p>
+                <MobileBannerUploadField
+                  categoryId={modal.categoryId}
+                  currentUrl={
+                    modal.mobileBannerImage
+                      ? getImageUrl(modal.mobileBannerImage)
+                      : undefined
+                  }
+                  onUploaded={(url) =>
+                    setModal({ ...modal, mobileBannerImage: url })
+                  }
+                />
+              </div>
             </div>
-            <div className="s-adminblog-679e96">
+
+            {/* Actions */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 8,
+                flexShrink: 0,
+                paddingTop: 2,
+              }}
+            >
               <button
                 onClick={() => setModal(null)}
                 className="s-admincategor-68998a"
@@ -1957,6 +2393,54 @@ export default function AdminCategories() {
         </div>
       )}
 
+      {/* ─── Delete Mobile Banner Confirm ─── */}
+      {confirmDeleteMobileBanner && (
+        <div className="s-admincategor-172a23">
+          <div className="s-adminblog-69ab70">
+            <h3 className="s-adminblog-caf79d">
+              Remove mobile banner for "{confirmDeleteMobileBanner.name}"?
+            </h3>
+            <p className="s-adminbrands-93cf07">
+              The mobile banner image will be permanently deleted.
+            </p>
+            {confirmDeleteMobileBanner.mobileBannerImage && (
+              <img
+                src={getImageUrl(confirmDeleteMobileBanner.mobileBannerImage)}
+                alt={confirmDeleteMobileBanner.name}
+                style={{
+                  width: "100%",
+                  maxHeight: 140,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  margin: "8px 0",
+                  border: "1px solid #b3d4e8",
+                }}
+              />
+            )}
+            <div className="s-adminblog-679e96">
+              <button
+                onClick={() => setConfirmDeleteMobileBanner(null)}
+                className="s-admincategor-3dc5de"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  deleteMobileBannerMutation.mutate(
+                    confirmDeleteMobileBanner.categoryId,
+                  )
+                }
+                className="s-admincategor-5e62fe"
+              >
+                {deleteMobileBannerMutation.isPending
+                  ? "Removing…"
+                  : "Remove Mobile Banner"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Unhide Products? (Step 2 of 2 for parent / standalone for child) ── */}
       {unhideProductsConfirm && (
         <div
@@ -2085,13 +2569,23 @@ export default function AdminCategories() {
                     (c) => c.categoryId === viewImage.categoryId,
                   );
                   setViewImage(null);
-                  setConfirmDeleteImage(
-                    cat ?? {
-                      categoryId: viewImage.categoryId,
-                      name: viewImage.name,
-                      categoryImage: viewImage.url,
-                    },
-                  );
+                  if (viewImage.isMobileBanner) {
+                    setConfirmDeleteMobileBanner(
+                      cat ?? {
+                        categoryId: viewImage.categoryId,
+                        name: viewImage.name,
+                        mobileBannerImage: viewImage.url,
+                      },
+                    );
+                  } else {
+                    setConfirmDeleteImage(
+                      cat ?? {
+                        categoryId: viewImage.categoryId,
+                        name: viewImage.name,
+                        categoryImage: viewImage.url,
+                      },
+                    );
+                  }
                 }
               : undefined
           }
