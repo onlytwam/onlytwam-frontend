@@ -20688,9 +20688,8 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   border-radius: 14px;
   width: 100%;
   max-width: 860px;
-  /* Adaptive height — grows with content up to 92vh, never overflows viewport */
-  max-height: min(92vh, 680px);
-  height: auto;
+  /* Fixed height so the gallery flex-fill works correctly */
+  height: min(92vh, 620px);
   overflow: hidden;
   position: relative;
   animation: qs-in 0.18s ease;
@@ -20728,8 +20727,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   flex-wrap: nowrap;
   flex: 1 1 0;
   min-height: 0;
-  /* Lock body height so it fills modal but never exceeds it */
-  max-height: calc(min(92vh, 680px) - 0px);
   overflow: hidden;
 }
 
@@ -20753,8 +20750,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   /* Fill remaining gallery height after thumbnails */
   flex: 1 1 0;
   min-height: 0;
-  /* Ensure the image area has a known height on all screen sizes */
-  min-height: 180px;
 }
 
 .qsm-main-image > img {
@@ -21504,7 +21499,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 @media (max-width: 768px) {
   .qsm-modal {
     max-width: 98vw;
-    max-height: min(94vh, 680px);
+    height: min(94vh, 620px);
   }
   .qsm-gallery {
     flex: 0 0 38%;
@@ -21520,7 +21515,6 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
     padding: 0;
   }
   .qsm-modal {
-    max-height: 96vh;
     height: 96vh;
     max-width: 100%;
     border-radius: 18px 18px 0 0;
