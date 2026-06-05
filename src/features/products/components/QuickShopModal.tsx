@@ -528,9 +528,24 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
           existing.quantity || existing.processedQuantity || 1,
         );
         const addQty = Number(obj.quantity || obj.processedQuantity || 1) || 1;
+        const stock = selStock ?? null;
+
+        // Block if cart already holds all available stock
+        if (stock !== null && currentQty >= stock) {
+          const only =
+            stock === 1 ? "Only 1 available" : `Only ${stock} available`;
+          return { mode: "blocked" as const, stock, only };
+        }
+
+        // Cap new quantity at stock ceiling
+        const newQty =
+          stock !== null
+            ? Math.min(currentQty + addQty, stock)
+            : currentQty + addQty;
+
         await updateCart(existing.cartId, {
           cartId: existing.cartId,
-          quantity: currentQty + addQty,
+          quantity: newQty,
         });
         return { mode: "updated" as const };
       }
@@ -539,9 +554,11 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
       return { mode: "added" as const };
     },
     onSuccess: async (result) => {
-      toast.success(
-        result?.mode === "updated" ? "Cart updated!" : "Added to cart!",
-      );
+      if (result?.mode === "blocked") {
+        toast.error(`Already in cart — ${result.only}`);
+        return;
+      }
+      toast.success("Added to cart!");
       qc.invalidateQueries({ queryKey: ["cart"] });
       qc.invalidateQueries({ queryKey: ["quick-cart"] });
       qc.invalidateQueries({ queryKey: ["cart-bootstrap"] });
@@ -559,8 +576,21 @@ export default function QuickShopModal({ productVariantId, onClose }: Props) {
       (x: any) => `${x.productVariantId}-${x.productVariantDetailId}` === key,
     );
     if (idx >= 0) {
-      gc[idx].quantity = (gc[idx].quantity || 1) + qty;
-      gc[idx].processedQuantity = gc[idx].quantity;
+      const currentQty = gc[idx].quantity || 1;
+      const stock = selStock ?? null;
+
+      // Block if cart already holds all available stock
+      if (stock !== null && currentQty >= stock) {
+        const only =
+          stock === 1 ? "Only 1 available" : `Only ${stock} available`;
+        toast.error(`Already in cart — ${only}`);
+        return;
+      }
+
+      const newQty =
+        stock !== null ? Math.min(currentQty + qty, stock) : currentQty + qty;
+      gc[idx].quantity = newQty;
+      gc[idx].processedQuantity = newQty;
       // keep stockQuantity in sync in case it changed
       if (selStock !== null) gc[idx].stockQuantity = selStock;
     } else

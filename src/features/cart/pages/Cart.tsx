@@ -2972,7 +2972,7 @@ export default function Cart() {
                     </div>
                   )}
 
-                  {/* Inline stock disclaimer — shows available qty; warns when over-selected */}
+                  {/* Inline stock disclaimer — only shown when qty exceeds stock OR stock <= 3 */}
                   {item.categoryIsActive !== false &&
                     (() => {
                       const availStock =
@@ -2982,6 +2982,8 @@ export default function Cart() {
                       const reqQty = item.processedQuantity || 1;
                       if (availStock === null) return null;
                       const isOver = reqQty > availStock;
+                      // Only show when stock is low (<=3) or quantity exceeds stock
+                      if (!isOver && availStock > 3) return null;
                       return (
                         <div
                           style={{
@@ -2995,36 +2997,24 @@ export default function Cart() {
                             marginBottom: 4,
                             background: isOver
                               ? "rgba(185,28,28,0.08)"
-                              : availStock <= 3
-                              ? "rgba(107,15,42,0.06)"
-                              : "rgba(34,139,34,0.07)",
-                            color: isOver
-                              ? "#b91c1c"
-                              : availStock <= 3
-                              ? "var(--brand)"
-                              : "#2e7d32",
+                              : "rgba(107,15,42,0.06)",
+                            color: isOver ? "#b91c1c" : "var(--brand)",
                             border: isOver
                               ? "1px solid rgba(185,28,28,0.25)"
-                              : availStock <= 3
-                              ? "1px solid rgba(107,15,42,0.2)"
-                              : "1px solid rgba(34,139,34,0.2)",
+                              : "1px solid rgba(107,15,42,0.2)",
                           }}
                         >
                           <i
                             className={`bi ${
                               isOver
                                 ? "bi-exclamation-circle-fill"
-                                : availStock <= 3
-                                ? "bi-exclamation-triangle-fill"
-                                : "bi-check-circle-fill"
+                                : "bi-exclamation-triangle-fill"
                             }`}
                             style={{ fontSize: 11 }}
                           />
                           {isOver
                             ? `Only ${availStock} available — please reduce quantity`
-                            : availStock <= 3
-                            ? `Only ${availStock} left in stock`
-                            : `${availStock} in stock`}
+                            : `Only ${availStock} left in stock`}
                         </div>
                       );
                     })()}

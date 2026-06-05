@@ -20687,9 +20687,9 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   background: var(--white);
   border-radius: 14px;
   width: 100%;
-  max-width: 820px;
-  /* Fixed viewport-capped height — modal never scrolls; info panel scrolls internally */
-  height: min(92vh, 600px);
+  max-width: 860px;
+  /* Fixed height so the gallery flex-fill works correctly */
+  height: min(92vh, 620px);
   overflow: hidden;
   position: relative;
   animation: qs-in 0.18s ease;
@@ -20732,9 +20732,9 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 
 /* ---- Gallery ---- */
 .qsm-gallery {
-  flex: 0 0 280px;
-  width: 280px;
-  min-width: 0;
+  flex: 0 0 42%;
+  max-width: 320px;
+  min-width: 220px;
   padding: 14px 10px 14px 14px;
   display: flex;
   flex-direction: column;
@@ -20755,7 +20755,8 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 .qsm-main-image > img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* contain: show full image without cropping */
+  object-fit: contain;
   display: block;
 }
 
@@ -20873,7 +20874,7 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* Only the info panel scrolls — the modal and gallery are fixed */
+  /* Info panel scrolls internally when content is taller than modal */
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -21493,31 +21494,59 @@ body:has(.s-profilelayou-8cf73f) .pl-nav .s-profilelayou-d3b202 {
 }
 
 /* ── QSM Responsive ────────────────────────────────────────────── */
+
+/* Tablet: tighten up slightly */
+@media (max-width: 768px) {
+  .qsm-modal {
+    max-width: 98vw;
+    height: min(94vh, 620px);
+  }
+  .qsm-gallery {
+    flex: 0 0 38%;
+    max-width: 260px;
+    min-width: 180px;
+  }
+}
+
+/* Mobile: stack vertically */
 @media (max-width: 600px) {
+  .qsm-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
   .qsm-modal {
     height: 96vh;
     max-width: 100%;
-    border-radius: 14px 14px 0 0;
+    border-radius: 18px 18px 0 0;
     flex-direction: column;
   }
   .qsm-body {
     flex-direction: column;
     overflow-y: auto;
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
   }
   .qsm-gallery {
     flex: 0 0 auto;
     width: 100%;
-    max-height: 260px;
+    max-width: none;
+    min-width: 0;
+    /* Image area: fixed height on mobile so it doesn't take over the screen */
+    height: 240px;
+    max-height: 240px;
     padding: 10px 10px 6px;
   }
-  .qsm-info {
-    flex: 1 1 auto;
-    overflow-y: visible;
-    padding: 10px 14px 20px;
+  .qsm-main-image {
+    min-height: 0;
+    height: 100%;
   }
-  .qsm-backdrop {
-    align-items: flex-end;
-    padding: 0;
+  .qsm-main-image > img {
+    object-fit: contain;
+  }
+  .qsm-info {
+    flex: 0 0 auto;
+    overflow-y: visible;
+    padding: 10px 14px 24px;
   }
 }
 
