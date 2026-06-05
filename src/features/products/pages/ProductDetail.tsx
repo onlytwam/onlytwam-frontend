@@ -1233,8 +1233,20 @@ export default function ProductDetail() {
       (x: any) => `${x.productVariantId}-${x.productVariantDetailId}` === key,
     );
     if (idx >= 0) {
-      gc[idx].quantity = (gc[idx].quantity || 1) + quantity;
-      gc[idx].processedQuantity = gc[idx].quantity;
+      const currentQty = gc[idx].quantity || 1;
+      const stock = selStock ?? null;
+      if (stock !== null && currentQty >= stock) {
+        const only =
+          stock === 1 ? "Only 1 available" : `Only ${stock} available`;
+        toast.error(`Already in cart — ${only}`);
+        return;
+      }
+      const newQty =
+        stock !== null
+          ? Math.min(currentQty + quantity, stock)
+          : currentQty + quantity;
+      gc[idx].quantity = newQty;
+      gc[idx].processedQuantity = newQty;
       if (selStock !== null) gc[idx].stockQuantity = selStock;
     } else {
       gc.push({
@@ -1287,11 +1299,22 @@ export default function ProductDetail() {
         );
 
         if (existing?.cartId) {
-          // Same variant already in cart → just increase quantity
+          // Same variant already in cart → check stock before increasing
+          const currentQty =
+            Number(existing.quantity) ||
+            Number(existing.processedQuantity) ||
+            1;
+          const stock = selStock ?? null;
+          if (stock !== null && currentQty >= stock) {
+            const only =
+              stock === 1 ? "Only 1 available" : `Only ${stock} available`;
+            toast.error(`Already in cart — ${only}`);
+            return;
+          }
           const newQty =
-            (Number(existing.quantity) ||
-              Number(existing.processedQuantity) ||
-              1) + quantity;
+            stock !== null
+              ? Math.min(currentQty + quantity, stock)
+              : currentQty + quantity;
           updateCartMutation.mutate({ id: existing.cartId, qty: newQty });
         } else {
           cartMutation.mutate({
