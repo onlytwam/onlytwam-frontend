@@ -3,16 +3,10 @@
     "rewrite": "/index.html",
     "exclude": [
       "/assets/*",
-      "/*.js",
-      "/*.css",
-      "/*.png",
-      "/*.jpg",
-      "/*.svg",
-      "/*.ico",
-      "/*.webp",
-      "/*.woff",
-      "/*.woff2",
-      "/*.json"
+      "/favicon.png",
+      "/icon.png",
+      "/icon-only.png",
+      "/manifest.webmanifest"
     ]
   }
 }
