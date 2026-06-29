@@ -38,7 +38,6 @@ steps:
     displayName: Deploy to Static Web Apps
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), in(variables['Build.Reason'], 'IndividualCI', 'Manual'))
     inputs:
-      app_location: "/"
-      output_location: "dist"
+      app_location: "dist"
       skip_app_build: true
       azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)
