@@ -26,7 +26,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { api } from "@/shared/api/axios";
+import api from "@/shared/api/axiosInstance";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
