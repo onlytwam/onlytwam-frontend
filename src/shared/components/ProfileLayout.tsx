@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import UserAvatar from "@/shared/components/UserAvatar";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
+import { api } from "@/shared/api/axios";
 import {
   useProfileLeaveGuard,
   type ProfileLeaveGuardState,
@@ -242,6 +243,61 @@ export default function ProfileLayout() {
     });
   }, [handleGuardedAction, logout, navigate]);
 
+  const handleDeleteAccount = useCallback(() => {
+    // Show custom confirmation toast — same style as leave-prompt toast
+    const toastId = toast.custom(
+      (t) => (
+        <div
+          className="s-profilelayou-leave-toast"
+          style={{ maxWidth: 360 }}
+        >
+          <div className="s-profilelayou-leave-toast-title">
+            Delete Account Permanently?
+          </div>
+          <div className="s-profilelayou-leave-toast-copy">
+            Your profile, cart, wishlist and addresses will be permanently
+            deleted. Your order history will be kept for our records.
+            This cannot be undone.
+          </div>
+          <div className="s-profilelayou-leave-toast-actions">
+            <button
+              className="s-profilelayou-leave-toast-save"
+              style={{ background: "var(--brand, #6b0f2a)", color: "#fff" }}
+              onClick={async () => {
+                toast.dismiss(toastId);
+                const delToastId = toast.loading("Deleting account…");
+                try {
+                  await api.delete("/People/DeleteAccount");
+                  toast.dismiss(delToastId);
+                  toast.success("Account deleted successfully.");
+                  logout({ showToast: false });
+                  navigate("/");
+                } catch (err: any) {
+                  toast.dismiss(delToastId);
+                  toast.error(
+                    err?.response?.data?.detail || "Failed to delete account. Please try again."
+                  );
+                }
+              }}
+            >
+              Yes, Delete
+            </button>
+            <button
+              className="s-profilelayou-leave-toast-discard"
+              onClick={() => toast.dismiss(toastId)}
+            >
+              No, Keep
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        duration: Infinity,
+        style: { background: "transparent", boxShadow: "none", padding: 0, border: "none" },
+      },
+    );
+  }, [logout, navigate]);
+
   const handleSupportClick = useCallback(() => {
     handleGuardedAction(() => navigate("/contact-us"));
   }, [handleGuardedAction, navigate]);
@@ -330,6 +386,14 @@ export default function ProfileLayout() {
                 </NavLink>
               ))}
               <div className="s-profilelayou-a78377" />
+              <button
+                onClick={handleDeleteAccount}
+                className="s-profilelayou-d3b202"
+                style={{ color: "var(--brand, #6b0f2a)", opacity: 0.7 }}
+              >
+                <i className="bi bi-trash3 s-profilelayou-40fc0e" />{" "}
+                Delete Account
+              </button>
               <button onClick={handleSignOut} className="s-profilelayou-d3b202">
                 <i className="bi bi-box-arrow-right s-profilelayou-40fc0e" />{" "}
                 Sign Out
