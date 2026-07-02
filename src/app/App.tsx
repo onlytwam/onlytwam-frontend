@@ -240,6 +240,7 @@ const AdminDashboard = lazy(
   () => import("@/features/admin/pages/AdminDashboard"),
 );
 const AdminOrders = lazy(() => import("@/features/admin/pages/AdminOrders"));
+const AdminFailedShipments = lazy(() => import("@/features/admin/pages/FailedShipments"));
 const AdminProducts = lazy(
   () => import("@/features/admin/pages/AdminProducts"),
 );
@@ -1037,6 +1038,7 @@ export default function App() {
             <Route path="admin-dashboard" element={<AdminDashboard />} />
             <Route path="bulk-import" element={<AdminBulkUpload />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="failed-shipments" element={<AdminFailedShipments />} />
             <Route
               path="product-bulk-upload"
               element={<AdminProductBulkUpload />}
