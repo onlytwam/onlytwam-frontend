@@ -883,6 +883,21 @@ export function LegacyOrdersListExpanded() {
                         Invoice
                       </Link>
 
+                      {/* Track Order button — shown whenever trackingUrl exists
+                          (set by backend as soon as TrackingId is written, whether
+                          auto-created by Ekart API or manually entered by support) */}
+                      {order.trackingUrl && (
+                        <a
+                          href={order.trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-sm btn-outline-dark"
+                        >
+                          <i className="bi bi-truck me-1" />
+                          Track Order
+                        </a>
+                      )}
+
                       {["Pending", "Confirmed"].includes(state) && (
                         <button
                           className="btn btn-sm btn-outline-danger"
