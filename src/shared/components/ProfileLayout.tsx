@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import UserAvatar from "@/shared/components/UserAvatar";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
-import { api } from "@/shared/api/axios";
+import api from "@/shared/api/axiosInstance";
 import {
   useProfileLeaveGuard,
   type ProfileLeaveGuardState,
