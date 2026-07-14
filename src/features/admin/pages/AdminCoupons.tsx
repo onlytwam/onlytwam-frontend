@@ -12,7 +12,7 @@ const COUPON_TYPES = [
   { value: "product_specific", label: "Product Specific" },
 ] as const;
 type CouponType = (typeof COUPON_TYPES)[number]["value"];
-type Tab = "digital" | "physical" | "bulk_user";
+type Tab = "digital" | "physical" | "bulk_user" | "brand_coupon";
 
 interface Segment {
   key: string;
@@ -112,6 +112,17 @@ export default function AdminCoupons() {
   const bulkFileRef = useRef<HTMLInputElement>(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState<any>(null);
 
+  // ── brand coupon state ──
+  const [brandModal, setBrandModal]         = useState<"single" | "bulk" | null>(null);
+  const [brandPage, setBrandPage]           = useState(1);
+  const [brandFilterId, setBrandFilterId]   = useState<number | "">("");
+  const brandFileRef                        = useRef<HTMLInputElement>(null);
+  const [brandUploadStatus, setBrandUploadStatus] = useState<string | null>(null);
+  const [brandForm, setBrandForm] = useState({
+    couponCode: "", couponName: "", brandId: "" as number | "",
+    discount: "" as number | "", startDate: "", endDate: "",
+  });
+
   // ══════════════════════════════════════════════════════════════════════════
   // QUERIES
   // ══════════════════════════════════════════════════════════════════════════
@@ -171,6 +182,25 @@ export default function AdminCoupons() {
 
   const segments: Segment[] = segmentsData?.segments ?? [];
   const activeSeg = segments.find((s) => s.key === selectedSegment);
+
+  const { data: brandsData } = useQuery({
+    queryKey: ["brands-list"],
+    queryFn: () => api.get("/Brand", { params: { "Page.Size": 200 } }).then((r) => r.data),
+  });
+  const allBrands: { brandId: number; brandName: string }[] = brandsData?.list ?? [];
+
+  const { data: brandCouponsData, isLoading: brandCouponsLoading, refetch: refetchBrandCoupons } = useQuery({
+    queryKey: ["brand-coupons", brandPage, brandFilterId],
+    enabled: tab === "brand_coupon",
+    queryFn: () =>
+      api.get("/Coupons/Brand", {
+        params: {
+          ...(brandFilterId ? { brand_id: brandFilterId } : {}),
+          "Page.Index": brandPage,
+          "Page.Size": PAGE_SIZE,
+        },
+      }).then((r) => r.data),
+  });
 
   // ══════════════════════════════════════════════════════════════════════════
   // MUTATIONS
@@ -397,9 +427,10 @@ export default function AdminCoupons() {
       >
         {(
           [
-            { key: "digital", label: "Digital Coupons" },
-            { key: "physical", label: "Physical Coupons" },
-            { key: "bulk_user", label: "👥 User-Specific Bulk" },
+            { key: "digital",      label: "Digital Coupons" },
+            { key: "physical",     label: "Physical Coupons" },
+            { key: "bulk_user",    label: "👥 User-Specific Bulk" },
+            { key: "brand_coupon", label: "🏷️ Brand Coupons" },
           ] as const
         ).map((t) => (
           <button
@@ -1396,6 +1427,264 @@ export default function AdminCoupons() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════
+          BRAND COUPON TAB
+      ════════════════════════════════════════════════════════ */}
+      {tab === "brand_coupon" && (
+        <div style={sectionCard}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <p style={sectionTitle}>Brand Coupons</p>
+              <p style={sectionDesc}>Single-use coupon codes valid for all products of a specific brand. Once used by anyone, the code cannot be used again.</p>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={btnSecondary} onClick={() => { setBrandModal("bulk"); setBrandForm({ couponCode: "", couponName: "", brandId: "", discount: "", startDate: "", endDate: "" }); }}>
+                ⬆ Bulk Upload Excel
+              </button>
+              <button style={btnPrimary} onClick={() => { setBrandModal("single"); setBrandForm({ couponCode: "", couponName: "", brandId: "", discount: "", startDate: "", endDate: "" }); }}>
+                + Add Single Code
+              </button>
+            </div>
+          </div>
+
+          {/* Filter bar */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+            <select
+              value={brandFilterId}
+              onChange={(e) => { setBrandFilterId(e.target.value ? Number(e.target.value) : ""); setBrandPage(1); }}
+              style={{ padding: "7px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, minWidth: 200 }}
+            >
+              <option value="">All Brands</option>
+              {allBrands.map((b) => (
+                <option key={b.brandId} value={b.brandId}>{b.brandName}</option>
+              ))}
+            </select>
+            <a href="/api/Coupons/Brand/Template" style={{ fontSize: 13, color: "var(--brand)", marginLeft: "auto" }}>
+              ⬇ Download Excel Template
+            </a>
+          </div>
+
+          {/* Coupon codes table */}
+          {brandCouponsLoading ? (
+            <p style={{ color: "#999", fontSize: 13 }}>Loading…</p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#f9f9f9" }}>
+                  {["Code", "Name", "Brand", "Discount", "Valid From", "Valid Until", "Status", ""].map((h) => (
+                    <th key={h} style={{ ...tdStyle, fontWeight: 700, textAlign: "left" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(brandCouponsData?.list ?? []).map((c: any) => {
+                  const brand = allBrands.find((b) => b.brandId === c.brandId);
+                  return (
+                    <tr key={c.couponId}>
+                      <td style={tdStyle}><code style={{ background: "#f5f5f5", padding: "2px 6px", borderRadius: 4 }}>{c.couponCode}</code></td>
+                      <td style={tdStyle}>{c.couponName || "—"}</td>
+                      <td style={tdStyle}>{brand?.brandName ?? `Brand ${c.brandId}`}</td>
+                      <td style={tdStyle}><b>{c.discount}%</b></td>
+                      <td style={tdStyle}>{fmtDate(c.startDate)}</td>
+                      <td style={tdStyle}>{fmtDate(c.endDate)}</td>
+                      <td style={tdStyle}>
+                        {c.isUsed ? (
+                          <span style={{ background: "#f5e6e6", color: "#c0392b", padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600 }}>Used</span>
+                        ) : c.isActive ? (
+                          <span style={{ background: "#e8f5e9", color: "#2e7d32", padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600 }}>Active</span>
+                        ) : (
+                          <span style={{ background: "#f5f5f5", color: "#888", padding: "2px 8px", borderRadius: 10, fontSize: 12 }}>Inactive</span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Delete coupon ${c.couponCode}?`)) return;
+                            await api.delete(`/Coupons/Brand/${c.couponId}`);
+                            refetchBrandCoupons();
+                            toast.success("Deleted");
+                          }}
+                          style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 13 }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {(brandCouponsData?.list ?? []).length === 0 && (
+                  <tr><td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: "#aaa", padding: 32 }}>No brand coupons yet</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+
+          {/* Pagination */}
+          {(brandCouponsData?.count ?? 0) > PAGE_SIZE && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
+              <button style={btnOutline} disabled={brandPage === 1} onClick={() => setBrandPage((p) => p - 1)}>← Prev</button>
+              <span style={{ padding: "8px 12px", fontSize: 13 }}>{brandPage} / {Math.ceil((brandCouponsData?.count ?? 0) / PAGE_SIZE)}</span>
+              <button style={btnOutline} disabled={brandPage * PAGE_SIZE >= (brandCouponsData?.count ?? 0)} onClick={() => setBrandPage((p) => p + 1)}>Next →</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ Brand coupon — Add Single modal ══ */}
+      {brandModal === "single" && (
+        <div className="s-admincoupons-d93fb3">
+          <div className="s-admincoupons-5920ba">
+            <h3 className="s-adminblog-e6371f">Add Brand Coupon</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <div>
+                <label style={fieldLabel}>Coupon Code *</label>
+                <input className="inp-field" placeholder="e.g. BRAND50OFF"
+                  value={brandForm.couponCode}
+                  onChange={(e) => setBrandForm({ ...brandForm, couponCode: e.target.value.toUpperCase() })} />
+              </div>
+              <div>
+                <label style={fieldLabel}>Coupon Name</label>
+                <input className="inp-field" placeholder="e.g. Summer Brand Sale"
+                  value={brandForm.couponName}
+                  onChange={(e) => setBrandForm({ ...brandForm, couponName: e.target.value })} />
+              </div>
+              <div>
+                <label style={fieldLabel}>Brand *</label>
+                <select className="inp-field" value={brandForm.brandId}
+                  onChange={(e) => setBrandForm({ ...brandForm, brandId: e.target.value ? Number(e.target.value) : "" })}>
+                  <option value="">Select brand…</option>
+                  {allBrands.map((b) => <option key={b.brandId} value={b.brandId}>{b.brandName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={fieldLabel}>Discount (%) *</label>
+                <input className="inp-field" type="number" min={1} max={100} placeholder="e.g. 20"
+                  value={brandForm.discount}
+                  onChange={(e) => setBrandForm({ ...brandForm, discount: e.target.value ? Number(e.target.value) : "" })} />
+              </div>
+              <div>
+                <label style={fieldLabel}>Valid From</label>
+                <input className="inp-field" type="date" value={brandForm.startDate}
+                  onChange={(e) => setBrandForm({ ...brandForm, startDate: e.target.value })} />
+              </div>
+              <div>
+                <label style={fieldLabel}>Valid Until</label>
+                <input className="inp-field" type="date" value={brandForm.endDate}
+                  onChange={(e) => setBrandForm({ ...brandForm, endDate: e.target.value })} />
+              </div>
+            </div>
+            <div className="s-admincoupons-45d476">
+              <button className="s-admincoupons-db4fcf" onClick={() => setBrandModal(null)}>Cancel</button>
+              <button className="s-admincoupons-2798d5"
+                disabled={!brandForm.couponCode || !brandForm.brandId || !brandForm.discount}
+                style={{ opacity: !brandForm.couponCode || !brandForm.brandId || !brandForm.discount ? 0.5 : 1 }}
+                onClick={async () => {
+                  try {
+                    await api.post("/Coupons/Brand/Single", {
+                      couponCode: brandForm.couponCode, couponName: brandForm.couponName,
+                      brandId: brandForm.brandId, discount: brandForm.discount,
+                      startDate: brandForm.startDate || null, endDate: brandForm.endDate || null,
+                    });
+                    toast.success("Brand coupon created!");
+                    setBrandModal(null);
+                    refetchBrandCoupons();
+                  } catch (e: any) {
+                    toast.error(e?.response?.data?.detail || "Failed to create coupon");
+                  }
+                }}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Brand coupon — Bulk Upload modal ══ */}
+      {brandModal === "bulk" && (
+        <div className="s-admincoupons-d93fb3">
+          <div className="s-admincoupons-5920ba">
+            <h3 className="s-adminblog-e6371f">Bulk Upload Brand Coupons</h3>
+            <p style={{ fontSize: 13, color: "#666", marginBottom: 14 }}>
+              Upload an Excel file with a single column of coupon codes.{" "}
+              <a href="/api/Coupons/Brand/Template" style={{ color: "var(--brand)" }}>Download template</a>
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <div>
+                <label style={fieldLabel}>Coupon Name</label>
+                <input className="inp-field" placeholder="e.g. Summer Brand Sale"
+                  value={brandForm.couponName}
+                  onChange={(e) => setBrandForm({ ...brandForm, couponName: e.target.value })} />
+              </div>
+              <div>
+                <label style={fieldLabel}>Brand *</label>
+                <select className="inp-field" value={brandForm.brandId}
+                  onChange={(e) => setBrandForm({ ...brandForm, brandId: e.target.value ? Number(e.target.value) : "" })}>
+                  <option value="">Select brand…</option>
+                  {allBrands.map((b) => <option key={b.brandId} value={b.brandId}>{b.brandName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={fieldLabel}>Discount (%) *</label>
+                <input className="inp-field" type="number" min={1} max={100}
+                  value={brandForm.discount}
+                  onChange={(e) => setBrandForm({ ...brandForm, discount: e.target.value ? Number(e.target.value) : "" })} />
+              </div>
+              <div />
+              <div>
+                <label style={fieldLabel}>Valid From</label>
+                <input className="inp-field" type="date" value={brandForm.startDate}
+                  onChange={(e) => setBrandForm({ ...brandForm, startDate: e.target.value })} />
+              </div>
+              <div>
+                <label style={fieldLabel}>Valid Until</label>
+                <input className="inp-field" type="date" value={brandForm.endDate}
+                  onChange={(e) => setBrandForm({ ...brandForm, endDate: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={fieldLabel}>Excel File *</label>
+              <input ref={brandFileRef} type="file" accept=".xlsx,.xls" style={{ fontSize: 13 }} />
+            </div>
+            {brandUploadStatus && (
+              <p style={{ fontSize: 13, color: brandUploadStatus.startsWith("✅") ? "#2e7d32" : "#c0392b", marginBottom: 12 }}>
+                {brandUploadStatus}
+              </p>
+            )}
+            <div className="s-admincoupons-45d476">
+              <button className="s-admincoupons-db4fcf" onClick={() => { setBrandModal(null); setBrandUploadStatus(null); }}>Cancel</button>
+              <button className="s-admincoupons-2798d5"
+                disabled={!brandForm.brandId || !brandForm.discount}
+                style={{ opacity: !brandForm.brandId || !brandForm.discount ? 0.5 : 1 }}
+                onClick={async () => {
+                  const file = brandFileRef.current?.files?.[0];
+                  if (!file) { toast.error("Select an Excel file first"); return; }
+                  const fd = new FormData();
+                  fd.append("file", file);
+                  setBrandUploadStatus("Uploading…");
+                  try {
+                    const params = new URLSearchParams({
+                      couponName: brandForm.couponName,
+                      brandId:    String(brandForm.brandId),
+                      discount:   String(brandForm.discount),
+                      ...(brandForm.startDate ? { startDate: brandForm.startDate } : {}),
+                      ...(brandForm.endDate   ? { endDate:   brandForm.endDate }   : {}),
+                    });
+                    const res = await api.post(`/Coupons/Brand/BulkUpload?${params}`, fd, {
+                      headers: { "Content-Type": "multipart/form-data" },
+                    });
+                    setBrandUploadStatus(`✅ ${res.data.inserted} created, ${res.data.skipped} skipped`);
+                    refetchBrandCoupons();
+                  } catch (e: any) {
+                    setBrandUploadStatus(`❌ ${e?.response?.data?.detail || "Upload failed"}`);
+                  }
+                }}>
+                Upload
+              </button>
+            </div>
           </div>
         </div>
       )}
