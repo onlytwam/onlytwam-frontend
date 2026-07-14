@@ -108,6 +108,12 @@ const ALL_NAV = [
     roles: [1, 5],
   },
   {
+    path: "/admin/coupon-list",
+    icon: "bi-list-ul",
+    label: "Coupon List",
+    roles: [1, 5],
+  },
+  {
     path: "/admin/surprise-gifts",
     icon: "bi-gift-fill",
     label: "Surprise Gifts",
