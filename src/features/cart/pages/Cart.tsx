@@ -1908,7 +1908,85 @@ export default function Cart() {
     try {
       const coupon = await resolveCouponByCode(code);
       if (!coupon) {
-        // Try as a physical coupon
+        // ── Try as a BRAND coupon ──────────────────────────────────────────
+        // Brand coupons live in a separate table and are not returned by
+        // listCoupons. We call POST /Coupons/Brand/Validate with each
+        // brandId present in the cart — if the code belongs to that brand,
+        // the backend validates and returns the discount.
+        const cartBrandIds = [
+          ...new Set(
+            selectedItems
+              .map((item: any) => item.brandId)
+              .filter((id: any): id is number => typeof id === "number"),
+          ),
+        ];
+
+        if (cartBrandIds.length > 0 && userId) {
+          for (const brandId of cartBrandIds) {
+            try {
+              const brandRes = await api.post("/Coupons/Brand/Validate", {
+                couponCode:    code,
+                brandId,
+                userProfileId: String(userId),
+              });
+
+              if (brandRes.data?.valid) {
+                const {
+                  couponId,
+                  discount,
+                  brandId: validBrandId,
+                  couponName,
+                  message,
+                } = brandRes.data;
+
+                // Discount applies only to items of this brand
+                const brandItems = selectedItems.filter(
+                  (item: any) => item.brandId === validBrandId,
+                );
+                const brandSubtotal = brandItems.reduce(
+                  (sum: number, item: any) =>
+                    sum +
+                    (item.finalPrice ?? item.price ?? 0) *
+                      (item.processedQuantity ?? item.quantity ?? 1),
+                  0,
+                );
+                const discountAmt = Math.round(
+                  (brandSubtotal * discount) / 100,
+                );
+
+                if (discountAmt <= 0) {
+                  if (showToast)
+                    toast.error("Coupon not applicable on items in your cart");
+                  return false;
+                }
+
+                const synthCoupon: any = {
+                  couponId,
+                  couponCode:   code,
+                  couponName:   couponName || "Brand Coupon",
+                  discount,
+                  discountType: "percentage",
+                  isActive:     true,
+                  couponType:   "brand_specific",
+                  brandId:      validBrandId,
+                  source:       "general",
+                };
+                setCoupon(synthCoupon, discountAmt);
+                if (showToast) {
+                  toast.success(
+                    message ||
+                      `Brand coupon applied! ${discount}% off — you save ₹${discountAmt.toLocaleString("en-IN")}`,
+                  );
+                }
+                return true;
+              }
+            } catch {
+              // This brandId didn't match — try the next one
+            }
+          }
+        }
+
+        // ── Try as a physical coupon ───────────────────────────────────────
         const physDiscount = await resolvePhysicalCoupon(code);
         if (physDiscount !== null) {
           // Build a synthetic coupon object for cart state

@@ -286,6 +286,45 @@ export default function Footer() {
               </div>
             </div>
 
+            {/* App download badges — mobile */}
+            <div className="fmob-app-badges">
+              <p className="fmob-app-label">Download Our App</p>
+              <div className="fmob-app-links">
+                <a
+                  href="https://play.google.com/store/apps/details?id=in.twam.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Get it on Google Play"
+                >
+                  <img
+                    src="/assets/social/playstore.svg"
+                    alt="Google Play"
+                    className="fmob-app-icon"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = "https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg";
+                    }}
+                  />
+                </a>
+                <a
+                  href="https://apps.apple.com/in/app/twam/id6776721739"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Download on the App Store"
+                >
+                  <img
+                    src="/assets/social/appstore.svg"
+                    alt="App Store"
+                    className="fmob-app-icon"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = "https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg";
+                    }}
+                  />
+                </a>
+              </div>
+            </div>
+
             {/* Hairline */}
             <div className="fmob-rule" />
 
@@ -607,6 +646,47 @@ export default function Footer() {
                 >
                   Privacy Policy
                 </button>
+              </div>
+            </div>
+
+            {/* App download badges */}
+            <div className="footer-app-badges">
+              <span className="footer-app-label">Download Our App</span>
+              <div className="footer-app-links">
+                <a
+                  href="https://play.google.com/store/apps/details?id=in.twam.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Get it on Google Play"
+                  className="footer-app-link"
+                >
+                  <img
+                    src="/assets/social/playstore.svg"
+                    alt="Get it on Google Play"
+                    className="footer-app-icon"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = "https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg";
+                    }}
+                  />
+                </a>
+                <a
+                  href="https://apps.apple.com/in/app/twam/id6776721739"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Download on the App Store"
+                  className="footer-app-link"
+                >
+                  <img
+                    src="/assets/social/appstore.svg"
+                    alt="Download on the App Store"
+                    className="footer-app-icon"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = "https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg";
+                    }}
+                  />
+                </a>
               </div>
             </div>
 

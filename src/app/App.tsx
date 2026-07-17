@@ -258,6 +258,7 @@ const AdminBrands = lazy(() => import("@/features/admin/pages/AdminBrands"));
 const AdminSizes = lazy(() => import("@/features/admin/pages/AdminSizes"));
 const AdminUsers = lazy(() => import("@/features/admin/pages/AdminUsers"));
 const AdminCoupons = lazy(() => import("@/features/admin/pages/AdminCoupons"));
+const AdminCouponsList = lazy(() => import("@/features/admin/pages/AdminCouponsList"));
 const AdminSupportRequests = lazy(
   () => import("@/features/admin/pages/AdminSupportRequests"),
 );
@@ -1058,6 +1059,7 @@ export default function App() {
             <Route path="sizes" element={<AdminSizes />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="coupons" element={<AdminCoupons />} />
+            <Route path="coupon-list" element={<AdminCouponsList />} />
             <Route path="support" element={<AdminSupportRequests />} />
             <Route path="blog" element={<AdminBlog />} />
             <Route path="mdm" element={<AdminMDM />} />
