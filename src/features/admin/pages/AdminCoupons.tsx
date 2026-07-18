@@ -185,7 +185,15 @@ export default function AdminCoupons() {
 
   const { data: brandsData } = useQuery({
     queryKey: ["brands-list"],
-    queryFn: () => api.get("/Brand", { params: { "Page.Size": 200 } }).then((r) => r.data),
+    queryFn: () =>
+      api.get("/Brand", {
+        params: {
+          "Page.Size": 500,
+          "showAll":   true,
+          "Order.Property": "brandName",
+          "Order.Ascending": true,
+        },
+      }).then((r) => r.data),
   });
   const allBrands: { brandId: number; brandName: string }[] = brandsData?.list ?? [];
 
