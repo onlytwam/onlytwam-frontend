@@ -186,11 +186,10 @@ export default function AdminCoupons() {
   const { data: brandsData } = useQuery({
     queryKey: ["brands-list"],
     queryFn: () =>
-      api.get("/Brand", {
+      api.get("/MDM/Brand", {
         params: {
-          "Page.Size": 500,
-          "showAll":   true,
-          "Order.Property": "brandName",
+          "Page.Size":       500,
+          "Order.Property":  "brandName",
           "Order.Ascending": true,
         },
       }).then((r) => r.data),
