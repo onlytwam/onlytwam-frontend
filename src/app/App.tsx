@@ -284,6 +284,10 @@ const InventoryProductReports = lazy(
 );
 
 const AdminStock = lazy(() => import("@/features/admin/pages/AdminStock"));
+const AdminStores = lazy(() => import("@/features/admin/pages/AdminStores"));
+const AdminWarehouses = lazy(() => import("@/features/admin/pages/AdminWarehouses"));
+const AdminAssignStock = lazy(() => import("@/features/admin/pages/AdminAssignStock"));
+const AdminMyStock = lazy(() => import("@/features/admin/pages/AdminMyStock"));
 
 const AdminBulkUpload = lazy(async () => {
   const mod = await import("@/features/admin/pages/AdminBulkUpload");
@@ -1053,6 +1057,10 @@ export default function App() {
             />
             <Route path="inventory" element={<AdminInventory />} />
             <Route path="stock" element={<AdminStock />} />
+            <Route path="stores" element={<AdminStores />} />
+            <Route path="warehouses" element={<AdminWarehouses />} />
+            <Route path="assign-stock" element={<AdminAssignStock />} />
+            <Route path="my-stock" element={<AdminMyStock />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="categories" element={<AdminCategories />} />
             <Route path="brands" element={<AdminBrands />} />
