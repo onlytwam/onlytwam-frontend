@@ -1,4 +1,4 @@
-﻿import { Outlet, Navigate, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, Navigate, NavLink, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import api from "@/shared/api/axiosInstance";
@@ -15,6 +15,7 @@ const ROLE_LABELS: Record<number, string> = {
   4: "Store Manager", // updated by colleague (was Product Manager)
   5: "Order Manager",
   6: "Customer Support",
+  7: "Warehouse Manager",
 };
 
 // Full nav pool â€” merged from both versions; union of roles so no access is lost
@@ -100,6 +101,30 @@ const ALL_NAV = [
     icon: "bi-boxes",
     label: "Stock",
     roles: [1, 3, 4],
+  },
+  {
+    path: "/admin/stores",
+    icon: "bi-shop",
+    label: "Stores",
+    roles: [1, 3], 
+  },
+  {
+    path: "/admin/warehouses",
+    icon: "bi-building",
+    label: "Warehouses",
+    roles: [1, 3],
+  },
+  {
+    path: "/admin/assign-stock",
+    icon: "bi-arrow-left-right",
+    label: "Assign Stock",
+    roles: [1, 3],
+  },
+  {
+    path: "/admin/my-stock",
+    icon: "bi-box-seam",
+    label: "My Stock",
+    roles: [4, 7],
   },
   {
     path: "/admin/coupons",
