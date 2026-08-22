@@ -211,12 +211,23 @@ export default function AdminWarehouses() {
                     )}
                   </div>
                   
-                  <div className="mt-auto pt-2" style={{ display: "flex", gap: 10, borderTop: "1px solid #eee" }}>
+                  <div className="mt-auto pt-2" style={{ display: "flex", gap: 5, borderTop: "1px solid #eee" }}>
                     <button className="btn btn-sm btn-outline-primary flex-grow-1" onClick={() => handleEdit(w)}>
-                      <i className="bi bi-pencil" /> Edit
+                      <i className="bi bi-pencil" />
                     </button>
-                    <button className={`btn btn-sm flex-grow-1 ${w.isActive ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => toggleActive(w)}>
+                    <button className={`btn btn-sm flex-grow-1 ${w.isActive ? 'btn-outline-warning' : 'btn-outline-success'}`} onClick={() => toggleActive(w)}>
                       {w.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button className="btn btn-sm btn-outline-danger flex-grow-1" onClick={() => {
+                      const id = w.id || w.warehouseId;
+                      if(window.confirm('Are you sure you want to permanently delete this warehouse?')) {
+                        api.delete(`/Billing/warehouses/${id}`).then(() => {
+                          toast.success('Warehouse deleted permanently');
+                          queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+                        }).catch((err: any) => toast.error('Failed to delete warehouse'));
+                      }
+                    }}>
+                      <i className="bi bi-trash" />
                     </button>
                   </div>
                 </div>
