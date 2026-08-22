@@ -9,6 +9,7 @@ export default function AdminStores() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewingPasswordId, setViewingPasswordId] = useState<number | null>(null);
 
@@ -51,6 +52,7 @@ export default function AdminStores() {
     setLoginEmail("");
     setLoginPassword("");
     setEditingId(null);
+    setIsFormOpen(false);
   };
 
   const handleEdit = (store: any) => {
@@ -59,6 +61,7 @@ export default function AdminStores() {
     setAddress(store.address || "");
     setLoginEmail(store.loginEmail || "");
     setLoginPassword(store.loginPassword || "");
+    setIsFormOpen(true);
   };
 
   const toggleActive = (store: any) => {
@@ -98,136 +101,137 @@ export default function AdminStores() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>Manage Stores</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ margin: 0 }}>Stores</h2>
+        {!isFormOpen && (
+          <button className="btn btn-primary" onClick={() => setIsFormOpen(true)}>
+            <i className="bi bi-plus-circle" /> New Store
+          </button>
+        )}
+      </div>
 
-      <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 300px" }}>
-          <h4>{editingId ? "Edit Store" : "Add New Store"}</h4>
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
-            <div>
-              <label>Store Name</label>
-              <input
-                type="text"
-                className="form-control"
-                value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label>Address (Optional)</label>
-              <input
-                type="text"
-                className="form-control"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-            </div>
-            
-            <hr style={{ margin: "5px 0" }} />
-            <h5>Store Login Credentials</h5>
-            <div>
-              <label>Login Email</label>
-              <input
-                type="email"
-                className="form-control"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label>Login Password</label>
-              <input
-                type="text"
-                className="form-control"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-              />
-            </div>
+      {isFormOpen ? (
+        <div className="card shadow-sm" style={{ maxWidth: 600, margin: "0 auto 30px" }}>
+          <div className="card-header">
+            <h5 className="mb-0">{editingId ? "Edit Store" : "Add New Store"}</h5>
+          </div>
+          <div className="card-body">
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+              <div>
+                <label>Store Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label>Address (Optional)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              </div>
+              
+              <hr style={{ margin: "5px 0" }} />
+              <h5>Store Login Credentials</h5>
+              <div>
+                <label>Login Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label>Login Password</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                />
+              </div>
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
-                {createMutation.isPending || updateMutation.isPending ? "Saving..." : (editingId ? "Update Store" : "Create Store")}
-              </button>
-              {editingId && (
-                <button type="button" className="btn btn-secondary" onClick={resetForm}>
-                  Cancel Edit
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {createMutation.isPending || updateMutation.isPending ? "Saving..." : (editingId ? "Update Store" : "Create Store")}
                 </button>
-              )}
-            </div>
-          </form>
+                <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-
-        <div style={{ flex: "2 1 600px" }}>
-          <h4>Existing Stores</h4>
-          {isLoading ? <p>Loading...</p> : (
-            <div className="table-responsive">
-              <table className="table table-bordered">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Store Name</th>
-                    <th>Address</th>
-                    <th>Login Details</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stores?.map((s: any) => (
-                    <tr key={s.storeId}>
-                      <td>{s.storeId}</td>
-                      <td>{s.storeName}</td>
-                      <td>{s.address}</td>
-                      <td>
-                        {s.loginEmail ? (
-                          <div style={{ fontSize: "0.9rem" }}>
-                            <div><strong>Email:</strong> {s.loginEmail}</div>
-                            <div>
-                              <strong>Password:</strong>{" "}
-                              {viewingPasswordId === s.storeId ? (
-                                <span>{s.loginPassword || "(none)"}</span>
-                              ) : (
-                                <span>********</span>
-                              )}
-                              <button 
-                                className="btn btn-link btn-sm p-0 ms-2"
-                                onClick={() => setViewingPasswordId(viewingPasswordId === s.storeId ? null : s.storeId)}
-                              >
-                                {viewingPasswordId === s.storeId ? "Hide" : "View"}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-muted">No login set</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`badge ${s.isActive ? 'bg-success' : 'bg-danger'}`}>
-                          {s.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 5 }}>
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => handleEdit(s)}>
-                            <i className="bi bi-pencil" /> Edit
-                          </button>
-                          <button className={`btn btn-sm ${s.isActive ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => toggleActive(s)}>
-                            {s.isActive ? 'Deactivate' : 'Activate'}
+      ) : (
+        isLoading ? <p>Loading stores...</p> : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+            {stores?.map((s: any) => (
+              <div key={s.storeId} className="card shadow-sm h-100">
+                <div className="card-body" style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                    <h5 className="card-title text-primary" style={{ fontWeight: 600 }}>{s.storeName}</h5>
+                    <span className={`badge ${s.isActive ? 'bg-success' : 'bg-danger'}`}>
+                      {s.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  
+                  <p className="card-text text-muted small mb-3">
+                    <i className="bi bi-geo-alt-fill me-1" />
+                    {s.address || "No address provided"}
+                  </p>
+                  
+                  <div className="bg-light p-2 rounded mb-3" style={{ fontSize: "0.9rem" }}>
+                    <strong>Login Details:</strong>
+                    {s.loginEmail ? (
+                      <div className="mt-1">
+                        <div><i className="bi bi-envelope me-1" /> {s.loginEmail}</div>
+                        <div className="mt-1">
+                          <i className="bi bi-key me-1" />
+                          {viewingPasswordId === s.storeId ? (
+                            <span>{s.loginPassword || "(none)"}</span>
+                          ) : (
+                            <span>********</span>
+                          )}
+                          <button 
+                            className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
+                            onClick={() => setViewingPasswordId(viewingPasswordId === s.storeId ? null : s.storeId)}
+                          >
+                            {viewingPasswordId === s.storeId ? "Hide" : "View"}
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {stores?.length === 0 && (
-                    <tr><td colSpan={6} className="text-center">No stores found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+                      </div>
+                    ) : (
+                      <div className="text-muted mt-1">No login set</div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-auto pt-2" style={{ display: "flex", gap: 10, borderTop: "1px solid #eee" }}>
+                    <button className="btn btn-sm btn-outline-primary flex-grow-1" onClick={() => handleEdit(s)}>
+                      <i className="bi bi-pencil" /> Edit
+                    </button>
+                    <button className={`btn btn-sm flex-grow-1 ${s.isActive ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => toggleActive(s)}>
+                      {s.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {stores?.length === 0 && (
+              <div className="col-12 text-center py-5 text-muted">
+                <i className="bi bi-shop display-4" />
+                <p className="mt-3">No stores found. Click "New Store" to add one.</p>
+              </div>
+            )}
+          </div>
+        )
+      )}
     </div>
   );
 }

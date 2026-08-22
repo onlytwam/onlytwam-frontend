@@ -96,7 +96,7 @@ export default function AdminLayout() {
       <aside className="s-adminlayout-358067">
         {/* Sidebar collapse control */}
         <div className="s-adminlayout-418b89">
-          <h1 className="s-adminlayout-side-title">TWAM Admin</h1>
+          <h1 className="s-adminlayout-side-title">{roleId === 3 ? "Inventory Manager" : roleId === 4 ? "Store Manager" : roleId === 7 ? "Warehouse Manager" : "TWAM Admin"}</h1>
           <button
             type="button"
             className="s-adminlayout-collapse-btn"
@@ -193,4 +193,5 @@ export default function AdminLayout() {
     </div>
   );
 }
+
 
