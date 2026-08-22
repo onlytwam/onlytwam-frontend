@@ -10,6 +10,7 @@ export default function AdminWarehouses() {
   const [loginPassword, setLoginPassword] = useState("");
   
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [viewingPasswordId, setViewingPasswordId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -55,7 +56,7 @@ export default function AdminWarehouses() {
     setName(wh.name || wh.warehouseName || "");
     setAddress(wh.address || "");
     setLoginEmail(wh.loginEmail || "");
-    setLoginPassword(""); // Don't pre-fill password
+    setLoginPassword(wh.loginPassword || "");
   };
 
   const toggleActive = (wh: any) => {
@@ -132,7 +133,7 @@ export default function AdminWarehouses() {
               />
             </div>
             <div>
-              <label>Login Password {editingId && "(Leave blank to keep current)"}</label>
+              <label>Login Password</label>
               <input
                 type="text"
                 className="form-control"
@@ -164,18 +165,42 @@ export default function AdminWarehouses() {
                     <th>ID</th>
                     <th>Warehouse Name</th>
                     <th>Address</th>
-                    <th>Login Email</th>
+                    <th>Login Details</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {warehouses?.map((w: any) => (
-                    <tr key={w.id || w.warehouseId}>
-                      <td>{w.id || w.warehouseId}</td>
+                  {warehouses?.map((w: any) => {
+                    const id = w.id || w.warehouseId;
+                    return (
+                    <tr key={id}>
+                      <td>{id}</td>
                       <td>{w.name || w.warehouseName}</td>
                       <td>{w.address}</td>
-                      <td>{w.loginEmail || "-"}</td>
+                      <td>
+                        {w.loginEmail ? (
+                          <div style={{ fontSize: "0.9rem" }}>
+                            <div><strong>Email:</strong> {w.loginEmail}</div>
+                            <div>
+                              <strong>Password:</strong>{" "}
+                              {viewingPasswordId === id ? (
+                                <span>{w.loginPassword || "(none)"}</span>
+                              ) : (
+                                <span>********</span>
+                              )}
+                              <button 
+                                className="btn btn-link btn-sm p-0 ms-2"
+                                onClick={() => setViewingPasswordId(viewingPasswordId === id ? null : id)}
+                              >
+                                {viewingPasswordId === id ? "Hide" : "View"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted">No login set</span>
+                        )}
+                      </td>
                       <td>
                         <span className={adge \}>
                           {w.isActive ? 'Active' : 'Inactive'}
@@ -192,7 +217,7 @@ export default function AdminWarehouses() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                   {warehouses?.length === 0 && (
                     <tr><td colSpan={6} className="text-center">No warehouses found.</td></tr>
                   )}

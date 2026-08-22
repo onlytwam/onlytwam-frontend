@@ -10,6 +10,7 @@ export default function AdminStores() {
   const [loginPassword, setLoginPassword] = useState("");
   
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [viewingPasswordId, setViewingPasswordId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -57,7 +58,7 @@ export default function AdminStores() {
     setStoreName(store.storeName || "");
     setAddress(store.address || "");
     setLoginEmail(store.loginEmail || "");
-    setLoginPassword(""); // Don't pre-fill password for security
+    setLoginPassword(store.loginPassword || "");
   };
 
   const toggleActive = (store: any) => {
@@ -135,7 +136,7 @@ export default function AdminStores() {
               />
             </div>
             <div>
-              <label>Login Password {editingId && "(Leave blank to keep current)"}</label>
+              <label>Login Password</label>
               <input
                 type="text"
                 className="form-control"
@@ -167,7 +168,7 @@ export default function AdminStores() {
                     <th>ID</th>
                     <th>Store Name</th>
                     <th>Address</th>
-                    <th>Login Email</th>
+                    <th>Login Details</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -178,7 +179,29 @@ export default function AdminStores() {
                       <td>{s.storeId}</td>
                       <td>{s.storeName}</td>
                       <td>{s.address}</td>
-                      <td>{s.loginEmail || "-"}</td>
+                      <td>
+                        {s.loginEmail ? (
+                          <div style={{ fontSize: "0.9rem" }}>
+                            <div><strong>Email:</strong> {s.loginEmail}</div>
+                            <div>
+                              <strong>Password:</strong>{" "}
+                              {viewingPasswordId === s.storeId ? (
+                                <span>{s.loginPassword || "(none)"}</span>
+                              ) : (
+                                <span>********</span>
+                              )}
+                              <button 
+                                className="btn btn-link btn-sm p-0 ms-2"
+                                onClick={() => setViewingPasswordId(viewingPasswordId === s.storeId ? null : s.storeId)}
+                              >
+                                {viewingPasswordId === s.storeId ? "Hide" : "View"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted">No login set</span>
+                        )}
+                      </td>
                       <td>
                         <span className={adge \}>
                           {s.isActive ? 'Active' : 'Inactive'}
