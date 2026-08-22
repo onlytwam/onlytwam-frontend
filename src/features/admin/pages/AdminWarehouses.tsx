@@ -99,7 +99,7 @@ export default function AdminWarehouses() {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}>Warehouses</h2>
+        <h1 style={{ margin: 0 }}>Warehouses</h1>
         {!isFormOpen && (
           <button className="btn btn-primary" onClick={() => setIsFormOpen(true)}>
             <i className="bi bi-plus-circle" /> New Warehouse
@@ -234,3 +234,4 @@ export default function AdminWarehouses() {
     </div>
   );
 }
+
