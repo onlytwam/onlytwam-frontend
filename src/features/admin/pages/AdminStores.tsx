@@ -8,6 +8,9 @@ export default function AdminStores() {
   const [address, setAddress] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  
+  const [editingId, setEditingId] = useState<number | null>(null);
+
   const queryClient = useQueryClient();
 
   const { data: storesResponse, isLoading } = useQuery({
@@ -21,10 +24,7 @@ export default function AdminStores() {
     mutationFn: (payload: any) => api.post("/Stores", payload),
     onSuccess: () => {
       toast.success("Store created successfully");
-      setStoreName("");
-      setAddress("");
-      setLoginEmail("");
-      setLoginPassword("");
+      resetForm();
       queryClient.invalidateQueries({ queryKey: ["stores-list"] });
     },
     onError: (err: any) => {
@@ -32,17 +32,67 @@ export default function AdminStores() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (payload: any) => api.put(/Stores/\, payload),
+    onSuccess: () => {
+      toast.success("Store updated successfully");
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: ["stores-list"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.detail || "Failed to update store");
+    },
+  });
+
+  const resetForm = () => {
+    setStoreName("");
+    setAddress("");
+    setLoginEmail("");
+    setLoginPassword("");
+    setEditingId(null);
+  };
+
+  const handleEdit = (store: any) => {
+    setEditingId(store.storeId);
+    setStoreName(store.storeName || "");
+    setAddress(store.address || "");
+    setLoginEmail(store.loginEmail || "");
+    setLoginPassword(""); // Don't pre-fill password for security
+  };
+
+  const toggleActive = (store: any) => {
+    api.put(/Stores/\, {
+      storeId: store.storeId,
+      isActive: !store.isActive
+    }).then(() => {
+      toast.success(Store \);
+      queryClient.invalidateQueries({ queryKey: ["stores-list"] });
+    }).catch((err) => {
+      toast.error(err.response?.data?.detail || "Failed to toggle status");
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeName) return toast.error("Store Name is required");
 
-    createMutation.mutate({
-      storeName,
-      address,
-      loginEmail,
-      loginPassword,
-      isActive: true,
-    });
+    if (editingId) {
+      updateMutation.mutate({
+        storeId: editingId,
+        storeName,
+        address,
+        loginEmail,
+        loginPassword,
+      });
+    } else {
+      createMutation.mutate({
+        storeName,
+        address,
+        loginEmail,
+        loginPassword,
+        isActive: true,
+      });
+    }
   };
 
   return (
@@ -51,7 +101,7 @@ export default function AdminStores() {
 
       <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 300px" }}>
-          <h4>Add New Store</h4>
+          <h4>{editingId ? "Edit Store" : "Add New Store"}</h4>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
             <div>
               <label>Store Name</label>
@@ -85,7 +135,7 @@ export default function AdminStores() {
               />
             </div>
             <div>
-              <label>Login Password</label>
+              <label>Login Password {editingId && "(Leave blank to keep current)"}</label>
               <input
                 type="text"
                 className="form-control"
@@ -94,13 +144,20 @@ export default function AdminStores() {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Creating..." : "Create Store"}
-            </button>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
+                {createMutation.isPending || updateMutation.isPending ? "Saving..." : (editingId ? "Update Store" : "Create Store")}
+              </button>
+              {editingId && (
+                <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
-        <div style={{ flex: "2 1 500px" }}>
+        <div style={{ flex: "2 1 600px" }}>
           <h4>Existing Stores</h4>
           {isLoading ? <p>Loading...</p> : (
             <div className="table-responsive">
@@ -111,6 +168,8 @@ export default function AdminStores() {
                     <th>Store Name</th>
                     <th>Address</th>
                     <th>Login Email</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -120,10 +179,25 @@ export default function AdminStores() {
                       <td>{s.storeName}</td>
                       <td>{s.address}</td>
                       <td>{s.loginEmail || "-"}</td>
+                      <td>
+                        <span className={adge \}>
+                          {s.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 5 }}>
+                          <button className="btn btn-sm btn-outline-primary" onClick={() => handleEdit(s)}>
+                            <i className="bi bi-pencil" /> Edit
+                          </button>
+                          <button className={tn btn-sm \} onClick={() => toggleActive(s)}>
+                            {s.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {stores?.length === 0 && (
-                    <tr><td colSpan={4} className="text-center">No stores found.</td></tr>
+                    <tr><td colSpan={6} className="text-center">No stores found.</td></tr>
                   )}
                 </tbody>
               </table>
