@@ -32,7 +32,7 @@ export default function AdminWarehouses() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: any) => api.put(/Billing/warehouses/\, payload),
+    mutationFn: (payload: any) => api.put(`/Billing/warehouses/${editingId}`, payload),
     onSuccess: () => {
       toast.success("Warehouse updated successfully");
       resetForm();
@@ -61,12 +61,12 @@ export default function AdminWarehouses() {
 
   const toggleActive = (wh: any) => {
     const id = wh.id || wh.warehouseId;
-    api.put(/Billing/warehouses/\, {
+    api.put(`/Billing/warehouses/${id}`, {
       isActive: !wh.isActive
     }).then(() => {
-      toast.success(Warehouse \);
+      toast.success(`Warehouse ${wh.isActive ? 'deactivated' : 'activated'}`);
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
-    }).catch((err) => {
+    }).catch((err: any) => {
       toast.error(err.response?.data?.detail || "Failed to toggle status");
     });
   };
@@ -202,7 +202,7 @@ export default function AdminWarehouses() {
                         )}
                       </td>
                       <td>
-                        <span className={adge \}>
+                        <span className={`badge ${w.isActive ? 'bg-success' : 'bg-danger'}`}>
                           {w.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -211,7 +211,7 @@ export default function AdminWarehouses() {
                           <button className="btn btn-sm btn-outline-primary" onClick={() => handleEdit(w)}>
                             <i className="bi bi-pencil" /> Edit
                           </button>
-                          <button className={tn btn-sm \} onClick={() => toggleActive(w)}>
+                          <button className={`btn btn-sm ${w.isActive ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => toggleActive(w)}>
                             {w.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                         </div>

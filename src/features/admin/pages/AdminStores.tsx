@@ -34,7 +34,7 @@ export default function AdminStores() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: any) => api.put(/Stores/\, payload),
+    mutationFn: (payload: any) => api.put(`/Stores/${editingId}`, payload),
     onSuccess: () => {
       toast.success("Store updated successfully");
       resetForm();
@@ -62,13 +62,13 @@ export default function AdminStores() {
   };
 
   const toggleActive = (store: any) => {
-    api.put(/Stores/\, {
+    api.put(`/Stores/${store.storeId}`, {
       storeId: store.storeId,
       isActive: !store.isActive
     }).then(() => {
-      toast.success(Store \);
+      toast.success(`Store ${store.isActive ? 'deactivated' : 'activated'}`);
       queryClient.invalidateQueries({ queryKey: ["stores-list"] });
-    }).catch((err) => {
+    }).catch((err: any) => {
       toast.error(err.response?.data?.detail || "Failed to toggle status");
     });
   };
@@ -203,7 +203,7 @@ export default function AdminStores() {
                         )}
                       </td>
                       <td>
-                        <span className={adge \}>
+                        <span className={`badge ${s.isActive ? 'bg-success' : 'bg-danger'}`}>
                           {s.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -212,7 +212,7 @@ export default function AdminStores() {
                           <button className="btn btn-sm btn-outline-primary" onClick={() => handleEdit(s)}>
                             <i className="bi bi-pencil" /> Edit
                           </button>
-                          <button className={tn btn-sm \} onClick={() => toggleActive(s)}>
+                          <button className={`btn btn-sm ${s.isActive ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => toggleActive(s)}>
                             {s.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                         </div>
