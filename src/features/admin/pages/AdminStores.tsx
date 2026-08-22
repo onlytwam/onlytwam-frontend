@@ -6,10 +6,6 @@ import { toast } from "react-hot-toast";
 export default function AdminStores() {
   const [storeName, setStoreName] = useState("");
   const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [pinCode, setPinCode] = useState("");
-  const [phone, setPhone] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const queryClient = useQueryClient();
@@ -27,10 +23,6 @@ export default function AdminStores() {
       toast.success("Store created successfully");
       setStoreName("");
       setAddress("");
-      setCity("");
-      setState("");
-      setPinCode("");
-      setPhone("");
       setLoginEmail("");
       setLoginPassword("");
       queryClient.invalidateQueries({ queryKey: ["stores-list"] });
@@ -47,10 +39,6 @@ export default function AdminStores() {
     createMutation.mutate({
       storeName,
       address,
-      city,
-      state,
-      pinCode,
-      phone,
       loginEmail,
       loginPassword,
       isActive: true,
@@ -76,7 +64,7 @@ export default function AdminStores() {
               />
             </div>
             <div>
-              <label>Address</label>
+              <label>Address (Optional)</label>
               <input
                 type="text"
                 className="form-control"
@@ -84,49 +72,9 @@ export default function AdminStores() {
                 onChange={(e) => setAddress(e.target.value)}
               />
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <label>City</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label>State</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                />
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <label>Pincode</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={pinCode}
-                  onChange={(e) => setPinCode(e.target.value)}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label>Phone</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-            </div>
             
             <hr style={{ margin: "5px 0" }} />
-            <h5>Store Login Credentials (Optional)</h5>
+            <h5>Store Login Credentials</h5>
             <div>
               <label>Login Email</label>
               <input
@@ -160,10 +108,9 @@ export default function AdminStores() {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Name</th>
+                    <th>Store Name</th>
                     <th>Address</th>
-                    <th>City / State</th>
-                    <th>Phone</th>
+                    <th>Login Email</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -172,12 +119,11 @@ export default function AdminStores() {
                       <td>{s.storeId}</td>
                       <td>{s.storeName}</td>
                       <td>{s.address}</td>
-                      <td>{s.city}, {s.state} - {s.pinCode}</td>
-                      <td>{s.phone}</td>
+                      <td>{s.loginEmail || "-"}</td>
                     </tr>
                   ))}
                   {stores?.length === 0 && (
-                    <tr><td colSpan={5} className="text-center">No stores found.</td></tr>
+                    <tr><td colSpan={4} className="text-center">No stores found.</td></tr>
                   )}
                 </tbody>
               </table>

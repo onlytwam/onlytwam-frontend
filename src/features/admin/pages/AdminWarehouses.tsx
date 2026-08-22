@@ -6,7 +6,6 @@ import { toast } from "react-hot-toast";
 export default function AdminWarehouses() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const queryClient = useQueryClient();
@@ -22,7 +21,6 @@ export default function AdminWarehouses() {
       toast.success("Warehouse created successfully");
       setName("");
       setAddress("");
-      setPhone("");
       setLoginEmail("");
       setLoginPassword("");
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
@@ -34,12 +32,11 @@ export default function AdminWarehouses() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return toast.error("Name is required");
+    if (!name) return toast.error("Warehouse Name is required");
 
     createMutation.mutate({
       warehouseName: name,
       address,
-      contactPhone: phone,
       loginEmail,
       loginPassword,
       isActive: true,
@@ -49,7 +46,7 @@ export default function AdminWarehouses() {
   return (
     <div style={{ padding: 20 }}>
       <h2>Manage Warehouses</h2>
-      
+
       <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 300px" }}>
           <h4>Add New Warehouse</h4>
@@ -65,25 +62,17 @@ export default function AdminWarehouses() {
               />
             </div>
             <div>
-              <label>Address</label>
-              <textarea
+              <label>Address (Optional)</label>
+              <input
+                type="text"
                 className="form-control"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
             </div>
-            <div>
-              <label>Contact Phone</label>
-              <input
-                type="text"
-                className="form-control"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
             
             <hr style={{ margin: "5px 0" }} />
-            <h5>Warehouse Login Credentials (Optional)</h5>
+            <h5>Warehouse Login Credentials</h5>
             <div>
               <label>Login Email</label>
               <input
@@ -117,9 +106,9 @@ export default function AdminWarehouses() {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Name</th>
+                    <th>Warehouse Name</th>
                     <th>Address</th>
-                    <th>Phone</th>
+                    <th>Login Email</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,7 +117,7 @@ export default function AdminWarehouses() {
                       <td>{w.warehouseId}</td>
                       <td>{w.warehouseName}</td>
                       <td>{w.address}</td>
-                      <td>{w.contactPhone}</td>
+                      <td>{w.loginEmail || "-"}</td>
                     </tr>
                   ))}
                   {warehouses?.length === 0 && (
