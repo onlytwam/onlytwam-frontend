@@ -20,173 +20,35 @@ const ROLE_LABELS: Record<number, string> = {
 
 // Full nav pool â€” merged from both versions; union of roles so no access is lost
 const ALL_NAV = [
-  {
-    path: "/admin/admin-dashboard",
-    icon: "bi-speedometer2",
-    label: "Dashboard",
+  // Core Inventory Roles Order
+  { path: "/admin/admin-dashboard", icon: "bi-speedometer2", label: "Dashboard", roles: [1, 3, 4, 5, 6] },
+  { path: "/admin/products", icon: "bi-box-seam", label: "Products", roles: [1, 3, 4, 7] },
+  { path: "/admin/product-bulk-upload", icon: "bi-upload", label: "Product Bulk Upload", roles: [1, 3] },
+  { path: "/admin/categories", icon: "bi-folder", label: "Categories", roles: [1, 3] },
+  { path: "/admin/brands", icon: "bi-bookmark-star", label: "Brands", roles: [1, 3] },
+  { path: "/admin/MDM", icon: "bi-diagram-3", label: "MDM", roles: [1, 3] },
+  { path: "/admin/bulk-import", icon: "bi-upload", label: "Bulk Upload", roles: [1, 3] },
+  { path: "/admin/stores", icon: "bi-shop", label: "Stores", roles: [1, 3] },
+  { path: "/admin/warehouses", icon: "bi-building", label: "Warehouses", roles: [1, 3] },
+  { path: "/admin/assign-stock", icon: "bi-arrow-left-right", label: "Assign Stock", roles: [1, 3] },
+  { path: "/admin/inventory", icon: "bi-clipboard-data", label: "Reports", roles: [1, 3] },
 
-    // roles: [1, 5],
-
-    roles: [1, 3, 4, 5, 6], // v1 had 3,4 â€” kept in union
-  },
-  {
-    path: "/admin/orders",
-    icon: "bi-bag-check",
-    label: "Orders",
-    roles: [1, 5, 6],
-  },
-  {
-    path: "/admin/products",
-    icon: "bi-box-seam",
-    label: "Products",
-    roles: [1, 3, 4, 7], // Added 4 and 7
-  },
-  {
-    path: "/admin/bulk-import",
-    icon: "bi-upload",
-    label: "Bulk Upload",
-    roles: [1, 3],
-  },
-  {
-    path: "/admin/product-bulk-upload",
-    icon: "bi-upload",
-    label: "Product Bulk Upload",
-    roles: [1, 3, 4],
-  },
-  {
-    path: "/admin/categories",
-    icon: "bi-folder",
-    label: "Categories",
-    roles: [1, 3],
-  },
-  {
-    path: "/admin/store-settings",
-    icon: "bi-folder",
-    label: "Store Settings",
-    roles: [1, 3],
-  },
-  {
-    path: "/admin/page-images",
-    icon: "bi-image",
-    label: "Page Images",
-    roles: [1],
-  },
-  {
-    path: "/admin/Billing",
-    icon: "bi-folder",
-    label: "Billing",
-    roles: [1, 3],
-  },
-  {
-    path: "/admin/brands",
-    icon: "bi-bookmark-star",
-    label: "Brands",
-    roles: [1, 3, 4],
-  },
-  // { path: '/admin/sizes',   icon: 'bi-rulers',        label: 'Sizes',   roles: [1,3] },
-  {
-    path: "/admin/MDM",
-    icon: "bi-diagram-3",
-    label: "MDM",
-    roles: [1, 3],
-  },
-  {
-    path: "/admin/inventory",
-    icon: "bi-clipboard-data",
-    label: "Reports",
-    roles: [1], // Removed 3 and 4, only super admin sees sales reports
-  },
-  {
-    path: "/admin/stock",
-    icon: "bi-boxes",
-    label: "Stock",
-    roles: [1, 3, 4, 7], // Added 4 and 7
-  },
-  {
-    path: "/admin/stores",
-    icon: "bi-shop",
-    label: "Stores",
-    roles: [1, 3], 
-  },
-  {
-    path: "/admin/warehouses",
-    icon: "bi-building",
-    label: "Warehouses",
-    roles: [1, 3],
-  },
-  {
-    path: "/admin/assign-stock",
-    icon: "bi-arrow-left-right",
-    label: "Assign Stock",
-    roles: [1, 3],
-  },
-  {
-    path: "/admin/my-stock",
-    icon: "bi-box-seam",
-    label: "My Stock",
-    roles: [4, 7],
-  },
-  {
-    path: "/admin/coupons",
-    icon: "bi-ticket-perforated",
-    label: "Coupons",
-    roles: [1, 5],
-  },
-  {
-    path: "/admin/coupon-list",
-    icon: "bi-list-ul",
-    label: "Coupon List",
-    roles: [1, 5],
-  },
-  {
-    path: "/admin/surprise-gifts",
-    icon: "bi-gift-fill",
-    label: "Surprise Gifts",
-    roles: [1, 5],
-  },
-  {
-    path: "/admin/support",
-    icon: "bi-headset",
-    label: "Support Requests",
-    roles: [1, 6],
-  },
-  {
-    path: "/admin/sales-channels", // added by colleague
-    icon: "bi-folder",
-    label: "Sales Channels",
-    roles: [1],
-  },
-  {
-    path: "/admin/users",
-    icon: "bi-people",
-    label: "Users",
-    roles: [1],
-  },
-  {
-    path: "/admin/blog",
-    icon: "bi-newspaper",
-    label: "Blog",
-    roles: [1],
-  },
-  {
-    path: "/admin/reports",
-    icon: "bi-bar-chart-line",
-    label: "Reports",
-    roles: [1, 5],
-  },
-  {
-    path: "/admin/api-tester",
-    icon: "bi-bug",
-    label: "API Tester",
-    roles: [1],
-  },
-  {
-    path: "/admin/failed-shipments",
-    icon: "bi-exclamation-triangle-fill",
-    label: "Failed Shipments",
-    roles: [1, 5, 6],
-    badge: true, // shows live count badge
-  },
+  // Other pages
+  { path: "/admin/orders", icon: "bi-bag-check", label: "Orders", roles: [1, 5, 6] },
+  { path: "/admin/store-settings", icon: "bi-folder", label: "Store Settings", roles: [1] },
+  { path: "/admin/page-images", icon: "bi-image", label: "Page Images", roles: [1] },
+  { path: "/admin/Billing", icon: "bi-folder", label: "Billing", roles: [1] },
+  { path: "/admin/stock", icon: "bi-boxes", label: "Stock", roles: [1] }, 
+  { path: "/admin/my-stock", icon: "bi-box-seam", label: "My Stock", roles: [4, 7] },
+  { path: "/admin/coupons", icon: "bi-ticket-perforated", label: "Coupons", roles: [1, 5] },
+  { path: "/admin/coupon-list", icon: "bi-list-ul", label: "Coupon List", roles: [1, 5] },
+  { path: "/admin/surprise-gifts", icon: "bi-gift-fill", label: "Surprise Gifts", roles: [1, 5] },
+  { path: "/admin/support", icon: "bi-headset", label: "Support Requests", roles: [1, 6] },
+  { path: "/admin/sales-channels", icon: "bi-folder", label: "Sales Channels", roles: [1] },
+  { path: "/admin/users", icon: "bi-people", label: "Users", roles: [1] },
+  { path: "/admin/blog", icon: "bi-newspaper", label: "Blog", roles: [1] },
+  { path: "/admin/api-tester", icon: "bi-bug", label: "API Tester", roles: [1] },
+  { path: "/admin/failed-shipments", icon: "bi-exclamation-triangle-fill", label: "Failed Shipments", roles: [1, 5, 6], badge: true },
 ];
 
 export default function AdminLayout() {
@@ -331,3 +193,4 @@ export default function AdminLayout() {
     </div>
   );
 }
+
