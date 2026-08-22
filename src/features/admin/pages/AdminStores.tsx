@@ -10,7 +10,8 @@ export default function AdminStores() {
   const [state, setState] = useState("");
   const [pinCode, setPinCode] = useState("");
   const [phone, setPhone] = useState("");
-
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const queryClient = useQueryClient();
 
   const { data: storesResponse, isLoading } = useQuery({
@@ -30,6 +31,8 @@ export default function AdminStores() {
       setState("");
       setPinCode("");
       setPhone("");
+      setLoginEmail("");
+      setLoginPassword("");
       queryClient.invalidateQueries({ queryKey: ["stores-list"] });
     },
     onError: (err: any) => {
@@ -48,6 +51,8 @@ export default function AdminStores() {
       state,
       pinCode,
       phone,
+      loginEmail,
+      loginPassword,
       isActive: true,
     });
   };
@@ -119,6 +124,28 @@ export default function AdminStores() {
                 />
               </div>
             </div>
+            
+            <hr style={{ margin: "5px 0" }} />
+            <h5>Store Login Credentials (Optional)</h5>
+            <div>
+              <label>Login Email</label>
+              <input
+                type="email"
+                className="form-control"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <label>Login Password</label>
+              <input
+                type="text"
+                className="form-control"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+              />
+            </div>
+
             <button type="submit" className="btn btn-primary" disabled={createMutation.isPending}>
               {createMutation.isPending ? "Creating..." : "Create Store"}
             </button>

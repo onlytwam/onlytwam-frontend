@@ -36,6 +36,7 @@ type HomeBrandLogo = {
   brandId?: number | string;
   id?: number | string;
   brandImage?: string | null;
+  brandLogo?: string | null;
   brandName?: string | null;
   name?: string | null;
 };
