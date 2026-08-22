@@ -10,6 +10,7 @@ export default function AdminStores() {
   const [loginPassword, setLoginPassword] = useState("");
   
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [viewingPasswordId, setViewingPasswordId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -33,7 +34,7 @@ export default function AdminStores() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: any) => api.put(/Stores/\, payload),
+    mutationFn: (payload: any) => api.put(`/Stores/${editingId}`, payload),
     onSuccess: () => {
       toast.success("Store updated successfully");
       resetForm();
@@ -57,17 +58,17 @@ export default function AdminStores() {
     setStoreName(store.storeName || "");
     setAddress(store.address || "");
     setLoginEmail(store.loginEmail || "");
-    setLoginPassword(""); // Don't pre-fill password for security
+    setLoginPassword(store.loginPassword || "");
   };
 
   const toggleActive = (store: any) => {
-    api.put(/Stores/\, {
+    api.put(`/Stores/${store.storeId}`, {
       storeId: store.storeId,
       isActive: !store.isActive
     }).then(() => {
-      toast.success(Store \);
+      toast.success(`Store ${store.isActive ? 'deactivated' : 'activated'}`);
       queryClient.invalidateQueries({ queryKey: ["stores-list"] });
-    }).catch((err) => {
+    }).catch((err: any) => {
       toast.error(err.response?.data?.detail || "Failed to toggle status");
     });
   };
@@ -135,7 +136,7 @@ export default function AdminStores() {
               />
             </div>
             <div>
-              <label>Login Password {editingId && "(Leave blank to keep current)"}</label>
+              <label>Login Password</label>
               <input
                 type="text"
                 className="form-control"
@@ -167,7 +168,7 @@ export default function AdminStores() {
                     <th>ID</th>
                     <th>Store Name</th>
                     <th>Address</th>
-                    <th>Login Email</th>
+                    <th>Login Details</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -178,9 +179,31 @@ export default function AdminStores() {
                       <td>{s.storeId}</td>
                       <td>{s.storeName}</td>
                       <td>{s.address}</td>
-                      <td>{s.loginEmail || "-"}</td>
                       <td>
-                        <span className={adge \}>
+                        {s.loginEmail ? (
+                          <div style={{ fontSize: "0.9rem" }}>
+                            <div><strong>Email:</strong> {s.loginEmail}</div>
+                            <div>
+                              <strong>Password:</strong>{" "}
+                              {viewingPasswordId === s.storeId ? (
+                                <span>{s.loginPassword || "(none)"}</span>
+                              ) : (
+                                <span>********</span>
+                              )}
+                              <button 
+                                className="btn btn-link btn-sm p-0 ms-2"
+                                onClick={() => setViewingPasswordId(viewingPasswordId === s.storeId ? null : s.storeId)}
+                              >
+                                {viewingPasswordId === s.storeId ? "Hide" : "View"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted">No login set</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${s.isActive ? 'bg-success' : 'bg-danger'}`}>
                           {s.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -189,7 +212,7 @@ export default function AdminStores() {
                           <button className="btn btn-sm btn-outline-primary" onClick={() => handleEdit(s)}>
                             <i className="bi bi-pencil" /> Edit
                           </button>
-                          <button className={tn btn-sm \} onClick={() => toggleActive(s)}>
+                          <button className={`btn btn-sm ${s.isActive ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => toggleActive(s)}>
                             {s.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                         </div>
