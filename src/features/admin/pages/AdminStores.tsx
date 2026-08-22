@@ -212,12 +212,22 @@ export default function AdminStores() {
                     )}
                   </div>
                   
-                  <div className="mt-auto pt-2" style={{ display: "flex", gap: 10, borderTop: "1px solid #eee" }}>
+                  <div className="mt-auto pt-2" style={{ display: "flex", gap: 5, borderTop: "1px solid #eee" }}>
                     <button className="btn btn-sm btn-outline-primary flex-grow-1" onClick={() => handleEdit(s)}>
-                      <i className="bi bi-pencil" /> Edit
+                      <i className="bi bi-pencil" />
                     </button>
-                    <button className={`btn btn-sm flex-grow-1 ${s.isActive ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => toggleActive(s)}>
+                    <button className={`btn btn-sm flex-grow-1 ${s.isActive ? 'btn-outline-warning' : 'btn-outline-success'}`} onClick={() => toggleActive(s)}>
                       {s.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button className="btn btn-sm btn-outline-danger flex-grow-1" onClick={() => {
+                      if(window.confirm('Are you sure you want to permanently delete this store?')) {
+                        api.delete(`/Stores/${s.storeId}`).then(() => {
+                          toast.success('Store deleted permanently');
+                          queryClient.invalidateQueries({ queryKey: ["stores-list"] });
+                        }).catch((err: any) => toast.error('Failed to delete store'));
+                      }
+                    }}>
+                      <i className="bi bi-trash" />
                     </button>
                   </div>
                 </div>
