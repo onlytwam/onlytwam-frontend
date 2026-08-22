@@ -28,6 +28,7 @@ import {
 } from "@/shared/utils/colorHelpers";
 import { getImageUrl } from "@/shared/utils/helpers";
 import type { AdminLayoutOutletContext } from "@/features/admin/components/AdminLayout";
+import { useAuthStore } from "@/features/auth/store/authStore";
 
 // ─── Design tokens (same palette as the rest of the admin) ───────────────────
 const P = "#7A1E2C";
@@ -3226,6 +3227,8 @@ export default function AdminProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuthStore();
+  const isStoreManager = (user as any)?.roleId === 4 || (user as any)?.roleId === 7;
   const adminLayout = useOutletContext<AdminLayoutOutletContext | null>();
   const setSidebarCollapsed = adminLayout?.setSidebarCollapsed;
   const qc = useQueryClient();
@@ -5033,6 +5036,7 @@ export default function AdminProductDetail() {
                 }}
               >
                 {/* Save */}
+                {!isStoreManager && (
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 4 }}
                 >
@@ -5111,6 +5115,7 @@ export default function AdminProductDetail() {
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Discard — always visible; enabled only when isDirty */}
                 <button

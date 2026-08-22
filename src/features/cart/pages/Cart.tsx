@@ -26,6 +26,7 @@ import {
   colorFamilyHexOf,
   FALLBACK_COLOR_FAMILY_HEX,
 } from "@/shared/utils/colorHelpers";
+import api from "@/shared/api/axiosInstance";
 
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { createWishlist } from "@/features/products/api/products.api";

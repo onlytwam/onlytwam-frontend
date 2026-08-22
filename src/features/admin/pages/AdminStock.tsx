@@ -20,6 +20,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/shared/api/axiosInstance";
 import toast from "react-hot-toast";
+import AdminMyStock from "./AdminMyStock";
+import { useAuthStore } from "@/features/auth/store/authStore";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const P = "#7A1E2C";
@@ -3445,6 +3447,13 @@ async function downloadExcel(path: string, filename: string) {
 }
 
 export default function AdminStock() {
+  const { user } = useAuthStore();
+  const roleId: number = (user as any)?.roleId ?? 0;
+
+  if (roleId === 4 || roleId === 7) {
+    return <AdminMyStock />;
+  }
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState<any[]>([]);

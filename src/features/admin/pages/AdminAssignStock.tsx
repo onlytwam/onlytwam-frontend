@@ -4,98 +4,121 @@ import api from "@/shared/api/axiosInstance";
 import { toast } from "react-hot-toast";
 
 export default function AdminAssignStock() {
-  const [stockId, setStockId] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [locationType, setLocationType] = useState<"store" | "warehouse">("store");
-  const [locationId, setLocationId] = useState("");
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: stores } = useQuery({
-    queryKey: ["stores"],
-    queryFn: () => api.get("/Billing/stores").then((res) => res.data),
-  });
-
-  const { data: warehouses } = useQuery({
-    queryKey: ["warehouses"],
-    queryFn: () => api.get("/Billing/warehouses").then((res) => res.data),
+  const { data: matrixData, isLoading } = useQuery({
+    queryKey: ["inventory-matrix", page, search],
+    queryFn: () => api.get("/Billing/inventory/matrix", { params: { page, size: 50, search } }).then(res => res.data)
   });
 
   const assignMutation = useMutation({
     mutationFn: (payload: any) => api.post("/Billing/inventory/assign", payload),
     onSuccess: () => {
       toast.success("Stock assigned successfully");
-      setStockId("");
-      setQuantity("");
-      setLocationId("");
-      queryClient.invalidateQueries({ queryKey: ["admin-stock"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-matrix"] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.detail || "Failed to assign stock");
-    },
+    }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stockId || !quantity || !locationId) return toast.error("Please fill all fields");
+  const handleAssign = (stockId: string, locationType: "store" | "warehouse", locationId: number) => {
+    const qtyStr = prompt(`Enter quantity to add to ${locationType} ${locationId} for Stock ${stockId}:`);
+    if (!qtyStr) return;
+    const qty = parseInt(qtyStr, 10);
+    if (isNaN(qty) || qty <= 0) return toast.error("Invalid quantity");
 
     assignMutation.mutate({
       stockId,
-      quantity: parseInt(quantity, 10),
-      storeId: locationType === "store" ? parseInt(locationId, 10) : undefined,
-      warehouseId: locationType === "warehouse" ? parseInt(locationId, 10) : undefined,
+      quantity: qty,
+      storeId: locationType === "store" ? locationId : undefined,
+      warehouseId: locationType === "warehouse" ? locationId : undefined,
     });
   };
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>Assign Stock to Location</h2>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15, maxWidth: 400, marginTop: 20 }}>
-        <div>
-          <label>Stock ID (SKU)</label>
-          <input
-            type="text"
-            className="form-control"
-            value={stockId}
-            onChange={(e) => setStockId(e.target.value)}
-            placeholder="e.g. SKU-123"
-            required
-          />
-        </div>
-        <div>
-          <label>Quantity</label>
-          <input
-            type="number"
-            className="form-control"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            required
-            min="1"
-          />
-        </div>
-        <div>
-          <label>Location Type</label>
-          <select className="form-control" value={locationType} onChange={(e) => setLocationType(e.target.value as any)}>
-            <option value="store">Store</option>
-            <option value="warehouse">Warehouse</option>
-          </select>
-        </div>
-        <div>
-          <label>Select {locationType === "store" ? "Store" : "Warehouse"}</label>
-          <select className="form-control" value={locationId} onChange={(e) => setLocationId(e.target.value)} required>
-            <option value="">-- Select --</option>
-            {locationType === "store"
-              ? stores?.map((s: any) => (
-                  <option key={s.storeId} value={s.storeId}>{s.storeName || `Store ${s.storeId}`}</option>
-                ))
-              : warehouses?.map((w: any) => (
-                  <option key={w.warehouseId} value={w.warehouseId}>{w.warehouseName}</option>
+      <h2>Assign Stock Matrix</h2>
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <input 
+          className="form-control" 
+          placeholder="Search product or stock ID..." 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+          style={{ maxWidth: 300 }}
+        />
+      </div>
+      
+      {isLoading ? <p>Loading matrix...</p> : (
+        <div className="table-responsive" style={{ maxHeight: "70vh" }}>
+          <table className="table table-bordered table-sm" style={{ whiteSpace: "nowrap" }}>
+            <thead style={{ position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+              <tr>
+                <th>Product Name</th>
+                <th>Code</th>
+                <th>Colour</th>
+                <th>Size</th>
+                <th>Stock ID</th>
+                <th>Total Qty</th>
+                {matrixData?.stores?.map((s: any) => (
+                  <th key={`store-${s.id}`} className="bg-light text-primary">Store: {s.name}</th>
                 ))}
-          </select>
+                {matrixData?.warehouses?.map((w: any) => (
+                  <th key={`wh-${w.id}`} className="bg-light text-success">WH: {w.name}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matrixData?.list?.map((item: any) => (
+                <tr key={item.productVariantDetailId}>
+                  <td>{item.productName}</td>
+                  <td>{item.productCode}</td>
+                  <td>{item.colorName || "-"}</td>
+                  <td>{item.sizeName || "-"}</td>
+                  <td>{item.stockId}</td>
+                  <td><strong>{item.totalAvailable}</strong></td>
+                  {matrixData?.stores?.map((s: any) => {
+                    const assigned = item.stores?.[s.id] || 0;
+                    return (
+                      <td key={`st-${s.id}`}>
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", justifyContent: "space-between" }}>
+                          <span>{assigned}</span>
+                          <button 
+                            className="btn btn-sm btn-outline-primary py-0 px-1"
+                            onClick={() => handleAssign(item.stockId, "store", s.id)}
+                            title="Add stock"
+                          >+</button>
+                        </div>
+                      </td>
+                    );
+                  })}
+                  {matrixData?.warehouses?.map((w: any) => {
+                    const assigned = item.warehouses?.[w.id] || 0;
+                    return (
+                      <td key={`wh-${w.id}`}>
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", justifyContent: "space-between" }}>
+                          <span>{assigned}</span>
+                          <button 
+                            className="btn btn-sm btn-outline-success py-0 px-1"
+                            onClick={() => handleAssign(item.stockId, "warehouse", w.id)}
+                            title="Add stock"
+                          >+</button>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <button type="submit" className="btn btn-primary" disabled={assignMutation.isPending}>
-          {assignMutation.isPending ? "Assigning..." : "Assign Stock"}
-        </button>
-      </form>
+      )}
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <button className="btn btn-secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+        <button className="btn btn-secondary" onClick={() => setPage(p => p + 1)}>Next</button>
+      </div>
     </div>
   );
 }

@@ -39,13 +39,13 @@ const ALL_NAV = [
     path: "/admin/products",
     icon: "bi-box-seam",
     label: "Products",
-    roles: [1, 3, 4],
+    roles: [1, 3, 4, 7], // Added 4 and 7
   },
   {
     path: "/admin/bulk-import",
     icon: "bi-upload",
     label: "Bulk Upload",
-    roles: [1, 3, 4], // v1 had 3,4 â€” kept in union
+    roles: [1, 3],
   },
   {
     path: "/admin/product-bulk-upload",
@@ -57,13 +57,13 @@ const ALL_NAV = [
     path: "/admin/categories",
     icon: "bi-folder",
     label: "Categories",
-    roles: [1, 4], // v1 had 4 â€” kept in union
+    roles: [1, 3],
   },
   {
     path: "/admin/store-settings",
     icon: "bi-folder",
     label: "Store Settings",
-    roles: [1, 3, 4], // v1 had 3,4 â€” kept in union
+    roles: [1, 3],
   },
   {
     path: "/admin/page-images",
@@ -75,32 +75,32 @@ const ALL_NAV = [
     path: "/admin/Billing",
     icon: "bi-folder",
     label: "Billing",
-    roles: [1, 3, 4, 7], // v2 added role 7 â€” kept
+    roles: [1, 3],
   },
   {
     path: "/admin/brands",
     icon: "bi-bookmark-star",
     label: "Brands",
-    roles: [1, 4],
+    roles: [1, 3, 4],
   },
   // { path: '/admin/sizes',   icon: 'bi-rulers',        label: 'Sizes',   roles: [1,3] },
   {
     path: "/admin/MDM",
     icon: "bi-diagram-3",
     label: "MDM",
-    roles: [1, 3, 4], // v1 had 3,4 â€” kept in union
+    roles: [1, 3],
   },
   {
     path: "/admin/inventory",
     icon: "bi-clipboard-data",
-    label: "Inventory",
-    roles: [1, 3, 4], // v2 added 4 â€” kept in union
+    label: "Reports",
+    roles: [1], // Removed 3 and 4, only super admin sees sales reports
   },
   {
     path: "/admin/stock",
     icon: "bi-boxes",
     label: "Stock",
-    roles: [1, 3, 4],
+    roles: [1, 3, 4, 7], // Added 4 and 7
   },
   {
     path: "/admin/stores",

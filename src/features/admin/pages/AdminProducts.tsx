@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/shared/api/axiosInstance";
+import { useAuthStore } from "@/features/auth/store/authStore";
 import toast from "react-hot-toast";
 import {
   AdminProductCard,
@@ -2187,6 +2188,8 @@ function NameCodeResults({
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AdminProducts() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const isStoreManager = (user as any)?.roleId === 4 || (user as any)?.roleId === 7;
   const [browseKey, setBrowseKey] = useState(0);
   const [searchMode, setSearchMode] = useState<SearchMode>("nameCode");
   const [inputVal, setInputVal] = useState("");
@@ -2276,12 +2279,14 @@ export default function AdminProducts() {
             Browse and manage products by brand
           </p>
         </div>
-        <button
-          className="s-adminproduct-1f0204"
-          onClick={() => navigate("/admin/products/new")}
-        >
-          <i className="bi bi-plus-lg" /> Create New Product
-        </button>
+        {!isStoreManager && (
+          <button
+            className="s-adminproduct-1f0204"
+            onClick={() => navigate("/admin/products/new")}
+          >
+            <i className="bi bi-plus-lg" /> Create New Product
+          </button>
+        )}
       </div>
 
       {/* ── Search bar ─────────────────────────────────────────────────────── */}
