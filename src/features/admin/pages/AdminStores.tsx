@@ -102,7 +102,7 @@ export default function AdminStores() {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}>Stores</h2>
+        <h1 style={{ margin: 0 }}>Stores</h1>
         {!isFormOpen && (
           <button className="btn btn-primary" onClick={() => setIsFormOpen(true)}>
             <i className="bi bi-plus-circle" /> New Store
@@ -235,3 +235,4 @@ export default function AdminStores() {
     </div>
   );
 }
+
