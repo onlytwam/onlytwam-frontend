@@ -17,11 +17,11 @@ export default function AdminWarehouses() {
 
   const { data: warehouses, isLoading } = useQuery({
     queryKey: ["warehouses"],
-    queryFn: () => api.get("/Billing/warehouses").then((res) => res.data),
+    queryFn: () => api.get("/v2/Billing/warehouses").then((res) => res.data),
   });
 
   const createMutation = useMutation({
-    mutationFn: (payload: any) => api.post("/Billing/warehouses", payload),
+    mutationFn: (payload: any) => api.post("/v2/Billing/warehouses", payload),
     onSuccess: () => {
       toast.success("Warehouse created successfully");
       resetForm();
@@ -33,7 +33,7 @@ export default function AdminWarehouses() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: any) => api.put(`/Billing/warehouses/${editingId}`, payload),
+    mutationFn: (payload: any) => api.put(`/v2/Billing/warehouses/${editingId}`, payload),
     onSuccess: () => {
       toast.success("Warehouse updated successfully");
       resetForm();
@@ -64,7 +64,7 @@ export default function AdminWarehouses() {
 
   const toggleActive = (wh: any) => {
     const id = wh.id || wh.warehouseId;
-    api.put(`/Billing/warehouses/${id}`, {
+    api.put(`/v2/Billing/warehouses/${id}`, {
       isActive: !wh.isActive
     }).then(() => {
       toast.success(`Warehouse ${wh.isActive ? 'deactivated' : 'activated'}`);
@@ -221,7 +221,7 @@ export default function AdminWarehouses() {
                     <button className="btn btn-sm btn-outline-danger flex-grow-1" onClick={() => {
                       const id = w.id || w.warehouseId;
                       if(window.confirm('Are you sure you want to permanently delete this warehouse?')) {
-                        api.delete(`/Billing/warehouses/${id}`).then(() => {
+                        api.delete(`/v2/Billing/warehouses/${id}`).then(() => {
                           toast.success('Warehouse deleted permanently');
                           queryClient.invalidateQueries({ queryKey: ["warehouses"] });
                         }).catch((err: any) => toast.error('Failed to delete warehouse'));
