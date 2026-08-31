@@ -79,14 +79,7 @@ export default function AdminLayout() {
   const roleLabel = ROLE_LABELS[roleId] ?? "Admin";
 
   const defaultPath =
-    roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";
-
-  const goToStore = () => {
-    sessionStorage.setItem("adminViewingStore", "true");
-    navigate("/");
-  };
-
-  return (
+    roleId === 6 ? "/admin/support" : "/admin/admin-dashboard";return (
     <div
       className={`s-adminlayout-474885${
         isSidebarCollapsed ? " s-adminlayout-474885--collapsed" : ""
@@ -151,12 +144,7 @@ export default function AdminLayout() {
         {/* User footer */}
         <div className="s-adminlayout-0b2dc0">
           <p className="s-adminlayout-185312">Signed in as</p>
-          <p className="s-adminlayout-700e11">{getUserName()}</p>
-          <button onClick={goToStore} className="s-adminlayout-c2ed36">
-            <i className="bi bi-shop" />
-            <span className="s-adminlayout-action-label">View Store</span>
-          </button>
-          <button
+          <p className="s-adminlayout-700e11">{getUserName()}</p><button
             onClick={() => {
               logout({ showToast: true });
               navigate("/login");
@@ -193,5 +181,6 @@ export default function AdminLayout() {
     </div>
   );
 }
+
 
 
