@@ -26,6 +26,7 @@ import AdminBar from "@/features/admin/components/AdminBar";
 import Breadcrumb from "@/shared/components/Breadcrumb";
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { ProfileLeaveGuardProvider } from "@/shared/components/profileLeaveGuard";
+import { useAuthStore } from "@/features/auth/store/authStore";
 
 // ── Platform detection ────────────────────────────────────────────────────────
 const IS_NATIVE = Capacitor.isNativePlatform();
@@ -522,7 +523,17 @@ function AutoBreadcrumb() {
 function MainLayout() {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const isMobile = useIsMobile();
+  
+  useEffect(() => {
+    // If a staff member tries to load the consumer frontend without explicitly clicking "Go to Store", redirect them
+    const isViewingStore = sessionStorage.getItem("adminViewingStore") === "true";
+    if (user && user.roleId !== 2 && user.roleId !== 0 && !isViewingStore) {
+      navigate("/admin/admin-dashboard", { replace: true });
+    }
+  }, [user, navigate]);
+
   const mobileBackHeaderTitle = isMobile
     ? getMobileBackHeaderTitle(pathname)
     : null;

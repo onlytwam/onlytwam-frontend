@@ -16,7 +16,7 @@ import {
   getGuestWishlist,
 } from "@/shared/utils/guestWishlist";
 
-const ADMIN_ROLES = new Set([1, 3, 4, 5, 6]);
+const ADMIN_ROLES = new Set([1, 3, 4, 5, 6, 7]);
 const isAdminRole = (roleId: number) => ADMIN_ROLES.has(roleId);
 
 const STORED_ROLE_KEY = "twam_role_id";

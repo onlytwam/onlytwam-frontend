@@ -582,18 +582,22 @@ export default function Navbar() {
                         </p>
                       </div>
                     </div>
-                    <div className="nb-user-menu">
-                      <button
-                        type="button"
-                        className="nb-user-menu__item"
-                        onClick={() => {
-                          navigate("/account/dashboard");
-                          setIsUserMenuOpen(false);
-                        }}
-                      >
-                        <i className="bi bi-grid-1x2" /> User Dashboard
-                      </button>
-                      <button
+                      <div className="nb-user-menu">
+                        <button
+                          type="button"
+                          className="nb-user-menu__item"
+                          onClick={() => {
+                            if (user?.roleId !== 2 && user?.roleId !== 0) {
+                              navigate("/admin/admin-dashboard");
+                            } else {
+                              navigate("/account/dashboard");
+                            }
+                            setIsUserMenuOpen(false);
+                          }}
+                        >
+                          <i className="bi bi-grid-1x2" /> {user?.roleId !== 2 && user?.roleId !== 0 ? "Admin Dashboard" : "User Dashboard"}
+                        </button>
+                        <button
                         type="button"
                         className="nb-user-menu__signout"
                         onClick={handleLogout}
