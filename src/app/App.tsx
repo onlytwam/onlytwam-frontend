@@ -22,7 +22,7 @@ import Navbar from "@/shared/components/Navbar";
 import Footer from "@/shared/components/Footer";
 import MobileBackHeader from "@/shared/components/MobileBackHeader";
 import ProtectedRoute from "@/shared/components/ProtectedRoute";
-import AdminBar from "@/features/admin/components/AdminBar";
+
 import Breadcrumb from "@/shared/components/Breadcrumb";
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { ProfileLeaveGuardProvider } from "@/shared/components/profileLeaveGuard";
@@ -527,9 +527,8 @@ function MainLayout() {
   const isMobile = useIsMobile();
   
   useEffect(() => {
-    // If a staff member tries to load the consumer frontend without explicitly clicking "Go to Store", redirect them
-    const isViewingStore = sessionStorage.getItem("adminViewingStore") === "true";
-    if (user && user.roleId !== 2 && user.roleId !== 0 && !isViewingStore) {
+    // If a staff member tries to load the consumer frontend, redirect them to their dashboard
+    if (user && user.roleId !== 2 && user.roleId !== 0) {
       navigate("/admin/admin-dashboard", { replace: true });
     }
   }, [user, navigate]);
@@ -543,7 +542,7 @@ function MainLayout() {
 
   return (
     <div className="s-app-22e1be">
-      <AdminBar />
+      
       <Navbar />
       <main className="s-app-52dcac">
         {mobileBackHeaderTitle && (
