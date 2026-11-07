@@ -1,13 +1,13 @@
 trigger:
   branches:
     include:
-      - testing                    # ✅ push → build only
-      - main                       # ✅ merge → build + deploy
+      - testing                    # push → build only
+      - main                       # merge → build + deploy
 
 pr:
   branches:
     include:
-      - main                       # ✅ PR raised → build only, no deploy
+      - main                       # PR raised → build only, no deploy
 
 pool:
   vmImage: ubuntu-latest
@@ -27,13 +27,13 @@ steps:
   - script: npm install
     displayName: Install dependencies
 
-  - script: npx vite build
+  - script: npm run build
     displayName: Build frontend
     env:
-      VITE_API_BASE_URL: $(VITE_API_BASE_URL)    # ✅ changed from $(BACKEND_URL)
+      VITE_API_BASE_URL: $(VITE_API_BASE_URL)
       VITE_APP_NAME: $(VITE_APP_NAME)
 
-  # ✅ Deploy ONLY when merged to main
+  # Deploy ONLY when merged to main
   - task: AzureStaticWebApp@0
     displayName: Deploy to Static Web Apps
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), in(variables['Build.Reason'], 'IndividualCI', 'Manual'))
