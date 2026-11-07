@@ -80,16 +80,19 @@ export default function AdminOrders() {
       api.get('/Orders/AdminList', { params: buildParams() }).then(r => r.data),
   });
 
-  const updateStatus = useMutation({
-    mutationFn: ({ orderId, state }: { orderId: string; state: string }) => {
+
+    const updateStatus = useMutation({
+    mutationFn: async ({ orderId, state }: { orderId: string; state: string }) => {
       if (state === 'Cancelled') {
-        return api.post('/Orders/CancelOrder', {
+        const res = await api.post('/Orders/CancelOrder', {
           orderId,
           isRefund: false,
           reason: 'Admin cancellation',
         });
+        return res.data;
       }
-      return api.put('/Orders/UpdateStatus', { orderId, state });
+      const res = await api.put('/Orders/UpdateStatus', { orderId, state });
+      return res.data;
     },
     onSuccess: (_data, variables) => {
       toast.success('Order status updated!');
