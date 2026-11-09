@@ -844,36 +844,50 @@ export default function App() {
 
   const isHome =
     window.location.pathname === "/" || window.location.pathname === "/home";
-  const [showSplash, setShowSplash] = useState(isHome);
 
+  // The branded splash is shown ONLY inside the native app (Capacitor).
+  // On the website it is skipped so the real page paints immediately.
+  const [showSplash, setShowSplash] = useState(isHome && IS_NATIVE);
+
+  // Prefetch the two highest-traffic pages once the home page has settled.
+  // This keeps the home entry fast while making common navigations feel instant.
+  const prefetchTopPages = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: ["new-arrivals-page"],
+      queryFn: () =>
+        import("@/features/products/api/products.api").then((m) =>
+          m.listNewArrivals({ pageSize: 500 }),
+        ),
+      staleTime: 5 * 60 * 1000,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: ["best-sellers-page"],
+      queryFn: () =>
+        import("@/features/products/api/products.api").then((m) =>
+          m.listProducts({
+            isBestSeller: true,
+            pageSize: 500,
+            orderProperty: "Rating",
+            orderAscending: false,
+          }),
+        ),
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [queryClient]);
+
+  // Native app: prefetch after the splash finishes.
   const handleSplashDone = () => {
     setShowSplash(false);
-    // Prefetch the top 2 highest-traffic pages after the splash settles.
-    // This keeps the home entry fast while making common navigations feel instant.
-    setTimeout(() => {
-      void queryClient.prefetchQuery({
-        queryKey: ["new-arrivals-page"],
-        queryFn: () =>
-          import("@/features/products/api/products.api").then((m) =>
-            m.listNewArrivals({ pageSize: 500 }),
-          ),
-        staleTime: 5 * 60 * 1000,
-      });
-      void queryClient.prefetchQuery({
-        queryKey: ["best-sellers-page"],
-        queryFn: () =>
-          import("@/features/products/api/products.api").then((m) =>
-            m.listProducts({
-              isBestSeller: true,
-              pageSize: 500,
-              orderProperty: "Rating",
-              orderAscending: false,
-            }),
-          ),
-        staleTime: 5 * 60 * 1000,
-      });
-    }, 2000);
+    setTimeout(prefetchTopPages, 2000);
   };
+
+  // Web: there is no splash, so start the prefetch a few seconds after load
+  // (after the first paint) so it never competes with the home page itself.
+  useEffect(() => {
+    if (IS_NATIVE) return;
+    const t = setTimeout(prefetchTopPages, 3000);
+    return () => clearTimeout(t);
+  }, [prefetchTopPages]);
 
   // ── Capacitor background/foreground detection ─────────────────────────────
   // No @capacitor/app needed — both "resume" and visibilitychange fire inside
