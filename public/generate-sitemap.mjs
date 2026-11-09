@@ -94,10 +94,34 @@ ${[...routes]
 </urlset>
 `
 
+// ── robots.txt ───────────────────────────────────────────────────────────────
+// Keeps private and checkout pages out of search results. Public pages stay open.
+const robots = `User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /login
+Disallow: /register
+Disallow: /verify-otp
+Disallow: /reset-password
+Disallow: /cart
+Disallow: /wishlist
+Disallow: /notifications
+Disallow: /global-search
+Disallow: /order-details
+Disallow: /user-products/cart
+Disallow: /user-products/payment
+Disallow: /user-products/payment-address
+Disallow: /user-products/shipping-option
+Disallow: /user-products/payment-callback
+Disallow: /user-products/order-confirm
+Disallow: /user-products/invoice-details
+Disallow: /user-products/return-
+
+Sitemap: ${SITE}/sitemap.xml
+`
+
 mkdirSync('dist', { recursive: true })
 writeFileSync('dist/sitemap.xml', xml)
-writeFileSync(
-  'dist/robots.txt',
-  `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`
-)
+writeFileSync('dist/robots.txt', robots)
 console.log(`sitemap.xml generated (${routes.size} URLs)`)
