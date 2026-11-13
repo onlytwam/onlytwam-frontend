@@ -225,3 +225,4 @@ console.log('      (catalog typos and duplicate names are data problems: they ne
 
 console.log(`\n${fails === 0 ? 'ALL CHECKS PASSED' : `${fails} FAIL(S) - see above`}`)
 process.exit(fails ? 1 : 0)
+//update

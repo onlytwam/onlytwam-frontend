@@ -74,3 +74,4 @@ export const resolveCategory = <T extends CategoryLike>(
   if (!slug) return null;
   return flat.find((c) => productSlug(c.name) === slug) ?? null;
 };
+//update

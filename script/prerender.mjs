@@ -276,4 +276,4 @@ if (failures.length) console.warn(`prerender: failed pages:\n  ${failures.join('
 if (STRICT && (failures.length || thin.length)) process.exit(1)
 if (written === 0) process.exit(1)
 
-  
+  //update

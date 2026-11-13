@@ -226,3 +226,4 @@ writeFileSync(
   JSON.stringify([...new Set([...routes, ...extraPrerenderRoutes])], null, 2)
 )
 console.log(`sitemap.xml generated (${routes.length} URLs)`)
+//update
