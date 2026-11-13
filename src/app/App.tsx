@@ -742,7 +742,7 @@ function LegacyProductRedirect() {
   const { id, name } = useParams<{ id: string; name: string }>();
   return (
     <Navigate
-      to={productUrl({ id: Number(id), name: name || "product" })}
+      to={productUrl({ id: Number(id), name: name || "" })}
       replace
     />
   );
@@ -872,23 +872,23 @@ export default function App() {
   // Prefetch the two highest-traffic pages once the home page has settled.
   // This keeps the home entry fast while making common navigations feel instant.
   const prefetchTopPages = useCallback(() => {
-  void queryClient.prefetchQuery({
-    queryKey: ["new-arrivals-page"],
-    queryFn: () => listNewArrivals({ pageSize: 500 }),
-    staleTime: 5 * 60 * 1000,
-  });
-  void queryClient.prefetchQuery({
-    queryKey: ["best-sellers-page"],
-    queryFn: () =>
-      listProducts({
-        isBestSeller: true,
-        pageSize: 500,
-        orderProperty: "Rating",
-        orderAscending: false,
-      }),
-    staleTime: 5 * 60 * 1000,
-  });
-}, [queryClient]);
+    void queryClient.prefetchQuery({
+      queryKey: ["new-arrivals-page"],
+      queryFn: () => listNewArrivals({ pageSize: 500 }),
+      staleTime: 5 * 60 * 1000,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: ["best-sellers-page"],
+      queryFn: () =>
+        listProducts({
+          isBestSeller: true,
+          pageSize: 500,
+          orderProperty: "Rating",
+          orderAscending: false,
+        }),
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [queryClient]);
 
   // Native app: prefetch after the splash finishes.
   const handleSplashDone = () => {
@@ -987,11 +987,11 @@ export default function App() {
             <Route path="/new-arrivals" element={<NewArrivals />} />
             <Route path="/best-sellers" element={<BestSellers />} />
             <Route path="/all-products" element={<AllProducts />} />
-          <Route path="/product/:idSlug" element={<ProductDetail />} />
-<Route
-  path="/user-products/product-detail/:id/:name"
-  element={<LegacyProductRedirect />}
-/>
+            <Route path="/product/:idSlug" element={<ProductDetail />} />
+            <Route
+              path="/user-products/product-detail/:id/:name"
+              element={<LegacyProductRedirect />}
+            />
             <Route path="/user-products/cart" element={<Cart />} />
             <Route path="/cart" element={<Cart />} />
             <Route
