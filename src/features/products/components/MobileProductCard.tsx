@@ -17,12 +17,13 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
-import { slugify, getImageUrl } from "@/shared/utils/helpers";
+import { getImageUrl } from "@/shared/utils/helpers";
 import {
   colorFamilyHexOf,
   colorFamilyNameOf,
 } from "@/shared/utils/colorHelpers";
 import { getDefaultProductVariant } from "@/features/products/utils/productPricing";
+import { productUrl } from "@/shared/lib/urls";
 
 interface Props {
   product: any;
@@ -64,6 +65,13 @@ export default function MobileProductCard({ product }: Props) {
     displayProduct.brand ||
     displayProduct.brandTitle ||
     "";
+
+  // Must come AFTER displayName is declared.
+  const detailPath = productUrl({
+    id: displayProduct.productVariantId,
+    name: displayName || "product",
+  });
+  const goToDetail = () => navigate(detailPath);
 
   const price = Number(displayProduct.price ?? displayProduct.finalPrice ?? 0);
   const oldPrice = Number(
@@ -126,24 +134,17 @@ export default function MobileProductCard({ product }: Props) {
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/user-products/product-detail/${
-      displayProduct.productVariantId
-    }/${slugify(displayName)}`;
+    const url = `${window.location.origin}${detailPath}`;
     try {
       if (navigator.share) await navigator.share({ title: displayName, url });
       else {
         await navigator.clipboard.writeText(url);
         toast.success("Link copied!");
       }
-    } catch {}
+    } catch {
+      /* user cancelled share */
+    }
   };
-
-  const goToDetail = () =>
-    navigate(
-      `/user-products/product-detail/${
-        displayProduct.productVariantId
-      }/${slugify(displayName)}`,
-    );
 
   // Rating: ★ 4.1 | 15
   const ratingDisplay =

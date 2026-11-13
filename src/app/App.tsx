@@ -33,7 +33,7 @@ import Breadcrumb from "@/shared/components/Breadcrumb";
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { ProfileLeaveGuardProvider } from "@/shared/components/profileLeaveGuard";
 import { useAuthStore } from "@/features/auth/store/authStore";
-
+import { productUrl } from "@/shared/lib/urls";
 // ── Platform detection ────────────────────────────────────────────────────────
 const IS_NATIVE = Capacitor.isNativePlatform();
 
@@ -738,7 +738,15 @@ function RouteTransitionOverlay() {
     </div>
   );
 }
-
+function LegacyProductRedirect() {
+  const { id, name } = useParams<{ id: string; name: string }>();
+  return (
+    <Navigate
+      to={productUrl({ id: Number(id), name: name || "product" })}
+      replace
+    />
+  );
+}
 // ── Route progress bar ───────────────────────────────────────────────────────
 // Lightweight route-loading indicator that complements the full-screen overlay.
 function RouteProgressBar() {
@@ -979,10 +987,11 @@ export default function App() {
             <Route path="/new-arrivals" element={<NewArrivals />} />
             <Route path="/best-sellers" element={<BestSellers />} />
             <Route path="/all-products" element={<AllProducts />} />
-            <Route
-              path="/user-products/product-detail/:id/:name"
-              element={<ProductDetail />}
-            />
+          <Route path="/product/:idSlug" element={<ProductDetail />} />
+<Route
+  path="/user-products/product-detail/:id/:name"
+  element={<LegacyProductRedirect />}
+/>
             <Route path="/user-products/cart" element={<Cart />} />
             <Route path="/cart" element={<Cart />} />
             <Route
