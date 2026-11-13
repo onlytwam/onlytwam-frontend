@@ -21,10 +21,7 @@ import {
   listProducts,
 } from "@/features/products/api/products.api";
 import { addToCart, updateCart, listCart } from "@/features/cart/api/cart.api";
-import { formatPrice, getImageUrl } from "@/shared/utils/helpers";
-import { parseProductParam, productUrl } from "@/shared/lib/urls";
-import Seo from "@/shared/components/Seo";
-import NotFound from "@/shared/components/NotFound";
+import { formatPrice, slugify, getImageUrl } from "@/shared/utils/helpers";
 
 import { setBuyNowSession } from "@/shared/utils/checkoutSession";
 
@@ -428,11 +425,7 @@ function ScrollableProductRow({
 
 /* ── Main Component ───────────────────────────────────────────────────────── */
 export default function ProductDetail() {
-  // NEW URL FORMAT: /product/:idSlug  →  "123-black-full-coverage-bra"
-  // The numeric part is the productVariantId.
-  const { idSlug } = useParams<{ idSlug: string }>();
-  const parsed = parseProductParam(idSlug);
-  const id = parsed ? String(parsed.id) : "";
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -822,33 +815,15 @@ export default function ProductDetail() {
     if (cheapestVariantId > 0 && cheapestVariantId !== currentVId) {
       setCurrentVId(cheapestVariantId);
       navigateRef.current(
-        productUrl({
-          id: cheapestVariantId,
-          name: product?.name || "product",
-        }),
+        `/user-products/product-detail/${cheapestVariantId}/${slugify(
+          product?.name || "product",
+        )}`,
         { replace: true, state: locationStateRef.current },
       );
     }
     // Only re-run when the product or colors actually change — not on navigate/location refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.productId, product?.name, colors, currentVId]);
-
-  // Canonical URL: if the slug in the address bar is stale/wrong, replace it.
-  // The `parsed.id !== currentVId` guard avoids fighting the cheapest-colour redirect.
-  useEffect(() => {
-    if (!product || !parsed || parsed.id !== currentVId) return;
-    const canonical = productUrl({
-      id: currentVId,
-      name: product.name || "product",
-    });
-    if (location.pathname !== canonical) {
-      navigate(
-        { pathname: canonical, search: location.search },
-        { replace: true, state: location.state },
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, currentVId, parsed?.id, location.pathname]);
 
   useEffect(() => {
     if (!isMobileViewport) {
@@ -1213,6 +1188,19 @@ export default function ProductDetail() {
     });
   };
 
+  // const reviewMutation = useMutation({
+  //   mutationFn: (data: any) => createReview(data),
+  //   onSuccess: () => {
+  //     toast.success("Review submitted!");
+  //     setShowForm(false);
+  //     setRForm({ displayName: "", email: "", rating: 5, comment: "" });
+  //     setPhotoFile(null);
+  //     setPhotoPreview(null);
+  //     qc.invalidateQueries({ queryKey: ["reviews", currentVId] });
+  //     qc.invalidateQueries({ queryKey: ["reviews-home"] });
+  //   },
+  // });
+
   const reviewMutation = useMutation({
     mutationFn: (data: any) => createReview(data),
     onSuccess: () => {
@@ -1233,6 +1221,7 @@ export default function ProductDetail() {
           : Array.isArray(detail)
           ? detail.map((d: any) => d.msg).join(", ")
           : err?.message || "Failed to submit review";
+      // console.error("Review error:", err?.response?.status, detail);
       toast.error(msg);
     },
   });
@@ -1453,9 +1442,6 @@ export default function ProductDetail() {
     gap: 8,
   };
 
-  // Invalid URL (no numeric id) — placed AFTER all hooks to keep hook order stable.
-  if (!parsed) return <NotFound />;
-
   if (isLoading)
     return (
       <div
@@ -1563,18 +1549,6 @@ export default function ProductDetail() {
 
   return (
     <>
-      <Seo
-        title={`${product.name} | TWAM`}
-        description={
-          (product.description || "").replace(/<[^>]*>/g, " ").trim() ||
-          `Buy ${product.name} at TWAM. Comfortable, confident styles for women with easy returns.`
-        }
-        path={productUrl({ id: currentVId, name: product.name || "product" })}
-        image={images[0]}
-        type="product"
-        noindex={viewOnly}
-      />
-
       {pageNotif && (
         <PageNotification notif={pageNotif} onDone={() => setPageNotif(null)} />
       )}
@@ -1702,19 +1676,6 @@ export default function ProductDetail() {
 
               {/* ── Main image ── */}
               <div className="s-productdetai-c12f49">
-                {(product.isBestSeller || product.isNewArrival) && (
-                  <span className="pd-product-badge">
-                    {product.isBestSeller ? (
-                      <>
-                        <i className="bi bi-star-fill" /> Best Seller
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-stars" /> New Arrival
-                      </>
-                    )}
-                  </span>
-                )}
                 {images.length > 0 ? (
                   <img
                     src={images[activeImg]}
@@ -1975,10 +1936,9 @@ export default function ProductDetail() {
                           if (c.productVariantId !== currentVId) {
                             setCurrentVId(c.productVariantId);
                             navigate(
-                              productUrl({
-                                id: c.productVariantId,
-                                name: product?.name || "product",
-                              }),
+                              `/user-products/product-detail/${
+                                c.productVariantId
+                              }/${slugify(product?.name || "product")}`,
                             );
                           }
                         }}
@@ -2517,10 +2477,6 @@ export default function ProductDetail() {
                     "Cup sizing",
                     product.isCupSize ? "Yes" : "No",
                   ],
-                  product.isAlphaSize !== undefined && [
-                    "Alpha sizing",
-                    product.isAlphaSize ? "Yes" : "No",
-                  ],
                 ]
                   .filter(Boolean)
                   .map(([label, value]: any) => (
@@ -2682,6 +2638,11 @@ export default function ProductDetail() {
                       type="file"
                       accept="image/*"
                       className="s-addressform-8251cb"
+                      // onChange={(e) => {
+                      //   const f = e.target.files?.[0] ?? null;
+                      //   setPhotoFile(f);
+                      //   setPhotoPreview(f ? URL.createObjectURL(f) : null);
+                      // }
                       onChange={async (e) => {
                         const f = e.target.files?.[0] ?? null;
                         if (!f) {
@@ -2835,4 +2796,3 @@ export default function ProductDetail() {
     </>
   );
 }
-//update
