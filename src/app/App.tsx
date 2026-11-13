@@ -15,6 +15,12 @@ import {
   useRef,
   useCallback,
 } from "react";
+
+import {
+  listNewArrivals,
+  listProducts,
+} from "@/features/products/api/products.api";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
@@ -858,28 +864,23 @@ export default function App() {
   // Prefetch the two highest-traffic pages once the home page has settled.
   // This keeps the home entry fast while making common navigations feel instant.
   const prefetchTopPages = useCallback(() => {
-    void queryClient.prefetchQuery({
-      queryKey: ["new-arrivals-page"],
-      queryFn: () =>
-        import("@/features/products/api/products.api").then((m) =>
-          m.listNewArrivals({ pageSize: 500 }),
-        ),
-      staleTime: 5 * 60 * 1000,
-    });
-    void queryClient.prefetchQuery({
-      queryKey: ["best-sellers-page"],
-      queryFn: () =>
-        import("@/features/products/api/products.api").then((m) =>
-          m.listProducts({
-            isBestSeller: true,
-            pageSize: 500,
-            orderProperty: "Rating",
-            orderAscending: false,
-          }),
-        ),
-      staleTime: 5 * 60 * 1000,
-    });
-  }, [queryClient]);
+  void queryClient.prefetchQuery({
+    queryKey: ["new-arrivals-page"],
+    queryFn: () => listNewArrivals({ pageSize: 500 }),
+    staleTime: 5 * 60 * 1000,
+  });
+  void queryClient.prefetchQuery({
+    queryKey: ["best-sellers-page"],
+    queryFn: () =>
+      listProducts({
+        isBestSeller: true,
+        pageSize: 500,
+        orderProperty: "Rating",
+        orderAscending: false,
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+}, [queryClient]);
 
   // Native app: prefetch after the splash finishes.
   const handleSplashDone = () => {
