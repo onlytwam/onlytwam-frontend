@@ -15,6 +15,12 @@ import {
   useRef,
   useCallback,
 } from "react";
+
+import {
+  listNewArrivals,
+  listProducts,
+} from "@/features/products/api/products.api";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
@@ -133,12 +139,9 @@ const Login = lazy(() => import("@/features/auth/pages/Login"));
 const Register = lazy(() => import("@/features/auth/pages/Register"));
 const ResetPassword = lazy(() => import("@/features/auth/pages/ResetPassword"));
 const VerifyOtp = lazy(() => import("@/features/auth/pages/VerifyOtp"));
-const About = lazy(() => import("@/features/content/pages/About"));
 const ContactUs = lazy(() => import("@/features/content/pages/ContactUs"));
 const Unsubscribe = lazy(() => import("@/features/content/pages/Unsubscribe"));
 const OurStores = lazy(() => import("@/features/content/pages/OurStores"));
-const OurBlog = lazy(() => import("@/features/content/pages/OurBlog"));
-const Blog1 = lazy(() => import("@/features/content/pages/Blog1"));
 const PrivacyPolicy = lazy(
   () => import("@/features/content/pages/PrivacyPolicy"),
 );
@@ -166,6 +169,7 @@ const ProductList = lazy(() => import("@/features/products/pages/ProductList"));
 const NewArrivals = lazy(() => import("@/features/products/pages/NewArrivals"));
 const BestSellers = lazy(() => import("@/features/products/pages/BestSellers"));
 const AllProducts = lazy(() => import("@/features/products/pages/AllProducts"));
+const NotFound = lazy(() => import("@/shared/components/NotFound"));
 
 function ProductListWithKey() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -241,7 +245,9 @@ const AdminDashboard = lazy(
   () => import("@/features/admin/pages/AdminDashboard"),
 );
 const AdminOrders = lazy(() => import("@/features/admin/pages/AdminOrders"));
-const AdminFailedShipments = lazy(() => import("@/features/admin/pages/FailedShipments"));
+const AdminFailedShipments = lazy(
+  () => import("@/features/admin/pages/FailedShipments"),
+);
 const AdminProducts = lazy(
   () => import("@/features/admin/pages/AdminProducts"),
 );
@@ -259,7 +265,9 @@ const AdminBrands = lazy(() => import("@/features/admin/pages/AdminBrands"));
 const AdminSizes = lazy(() => import("@/features/admin/pages/AdminSizes"));
 const AdminUsers = lazy(() => import("@/features/admin/pages/AdminUsers"));
 const AdminCoupons = lazy(() => import("@/features/admin/pages/AdminCoupons"));
-const AdminCouponsList = lazy(() => import("@/features/admin/pages/AdminCouponsList"));
+const AdminCouponsList = lazy(
+  () => import("@/features/admin/pages/AdminCouponsList"),
+);
 const AdminSupportRequests = lazy(
   () => import("@/features/admin/pages/AdminSupportRequests"),
 );
@@ -286,8 +294,12 @@ const InventoryProductReports = lazy(
 
 const AdminStock = lazy(() => import("@/features/admin/pages/AdminStock"));
 const AdminStores = lazy(() => import("@/features/admin/pages/AdminStores"));
-const AdminWarehouses = lazy(() => import("@/features/admin/pages/AdminWarehouses"));
-const AdminAssignStock = lazy(() => import("@/features/admin/pages/AdminAssignStock"));
+const AdminWarehouses = lazy(
+  () => import("@/features/admin/pages/AdminWarehouses"),
+);
+const AdminAssignStock = lazy(
+  () => import("@/features/admin/pages/AdminAssignStock"),
+);
 const AdminMyStock = lazy(() => import("@/features/admin/pages/AdminMyStock"));
 
 const AdminBulkUpload = lazy(async () => {
@@ -310,6 +322,7 @@ const AdminBranding = lazy(
   () => import("@/features/admin/pages/AdminBranding"),
 );
 const AdminBilling = lazy(() => import("@/features/admin/pages/AdminBilling"));
+
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
 const NO_BREADCRUMB_ROUTES = ["/", "/home"];
@@ -525,7 +538,7 @@ function MainLayout() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const isMobile = useIsMobile();
-  
+
   useEffect(() => {
     // If a staff member tries to load the consumer frontend, redirect them to their dashboard
     if (user && user.roleId !== 2 && user.roleId !== 0) {
@@ -542,7 +555,6 @@ function MainLayout() {
 
   return (
     <div className="s-app-22e1be">
-      
       <Navbar />
       <main className="s-app-52dcac">
         {mobileBackHeaderTitle && (
@@ -852,28 +864,23 @@ export default function App() {
   // Prefetch the two highest-traffic pages once the home page has settled.
   // This keeps the home entry fast while making common navigations feel instant.
   const prefetchTopPages = useCallback(() => {
-    void queryClient.prefetchQuery({
-      queryKey: ["new-arrivals-page"],
-      queryFn: () =>
-        import("@/features/products/api/products.api").then((m) =>
-          m.listNewArrivals({ pageSize: 500 }),
-        ),
-      staleTime: 5 * 60 * 1000,
-    });
-    void queryClient.prefetchQuery({
-      queryKey: ["best-sellers-page"],
-      queryFn: () =>
-        import("@/features/products/api/products.api").then((m) =>
-          m.listProducts({
-            isBestSeller: true,
-            pageSize: 500,
-            orderProperty: "Rating",
-            orderAscending: false,
-          }),
-        ),
-      staleTime: 5 * 60 * 1000,
-    });
-  }, [queryClient]);
+  void queryClient.prefetchQuery({
+    queryKey: ["new-arrivals-page"],
+    queryFn: () => listNewArrivals({ pageSize: 500 }),
+    staleTime: 5 * 60 * 1000,
+  });
+  void queryClient.prefetchQuery({
+    queryKey: ["best-sellers-page"],
+    queryFn: () =>
+      listProducts({
+        isBestSeller: true,
+        pageSize: 500,
+        orderProperty: "Rating",
+        orderAscending: false,
+      }),
+    staleTime: 5 * 60 * 1000,
+  });
+}, [queryClient]);
 
   // Native app: prefetch after the splash finishes.
   const handleSplashDone = () => {
@@ -899,6 +906,10 @@ export default function App() {
 
     let t: ReturnType<typeof setTimeout> | null = null;
 
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") markResume();
+    };
+
     const markResume = () => {
       _isCapacitorResume = true;
       if (t) clearTimeout(t);
@@ -908,12 +919,11 @@ export default function App() {
     };
 
     document.addEventListener("resume", markResume);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") markResume();
-    });
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       document.removeEventListener("resume", markResume);
+      document.removeEventListener("visibilitychange", onVisibility);
       if (t) clearTimeout(t);
       _isCapacitorResume = false;
     };
@@ -1038,6 +1048,9 @@ export default function App() {
                 <Route path="wishlist" element={<Wishlist />} />
               </Route>
             </Route>
+
+            {/* ── 404 (inside the layout so Navbar + Footer still show) ── */}
+            <Route path="*" element={<NotFound />} />
           </Route>
 
           {/* ── Auth pages (no layout) ────────────────────────────────────── */}
@@ -1095,7 +1108,6 @@ export default function App() {
             <Route path="support" element={<AdminSupportRequests />} />
             <Route path="blog" element={<AdminBlog />} />
             <Route path="mdm" element={<AdminMDM />} />
-            <Route path="mdm" element={<AdminMDM />} />
             <Route path="store-settings" element={<AdminStoreSettings />} />
             <Route path="page-images" element={<AdminBranding />} />
             <Route path="billing" element={<AdminBilling />} />
@@ -1115,10 +1127,10 @@ export default function App() {
               path="inventory-product-reports"
               element={<InventoryProductReports />}
             />
-          </Route>
 
-          {/* ── Fallback ─────────────────────────────────────────────────── */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Unknown /admin/* URLs */}
+            <Route path="*" element={<NotFound />} />
+          </Route>
         </Routes>
       </Suspense>
     </>

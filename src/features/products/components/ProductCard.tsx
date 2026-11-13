@@ -1,5 +1,8 @@
+//productcard
+
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { productUrl } from "@/shared/lib/urls";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
@@ -17,7 +20,6 @@ import {
   getDefaultProductVariant,
   normalizeVariantPriceFields,
 } from "@/features/products/utils/productPricing";
-
 const TEAR_LINE_SAMPLE_POINTS = [
   { x: 48.5, y: 0.8 },
   { x: 44, y: 3.4 },
@@ -63,7 +65,6 @@ export default function ProductCard({
   delayedDiscountReveal = false,
   enableHoverImageTransition = true,
 }: Props) {
-  const navigate = useNavigate();
   const prefersReducedMotion = useMediaQuery(
     "(prefers-reduced-motion: reduce)",
   );
@@ -148,6 +149,19 @@ export default function ProductCard({
     }
   };
 
+  // ── Detail URL — rendered as a real <a href> so crawlers can follow it ─────
+const detailUrl = productUrl({
+  id: selectedVariant.productVariantId, // variant id, not product id
+  name:
+    selectedVariant.name ||
+    selectedVariant.productName ||
+    product.name ||
+    "",
+});
+  // When used in the wishlist context (isRemovableCard), tell ProductDetail
+  // it came from wishlist so viewOnly logic works for inactive categories.
+  const detailState = isRemovableCard ? { fromWishlist: true } : undefined;
+
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -190,9 +204,7 @@ export default function ProductCard({
   const shareProduct = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/user-products/product-detail/${
-      selectedVariant.productVariantId
-    }/${slugify(selectedVariant.name || "")}`;
+    const url = `${window.location.origin}${detailUrl}`;
     try {
       if (navigator.share)
         await navigator.share({ title: selectedVariant.name, url });
@@ -202,16 +214,6 @@ export default function ProductCard({
       }
     } catch {}
   };
-
-  const goToDetail = () =>
-    navigate(
-      `/user-products/product-detail/${
-        selectedVariant.productVariantId
-      }/${slugify(selectedVariant.name || selectedVariant.productName || "")}`,
-      // When used in the wishlist context (isRemovableCard), tell ProductDetail
-      // it came from wishlist so viewOnly logic works for inactive categories.
-      isRemovableCard ? { state: { fromWishlist: true } } : undefined,
-    );
 
   const price = selectedVariant.price ?? selectedVariant.finalPrice ?? 0;
   const oldPrice = selectedVariant.oldPrice ?? selectedVariant.mrpPrice ?? 0;
@@ -857,11 +859,19 @@ export default function ProductCard({
         className={`pc-card${isRemovableCard ? " pc-card--wishlist" : ""}${
           !enableHoverImageTransition ? " pc-card--hover-image-disabled" : ""
         }`}
-        onClick={goToDetail}
       >
         <div className="pc-card-solid-bg" />
 
         <div className="pc-content-wrapper">
+          {/* Real link covering the card: crawlers read the href, users keep
+              client-side navigation, Ctrl/Cmd-click opens a new tab. */}
+          <Link
+            to={detailUrl}
+            state={detailState}
+            className="pc-card-link"
+            aria-label={displayName}
+          />
+
           {showDiscountTagEnabled && discountPct > 0 && (
             <div
               className={`pc-discount-corner${
@@ -1010,7 +1020,8 @@ export default function ProductCard({
                 >
                   <div className="pc-swatches" ref={swatchesRef}>
                     {colorVariants.map((v) => (
-                      <span
+                      <button
+                        type="button"
                         key={v.id}
                         className={`pc-swatch-dot${
                           selectedVariant.productVariantId === v.id
@@ -1021,6 +1032,7 @@ export default function ProductCard({
                           background: v.colorHex || FALLBACK_COLOR_FAMILY_HEX,
                         }}
                         title={v.colorName || v.colorFamily || ""}
+                        aria-label={v.colorName || v.colorFamily || "Colour"}
                         onClick={() =>
                           !singleColorOnly && handleColorChange(v.id)
                         }

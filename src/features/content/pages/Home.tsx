@@ -36,7 +36,6 @@ type HomeBrandLogo = {
   brandId?: number | string;
   id?: number | string;
   brandImage?: string | null;
-  brandLogo?: string | null;
   brandName?: string | null;
   name?: string | null;
 };
@@ -45,6 +44,21 @@ type HomeBrandLogo = {
 
 const HOME_PASSWORD_UPDATE_TOAST_ID = "home-password-update-reminder";
 const HOME_PASSWORD_UPDATE_SEEN_KEY = "twam_home_password_update_seen";
+
+// Visually hidden but still readable by screen readers and search engines.
+// Used for the single page-level <h1> on the Home page.
+const SR_ONLY_STYLE: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
 
 // ─── Product Slider ───────────────────────────────────────────────────────────
 function ProductSlider({
@@ -500,7 +514,7 @@ function BrandsSection({ logos }: { logos: HomeBrandLogo[] }) {
         items: { src: string; name: string; brandId: number | string | null }[],
         b,
       ) => {
-        const src = b.brandImage || b.brandLogo || "";
+        const src = b.brandImage || "";
         if (!src) return items;
 
         const key = String(b.brandId ?? b.id ?? src);
@@ -2388,7 +2402,15 @@ export default function Home() {
 
   return (
     <div className="s-home-bcf04f">
-      <section className="twam-hero" aria-label="TWAM Hero">
+      <section
+        className="twam-hero"
+        aria-label="TWAM Hero"
+        style={{ position: "relative" }}
+      >
+        {/* Single page-level H1 — visually hidden, readable by SEO & screen readers */}
+        <h1 style={SR_ONLY_STYLE}>
+          TWAM – Comfort Without Compromise, Designed for Every Woman
+        </h1>
         {isMobile ? (
           /* Mobile: hero image — only rendered once a URL has been uploaded */
           heroMobileSrc ? (

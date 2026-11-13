@@ -8,8 +8,8 @@ import "@/lib/env";
 // Global styles (consolidated from index.css + component CSS files)
 import "./twam.css";
 import "./mobile.css";
-import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap-icons/font/bootstrap-icons.css';
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap-icons/font/bootstrap-icons.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -18,6 +18,13 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "./app/App";
 import { Toaster, ToastBar, toast } from "react-hot-toast";
 import { useMenuStore } from "@/shared/store/menuStore";
+import {
+  getCategories,
+  getUserInfo,
+  normalizeUserInfo,
+} from "@/features/auth/api/auth.api";
+import { useAuthStore } from "@/features/auth/store/authStore";
+import { getUserDashboard } from "@/features/products/api/products.api";
 
 // Exported so non-component code (e.g. authStore) can call invalidateQueries
 // directly without violating Rules of Hooks (useQueryClient is a hook).
@@ -174,50 +181,47 @@ function AppToaster() {
   );
 }
 
-async function bootstrap() {
-  const { getCategories } = await import("@/features/auth/api/auth.api");
+// Fetch menus for a role and cache them. Returns true if menus were applied.
+async function loadMenus(roleId: number): Promise<boolean> {
+  try {
+    const cats = await getCategories({ roleId });
+    if (cats.length > 0) {
+      sessionStorage.setItem("menus", JSON.stringify(cats));
+      useMenuStore.getState().setMenus(cats);
+      return true;
+    }
+  } catch {
+    /* network error */
+  }
+  return false;
+}
 
+async function bootstrap() {
+  // ── Guest menu: use the session cache, fall back to the network ──────────
   const cached = sessionStorage.getItem("menus");
+  let usedCache = false;
+
   if (cached) {
     try {
       const menus = JSON.parse(cached);
       if (menus.length > 0) {
         useMenuStore.getState().setMenus(menus);
-      } else {
-        throw new Error("empty cache");
+        usedCache = true;
       }
     } catch {
-      try {
-        const cats = await getCategories({ roleId: 2 });
-        if (cats.length > 0) {
-          sessionStorage.setItem("menus", JSON.stringify(cats));
-          useMenuStore.getState().setMenus(cats);
-        }
-      } catch {
-        /* network error */
-      }
-    }
-  } else {
-    try {
-      const cats = await getCategories({ roleId: 2 });
-      if (cats.length > 0) {
-        sessionStorage.setItem("menus", JSON.stringify(cats));
-        useMenuStore.getState().setMenus(cats);
-      }
-    } catch {
-      /* network error */
+      /* corrupt cache — fall through to network */
     }
   }
 
+  if (!usedCache) {
+    await loadMenus(2);
+  }
+
+  // ── Logged-in user: rehydrate session ────────────────────────────────────
   const token = localStorage.getItem("access_token");
   if (!token) return;
 
   try {
-    const { useAuthStore } = await import("@/features/auth/store/authStore");
-    const { getUserInfo, normalizeUserInfo } = await import(
-      "@/features/auth/api/auth.api"
-    );
-
     const raw = await getUserInfo(token);
     const userInfo = normalizeUserInfo(raw);
     useAuthStore.getState().login(userInfo as any, token);
@@ -231,9 +235,6 @@ async function bootstrap() {
     }
 
     try {
-      const { getUserDashboard } = await import(
-        "@/features/products/api/products.api"
-      );
       const dash = await getUserDashboard({ userProfileId: userInfo.userId });
       if (dash?.cartCount !== undefined)
         useAuthStore.getState().setCartCount(dash.cartCount);
@@ -253,83 +254,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <QueryClientProvider client={queryClient}>
         <App />
         <AppToaster />
-        {/*
-          Toast configuration:
-          position="top-center" combined with the CSS override in index.css
-          centres all notification popups on screen.
-        */}
-        {false && (
-          <Toaster
-            position="top-center"
-            containerStyle={{
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              zIndex: 99999,
-            }}
-            toastOptions={{
-              duration: 1600,
-              style: {
-                fontFamily: "var(--font-heading)",
-                background: "var(--ivory)",
-                color: "var(--brand)",
-                border: "1.5px solid #9E6070",
-                borderRadius: "12px",
-                padding: "13px 20px",
-                boxShadow: "0 12px 36px rgba(107,15,42,.18)",
-                fontSize: "14px",
-                fontWeight: "600",
-                maxWidth: "360px",
-              },
-              success: {
-                style: {
-                  background: "var(--brand)",
-                  color: "var(--ivory)",
-                  border: "1.5px solid #9E6070",
-                },
-                iconTheme: {
-                  primary: "var(--ivory)",
-                  secondary: "var(--brand)",
-                },
-              },
-              error: {
-                style: {
-                  background: "var(--blush)",
-                  color: "#fff",
-                  border: "1.5px solid #6B0F2A",
-                },
-                iconTheme: { primary: "#fff", secondary: "var(--blush)" },
-              },
-            }}
-          >
-            {(t) => (
-              <ToastBar toast={t}>
-                {({ icon, message }) => (
-                  <>
-                    {icon}
-                    {message}
-                    {t.type !== "loading" && t.type !== "custom" && (
-                      <button
-                        onClick={() => toast.dismiss(t.id)}
-                        aria-label="Close"
-                        className="s-main-935245"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = "scale(1.15)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "scale(1)";
-                        }}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </>
-                )}
-              </ToastBar>
-            )}
-          </Toaster>
-        )}
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </BrowserRouter>

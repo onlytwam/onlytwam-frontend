@@ -1,0 +1,50 @@
+{
+  "routes": [
+    {
+      "route": "/assets/*",
+      "headers": { "cache-control": "public, max-age=31536000, immutable" }
+    },
+
+    { "route": "/home", "redirect": "/", "statusCode": 301 },
+
+    { "route": "/login", "rewrite": "/app-shell.html" },
+    { "route": "/register", "rewrite": "/app-shell.html" },
+    { "route": "/verify-otp", "rewrite": "/app-shell.html" },
+    { "route": "/reset-password", "rewrite": "/app-shell.html" },
+    { "route": "/cart", "rewrite": "/app-shell.html" },
+    { "route": "/wishlist", "rewrite": "/app-shell.html" },
+    { "route": "/notifications", "rewrite": "/app-shell.html" },
+    { "route": "/global-search", "rewrite": "/app-shell.html" },
+    {
+      "route": "/unsubscribe",
+      "rewrite": "/app-shell.html",
+      "headers": { "X-Robots-Tag": "noindex" }
+    },
+    { "route": "/new-arrivals", "rewrite": "/app-shell.html" },
+
+    { "route": "/order-details*", "rewrite": "/app-shell.html" },
+    { "route": "/account*", "rewrite": "/app-shell.html" },
+    { "route": "/admin*", "rewrite": "/app-shell.html" },
+    { "route": "/blog-1*", "rewrite": "/app-shell.html" },
+
+    { "route": "/user-products/cart", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/shipping-option", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/delivery-option", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/refund-choice", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/payment*", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/return*", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/order-confirm*", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/invoice-details*", "rewrite": "/app-shell.html" },
+
+    { "route": "/product/*", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/product-detail*", "rewrite": "/app-shell.html" },
+    { "route": "/user-products/product-list/*", "rewrite": "/app-shell.html" }
+  ],
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/404.html",
+      "statusCode": 404
+    }
+  }
+}
+
