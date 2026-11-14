@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import { productUrl } from "@/shared/lib/urls";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
-import {
-  slugify,
-  getImageUrl,
-  getCanvasSafeImageUrl,
-} from "@/shared/utils/helpers";
+import { getImageUrl, getCanvasSafeImageUrl } from "@/shared/utils/helpers";
 import {
   colorFamilyHexOf,
   colorFamilyNameOf,
@@ -35,6 +32,7 @@ const DISCOUNT_REVEAL_DELAY_MS = 3000;
 const DISCOUNT_VISIBLE_START_DELAY_MS = 4400;
 const DISCOUNT_VISIBLE_HOLD_MS = 10000;
 const DISCOUNT_CLOSE_DURATION_MS = 1800;
+
 interface Props {
   product: any;
   onQuickShop: (id: number) => void;
@@ -63,7 +61,6 @@ export default function ProductCard({
   delayedDiscountReveal = false,
   enableHoverImageTransition = true,
 }: Props) {
-  const navigate = useNavigate();
   const prefersReducedMotion = useMediaQuery(
     "(prefers-reduced-motion: reduce)",
   );
@@ -148,6 +145,20 @@ export default function ProductCard({
     }
   };
 
+  // ── Detail URL — rendered as a real <a href> so crawlers can follow it ─────
+  const detailUrl = productUrl({
+    id: selectedVariant.productVariantId, // variant id, not product id
+    name:
+      selectedVariant.name ||
+      selectedVariant.productName ||
+      product.name ||
+      "",
+  });
+
+  // When used in the wishlist context (isRemovableCard), tell ProductDetail
+  // it came from wishlist so viewOnly logic works for inactive categories.
+  const detailState = isRemovableCard ? { fromWishlist: true } : undefined;
+
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -190,9 +201,7 @@ export default function ProductCard({
   const shareProduct = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/user-products/product-detail/${
-      selectedVariant.productVariantId
-    }/${slugify(selectedVariant.name || "")}`;
+    const url = `${window.location.origin}${detailUrl}`;
     try {
       if (navigator.share)
         await navigator.share({ title: selectedVariant.name, url });
@@ -203,90 +212,10 @@ export default function ProductCard({
     } catch {}
   };
 
-  const goToDetail = () =>
-    navigate(
-      `/user-products/product-detail/${
-        selectedVariant.productVariantId
-      }/${slugify(selectedVariant.name || selectedVariant.productName || "")}`,
-      // When used in the wishlist context (isRemovableCard), tell ProductDetail
-      // it came from wishlist so viewOnly logic works for inactive categories.
-      isRemovableCard ? { state: { fromWishlist: true } } : undefined,
-    );
-
   const price = selectedVariant.price ?? selectedVariant.finalPrice ?? 0;
   const oldPrice = selectedVariant.oldPrice ?? selectedVariant.mrpPrice ?? 0;
 
   // ── Image resolution — covers all known API shapes ─────────────────────────
-  // const resolveImageList = (obj: any): string[] => {
-  //   if (!obj) return [];
-  //   if (Array.isArray(obj.images) && obj.images.length) {
-  //     return Array.from(
-  //       new Set(
-  //         obj.images
-  //           .filter(Boolean)
-  //           .map((src: string) => String(src).trim())
-  //           .filter(Boolean),
-  //       ),
-  //     );
-  //   }
-  //   const candidates = [
-  //     obj.image,
-  //     obj.imageUrl,
-  //     obj.imageURL,
-  //     obj.productImage,
-  //     obj.variantImage,
-  //     obj.thumbnail,
-  //     obj.selectedImage,
-  //     obj.hoverImage,
-  //     obj.backImage,
-  //     obj.image1,
-  //     obj.image2,
-  //     obj.primaryImage,
-  //     obj.secondaryImage,
-  //   ]
-  //   .filter(Boolean)
-  //     .map((src) => String(src).trim())
-  //     .filter(Boolean) as string[];
-  //   return Array.from(new Set(candidates));
-  // };
-
-  // ── Image resolution — covers all known API shapes ─────────────────────────
-  // const resolveImageList = (obj: any): string[] => {
-  //   if (!obj) return [];
-
-  //   if (Array.isArray(obj.images) && obj.images.length) {
-  //     return Array.from(
-  //       new Set(
-  //         obj.images
-  //           .filter(Boolean)
-  //           .map((src: string) => String(src).trim())
-  //           .filter(Boolean),
-  //       ),
-  //     );
-  //   }
-
-  //   const candidates = [
-  //     obj.image,
-  //     obj.imageUrl,
-  //     obj.imageURL,
-  //     obj.productImage,
-  //     obj.variantImage,
-  //     obj.thumbnail,
-  //     obj.selectedImage,
-  //     obj.hoverImage,
-  //     obj.backImage,
-  //     obj.image1,
-  //     obj.image2,
-  //     obj.primaryImage,
-  //     obj.secondaryImage,
-  //   ]
-  //     .filter(Boolean)
-  //     .map((src) => String(src).trim())
-  //     .filter(Boolean) as string[];
-
-  //   return Array.from(new Set(candidates));
-  // };
-
   const normalizeImageCandidate = (src: unknown): string =>
     String(src ?? "").trim();
 
@@ -312,7 +241,7 @@ export default function ProductCard({
         .filter(Boolean);
     }
 
-    // 🔥 PRIORITY ORDER (fix here)
+    // Priority order: primary first, hover/secondary after
     const candidates = [
       obj.primaryImage,
       obj.selectedImage,
@@ -322,8 +251,6 @@ export default function ProductCard({
       obj.productImage,
       obj.variantImage,
       obj.thumbnail,
-
-      // hover / secondary AFTER
       obj.hoverImage,
       obj.secondaryImage,
       obj.image2,
@@ -335,6 +262,7 @@ export default function ProductCard({
 
     return Array.from(new Set(candidates));
   };
+
   // Images must come strictly from the selected variant.
   // Do NOT fall back to product-level images — the product object holds shared
   // fields (imageUrl, images) that are not scoped to any single variant, so
@@ -363,11 +291,6 @@ export default function ProductCard({
   useEffect(() => {
     setPrimaryImageIndex(0);
   }, [imageKey, selectedVariant.productVariantId]);
-  // console.log("RAW IMAGES:", rawImages);
-  // console.log("FINAL IMG:", imgSrc);
-  // if (rawImages.length === 0) {
-  //   console.warn("⚠️ No images for product:", selectedVariant);
-  // }
 
   const hexToRgb = (hex: string) => {
     const clean = hex.replace("#", "").trim();
@@ -775,7 +698,6 @@ export default function ProductCard({
     "";
 
   // ── Color fields — covers all known API naming variants ────────────────────
-  // Dashboard API may use colourName (UK), colorCode, colorValue, hex, etc.
   const resolveColorFields = (obj: any) => {
     if (!obj) return { colorName: "", colorFamily: "", colorHex: "" };
     const name =
@@ -798,8 +720,6 @@ export default function ProductCard({
       obj.colourGroup ||
       "";
     // Prefer colorFamilyHex (from colorFamilyId) for the swatch colour.
-    // If no family is attached, fall back to colorFamilyHexOf which may
-    // try to derive a hex from the name (rare path per requirements).
     const colorHex = family || name ? colorFamilyHexOf(obj) : "";
     return { colorName: name, colorFamily: family, colorHex };
   };
@@ -857,11 +777,21 @@ export default function ProductCard({
         className={`pc-card${isRemovableCard ? " pc-card--wishlist" : ""}${
           !enableHoverImageTransition ? " pc-card--hover-image-disabled" : ""
         }`}
-        onClick={goToDetail}
       >
         <div className="pc-card-solid-bg" />
 
         <div className="pc-content-wrapper">
+          {/* Real link covering the card: crawlers read the href, users keep
+              client-side navigation, Ctrl/Cmd-click opens a new tab.
+              Requires CSS: .pc-content-wrapper { position: relative }
+              and .pc-card-link { position: absolute; inset: 0; z-index: 1 } */}
+          <Link
+            to={detailUrl}
+            state={detailState}
+            className="pc-card-link"
+            aria-label={displayName}
+          />
+
           {showDiscountTagEnabled && discountPct > 0 && (
             <div
               className={`pc-discount-corner${
@@ -1010,7 +940,8 @@ export default function ProductCard({
                 >
                   <div className="pc-swatches" ref={swatchesRef}>
                     {colorVariants.map((v) => (
-                      <span
+                      <button
+                        type="button"
                         key={v.id}
                         className={`pc-swatch-dot${
                           selectedVariant.productVariantId === v.id
@@ -1021,6 +952,7 @@ export default function ProductCard({
                           background: v.colorHex || FALLBACK_COLOR_FAMILY_HEX,
                         }}
                         title={v.colorName || v.colorFamily || ""}
+                        aria-label={v.colorName || v.colorFamily || "Colour"}
                         onClick={() =>
                           !singleColorOnly && handleColorChange(v.id)
                         }
@@ -1173,6 +1105,7 @@ export default function ProductCard({
                         : undefined
                     }
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       onQuickShop(selectedVariant.productVariantId);
                     }}

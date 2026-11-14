@@ -4100,7 +4100,18 @@ button {
   overflow: visible;
   background: transparent;
 }
-
+.pc-card-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.pc-swatches-outer,
+.pc-quick-btn,
+.pc-remove-btn {
+  position: relative;
+  z-index: 2;
+}
+.pc-actions { z-index: 2; }
 .pc-card--tear-away {
   pointer-events: none;
   animation: pc-card-fly-off var(--pc-card-fly-duration, 1450ms)
@@ -14371,9 +14382,9 @@ button {
   font-family: var(--font-body);
 }
 
-.s-admindashboa-8cb254 {
+/* .s-admindashboa-8cb254 {
   color: a.color;
-}
+} */
 
 .s-admininvento-8801e6 {
   display: grid;
@@ -14382,23 +14393,23 @@ button {
   margin-bottom: 24px;
 }
 
-.s-admininvento-85152d {
+/* .s-admininvento-85152d {
   color: card.color;
-}
+} */
 
-.s-admininvento-14b4f2 {
+/* .s-admininvento-14b4f2 {
   color: sl.color;
-}
+} */
 
-.s-admininvento-3e3854 {
+/* .s-admininvento-3e3854 {
   background: sl.bg;
   color: sl.color;
-}
+} */
 
-.s-adminorders-28616f {
+/* .s-adminorders-28616f {
   background: s.bg;
   color: s.color;
-}
+} */
 
 .s-adminorders-ffb22a {
   padding: 7px 14px;
@@ -14444,10 +14455,10 @@ button {
   font-family: var(--font-body);
 }
 
-.s-adminproduct-69e3b0 {
+/* .s-adminproduct-69e3b0 {
   background: s.bg;
   color: s.color;
-}
+} */
 
 .s-adminproduct-76a1ab {
   background: #000;
@@ -14824,10 +14835,10 @@ button {
   font-family: var(--font-body);
 }
 
-.s-adminsupport-c2234d {
+/* .s-adminsupport-c2234d {
   background: sc.bg;
   color: sc.color;
-}
+} */
 
 .s-adminsupport-0e579f {
   width: 32px;
@@ -14946,13 +14957,13 @@ button {
   font-family: var(--font-body);
 }
 
-.s-apitester-95edc4 {
+/* .s-apitester-95edc4 {
   background: s.bg;
 }
 
 .s-apitester-30f689 {
   color: s.color;
-}
+} */
 
 .s-apitester-f9d6f5 {
   background: #000;
@@ -15236,9 +15247,9 @@ button {
   transition: background 0.2s;
 }
 
-.s-resetpasswor-34edbd {
+/* .s-resetpasswor-34edbd {
   color: strength.color;
-}
+} */
 
 .s-resetpasswor-7b597a {
   font-size: 12px;
@@ -15962,7 +15973,7 @@ button {
   pointer-events: none;
 }
 
-.s-home-98dae8 {
+/* .s-home-98dae8 {
   position: absolute;
   z-index: 2;
   border-radius: 50%;
@@ -15970,7 +15981,7 @@ button {
   width: s.size;
   height: s.size;
   pointer-events: none;
-}
+} */
 
 .s-home-8a6320 {
   position: absolute;
@@ -16111,14 +16122,14 @@ button {
   background-image: none;
 }
 
-.s-home-0349cd {
+/* .s-home-0349cd {
   width: 36px;
   height: 36px;
   border: `3px solid var(--ivory) `;
   border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
+} */
 
 .s-home-374f3d {
   text-align: center;
