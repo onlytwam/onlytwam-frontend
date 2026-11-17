@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { slugify, getImageUrl } from "@/shared/utils/helpers";
+import { productUrl } from "@/shared/lib/urls";
 import {
   colorFamilyHexOf,
   colorFamilyNameOf,
@@ -27,14 +28,15 @@ import { getDefaultProductVariant } from "@/features/products/utils/productPrici
 interface Props {
   product: any;
   onQuickShop: (id: number) => void;
+   category?: string;
 }
 
-export default function MobileProductCard({ product }: Props) {
+export default function MobileProductCard({ product,category  }: Props) {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
   const displayProduct = useMemo(
     () => getDefaultProductVariant(product),
-    [product],
+    [product,category ],
   );
 
   const rawSrc =
@@ -122,13 +124,17 @@ export default function MobileProductCard({ product }: Props) {
       reviewCount,
     });
   };
+  const detailUrl = productUrl({
+    id: displayProduct.productVariantId,
+    name: displayName,
+    color: displayProduct.color || displayProduct.colorName || "",
+    category: category || "",
+  });
 
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/user-products/product-detail/${
-      displayProduct.productVariantId
-    }/${slugify(displayName)}`;
+    const url = `${window.location.origin}${detailUrl}`;
     try {
       if (navigator.share) await navigator.share({ title: displayName, url });
       else {
@@ -138,12 +144,7 @@ export default function MobileProductCard({ product }: Props) {
     } catch {}
   };
 
-  const goToDetail = () =>
-    navigate(
-      `/user-products/product-detail/${
-        displayProduct.productVariantId
-      }/${slugify(displayName)}`,
-    );
+  const goToDetail = () => navigate(detailUrl);
 
   // Rating: ★ 4.1 | 15
   const ratingDisplay =

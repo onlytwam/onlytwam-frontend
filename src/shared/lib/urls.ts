@@ -1,77 +1,144 @@
 // src/shared/lib/urls.ts
-import { slugify } from "@/shared/utils/helpers";
+//
+// URL helpers.
+//   Product URL : /user-products/product-list/{category}/product/{slug}
+//   Category URL: /user-products/product-list/{category-slug}
+//
+// Product URLs carry ONLY a slug (no numeric id). To open the right product,
+// the slug → variant id map is remembered in memory AND localStorage, so it
+// survives a page refresh in the same browser.
+//
+// LIMIT: a slug the browser has never seen (shared link, search-engine result,
+// new device) cannot be resolved without a backend lookup. See parseProductParam.
 
-const MAX_SLUG = 60;
+// ── Slugs ─────────────────────────────────────────────────────────────────────
 
-/** URL-safe slug, capped at 60 characters on a word boundary. */
-export const productSlug = (name: string): string => {
-  const s = slugify(name || "");
-  if (s.length <= MAX_SLUG) return s;
-  const cut = s.slice(0, MAX_SLUG);
-  return s[MAX_SLUG] === "-"
-    ? cut
-    : cut.slice(0, cut.lastIndexOf("-") > 0 ? cut.lastIndexOf("-") : MAX_SLUG);
+/** "Non-Wired T-Shirt Bra!" → "non-wired-t-shirt-bra" */
+export const productSlug = (value: string = ""): string =>
+  String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "") // strip accents
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+/** name + colour → "non-wired-t-shirt-bra-black" (colour added once). */
+export const variantSlug = (name: string = "", color: string = ""): string => {
+  const nameSlug = productSlug(name);
+  const colorSlug = productSlug(color);
+  if (!nameSlug) return "";
+  if (!colorSlug) return nameSlug;
+  // Don't append the colour if the product name already ends with it.
+  if (nameSlug === colorSlug || nameSlug.endsWith(`-${colorSlug}`)) {
+    return nameSlug;
+  }
+  return `${nameSlug}-${colorSlug}`;
 };
 
-export const productUrl = (p: { id: number | string; name: string }) => {
-  const slug = productSlug(p.name);
-  return `/product/${p.id}${slug ? `-${slug}` : ""}`;
-};
+// ── slug → variant id registry (memory + localStorage) ───────────────────────
 
-/** "123-full-coverage-bra" -> { id: 123, slug: "full-coverage-bra" }
- *  Also parses a plain "28" -> { id: 28, slug: "" }, so old links keep working. */
-export const parseProductParam = (param?: string) => {
-  const m = /^(\d+)(?:-(.*))?$/.exec(param ?? "");
-  return m ? { id: Number(m[1]), slug: m[2] ?? "" } : null;
-};
+const SLUG_STORAGE_KEY = "twam_product_slug_map";
+const slugToId = new Map<string, number>();
 
-// ── Categories: name-only URLs ────────────────────────────────────────────────
-
-/** Category URL, name only: /user-products/product-list/cycling-shorts
- *  Falls back to the id ONLY when no name is available. */
-export const categoryUrl = (id: number | string, name?: string): string => {
-  const slug = productSlug(name || "");
-  return `/user-products/product-list/${slug || id}`;
-};
-
-/** "bras" -> { id: null, slug: "bras" };  "7" -> { id: 7, slug: "" } (old links) */
-export const parseCategoryParam = (
-  param?: string,
-): { id: number | null; slug: string } => {
-  const p = (param ?? "").trim();
-  return /^\d+$/.test(p)
-    ? { id: Number(p), slug: "" }
-    : { id: null, slug: p.toLowerCase() };
-};
-
-export interface CategoryLike {
-  categoryId: number;
-  name: string;
-  children?: CategoryLike[];
+// Load what earlier visits remembered, so a refresh keeps working.
+if (typeof window !== "undefined") {
+  try {
+    const saved = JSON.parse(
+      window.localStorage.getItem(SLUG_STORAGE_KEY) || "{}",
+    );
+    for (const [slug, id] of Object.entries(saved)) {
+      const n = Number(id);
+      if (slug && n > 0) slugToId.set(slug, n);
+    }
+  } catch {
+    /* corrupt or blocked storage: start empty */
+  }
 }
 
-/** Flatten the nested menu tree (parents + children) into one list. */
-export const flattenCategories = <T extends CategoryLike>(tree: T[] = []): T[] => {
-  const out: T[] = [];
-  const walk = (nodes: T[]) => {
-    for (const n of nodes) {
-      out.push(n);
-      if (n.children?.length) walk(n.children as T[]);
-    }
-  };
-  walk(tree);
-  return out;
+const persistSlugMap = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      SLUG_STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(slugToId)),
+    );
+  } catch {
+    /* storage full or blocked: memory map still works this session */
+  }
 };
 
-/** Find the category for a URL param ("bras" or legacy "7").
- *  Pass the FLAT list. Returns null if not found (or not loaded yet). */
-export const resolveCategory = <T extends CategoryLike>(
-  param: string | undefined,
-  flat: T[],
-): T | null => {
-  const { id, slug } = parseCategoryParam(param);
-  if (id !== null) return flat.find((c) => c.categoryId === id) ?? null;
-  if (!slug) return null;
-  return flat.find((c) => productSlug(c.name) === slug) ?? null;
+/** Remember which variant a slug belongs to. */
+export const registerProductSlug = (
+  slug: string,
+  id: number | string,
+): void => {
+  const n = Number(id);
+  if (!slug || !(n > 0)) return;
+  if (slugToId.get(slug) === n) return; // nothing changed
+  slugToId.set(slug, n);
+  persistSlugMap();
 };
-//update
+
+/** Look a slug up (or null when this browser has never seen it). */
+export const lookupProductSlug = (slug: string): number | null =>
+  slugToId.get(slug) ?? null;
+
+// ── Parsing the :idSlug route param ───────────────────────────────────────────
+
+/**
+ * Accepts, in this order:
+ *   "123"                      → { id: 123 }   (bare id)
+ *   "123-non-wired-bra-black"  → { id: 123 }   (legacy id-slug links)
+ *   "non-wired-bra-black"      → looked up in the slug registry
+ * Returns null when the id cannot be determined (page shows NotFound).
+ */
+export const parseProductParam = (
+  param?: string | null,
+): { id: number; slug: string } | null => {
+  if (!param) return null;
+  const value = decodeURIComponent(String(param)).trim();
+  if (!value) return null;
+
+  // Bare id or legacy "123-slug"
+  const legacy = /^(\d+)(?:-(.*))?$/.exec(value);
+  if (legacy) {
+    const id = Number(legacy[1]);
+    if (id > 0) return { id, slug: legacy[2] ?? "" };
+  }
+
+  // Slug-only
+  const id = slugToId.get(value);
+  return id ? { id, slug: value } : null;
+};
+
+// ── Product URL ───────────────────────────────────────────────────────────────
+
+export const productUrl = (p: {
+  id: number | string;
+  name: string;
+  color?: string;
+  category?: string;
+  isDefault?: boolean; // accepted for old callers; no longer used
+}): string => {
+  const category = productSlug(p.category ?? "") || "all";
+  const slug = variantSlug(p.name, p.color);
+  const base = `/user-products/product-list/${category}/product`;
+
+  // No usable slug → bare id keeps the link working.
+  if (!slug) return `${base}/${p.id}`;
+
+  registerProductSlug(slug, p.id);
+  return `${base}/${slug}`;
+};
+
+// ── Category URL ──────────────────────────────────────────────────────────────
+
+/** /user-products/product-list/{category-slug}; falls back to the numeric id. */
+export const categoryUrl = (
+  id: number | string,
+  name?: string | null,
+): string => {
+  const slug = productSlug(name ?? "");
+  return `/user-products/product-list/${slug || id}`;
+};

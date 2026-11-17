@@ -1,13 +1,11 @@
+// ProductCard.tsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { productUrl } from "@/shared/lib/urls";
 import toast from "react-hot-toast";
 import { useWishlistToggle } from "@/features/account/hooks/useWishlist";
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
-import {
-  slugify,
-  getImageUrl,
-  getCanvasSafeImageUrl,
-} from "@/shared/utils/helpers";
+import { getImageUrl, getCanvasSafeImageUrl } from "@/shared/utils/helpers";
 import {
   colorFamilyHexOf,
   colorFamilyNameOf,
@@ -35,6 +33,32 @@ const DISCOUNT_REVEAL_DELAY_MS = 3000;
 const DISCOUNT_VISIBLE_START_DELAY_MS = 4400;
 const DISCOUNT_VISIBLE_HOLD_MS = 10000;
 const DISCOUNT_CLOSE_DURATION_MS = 1800;
+
+// The link sits on top of the card; every interactive control must sit above it.
+const CARD_LINK_STYLE: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 1,
+  display: "block",
+  borderRadius: "inherit",
+};
+const ABOVE_LINK: React.CSSProperties = { position: "relative", zIndex: 2 };
+
+/** Reads a category slug/name from an API object. Handles strings and
+ *  nested objects such as { slug, name }. */
+const pickCategory = (obj: any): string => {
+  if (!obj) return "";
+  const c =
+    obj.categorySlug ||
+    obj.categoryName ||
+    obj.category ||
+    obj.subCategoryName ||
+    obj.categoryTitle ||
+    "";
+  if (c && typeof c === "object") return String(c.slug || c.name || "");
+  return String(c || "");
+};
+
 interface Props {
   product: any;
   onQuickShop: (id: number) => void;
@@ -50,6 +74,9 @@ interface Props {
   delayedDiscountReveal?: boolean;
   /** Disable hover image swap/zoom for contexts that want a static card image. */
   enableHoverImageTransition?: boolean;
+  /** Category slug for the detail URL (pass the listing route's category).
+   *  Falls back to category fields on the product, then to "all". */
+  category?: string;
 }
 
 export default function ProductCard({
@@ -62,6 +89,7 @@ export default function ProductCard({
   compact = false,
   delayedDiscountReveal = false,
   enableHoverImageTransition = true,
+  category,
 }: Props) {
   const navigate = useNavigate();
   const prefersReducedMotion = useMediaQuery(
@@ -78,7 +106,6 @@ export default function ProductCard({
   const isCategoryInactive = product.categoryIsActive === false;
   const showUnavailableOverlay = isCategoryInactive && isRemovableCard;
   // Track which variant's hover image has fully loaded.
-  // Derived synchronously → no stale-state flash when the user switches colour.
   const [hoverLoadedVariantId, setHoverLoadedVariantId] = useState(-1);
   const [discountAnimationPhase, setDiscountAnimationPhase] = useState<
     "idle" | "opening" | "open" | "closing"
@@ -148,6 +175,31 @@ export default function ProductCard({
     }
   };
 
+  // ── Detail URL — rendered as a real <a href> so crawlers can follow it ─────
+  // Format: /user-products/product-list/{category}/product/{name-slug}?color=
+  // Category priority: prop from the listing page → fields on the selected
+  // variant → fields on the product → "" (productUrl then falls back to "all").
+  const selectedCategory =
+    category ||
+    pickCategory(selectedVariant) ||
+    pickCategory(product) ||
+    "";
+
+  const detailUrl = productUrl({
+    id: selectedVariant.productVariantId,
+    name:
+      selectedVariant.name ||
+      selectedVariant.productName ||
+      product.name ||
+      "",
+    color: selectedVariant.color || product.color || "",
+    category: selectedCategory,
+  });
+
+  // When used in the wishlist context (isRemovableCard), tell ProductDetail
+  // it came from wishlist so viewOnly logic works for inactive categories.
+  const detailState = isRemovableCard ? { fromWishlist: true } : undefined;
+
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -190,9 +242,7 @@ export default function ProductCard({
   const shareProduct = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/user-products/product-detail/${
-      selectedVariant.productVariantId
-    }/${slugify(selectedVariant.name || "")}`;
+    const url = `${window.location.origin}${detailUrl}`;
     try {
       if (navigator.share)
         await navigator.share({ title: selectedVariant.name, url });
@@ -200,100 +250,22 @@ export default function ProductCard({
         await navigator.clipboard.writeText(url);
         toast.success("Link copied!");
       }
-    } catch {}
+    } catch {
+      /* user cancelled share */
+    }
   };
-
-  const goToDetail = () =>
-    navigate(
-      `/user-products/product-detail/${
-        selectedVariant.productVariantId
-      }/${slugify(selectedVariant.name || selectedVariant.productName || "")}`,
-      // When used in the wishlist context (isRemovableCard), tell ProductDetail
-      // it came from wishlist so viewOnly logic works for inactive categories.
-      isRemovableCard ? { state: { fromWishlist: true } } : undefined,
-    );
 
   const price = selectedVariant.price ?? selectedVariant.finalPrice ?? 0;
   const oldPrice = selectedVariant.oldPrice ?? selectedVariant.mrpPrice ?? 0;
 
   // ── Image resolution — covers all known API shapes ─────────────────────────
-  // const resolveImageList = (obj: any): string[] => {
-  //   if (!obj) return [];
-  //   if (Array.isArray(obj.images) && obj.images.length) {
-  //     return Array.from(
-  //       new Set(
-  //         obj.images
-  //           .filter(Boolean)
-  //           .map((src: string) => String(src).trim())
-  //           .filter(Boolean),
-  //       ),
-  //     );
-  //   }
-  //   const candidates = [
-  //     obj.image,
-  //     obj.imageUrl,
-  //     obj.imageURL,
-  //     obj.productImage,
-  //     obj.variantImage,
-  //     obj.thumbnail,
-  //     obj.selectedImage,
-  //     obj.hoverImage,
-  //     obj.backImage,
-  //     obj.image1,
-  //     obj.image2,
-  //     obj.primaryImage,
-  //     obj.secondaryImage,
-  //   ]
-  //   .filter(Boolean)
-  //     .map((src) => String(src).trim())
-  //     .filter(Boolean) as string[];
-  //   return Array.from(new Set(candidates));
-  // };
-
-  // ── Image resolution — covers all known API shapes ─────────────────────────
-  // const resolveImageList = (obj: any): string[] => {
-  //   if (!obj) return [];
-
-  //   if (Array.isArray(obj.images) && obj.images.length) {
-  //     return Array.from(
-  //       new Set(
-  //         obj.images
-  //           .filter(Boolean)
-  //           .map((src: string) => String(src).trim())
-  //           .filter(Boolean),
-  //       ),
-  //     );
-  //   }
-
-  //   const candidates = [
-  //     obj.image,
-  //     obj.imageUrl,
-  //     obj.imageURL,
-  //     obj.productImage,
-  //     obj.variantImage,
-  //     obj.thumbnail,
-  //     obj.selectedImage,
-  //     obj.hoverImage,
-  //     obj.backImage,
-  //     obj.image1,
-  //     obj.image2,
-  //     obj.primaryImage,
-  //     obj.secondaryImage,
-  //   ]
-  //     .filter(Boolean)
-  //     .map((src) => String(src).trim())
-  //     .filter(Boolean) as string[];
-
-  //   return Array.from(new Set(candidates));
-  // };
-
   const normalizeImageCandidate = (src: unknown): string =>
     String(src ?? "").trim();
 
   const resolveImageList = (obj: any): string[] => {
     if (!obj) return [];
 
-    // If API gives array → extract string paths from object or string entries
+    // If API gives an array → extract string paths from object or string entries
     if (Array.isArray(obj.images) && obj.images.length) {
       return obj.images
         .map((img: any) => {
@@ -312,7 +284,7 @@ export default function ProductCard({
         .filter(Boolean);
     }
 
-    // 🔥 PRIORITY ORDER (fix here)
+    // Primary images first, hover / secondary after
     const candidates = [
       obj.primaryImage,
       obj.selectedImage,
@@ -322,8 +294,6 @@ export default function ProductCard({
       obj.productImage,
       obj.variantImage,
       obj.thumbnail,
-
-      // hover / secondary AFTER
       obj.hoverImage,
       obj.secondaryImage,
       obj.image2,
@@ -335,14 +305,13 @@ export default function ProductCard({
 
     return Array.from(new Set(candidates));
   };
+
   // Images must come strictly from the selected variant.
-  // Do NOT fall back to product-level images — the product object holds shared
-  // fields (imageUrl, images) that are not scoped to any single variant, so
-  // falling back would show the same image pool on every colour swatch.
+  // Do NOT fall back to product-level images — they are shared across variants.
   const variantImages = resolveImageList(selectedVariant);
   const rawImages: string[] = variantImages;
 
-  // Backend returns full URLs — just delegate to getImageUrl which passes them through
+  // Backend returns full URLs — getImageUrl passes them through
   const resolveDisplayImageUrl = (src: string): string => getImageUrl(src, "");
 
   const resolvedImages = rawImages.map(resolveDisplayImageUrl).filter(Boolean);
@@ -357,17 +326,12 @@ export default function ProductCard({
 
   const imgSrc = imageCandidates[safePrimaryImageIndex] || FALLBACK_IMAGE;
   const hoverImgSrc =
-    resolvedImages.find((src, index) => index > safePrimaryImageIndex) || "";
+    resolvedImages.find((_src, index) => index > safePrimaryImageIndex) || "";
   const imageKey = rawImages.join("|");
 
   useEffect(() => {
     setPrimaryImageIndex(0);
   }, [imageKey, selectedVariant.productVariantId]);
-  // console.log("RAW IMAGES:", rawImages);
-  // console.log("FINAL IMG:", imgSrc);
-  // if (rawImages.length === 0) {
-  //   console.warn("⚠️ No images for product:", selectedVariant);
-  // }
 
   const hexToRgb = (hex: string) => {
     const clean = hex.replace("#", "").trim();
@@ -663,13 +627,10 @@ export default function ProductCard({
     };
   }, [hoverImgSrc, selectedVariant.productVariantId]);
 
-  // hoverLoaded is TRUE only when the hover image loaded for the CURRENT
-  // variant. Derived synchronously — no stale frame, no colour-switch jump.
+  // TRUE only when the hover image loaded for the CURRENT variant.
   const hoverLoaded =
     hoverLoadedVariantId === selectedVariant.productVariantId && !!hoverImgSrc;
 
-  // pc-image-wrap--has-hover enables the fade transition; without it we still
-  // get the zoom-in animation via CSS (pc-img-primary on hover).
   const imageWrapClass = `pc-image-wrap${
     enableHoverImageTransition && hoverLoaded ? " pc-image-wrap--has-hover" : ""
   }`;
@@ -726,6 +687,18 @@ export default function ProductCard({
     price,
   ]);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (e.defaultPrevented) return;
+    const target = e.target as HTMLElement;
+    // buttons (heart, share, swatches, Quick Add) and the real link handle themselves
+    if (target.closest("button, a, input, select")) return;
+    if (e.metaKey || e.ctrlKey) {
+      window.open(detailUrl, "_blank");
+      return;
+    }
+    navigate(detailUrl, { state: detailState });
+  };
+
   // ── Review count — covers all known API field names ────────────────────────
   const reviewCount =
     product.reviewCount ||
@@ -775,7 +748,6 @@ export default function ProductCard({
     "";
 
   // ── Color fields — covers all known API naming variants ────────────────────
-  // Dashboard API may use colourName (UK), colorCode, colorValue, hex, etc.
   const resolveColorFields = (obj: any) => {
     if (!obj) return { colorName: "", colorFamily: "", colorHex: "" };
     const name =
@@ -797,9 +769,6 @@ export default function ProductCard({
       obj.colorGroup ||
       obj.colourGroup ||
       "";
-    // Prefer colorFamilyHex (from colorFamilyId) for the swatch colour.
-    // If no family is attached, fall back to colorFamilyHexOf which may
-    // try to derive a hex from the name (rare path per requirements).
     const colorHex = family || name ? colorFamilyHexOf(obj) : "";
     return { colorName: name, colorFamily: family, colorHex };
   };
@@ -807,15 +776,10 @@ export default function ProductCard({
   const productColorFields = resolveColorFields(product);
   const selectedColorFields = resolveColorFields(selectedVariant);
 
-  const colorVariants: {
-    id: number;
-    colorName: string;
-    colorFamily: string;
-    colorHex: string;
-  }[] = singleColorOnly
-    ? productColorFields.colorName ||
-      productColorFields.colorFamily ||
-      productColorFields.colorHex
+  const singleColorEntry = () =>
+    productColorFields.colorName ||
+    productColorFields.colorFamily ||
+    productColorFields.colorHex
       ? [
           {
             id: product.productVariantId ?? defaultVariant.productVariantId,
@@ -825,30 +789,26 @@ export default function ProductCard({
             colorHex: productColorFields.colorHex || "",
           },
         ]
-      : []
+      : [];
+
+  const colorVariants: {
+    id: number;
+    colorName: string;
+    colorFamily: string;
+    colorHex: string;
+  }[] = singleColorOnly
+    ? singleColorEntry()
     : product.allVariants?.length > 1
-    ? defaultVariant.allVariants.map((v: any) => {
-        const f = resolveColorFields(v);
-        return {
-          id: v.productVariantId,
-          colorName: f.colorName || f.colorFamily,
-          colorFamily: f.colorFamily,
-          colorHex: f.colorHex || "",
-        };
-      })
-    : productColorFields.colorName ||
-      productColorFields.colorFamily ||
-      productColorFields.colorHex
-    ? [
-        {
-          id: product.productVariantId ?? defaultVariant.productVariantId,
-          colorName:
-            productColorFields.colorName || productColorFields.colorFamily,
-          colorFamily: productColorFields.colorFamily,
-          colorHex: productColorFields.colorHex || "",
-        },
-      ]
-    : [];
+      ? product.allVariants.map((v: any) => {
+          const f = resolveColorFields(v);
+          return {
+            id: v.productVariantId,
+            colorName: f.colorName || f.colorFamily,
+            colorFamily: f.colorFamily,
+            colorHex: f.colorHex || "",
+          };
+        })
+      : singleColorEntry();
   const hasScrollableColors = colorVariants.length > 5;
 
   return (
@@ -857,11 +817,23 @@ export default function ProductCard({
         className={`pc-card${isRemovableCard ? " pc-card--wishlist" : ""}${
           !enableHoverImageTransition ? " pc-card--hover-image-disabled" : ""
         }`}
-        onClick={goToDetail}
+        onClick={handleCardClick}
+        style={{ cursor: "pointer" }}
       >
         <div className="pc-card-solid-bg" />
 
-        <div className="pc-content-wrapper">
+        {/* position: relative so the absolute <Link> below is sized to the card */}
+        <div className="pc-content-wrapper" style={{ position: "relative" }}>
+          {/* Real link covering the card: crawlers read the href, users keep
+              client-side navigation, Ctrl/Cmd-click opens a new tab. */}
+          <Link
+            to={detailUrl}
+            state={detailState}
+            className="pc-card-link"
+            aria-label={displayName}
+            style={CARD_LINK_STYLE}
+          />
+
           {showDiscountTagEnabled && discountPct > 0 && (
             <div
               className={`pc-discount-corner${
@@ -873,7 +845,7 @@ export default function ProductCard({
                   ? ` pc-discount-corner--${discountAnimationPhase}`
                   : ""
               }`}
-              style={tearVisualStyle}
+              style={{ ...tearVisualStyle, pointerEvents: "none" }}
               aria-hidden="true"
             >
               <div className="pc-discount-mask">
@@ -972,8 +944,11 @@ export default function ProductCard({
                 </span>
               </div>
             )}
-            <div className="pc-actions">
+
+            {/* zIndex only — keeps the existing CSS position of .pc-actions */}
+            <div className="pc-actions" style={{ zIndex: 2 }}>
               <button
+                type="button"
                 className={`pc-action-btn${inWishlist ? " active" : ""}`}
                 onClick={handleWishlist}
                 disabled={isPending}
@@ -984,6 +959,7 @@ export default function ProductCard({
                 />
               </button>
               <button
+                type="button"
                 className="pc-action-btn"
                 onClick={shareProduct}
                 title="Share"
@@ -996,9 +972,14 @@ export default function ProductCard({
           <div
             className="pc-body"
             style={
-              compact ? { padding: "6px 10px 8px", gap: "4px" } : undefined
+              compact
+                ? { padding: "6px 10px 8px", gap: "4px", pointerEvents: "none" }
+                : { pointerEvents: "none" }
             }
           >
+            {/* pointer-events: none on the body lets clicks on text fall through
+                to the card <Link>; the controls below turn pointer-events back on. */}
+
             {/* Row 1: swatch left | brand right */}
             <div className="pc-row1">
               {showColors && colorVariants.length > 0 ? (
@@ -1006,11 +987,13 @@ export default function ProductCard({
                   className={`pc-swatches-outer${
                     hasScrollableColors ? " pc-swatches-outer--scrollable" : ""
                   }`}
+                  style={{ ...ABOVE_LINK, pointerEvents: "auto" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="pc-swatches" ref={swatchesRef}>
                     {colorVariants.map((v) => (
-                      <span
+                      <button
+                        type="button"
                         key={v.id}
                         className={`pc-swatch-dot${
                           selectedVariant.productVariantId === v.id
@@ -1021,6 +1004,7 @@ export default function ProductCard({
                           background: v.colorHex || FALLBACK_COLOR_FAMILY_HEX,
                         }}
                         title={v.colorName || v.colorFamily || ""}
+                        aria-label={v.colorName || v.colorFamily || "Colour"}
                         onClick={() =>
                           !singleColorOnly && handleColorChange(v.id)
                         }
@@ -1041,6 +1025,7 @@ export default function ProductCard({
 
                   {(hasScrollableColors || isOverflowing) && (
                     <button
+                      type="button"
                       className="pc-swatch-arrow"
                       onClick={handleScrollSwatches}
                       title="Scroll colors"
@@ -1089,7 +1074,6 @@ export default function ProductCard({
               </div>
               <div className="pc-price-block">
                 {showUnavailableOverlay ? (
-                  /* Category hidden — show badge instead of price */
                   <span
                     style={{
                       display: "inline-flex",
@@ -1159,9 +1143,13 @@ export default function ProductCard({
                 )}
               </div>
 
-              <div className="pc-btn-group">
+              <div
+                className="pc-btn-group"
+                style={{ ...ABOVE_LINK, pointerEvents: "auto" }}
+              >
                 {!showUnavailableOverlay && (
                   <button
+                    type="button"
                     className="pc-quick-btn"
                     style={
                       compact
@@ -1173,6 +1161,7 @@ export default function ProductCard({
                         : undefined
                     }
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       onQuickShop(selectedVariant.productVariantId);
                     }}
@@ -1183,6 +1172,7 @@ export default function ProductCard({
                 )}
                 {isRemovableCard && (
                   <button
+                    type="button"
                     className="pc-remove-btn"
                     onClick={(e) => {
                       e.preventDefault();

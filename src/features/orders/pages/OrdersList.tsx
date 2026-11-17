@@ -14,10 +14,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { listOrders } from "@/features/orders/api/orders.api";
-import { formatPrice, getImageUrl, slugify } from "@/shared/utils/helpers";
+import { formatPrice, getImageUrl } from "@/shared/utils/helpers";
 import api from "@/shared/api/axiosInstance";
 
 import { useIsMobile } from "@/shared/hooks/useIsMobile";
+import { useProductLink } from "@/features/products/hooks/useProductLink";
 
 const ORDER_PAGE_SIZE = 10;
 
@@ -107,18 +108,13 @@ function getOrderStatusTone(state: string) {
   return ORDER_STATUS_TONES[display] || ORDER_STATUS_TONES["Order Placed"];
 }
 
-function getBuyAgainHref(item: any): string {
-  const variantId = item?.productVariantId || item?.productVariantDetailId;
-  const name = item?.productName || item?.name || "product";
-
-  if (variantId) {
-    return `/user-products/product-detail/${variantId}/${slugify(name)}`;
-  }
-
-  return "/user-products/product-list";
-}
-
-function OrderSummaryCard({ order }: { order: any }) {
+function OrderSummaryCard({
+  order,
+  getProductLink,
+}: {
+  order: any;
+  getProductLink: (item: any) => string;
+}) {
   const items = getOrderItemsList(order);
   const firstItem = items[0] || {};
   const state = order?.state || "Pending";
@@ -202,7 +198,7 @@ function OrderSummaryCard({ order }: { order: any }) {
 
         <div className="orders-card__actions">
           <Link
-            to={getBuyAgainHref(firstItem)}
+            to={getProductLink(firstItem)}
             className="orders-card__button orders-card__button--primary"
           >
             Buy it again
@@ -221,6 +217,7 @@ function OrderSummaryCard({ order }: { order: any }) {
 
 export default function OrdersList() {
   const isMobile = useIsMobile();
+  const getProductLink = useProductLink();
   const { getUserId } = useAuthStore();
   const userId = getUserId();
   const [page, setPage] = useState(1);
@@ -384,7 +381,11 @@ export default function OrdersList() {
       ) : (
         <div className="orders-page__list">
           {sortedOrders.map((order: any) => (
-            <OrderSummaryCard key={order.orderId} order={order} />
+            <OrderSummaryCard
+              key={order.orderId}
+              order={order}
+              getProductLink={getProductLink}
+            />
           ))}
         </div>
       )}

@@ -4,42 +4,32 @@
 // Validate required env vars at startup — throws in dev if .env is missing
 import "leaflet/dist/leaflet.css";
 import "@/lib/env";
-
+import { queryClient } from "@/shared/lib/queryClient";
 // Global styles (consolidated from index.css + component CSS files)
 import "./twam.css";
 import "./mobile.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HelmetProvider } from "react-helmet-async";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import App from "./app/App";
 import { Toaster, ToastBar, toast } from "react-hot-toast";
+
+import App from "./app/App";
 import { useMenuStore } from "@/shared/store/menuStore";
+import { useAuthStore } from "@/features/auth/store/authStore";
 import {
   getCategories,
   getUserInfo,
   normalizeUserInfo,
 } from "@/features/auth/api/auth.api";
-import { useAuthStore } from "@/features/auth/store/authStore";
 import { getUserDashboard } from "@/features/products/api/products.api";
 
-// Exported so non-component code (e.g. authStore) can call invalidateQueries
-// directly without violating Rules of Hooks (useQueryClient is a hook).
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 10 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
+// ── Toaster ───────────────────────────────────────────────────────────────────
 function AppToaster() {
   const [isMobile, setIsMobile] = React.useState(
     () => typeof window !== "undefined" && window.innerWidth <= 768,
@@ -181,50 +171,43 @@ function AppToaster() {
   );
 }
 
-// Fetch menus for a role and cache them. Returns true if menus were applied.
-async function loadMenus(roleId: number): Promise<boolean> {
-  try {
-    const cats = await getCategories({ roleId });
-    if (cats.length > 0) {
-      sessionStorage.setItem("menus", JSON.stringify(cats));
-      useMenuStore.getState().setMenus(cats);
-      return true;
-    }
-  } catch {
-    /* network error */
-  }
-  return false;
-}
-
-async function bootstrap() {
-  // ── Guest menu: use the session cache, fall back to the network ──────────
+// ── Startup: load guest menus, then rehydrate the logged-in user ─────────────
+async function loadGuestMenus() {
   const cached = sessionStorage.getItem("menus");
-  let usedCache = false;
 
   if (cached) {
     try {
       const menus = JSON.parse(cached);
       if (menus.length > 0) {
         useMenuStore.getState().setMenus(menus);
-        usedCache = true;
+        return;
       }
     } catch {
-      /* corrupt cache — fall through to network */
+      /* bad cache — fall through and fetch */
     }
   }
 
-  if (!usedCache) {
-    await loadMenus(2);
+  try {
+    const cats = await getCategories({ roleId: 2 });
+    if (cats.length > 0) {
+      sessionStorage.setItem("menus", JSON.stringify(cats));
+      useMenuStore.getState().setMenus(cats);
+    }
+  } catch {
+    /* network error */
   }
+}
 
-  // ── Logged-in user: rehydrate session ────────────────────────────────────
+async function bootstrap() {
+  await loadGuestMenus();
+
   const token = localStorage.getItem("access_token");
   if (!token) return;
 
   try {
     const raw = await getUserInfo(token);
     const userInfo = normalizeUserInfo(raw);
-    useAuthStore.getState().login(userInfo as any, token);
+    void useAuthStore.getState().login(userInfo as any, token);
 
     if (userInfo.roleId !== 2) {
       const roleCats = await getCategories({ roleId: userInfo.roleId });
@@ -248,19 +231,27 @@ async function bootstrap() {
   }
 }
 
+// Remove head tags saved by the pre-render step (script/prerender.mjs).
+// React adds fresh ones when a page renders, so this prevents duplicate
+// titles, descriptions and canonical tags.
+document.head
+  .querySelectorAll("[data-prerendered]")
+  .forEach((el) => el.remove());
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <App />
-        <AppToaster />
-        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-      </QueryClientProvider>
-    </BrowserRouter>
+    <HelmetProvider>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <App />
+          <AppToaster />
+          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        </QueryClientProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   </React.StrictMode>,
 );
 
 void bootstrap().catch((error) => {
   console.error("Bootstrap failed:", error);
 });
-//update

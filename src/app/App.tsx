@@ -27,10 +27,17 @@ import Breadcrumb from "@/shared/components/Breadcrumb";
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { ProfileLeaveGuardProvider } from "@/shared/components/profileLeaveGuard";
 import { useAuthStore } from "@/features/auth/store/authStore";
-
+import { productSlug, parseProductParam } from "@/shared/lib/urls";
+import NotFound from "@/shared/components/NotFound";
+import AdminBar from "@/features/admin/components/AdminBar";
+import Seo from "@/shared/components/Seo";
 // ── Platform detection ────────────────────────────────────────────────────────
 const IS_NATIVE = Capacitor.isNativePlatform();
 
+const __check: Record<string, unknown> = {
+  Navbar, Footer, MobileBackHeader, ProtectedRoute, AdminBar,
+  NotFound, Seo, ProfileLeaveGuardProvider, Breadcrumb,
+};
 // Set true for 600ms when app returns from Android background so
 // RouteTransitionOverlay doesn't fire a spinner over an already-rendered page.
 let _isCapacitorResume = false;
@@ -172,6 +179,22 @@ function ProductListWithKey() {
   return <ProductList key={categoryId ?? "all"} />;
 }
 
+
+// ADDED: client-side fallback for old product URLs
+// (/user-products/product-detail/:id/:name → /product/:id-:slug).
+// The real 301 for crawlers must be set on the server/host.
+function LegacyProductRedirect() {
+  const { id, name } = useParams<{ id: string; name: string }>();
+  const { state } = useLocation();
+  const slug = productSlug(name ?? "");
+  return (
+    <Navigate
+      to={`/user-products/product-list/all/product/${id}${slug ? `-${slug}` : ""}`}
+      state={state}
+      replace
+    />
+  );
+}
 function AccountLayoutWithGuard() {
   return (
     <ProfileLeaveGuardProvider>
@@ -931,12 +954,15 @@ export default function App() {
         <RouteProgressBar />
         <Routes>
           {/* ── Main layout (Navbar + Footer) ─────────────────────────────── */}
-          <Route element={<MainLayout />}>
+         <Route element={<MainLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Navigate to="/" replace />} />
+            <Route path="/about" element={<About />} />
             <Route path="/contact-us" element={<ContactUs />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/our-stores" element={<OurStores />} />
+            <Route path="/our-blog" element={<OurBlog />} />
+            <Route path="/blog-1/:id" element={<Blog1 />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/shipping-info" element={<ShippingInfo />} />
@@ -969,10 +995,18 @@ export default function App() {
             <Route path="/new-arrivals" element={<NewArrivals />} />
             <Route path="/best-sellers" element={<BestSellers />} />
             <Route path="/all-products" element={<AllProducts />} />
+
+            {/* CHANGED: new product URL: /product/{id}-{name-slug} */}
+            {/* /user-products/product-detail/cycling-shorts/solid-...-white  (category / product)
+            /user-products/product-detail/178/old-name                    (old numeric links) */}
+            <Route path="/user-products/product-detail/:id/:name" element={<LegacyProductRedirect />} />
+            <Route path="/user-products/product-detail/:idSlug" element={<ProductDetail />} />
             <Route
-              path="/user-products/product-detail/:id/:name"
+              path="/user-products/product-list/:category/product/:idSlug"
               element={<ProductDetail />}
             />
+            <Route path="/product/:idSlug" element={<ProductDetail />} />
+
             <Route path="/user-products/cart" element={<Cart />} />
             <Route path="/cart" element={<Cart />} />
             <Route
@@ -996,6 +1030,10 @@ export default function App() {
               path="/user-products/invoice-details/:id"
               element={<Invoice />}
             />
+            {/* <Route
+              path="/user-products/guest-signup"
+              element={<GuestSignup />}
+            /> */}
 
             {/* ── Returns ── */}
             <Route
@@ -1038,6 +1076,9 @@ export default function App() {
                 <Route path="wishlist" element={<Wishlist />} />
               </Route>
             </Route>
+
+            {/* ── 404: any URL that matches no page (keeps navbar + footer) ── */}
+            <Route path="*" element={<NotFound />} />
           </Route>
 
           {/* ── Auth pages (no layout) ────────────────────────────────────── */}

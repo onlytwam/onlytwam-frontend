@@ -6,16 +6,24 @@
 //  ✅ Category product counts to hide zero-product subcategories
 //  ✅ Full URL param sync (brand, size, cupSize, bestseller, sort, search)
 //  ✅ CAT_IMAGE_MAP merged from both versions
+//  ✅ Name-only category URLs: /user-products/product-list/cycling-shorts
+
 
 import { useBreadcrumbStore } from "@/shared/store/breadcrumbStore";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import {
+  useParams,
+  useSearchParams,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listProducts,
   listCategories,
   listBrands,
 } from "@/features/products/api/products.api";
+import { categoryUrl, productSlug } from "@/shared/lib/urls";
 import QuickShopModal from "@/features/products/components/QuickShopModal";
 import ProductCard from "@/features/products/components/ProductCard";
 import MobileProductCard from "@/features/products/components/MobileProductCard";
@@ -58,7 +66,10 @@ const DEFAULT_FILTERS: ProductFilterState = {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ProductList() {
   const isMobile = useIsMobile();
-  const { categoryId } = useParams<{ categoryId?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Route param is either "28" (old links) or "28-cycling-shorts" (new links).
+  const { categoryId: categoryParam } = useParams<{ categoryId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setCrumbs } = useBreadcrumbStore();
   const queryClient = useQueryClient();
@@ -75,7 +86,6 @@ export default function ProductList() {
       window.removeEventListener("categoriesUpdated", onCategoriesUpdated);
   }, [queryClient]);
 
-  const catId = Number(categoryId) || 0;
   const urlSearch = searchParams.get("search") || searchParams.get("q") || "";
   const urlBrand = Number(searchParams.get("brandId")) || 0;
   const urlSize = Number(searchParams.get("sizeId")) || 0;
@@ -182,12 +192,36 @@ export default function ProductList() {
   }, [filterOpen, isMobile]);
 
   // ── Queries ────────────────────────────────────────────────────────────────
-  const { data: categoriesData } = useQuery({
+  const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
     queryKey: ["categories"],
     queryFn: () => listCategories({ pageSize: 200 }),
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
+
+  // ── Resolve the category from the URL ──────────────────────────────────────
+  // New links:    /product-list/cycling-shorts   (name only)
+  // Legacy links: /product-list/28 or /product-list/28-cycling-shorts
+  const categoryList: any[] = categoriesData?.list ?? [];
+  const resolvedCategory = useMemo(() => {
+    if (!categoryParam) return null;
+    const bySlug = categoryList.find(
+      (c: any) => productSlug(c.name || "") === categoryParam,
+    );
+    if (bySlug) return bySlug;
+    const legacyId = /^(\d+)(?:-.*)?$/.exec(categoryParam)?.[1];
+    return legacyId
+      ? categoryList.find((c: any) => c.categoryId === Number(legacyId)) ?? null
+      : null;
+  }, [categoryList, categoryParam]);
+  // A plain "28" can be used immediately, before the category list has loaded.
+  const pureNumericId = /^\d+$/.test(categoryParam ?? "")
+    ? Number(categoryParam)
+    : 0;
+  // Numeric category id used for all filtering (0 = all products)
+  const catId: number = resolvedCategory?.categoryId ?? pureNumericId;
+  // Name-only URL still waiting for the category list → don't fetch "all products" yet
+  const categoryResolving = !!categoryParam && !catId && categoriesLoading;
 
   const { data: brandsData } = useQuery({
     queryKey: ["brands"],
@@ -245,6 +279,7 @@ export default function ProductList() {
     queryKey: ["products-list", buildParams()],
     queryFn: () => listProducts(buildParams()),
     staleTime: 5 * 60 * 1000,
+    enabled: !categoryResolving,
   });
 
   // ── Signal page ready for RouteTransitionOverlay ───────────────────────────
@@ -355,14 +390,37 @@ export default function ProductList() {
 
   const currentSubcategoryId = currentCategory?.parentCategoryId ? catId : null;
 
+  // ── Unknown category name → fall back to all products ─────────────────────
+  useEffect(() => {
+    if (categoryParam && !catId && !categoriesLoading && categoriesData) {
+      navigate("/user-products/product-list", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryParam, catId, categoriesLoading, categoriesData]);
+
+  // ── Canonical category URL ────────────────────────────────────────────────
+  // "/product-list/28" or "/28-cycling-shorts" → "/product-list/cycling-shorts"
+  // once the name is known. Query string (?sort=, ?brandId=, …) is preserved.
+  useEffect(() => {
+    if (!catId || !categoryName) return;
+    const canonical = categoryUrl(catId, categoryName);
+    if (location.pathname !== canonical) {
+      navigate(
+        { pathname: canonical, search: location.search },
+        { replace: true, state: location.state },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catId, categoryName, location.pathname]);
+
   // ── Global breadcrumb store ────────────────────────────────────────────────
   useEffect(() => {
     const crumbs = categoryName
       ? [
-          { label: "Home", path: "/" },
-          { label: "All Products", path: "/user-products/product-list" },
-          { label: categoryName },
-        ]
+        { label: "Home", path: "/" },
+        { label: "All Products", path: "/user-products/product-list" },
+        { label: categoryName },
+      ]
       : [{ label: "Home", path: "/" }, { label: "All Products" }];
     setCrumbs(crumbs);
   }, [categoryName, setCrumbs]);
@@ -466,7 +524,7 @@ export default function ProductList() {
         className="container"
         style={{ padding: isMobile ? "0 14px" : "40px 20px" }}
       >
-        {productsLoading ? (
+        {productsLoading || categoryResolving ? (
           <div
             style={{
               display: "grid",
@@ -546,6 +604,14 @@ export default function ProductList() {
                       <MobileProductCard
                         product={product}
                         onQuickShop={setQuickShopId}
+                        category={
+                          categoryName
+                            ? productSlug(categoryName)
+                            : productSlug(
+                              categories.find((c: any) => c.categoryId === product.categoryId)
+                                ?.name || "",
+                            )
+                        }
                       />
                     ) : (
                       <ProductCard
@@ -553,6 +619,14 @@ export default function ProductList() {
                         onQuickShop={setQuickShopId}
                         showColors={true}
                         delayedDiscountReveal={true}
+                        category={
+                          categoryName
+                            ? productSlug(categoryName)
+                            : productSlug(
+                              categories.find((c: any) => c.categoryId === product.categoryId)
+                                ?.name || "",
+                            )
+                        }
                       />
                     )}
                   </div>

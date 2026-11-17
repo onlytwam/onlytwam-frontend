@@ -10,6 +10,7 @@ import {
   useLocation,
   useSearchParams,
 } from "react-router-dom";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/features/auth/store/authStore";
@@ -19,9 +20,20 @@ import {
   listUserReviews,
   createReview,
   listProducts,
+  listCategories,
 } from "@/features/products/api/products.api";
 import { addToCart, updateCart, listCart } from "@/features/cart/api/cart.api";
-import { formatPrice, slugify, getImageUrl } from "@/shared/utils/helpers";
+import { formatPrice, getImageUrl } from "@/shared/utils/helpers";
+import {
+  parseProductParam,
+  productUrl,
+  productSlug,
+} from "@/shared/lib/urls";
+import Seo from "@/shared/components/Seo";
+import NotFound from "@/shared/components/NotFound";
+import { productTitle, productDescription } from "@/shared/seo/seoText";
+import { productJsonLd, breadcrumbJsonLd } from "@/shared/seo/jsonLd";
+import { productImageAlt } from "@/shared/utils/imageAlt";
 
 import { setBuyNowSession } from "@/shared/utils/checkoutSession";
 
@@ -49,6 +61,10 @@ const resolveProductDetailImageUrl = (src: unknown): string => {
   return getImageUrl(raw, "");
 };
 
+// NOTE: hooks (useParams, useQuery, ...) must only be called INSIDE the
+// ProductDetail component below. Never call a hook in a plain helper like
+// the ones here — they run inside useMemo/render callbacks.
+
 const getImageSourceFromRecord = (record: any): string => {
   if (!record) return "";
   if (typeof record === "string") return normalizeImageCandidate(record);
@@ -59,7 +75,6 @@ const getImageSourceFromRecord = (record: any): string => {
     }
     return "";
   }
-
   const directCandidates = [
     // fileData and imageUrl/imageURL are always fully-resolved URLs from
     // the backend — check them before filePath which may be a raw relative
@@ -224,9 +239,12 @@ const ROW_VISIBLE = 4;
 function ScrollableProductRow({
   products,
   onQuickShop,
+  categoryLookup,
 }: {
   products: any[];
   onQuickShop: (id: number) => void;
+  /** Maps a product's categoryId to its URL slug (used for card links). */
+  categoryLookup?: (categoryId: unknown) => string;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -383,33 +401,43 @@ function ScrollableProductRow({
         className="s-productdetai-3283d7 s-productdetai-e7ff84"
         style={isMobile ? {} : { gap: ROW_GAP }}
       >
-        {products.map((p: any) => (
-          <div
-            key={p.productVariantId}
-            className="s-productdetai-88ed30 s-productdetai-cb6468"
-            style={
-              isMobile
-                ? {}
-                : {
-                    flex: `0 0 ${safeCw}${
-                      typeof safeCw === "number" ? "px" : ""
-                    }`,
-                    width: typeof safeCw === "number" ? safeCw : undefined,
-                    minWidth: typeof safeCw === "number" ? safeCw : undefined,
-                  }
-            }
-          >
-            {isMobile ? (
-              <MobileProductCard product={p} onQuickShop={onQuickShop} />
-            ) : (
-              <ProductCard
-                product={p}
-                onQuickShop={onQuickShop}
-                showDiscountTag={false}
-              />
-            )}
-          </div>
-        ))}
+        {products.map((p: any) => {
+          // Card links need a category slug; the list API only returns
+          // categoryId, so resolve it through the categories lookup.
+          const cardCategory = categoryLookup?.(p.categoryId) || undefined;
+          return (
+            <div
+              key={p.productVariantId}
+              className="s-productdetai-88ed30 s-productdetai-cb6468"
+              style={
+                isMobile
+                  ? {}
+                  : {
+                      flex: `0 0 ${safeCw}${
+                        typeof safeCw === "number" ? "px" : ""
+                      }`,
+                      width: typeof safeCw === "number" ? safeCw : undefined,
+                      minWidth: typeof safeCw === "number" ? safeCw : undefined,
+                    }
+              }
+            >
+              {isMobile ? (
+                <MobileProductCard
+                  product={p}
+                  onQuickShop={onQuickShop}
+                  category={cardCategory}
+                />
+              ) : (
+                <ProductCard
+                  product={p}
+                  onQuickShop={onQuickShop}
+                  showDiscountTag={false}
+                  category={cardCategory}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <button
@@ -425,7 +453,23 @@ function ScrollableProductRow({
 
 /* ── Main Component ───────────────────────────────────────────────────────── */
 export default function ProductDetail() {
-  const { id } = useParams<{ id: string }>();
+  // NEW URL FORMAT: /product/:idSlug  →  "123-black-full-coverage-bra"
+  // The numeric part is the productVariantId.
+  // Accepts the new :idSlug and, as a safety net, the old :id param.
+  // `category` is the :category segment of
+  // /user-products/product-list/:category/product/:idSlug
+  // (name differs in your router? rename it here).
+  const {
+    idSlug,
+    id: legacyId,
+    category: routeCategory,
+  } = useParams<{
+    idSlug?: string;
+    id?: string;
+    category?: string;
+  }>();
+  const parsed = parseProductParam(idSlug ?? legacyId);
+  const id = parsed ? String(parsed.id) : "";
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -686,6 +730,37 @@ export default function ProductDetail() {
     gcTime: 30 * 60 * 1000, // 30 min — keep in cache across color changes
   });
 
+  // ── Category slug for product URLs ─────────────────────────────────────────
+  // The product list API returns no category name, but the detail API returns
+  // categoryId. Resolve it through the (cached) categories list so every
+  // productUrl() call on this page keeps a real category instead of "all".
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => listCategories({ pageSize: 200 }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  const categorySlugById = useCallback(
+    (categoryId: unknown): string => {
+      const cat = (categoriesData?.list ?? []).find(
+        (c: any) => c.categoryId === Number(categoryId),
+      );
+      return cat ? productSlug(cat.name || "") : "";
+    },
+    [categoriesData],
+  );
+
+  // The product's OWN category (used for SEO canonical URL).
+  const categorySlug = useMemo(
+    () => categorySlugById(product?.categoryId) || routeCategory || "",
+    [categorySlugById, product?.categoryId, routeCategory],
+  );
+
+  // Category shown in the ADDRESS BAR: keep the one the visitor came through
+  // (e.g. the sub-category "t-shirt-bras"); fall back to the product's own.
+  const urlCategory = routeCategory || categorySlug;
+
   // viewOnly = category is inactive AND user arrived from wishlist or cart.
   // Product info is shown; purchase controls (size, cup-size, cart, buy-now) are hidden.
   const viewOnly = product?.categoryIsActive === false && isFromWishlistOrCart;
@@ -803,6 +878,8 @@ export default function ProductDetail() {
   navigateRef.current = navigate;
   const locationStateRef = useRef(location.state);
   locationStateRef.current = location.state;
+  const urlCategoryRef = useRef(urlCategory);
+  urlCategoryRef.current = urlCategory;
 
   useEffect(() => {
     if (!product?.productId || !colors.length) return;
@@ -815,15 +892,45 @@ export default function ProductDetail() {
     if (cheapestVariantId > 0 && cheapestVariantId !== currentVId) {
       setCurrentVId(cheapestVariantId);
       navigateRef.current(
-        `/user-products/product-detail/${cheapestVariantId}/${slugify(
-          product?.name || "product",
-        )}`,
+        productUrl({
+          id: cheapestVariantId,
+          name: product?.name || "product",
+          category: urlCategoryRef.current,
+        }),
         { replace: true, state: locationStateRef.current },
       );
     }
     // Only re-run when the product or colors actually change — not on navigate/location refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.productId, product?.name, colors, currentVId]);
+
+  // Canonical URL: if the slug in the address bar is stale/wrong, replace it.
+  // The `parsed.id !== currentVId` guard avoids fighting the cheapest-colour redirect.
+  useEffect(() => {
+    if (!product || !parsed || parsed.id !== currentVId) return;
+
+    const canonical = productUrl({
+      id: currentVId,
+      name: product.name || "product",
+      category: urlCategory,
+    });
+
+    // Browsers may percent-encode the pathname; compare both forms so we never loop.
+    let decoded = location.pathname;
+    try {
+      decoded = decodeURI(location.pathname);
+    } catch {
+      /* keep raw pathname */
+    }
+
+    if (location.pathname !== canonical && decoded !== canonical) {
+      navigate(
+        { pathname: canonical, search: location.search },
+        { replace: true, state: location.state },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product, currentVId, parsed?.id, location.pathname, urlCategory]);
 
   useEffect(() => {
     if (!isMobileViewport) {
@@ -1188,19 +1295,6 @@ export default function ProductDetail() {
     });
   };
 
-  // const reviewMutation = useMutation({
-  //   mutationFn: (data: any) => createReview(data),
-  //   onSuccess: () => {
-  //     toast.success("Review submitted!");
-  //     setShowForm(false);
-  //     setRForm({ displayName: "", email: "", rating: 5, comment: "" });
-  //     setPhotoFile(null);
-  //     setPhotoPreview(null);
-  //     qc.invalidateQueries({ queryKey: ["reviews", currentVId] });
-  //     qc.invalidateQueries({ queryKey: ["reviews-home"] });
-  //   },
-  // });
-
   const reviewMutation = useMutation({
     mutationFn: (data: any) => createReview(data),
     onSuccess: () => {
@@ -1221,7 +1315,6 @@ export default function ProductDetail() {
           : Array.isArray(detail)
           ? detail.map((d: any) => d.msg).join(", ")
           : err?.message || "Failed to submit review";
-      // console.error("Review error:", err?.response?.status, detail);
       toast.error(msg);
     },
   });
@@ -1416,7 +1509,12 @@ export default function ProductDetail() {
     }
   };
 
-  const pdCatId = product?.categoryId ?? 0;
+  // Breadcrumb: prefer the category the visitor came through (so a sub-category
+  // like "T-Shirt Bras" shows in the trail); fall back to the product's own.
+  const routeCategoryId = (categoriesData?.list ?? []).find(
+    (c: any) => productSlug(c.name || "") === routeCategory,
+  )?.categoryId;
+  const pdCatId = routeCategoryId ?? product?.categoryId ?? 0;
   const detailCrumbs = useBreadcrumb({
     catId: pdCatId || undefined,
     currentLabel: product?.name || undefined,
@@ -1441,6 +1539,9 @@ export default function ProductDetail() {
     justifyContent: "center",
     gap: 8,
   };
+
+  // Invalid URL (no numeric id) — placed AFTER all hooks to keep hook order stable.
+  if (!parsed) return <NotFound />;
 
   if (isLoading)
     return (
@@ -1547,8 +1648,74 @@ export default function ProductDetail() {
       </div>
     );
 
+  // ── SEO data (plain values, no hooks) ──────────────────────────────────────
+  // ONE canonical URL per product: the default (cheapest) colour in the
+  // product's OWN category. Every other colour / category path declares that
+  // same canonical, so they never compete in search.
+  const canonicalVariantId = Number(
+    getCheapestVariant(colors)?.productVariantId || currentVId,
+  );
+  const canonicalPath = productUrl({
+    id: canonicalVariantId,
+    name: product.name || "product",
+    category: categorySlug,
+  });
+  // Use the product's own description when it is long enough to be useful;
+  // otherwise fall back to a generated one (always 140-160 characters).
+  const plainDescription = String(product.description || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const seoDescription =
+    plainDescription.length >= 100
+      ? plainDescription
+      : productDescription({
+          name: product.name || "product",
+          color: selectedColor,
+          brand: product.brandName,
+        });
+  const anyInStock =
+    allSizes.length === 0
+      ? true
+      : allSizes.some((s: any) => s.inVariant && s.hasStock);
+  const crumbItems = [
+    ...(detailCrumbs[0]?.label === "Home"
+      ? []
+      : [{ name: "Home", path: "/" }]),
+    ...detailCrumbs.map((c: any) => ({
+      name: String(c.label ?? ""),
+      path: c.path || canonicalPath,
+    })),
+  ].filter((c) => c.name);
+
   return (
     <>
+      <Seo
+        title={productTitle(product.name || "product")}
+        description={seoDescription}
+        path={canonicalPath}
+        image={images[0]}
+        type="product"
+        noindex={viewOnly}
+        jsonLd={[
+          productJsonLd({
+            name: product.name || "product",
+            description: plainDescription || undefined,
+            images,
+            sku: product.productCode || undefined,
+            brand: product.brandName || undefined,
+            color: selectedColor || undefined,
+            path: canonicalPath,
+            price: displayPrice,
+            inStock: anyInStock,
+            ratingValue: avgRating,
+            ratingCount: totalReviews,
+          }),
+          breadcrumbJsonLd(crumbItems),
+        ]}
+      />
+
       {pageNotif && (
         <PageNotification notif={pageNotif} onDone={() => setPageNotif(null)} />
       )}
@@ -1621,7 +1788,11 @@ export default function ProductDetail() {
                       <img
                         key={i}
                         src={img}
-                        alt=""
+                        alt={productImageAlt(
+                          product.name,
+                          selectedColor,
+                          `view ${i + 1}`,
+                        )}
                         onClick={() => handleThumbClick(i)}
                         className="s-productdetai-81ffd3"
                         style={{
@@ -1676,10 +1847,23 @@ export default function ProductDetail() {
 
               {/* ── Main image ── */}
               <div className="s-productdetai-c12f49">
+                {(product.isBestSeller || product.isNewArrival) && (
+                  <span className="pd-product-badge">
+                    {product.isBestSeller ? (
+                      <>
+                        <i className="bi bi-star-fill" /> Best Seller
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-stars" /> New Arrival
+                      </>
+                    )}
+                  </span>
+                )}
                 {images.length > 0 ? (
                   <img
                     src={images[activeImg]}
-                    alt={product.name}
+                    alt={productImageAlt(product.name, selectedColor)}
                     className="s-productdetai-20b6f1 pd-main-image"
                     draggable={false}
                     onPointerDown={handleMainImagePointerDown}
@@ -1756,7 +1940,11 @@ export default function ProductDetail() {
                       <img
                         key={i}
                         src={img}
-                        alt=""
+                        alt={productImageAlt(
+                          product.name,
+                          selectedColor,
+                          `view ${i + 1}`,
+                        )}
                         onClick={() => handleThumbClick(i)}
                         className="pd-mobile-thumb-img"
                         style={{
@@ -1936,9 +2124,11 @@ export default function ProductDetail() {
                           if (c.productVariantId !== currentVId) {
                             setCurrentVId(c.productVariantId);
                             navigate(
-                              `/user-products/product-detail/${
-                                c.productVariantId
-                              }/${slugify(product?.name || "product")}`,
+                              productUrl({
+                                id: c.productVariantId,
+                                name: product?.name || "product",
+                                category: urlCategory,
+                              }),
                             );
                           }
                         }}
@@ -1974,7 +2164,10 @@ export default function ProductDetail() {
                         {swatchImage ? (
                           <img
                             src={swatchImage}
-                            alt={c.colorName || c.color || ""}
+                            alt={productImageAlt(
+                              product.name,
+                              c.colorName || c.color || "",
+                            )}
                             style={{
                               width: "100%",
                               height: "100%",
@@ -2477,6 +2670,10 @@ export default function ProductDetail() {
                     "Cup sizing",
                     product.isCupSize ? "Yes" : "No",
                   ],
+                  product.isAlphaSize !== undefined && [
+                    "Alpha sizing",
+                    product.isAlphaSize ? "Yes" : "No",
+                  ],
                 ]
                   .filter(Boolean)
                   .map(([label, value]: any) => (
@@ -2572,9 +2769,9 @@ export default function ProductDetail() {
             <div className="s-productdetai-5e11d3">
               <i className="bi bi-lock s-productdetai-39554d" />
               Please{" "}
-              <a href="/auth/login" className="s-productdetai-4ffa2d">
+              <Link to="/login" className="s-productdetai-4ffa2d">
                 sign in
-              </a>{" "}
+              </Link>{" "}
               to write a review
             </div>
           )}
@@ -2638,11 +2835,6 @@ export default function ProductDetail() {
                       type="file"
                       accept="image/*"
                       className="s-addressform-8251cb"
-                      // onChange={(e) => {
-                      //   const f = e.target.files?.[0] ?? null;
-                      //   setPhotoFile(f);
-                      //   setPhotoPreview(f ? URL.createObjectURL(f) : null);
-                      // }
                       onChange={async (e) => {
                         const f = e.target.files?.[0] ?? null;
                         if (!f) {
@@ -2767,6 +2959,7 @@ export default function ProductDetail() {
             <ScrollableProductRow
               products={similarProducts}
               onQuickShop={(id) => setQuickShopId(id)}
+              categoryLookup={categorySlugById}
             />
           </div>
         )}
@@ -2782,6 +2975,7 @@ export default function ProductDetail() {
             <ScrollableProductRow
               products={exploreProducts}
               onQuickShop={(id) => setQuickShopId(id)}
+              categoryLookup={categorySlugById}
             />
           </div>
         )}

@@ -103,9 +103,18 @@ export const listProducts = async (params: Record<string, any>) => {
 };
 
 // ── Product detail ────────────────────────────────────────────────────────────
-export const getProductDetail = async (id: number) => {
+export const getProductDetail = async (id: number | string) => {
   const response = await api.get(
     `/ProductVariantDetail/UserProductVariant/${id}`,
+  );
+  return response.data;
+};
+
+// Resolves a name-based URL slug (e.g. "non-wired-t-shirt-bra-black") to the
+// same payload as getProductDetail. Used by /user-products/product-detail/:slug
+export const getProductDetailBySlug = async (slug: string) => {
+  const response = await api.get(
+    `/ProductVariantDetail/UserProductVariantBySlug/${encodeURIComponent(slug)}`,
   );
   return response.data;
 };
@@ -191,21 +200,6 @@ export const listUserReviews = async (params?: Record<string, any>) => {
   return response.data;
 };
 
-// export const createReview = async (data: any) => {
-//   const form = new FormData();
-//   Object.entries(data).forEach(([key, val]) => {
-//     if (key === "photo") {
-//       if (val instanceof File) form.append("photo", val);
-//     } else if (val !== undefined && val !== null) {
-//       form.append(key, String(val));
-//     }
-//   });
-//   const response = await api.post("/ProductReview", form, {
-//     headers: { "Content-Type": "multipart/form-data" },
-//   });
-//   return response.data;
-// };
-
 export const createReview = async (data: any) => {
   const form = new FormData();
   Object.entries(data).forEach(([key, val]) => {
@@ -237,6 +231,7 @@ export const createReview = async (data: any) => {
 
   return res.json();
 };
+
 // ── Wishlist ──────────────────────────────────────────────────────────────────
 export const createWishlist = async (data: any) => {
   const response = await api.post("/Wishlist", data);
